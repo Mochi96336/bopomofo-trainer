@@ -16,6 +16,8 @@ export const DEFAULT_SELECTION_TUNING: SelectionTuning = {
   timingInfluence: 1,
 };
 
+// Mirrors the last loaded/saved tuning so diagnostics can read the value the
+// running product is actually using without re-parsing storage.
 let liveSelectionTuning = DEFAULT_SELECTION_TUNING;
 
 export function currentSelectionTuning(): SelectionTuning {

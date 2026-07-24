@@ -61,10 +61,7 @@ function currentDiagnosticModel() {
 }
 
 function findLegacyWeakSection(content: HTMLElement): HTMLElement | null {
-  for (const section of content.querySelectorAll<HTMLElement>("section.panel-section")) {
-    if (section.querySelector("h3")?.textContent?.trim() === "較弱按鍵") return section;
-  }
-  return null;
+  return content.querySelector<HTMLElement>('section[data-legacy-weak-section="true"]');
 }
 
 function mountAnalysisTopLayer(): () => void {

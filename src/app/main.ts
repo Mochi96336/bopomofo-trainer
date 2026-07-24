@@ -653,7 +653,7 @@ function renderInformationPanel(): void {
       </div>
     </section>
 
-    <section class="panel-section">
+    <section class="panel-section" data-legacy-weak-section="true">
       <div class="panel-heading"><h3>較弱按鍵</h3></div>
       ${renderWeakBindingsSection()}
     </section>

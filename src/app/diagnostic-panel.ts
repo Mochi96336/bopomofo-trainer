@@ -200,6 +200,7 @@ export function renderDiagnosticSummary(
   const confusionMeta = signals.confusion === null ? "尚無誤按" : `${signals.confusion.occurrences} 次`;
 
   section.className = "panel-section diagnostic-summary-section";
+  section.removeAttribute("data-legacy-weak-section");
   section.innerHTML = `<div class="diagnostic-summary-heading">
       <div>
         <h3>弱點診斷</h3>

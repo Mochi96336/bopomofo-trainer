@@ -18,6 +18,8 @@ export interface LocalProgressLoadResult {
   readonly recoveredFromInvalidState: boolean;
 }
 
+// Mirrors the last loaded/saved progress so diagnostics can read the value the
+// running product is actually using without re-parsing and re-validating storage.
 let liveProductProgress: ProductProgress | null = null;
 
 export function currentLocalProductProgress(): ProductProgress | null {
