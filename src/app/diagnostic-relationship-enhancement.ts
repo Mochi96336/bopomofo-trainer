@@ -36,9 +36,19 @@ function networkPathMarkup(path: DiagnosticRelationshipPath): string {
   return `<path class="diagnostic-relationship-path network${path.includesTone ? " tone" : ""}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity};--relation-severity:${path.severity}" marker-end="url(#${NETWORK_MARKER_ID})"></path>`;
 }
 
+function renderNetworkEmptyState(board: HTMLElement): void {
+  const empty = document.createElement("p");
+  empty.className = "diagnostic-network-empty";
+  empty.textContent = "全網已開啟，但目前沒有足夠的轉換或誤按資料可畫出關聯線。";
+  board.prepend(empty);
+}
+
 function renderNetworkOverlay(board: HTMLElement, model: DiagnosticModel): void {
   const paths = buildDiagnosticNetworkPaths(model);
-  if (paths.length === 0) return;
+  if (paths.length === 0) {
+    renderNetworkEmptyState(board);
+    return;
+  }
   const viewBox = DIAGNOSTIC_RELATIONSHIP_VIEWBOX;
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.classList.add("diagnostic-relationship-svg", "network");
@@ -71,6 +81,7 @@ function renderRelationshipOverlay(
   getModel: () => DiagnosticModel,
 ): void {
   host.querySelector(".diagnostic-relationship-svg")?.remove();
+  host.querySelector(".diagnostic-network-empty")?.remove();
   const board = host.querySelector<HTMLElement>(".diagnostic-keyboard-board");
   if (board === null) return;
   if (networkOverlayEnabled(host)) {

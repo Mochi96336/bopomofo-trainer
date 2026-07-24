@@ -141,7 +141,6 @@ body.diagnostic-analysis-open {
 }
 
 .diagnostic-analysis-title-block > span,
-.diagnostic-overview-label,
 .diagnostic-detail-card header span,
 .diagnostic-canvas-heading span {
   color: var(--ink-muted);
@@ -235,107 +234,20 @@ body.diagnostic-analysis-open {
 .diagnostic-analysis-body {
   display: grid;
   min-height: 0;
-  grid-template-columns: 210px minmax(460px, 1fr) 380px;
+  grid-template-columns: minmax(460px, 1fr) 380px;
 }
 
-.diagnostic-analysis-overview,
 .diagnostic-analysis-canvas,
 .diagnostic-analysis-inspector {
   min-width: 0;
   min-height: 0;
 }
 
-.diagnostic-analysis-overview {
-  overflow: auto;
-  padding: 24px 20px 28px 28px;
-  border-right: 1px solid var(--hairline);
-}
-
-.diagnostic-overview-counts {
-  display: grid;
-  gap: 0;
-  margin-bottom: 30px;
-  border-top: 1px solid var(--hairline);
-}
-
-.diagnostic-overview-counts > div {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  align-items: baseline;
-  gap: 9px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--hairline);
-}
-
-.diagnostic-overview-counts strong {
-  font-size: 19px;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-}
-
-.diagnostic-overview-counts span {
-  color: var(--ink-muted);
-  font-size: 9px;
-  line-height: 1.4;
-}
-
-.diagnostic-analysis-overview section + section {
-  margin-top: 25px;
-}
-
-.diagnostic-analysis-overview section > p,
 .diagnostic-detail-card section > p {
   margin: 8px 0 0;
   color: var(--ink-muted);
   font-size: 9px;
   line-height: 1.65;
-}
-
-.diagnostic-analysis-legend {
-  display: grid;
-  gap: 12px;
-  margin-top: 11px;
-}
-
-.diagnostic-analysis-legend > div {
-  display: grid;
-  grid-template-columns: 8px minmax(0, 1fr);
-  align-items: center;
-  gap: 3px 8px;
-}
-
-.diagnostic-analysis-legend strong,
-.diagnostic-analysis-legend small {
-  grid-column: 2;
-}
-
-.diagnostic-analysis-legend strong {
-  font-size: 9px;
-  font-weight: 650;
-}
-
-.diagnostic-analysis-legend small {
-  color: var(--ink-muted);
-  font-size: 8px;
-  line-height: 1.35;
-}
-
-.diagnostic-legend-mark {
-  width: 6px;
-  height: 6px;
-  grid-row: 1 / span 2;
-  border: 1px solid var(--hairline);
-  border-radius: 50%;
-}
-
-.diagnostic-legend-mark.preliminary {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline));
-  background: color-mix(in srgb, var(--accent) 16%, transparent);
-}
-
-.diagnostic-legend-mark.sufficient {
-  border-color: var(--accent);
-  background: var(--accent);
 }
 
 .diagnostic-analysis-canvas {
@@ -398,21 +310,8 @@ body.diagnostic-analysis-open {
   display: grid;
   width: min(820px, 100%);
   gap: clamp(4px, .6vw, 7px);
-}
-
-.diagnostic-analysis.open .diagnostic-keyboard-board {
-  animation: diagnostic-keyboard-rise 260ms cubic-bezier(.2, .75, .25, 1) both;
-}
-
-@keyframes diagnostic-keyboard-rise {
-  from {
-    opacity: .18;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  transform: perspective(520px) rotateX(19deg);
+  transform-origin: 50% 100%;
 }
 
 .diagnostic-keyboard-row {
@@ -430,7 +329,7 @@ body.diagnostic-analysis-open {
   grid-column: span var(--key-columns);
   place-items: center;
   border: 1px solid var(--key-border);
-  border-radius: 6px;
+  border-radius: 38% 44% 40% 46% / 42% 38% 46% 40%;
   background:
     linear-gradient(
       color-mix(in srgb, var(--accent) calc(var(--signal-strength) * 12%), transparent),
@@ -440,7 +339,11 @@ body.diagnostic-analysis-open {
     inset 0 -1px 0 var(--key-shadow-inset),
     0 1px 0 var(--key-shadow-highlight);
   color: var(--ink-muted);
-  transition: border-color 120ms ease, color 120ms ease, background 120ms ease, transform 120ms ease, box-shadow 120ms ease;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.diagnostic-keyboard-key:nth-child(3n) {
+  border-radius: 44% 38% 46% 40% / 38% 45% 39% 46%;
 }
 
 .diagnostic-keyboard-key[data-code="KeyF"]::after,
@@ -466,10 +369,6 @@ button.diagnostic-keyboard-key:focus-visible {
   outline: none;
   border-color: color-mix(in srgb, var(--accent) 55%, var(--key-border));
   color: var(--ink);
-  transform: translateY(-2px);
-  box-shadow:
-    inset 0 -1px 0 var(--key-shadow-inset),
-    0 3px 8px var(--key-shadow-inset);
 }
 
 .diagnostic-keyboard-key.connected {
@@ -842,37 +741,6 @@ button.diagnostic-keyboard-key:focus-visible {
 
   .diagnostic-analysis-body {
     grid-template-columns: minmax(440px, 1fr) 360px;
-    grid-template-rows: auto minmax(0, 1fr);
-  }
-
-  .diagnostic-analysis-overview {
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: 1.2fr 1fr 1fr;
-    align-items: start;
-    gap: 24px;
-    padding: 14px 22px;
-    border-right: 0;
-    border-bottom: 1px solid var(--hairline);
-  }
-
-  .diagnostic-overview-counts {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    margin: 0;
-  }
-
-  .diagnostic-overview-counts > div {
-    grid-template-columns: auto minmax(0, 1fr);
-    padding: 8px 10px 8px 0;
-    border-bottom: 0;
-  }
-
-  .diagnostic-analysis-overview section + section {
-    margin-top: 0;
-  }
-
-  .diagnostic-analysis-canvas {
-    border-right: 1px solid var(--hairline);
   }
 }
 
@@ -899,14 +767,6 @@ button.diagnostic-keyboard-key:focus-visible {
   .diagnostic-analysis-body {
     grid-template-columns: 1fr;
     overflow: auto;
-  }
-
-  .diagnostic-analysis-overview {
-    grid-template-columns: 1fr;
-  }
-
-  .diagnostic-analysis-overview section + section {
-    margin-top: 12px;
   }
 
   .diagnostic-analysis-canvas {

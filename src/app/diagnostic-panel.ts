@@ -35,6 +35,46 @@ import {
 const DIAGNOSTIC_TABS = ["key", "transition", "confusion"] as const;
 const MINIMUM_SAMPLE_OPTIONS = [1, 3, 5, 8] as const;
 const ANALYSIS_ANIMATION_MS = 180;
+const KEYBOARD_TILT = "perspective(520px) rotateX(19deg)";
+
+// Where the keyboard visually "comes from": the practice keyboard hint if it
+// is currently shown, otherwise a strip near the bottom of the practice
+// stage, so the rise below always has a real on-screen origin to animate from.
+function keyboardFlipOrigin(): DOMRect | null {
+  const sketch = document.querySelector<HTMLElement>("#keyboard-sketch");
+  if (sketch !== null && !sketch.hidden) {
+    const rect = sketch.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) return rect;
+  }
+  const stage = document.querySelector<HTMLElement>("#practice-stage");
+  const stageRect = stage?.getBoundingClientRect();
+  if (stageRect === undefined || stageRect.width === 0) return null;
+  return new DOMRect(
+    stageRect.left,
+    stageRect.bottom - stageRect.height * 0.18,
+    stageRect.width,
+    stageRect.height * 0.18,
+  );
+}
+
+function animateKeyboardRise(board: HTMLElement): void {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const origin = keyboardFlipOrigin();
+  if (origin === null) return;
+  const target = board.getBoundingClientRect();
+  if (target.width === 0 || target.height === 0) return;
+  const dx = (origin.left + origin.width / 2) - (target.left + target.width / 2);
+  const dy = (origin.top + origin.height / 2) - (target.top + target.height / 2);
+  const scaleX = origin.width / target.width;
+  const scaleY = origin.height / target.height;
+  board.animate([
+    {
+      transform: `translate(${dx}px, ${dy}px) scale(${scaleX}, ${scaleY}) ${KEYBOARD_TILT}`,
+      opacity: 0.25,
+    },
+    { transform: KEYBOARD_TILT, opacity: 1 },
+  ], { duration: 320, easing: "cubic-bezier(.2, .75, .25, 1)" });
+}
 
 interface EphemeralDiagnosticState {
   readonly selectedKey: TokenId | null;
@@ -217,71 +257,15 @@ export function renderDiagnosticSummary(
     ?.addEventListener("click", openAnalysis);
 }
 
-function dataLegendMarkup(): string {
-  return `<div class="diagnostic-analysis-legend" aria-label="樣本提示">
-    <div><span class="diagnostic-legend-mark insufficient"></span><strong>資料不足</strong><small>尚未達初步門檻</small></div>
-    <div><span class="diagnostic-legend-mark preliminary"></span><strong>初步</strong><small>可讀，但樣本仍少</small></div>
-  </div>`;
-}
-
-function activeScopeText(
-  model: DiagnosticModel,
-  preferences: DiagnosticPreferences,
-  state: EphemeralDiagnosticState,
-): string {
-  const selected = state.selectedKey === null
-    ? "全部"
-    : model.keys.find((row) => row.tokenId === state.selectedKey)?.symbol ?? state.selectedKey;
-  if (preferences.activeTab === "transition") {
-    const direction = preferences.transitionDirection === "incoming"
-      ? "進入"
-      : preferences.transitionDirection === "outgoing"
-        ? "離開"
-        : "全部方向";
-    return `${selected} · ${direction} · ≥${preferences.minimumSamples} 樣本${preferences.includeTone ? " · 聲調" : ""}`;
-  }
-  if (preferences.activeTab === "confusion") {
-    const direction = preferences.confusionDirection === "expected"
-      ? "應按"
-      : preferences.confusionDirection === "actual"
-        ? "按成"
-        : "全部方向";
-    return `${selected} · ${direction}`;
-  }
-  return preferences.keySort === "timing" ? "依鍵間時間" : "依錯誤比例";
-}
-
-function overviewMarkup(
-  model: DiagnosticModel,
-  preferences: DiagnosticPreferences,
-  state: EphemeralDiagnosticState,
-): string {
-  const explanation = preferences.activeTab === "key"
-    ? preferences.keySort === "timing"
+function metricExplanation(preferences: DiagnosticPreferences): string {
+  if (preferences.activeTab === "key") {
+    return preferences.keySort === "timing"
       ? "到達各鍵的有效鍵間時間；起始、錯誤、修正與干擾不計。"
-      : "已映射觀察中的錯誤比例，不是首次作答錯誤率。"
-    : preferences.activeTab === "transition"
-      ? "同音節相鄰鍵的方向性時間；反向另計。"
-      : "應按與實際按鍵的方向性關係；反向另計。";
-  return `<aside class="diagnostic-analysis-overview" aria-label="診斷摘要與說明">
-    <div class="diagnostic-overview-counts">
-      <div><strong>${model.summary.keysWithData}</strong><span>有資料</span></div>
-      <div><strong>${model.summary.repeatedConfusions}</strong><span>重複誤按</span></div>
-      <div><strong>${model.summary.slowerTransitions}</strong><span>慢轉換</span></div>
-    </div>
-    <section>
-      <span class="diagnostic-overview-label">範圍</span>
-      <p>${escapeHtml(activeScopeText(model, preferences, state))}</p>
-    </section>
-    <section>
-      <span class="diagnostic-overview-label">指標</span>
-      <p>${escapeHtml(explanation)}</p>
-    </section>
-    <section>
-      <span class="diagnostic-overview-label">樣本提示</span>
-      ${dataLegendMarkup()}
-    </section>
-  </aside>`;
+      : "已映射觀察中的錯誤比例，不是首次作答錯誤率。";
+  }
+  return preferences.activeTab === "transition"
+    ? "同音節相鄰鍵的方向性時間；反向另計。"
+    : "應按與實際按鍵的方向性關係；反向另計。";
 }
 
 function visibleRowsForTab(
@@ -362,11 +346,6 @@ function keyboardMarkup(
 ): string {
   const signals = keyboardSignals(model, preferences, state);
   const visibleCount = visibleRowsForTab(model, preferences, state).length;
-  const caption = preferences.activeTab === "key"
-    ? "選鍵查看量測。"
-    : state.selectedKey === null
-      ? "選鍵篩選關係。"
-      : "鍵盤與列表同步。";
   return `<section class="diagnostic-analysis-canvas" aria-label="鍵盤診斷視圖">
     <div class="diagnostic-canvas-heading">
       <div><span>${escapeHtml(tabLabel(preferences.activeTab))}</span><strong>${visibleCount} 筆</strong></div>
@@ -375,7 +354,7 @@ function keyboardMarkup(
           <strong>全網</strong>
           <input type="checkbox" data-action="toggle-network"${preferences.networkOverlay ? " checked" : ""} />
         </label>
-        <p>${escapeHtml(caption)}</p>
+        <p>${escapeHtml(metricExplanation(preferences))}</p>
       </div>
     </div>
     <div class="diagnostic-keyboard-stage">
@@ -642,7 +621,6 @@ export function createDiagnosticAnalysis(
         <button type="button" class="diagnostic-analysis-close" data-action="close-analysis">返回練習 <span aria-hidden="true">Esc</span></button>
       </header>
       <div id="${tabPanelId(preferences.activeTab)}" class="diagnostic-analysis-body" role="tabpanel" aria-labelledby="${tabButtonId(preferences.activeTab)}">
-        ${overviewMarkup(model, preferences, state)}
         ${keyboardMarkup(model, preferences, state)}
         ${inspectorMarkup(model, preferences, state)}
       </div>
@@ -692,6 +670,8 @@ export function createDiagnosticAnalysis(
     render();
     window.requestAnimationFrame(() => {
       host.classList.add("open");
+      const board = host.querySelector<HTMLElement>(".diagnostic-keyboard-board");
+      if (board !== null) animateKeyboardRise(board);
       host.querySelector<HTMLButtonElement>(".diagnostic-analysis-close")
         ?.focus({ preventScroll: true });
     });

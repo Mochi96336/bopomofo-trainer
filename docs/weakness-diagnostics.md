@@ -26,7 +26,7 @@ Analysis mode contains three views:
 - `轉換`: exact ordered timing between adjacent tokens inside one syllable;
 - `誤按`: directional expected-token to actual-token confusions.
 
-The mode combines spatial keyboard reading, exact lists, filters, sample warnings, selected-item details, and separate directional SVG relationships for transitions and confusions.
+The mode combines spatial keyboard reading, exact lists, filters, sample warnings, selected-item details, and directional SVG relationships for transitions and confusions — by default combined into one severity-coloured full-network overlay, or separated per tab when that overlay is toggled off.
 
 ## Design principles
 
@@ -37,7 +37,7 @@ The mode combines spatial keyboard reading, exact lists, filters, sample warning
 5. Preserve metric distinctions. Correctness, binding timing, transition timing, and confusion counts are not merged into one score.
 6. Keep graph and list semantics identical. Spatial overlays use the exact currently rendered selector result from the inspector.
 7. Keep practice state in place. Entering analysis pauses input but does not complete, reset, or mutate the current round.
-8. Reserve red for actual input errors. Diagnostic selection, focus, graph lines, and sample warnings use neutral ink emphasis.
+8. Reserve red for actual input errors, with one deliberate exception: the full-network overlay (see below) uses a faint-ink-to-red gradient to make severity itself the reading, since that overlay's entire purpose is to surface weak points at a glance. Everything else — selection, focus, per-tab graph lines, sample warnings — keeps neutral ink emphasis.
 9. Treat sufficient data as the normal state. Only `資料不足` and `初步` require visible warning labels.
 
 ## Entry and transition
@@ -46,8 +46,8 @@ Opening analysis performs one coordinated transition:
 
 1. the information drawer translates out to the right;
 2. the practice surface recedes without being destroyed;
-3. a keyboard using the shared sketch geometry rises from the lower practice position into the analysis canvas;
-4. the overview and inspector enter after the keyboard establishes continuity.
+3. the analysis keyboard rises into the canvas using a measured FLIP: its actual start rect is read from the practice keyboard hint when visible, or a fallback strip near the bottom of the practice stage when the hint is off, so the motion always originates from a real on-screen position rather than a fixed offset;
+4. the inspector enters after the keyboard establishes continuity.
 
 Closing analysis reverses the transition and returns directly to practice. The information drawer does not reopen automatically.
 
@@ -63,28 +63,27 @@ While analysis mode is open:
 
 ## Desktop layout
 
-Analysis mode uses a full-viewport shell with a persistent header and three content regions.
+Analysis mode uses a full-viewport shell with a persistent header and two content regions.
 
 ```text
 ┌───────────────────────────────────────────────────────────────────────┐
 │ 弱點診斷   [按鍵] [轉換] [誤按]                         返回練習 │
 ├───────────────────────────────────────────────────────────────────────┤
-│ overview rail │       keyboard analysis canvas       │ inspector rail │
-│               │                                      │                │
-│ summary       │ shared keyboard geometry             │ filters        │
-│ metric guide  │ key emphasis / relation overlays     │ exact list     │
-│ active scope  │ selected item context                 │ selected detail│
+│           keyboard analysis canvas          │      inspector rail     │
+│                                              │                         │
+│ shared keyboard geometry, tilt, key shape    │ filters                │
+│ key emphasis / full-network relation overlay │ exact list             │
+│ selected item context                        │ selected detail        │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
 Recommended desktop proportions:
 
-- overview rail: `190–230px`;
 - keyboard canvas: flexible, never below the width required for readable key geometry;
 - inspector rail: `340–400px`;
 - overall content width: bounded by the existing product shell rhythm rather than edge-to-edge dashboard spacing.
 
-The first implementation may collapse the overview rail above the canvas at intermediate desktop widths. Mobile-specific interaction remains outside this workstream.
+An earlier draft of this layout reserved a third `190–230px` overview rail (objective counts, a metric explanation, active-scope text, and a data-state legend) to the left of the canvas. Hands-on review found it duplicated the header's summary line and explained a dot legend the UI does not actually use, so it was removed rather than kept as under-used chrome; the one line worth keeping — the active metric's explanation — moved into the canvas heading caption instead. Mobile-specific interaction remains outside this workstream.
 
 ## Header
 
@@ -105,23 +104,15 @@ Tabs use the WAI-ARIA tab pattern:
 
 The active tab is persisted. Selected keys and selected relationships remain session-only.
 
-## Overview rail
+## Canvas heading
 
-The overview rail gives context, not another list.
+The objective counts (keys with observations, repeated confusions, slower sufficient-sample transitions) live once, in the header's summary line under `弱點診斷`. The canvas heading directly above the keyboard carries the one line worth repeating there: a short explanation of the active metric (including the `錯誤觀察比例` first-attempt limitation note on the key tab), plus the `全網` toggle described below.
 
-It contains:
-
-- objective counts: keys with observations, repeated confusions, and slower sufficient-sample transitions;
-- one short explanation of the active metric;
-- warnings only for `資料不足` and `初步`;
-- the current selected-key and direction scope when applicable;
-- the limitation note for `錯誤觀察比例` on the key tab.
-
-`資料足夠` remains an internal display state but is not shown as a badge or legend item. Sufficient data is the unmarked normal state.
+`資料足夠` remains an internal display state but is not shown as a badge or legend item. Sufficient data is the unmarked normal state; only `資料不足` and `初步` get visible warnings, inline on the rows and detail pane that carry them.
 
 ## Keyboard canvas
 
-The keyboard canvas reuses the standard physical layout and the existing sketch language.
+The keyboard canvas reuses the standard physical layout and the existing sketch language: the same organic key-cap border radius, the same `perspective(520px) rotateX(19deg)` board tilt, and the same F/J home-row notch. Analysis keys are taller than the decorative sketch's, since they must hold a legible symbol and badge that the blank sketch never needed to, but the shape and tilt are not a reinterpretation — they are the sketch's actual values, so the canvas reads as the same keyboard rather than a differently styled cousin of it. Hover and focus states change border colour and text colour only; there is no lift or other transform, matching the sketch's own static key states.
 
 ### Shared geometry
 
@@ -147,7 +138,7 @@ The key view emphasizes the exact keys returned by the active key selector.
 
 ### Transition view
 
-The transition view displays endpoints and directional SVG paths from the exact currently filtered transition rows.
+Unless the full-network overlay is on (see below), the transition view displays endpoints and directional SVG paths from the exact currently filtered transition rows.
 
 - selected key, direction, sample gate, tone setting, and list scope all affect both list and graph;
 - opposite directions remain separate paths;
@@ -156,12 +147,24 @@ The transition view displays endpoints and directional SVG paths from the exact 
 
 ### Confusion view
 
-The confusion view uses a separate directional SVG overlay.
+Unless the full-network overlay is on, the confusion view uses a separate directional SVG overlay.
 
 - expected and actual direction remain explicit;
 - opposite directions remain separate records and paths;
-- transition and confusion networks are never shown simultaneously;
 - path and inspector selection remain synchronized.
+
+### Full-network overlay
+
+The `全網` toggle sits in the canvas heading, is on by default, and is the primary visual on entering analysis regardless of which tab is active. It draws every transition and confusion at once — unranked, unfiltered by the tab's own direction/sample/tone controls, and with no selection state — as one keyboard-wide relationship network. This intentionally supersedes two earlier constraints in this document: transition and confusion paths are now shown simultaneously, and their colour is not neutral ink.
+
+Each path's colour and prominence are driven by its own severity, `0` to `1`:
+
+- confusion severity is the actual `expectedErrorShare`;
+- transition severity has no error-rate equivalent, so it is slowness against `DIAGNOSTIC_POLICY.transitionTimingBandsMs` (`0` at or below `medium`, `1` at or above `slow`).
+
+Severity interpolates stroke colour from `var(--ink-muted)` to `var(--danger)`, and scales both opacity (`0.2`–`0.75`) and width (`1.1`–`2.5`) — a faint thin ink line for a low-severity relation, a thicker red one for a high-severity relation. Network paths are decorative and not part of the tab order: they carry a title on hover for sighted mouse users, but the accessible reading of the same data remains the per-tab inspector list, one click away via the toggle. When there is no transition or confusion data yet, the canvas shows a short inline notice instead of silently rendering nothing, so the toggle's effect is never mistaken for missing functionality.
+
+Turning `全網` off restores the previous per-tab behaviour described above.
 
 ### Relationship routing
 
@@ -169,13 +172,10 @@ Relationship paths use:
 
 - SVG rather than Canvas;
 - deterministic cubic paths derived from shared keyboard geometry;
-- stable sample-count width tiers;
 - explicit arrow direction;
-- separate higher, dashed routing for tone relations;
-- hover, click, keyboard focus, and list synchronization;
-- neutral ink styling rather than error red.
+- separate higher, dashed routing for tone relations.
 
-The current browser adapter builds the overlay from the exact visible inspector rows after selectors have applied direction, sample, tone, and first-five/full-list filters. Direct model composition remains a cleanup milestone.
+Per-tab paths (network overlay off) additionally use stable sample-count width tiers, neutral ink styling, and hover/click/keyboard-focus/list synchronization. The current browser adapter builds them from the exact visible inspector rows after selectors have applied direction, sample, tone, and first-five/full-list filters. Direct model composition remains a cleanup milestone.
 
 ## Inspector rail
 
@@ -338,7 +338,7 @@ Diagnostic UI preferences use the independent key:
 bopomofo-trainer.diagnostics.v1
 ```
 
-The browser may retain active tab, ordering, direction filters, minimum samples, and tone inclusion. Selected keys, selected relationships, list scope, hover state, and detail selection are session-only.
+The browser may retain active tab, ordering, direction filters, minimum samples, tone inclusion, and the full-network toggle. Selected keys, selected relationships, list scope, hover state, and detail selection are session-only.
 
 The previously implemented drawer-expansion preference is retained only until the analysis-mode preference cleanup; the final drawer summary is not collapsible.
 
@@ -348,11 +348,12 @@ The previously implemented drawer-expansion preference is retained only until th
 
 - compact drawer summary;
 - full-viewport analysis shell;
-- overview, keyboard canvas, inspector, and persistent detail pane;
-- neutral diagnostic emphasis with red reserved for input errors;
+- keyboard canvas, inspector, and persistent detail pane, with the low-value overview rail removed after hands-on review;
+- keyboard canvas restored to the practice sketch's actual key shape and board tilt, with the mismatched hover-lift animation removed;
+- a measured FLIP entry animation from the practice keyboard hint's real on-screen position;
 - warning-only sample labels;
 - Bopomofo-only keyboard display with exact number-row tests;
-- deterministic transition and confusion SVG routing;
+- deterministic transition and confusion SVG routing, plus a severity-coloured full-network overlay combining both kinds at once;
 - graph/list hover, focus, click, and selection synchronization;
 - tone-specific relationship routing;
 - reduced-motion and keyboard tab navigation;
@@ -396,5 +397,4 @@ This workstream does not provide:
 - cross-user comparison;
 - ergonomic causal inference;
 - mobile-specific interaction design;
-- route-level navigation or server persistence;
-- simultaneous transition and confusion networks.
+- route-level navigation or server persistence.
