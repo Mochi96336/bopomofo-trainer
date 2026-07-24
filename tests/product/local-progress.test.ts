@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clearLocalProductProgress,
+  currentLocalProductProgress,
   loadLocalProductProgress,
   LOCAL_PROGRESS_KEY,
   OBSOLETE_LOCAL_PROGRESS_KEYS,
@@ -23,7 +24,7 @@ class MemoryStorage implements StorageLike {
 const environment = createProductEnvironment(PRODUCT_CATALOGS);
 
 describe("local progress adapter", () => {
-  it("saves, restores, and clears canonical progress", () => {
+  it("saves, restores, exposes, and clears canonical progress", () => {
     const storage = new MemoryStorage();
     const progress = createFreshProgressForEnvironment(
       environment,
@@ -32,11 +33,14 @@ describe("local progress adapter", () => {
       "standard",
     );
     saveLocalProductProgress(storage, progress);
+    expect(currentLocalProductProgress()).toBe(progress);
     expect(loadLocalProductProgress(storage, environment, "guided", "standard")).toEqual({
       progress,
       recoveredFromInvalidState: false,
     });
+    expect(currentLocalProductProgress()).toEqual(progress);
     clearLocalProductProgress(storage);
+    expect(currentLocalProductProgress()).toBeNull();
     expect(storage.getItem(LOCAL_PROGRESS_KEY)).toBeNull();
   });
 
@@ -49,6 +53,7 @@ describe("local progress adapter", () => {
       progress: null,
       recoveredFromInvalidState: true,
     });
+    expect(currentLocalProductProgress()).toBeNull();
     for (const obsoleteKey of OBSOLETE_LOCAL_PROGRESS_KEYS) {
       expect(storage.getItem(obsoleteKey)).toBeNull();
     }
@@ -84,6 +89,7 @@ describe("local progress adapter", () => {
       progress: null,
       recoveredFromInvalidState: true,
     });
+    expect(currentLocalProductProgress()).toBeNull();
   });
 
   it("reports invalid stored state without partially loading it", () => {
@@ -93,5 +99,6 @@ describe("local progress adapter", () => {
       progress: null,
       recoveredFromInvalidState: true,
     });
+    expect(currentLocalProductProgress()).toBeNull();
   });
 });
