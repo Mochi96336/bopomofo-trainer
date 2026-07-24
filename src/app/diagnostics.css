@@ -308,8 +308,8 @@ body.diagnostic-analysis-open {
 
 .diagnostic-keyboard-board {
   display: grid;
-  width: min(820px, 100%);
-  gap: clamp(4px, .6vw, 7px);
+  width: min(760px, 92%);
+  gap: clamp(3px, .55vw, 6px);
   transform: perspective(520px) rotateX(19deg);
   transform-origin: 50% 100%;
 }
@@ -317,14 +317,14 @@ body.diagnostic-analysis-open {
 .diagnostic-keyboard-row {
   display: grid;
   grid-template-columns: repeat(60, minmax(0, 1fr));
-  gap: clamp(4px, .6vw, 7px);
+  gap: clamp(3px, .55vw, 6px);
 }
 
 .diagnostic-keyboard-key {
   --signal-strength: 0;
   position: relative;
   display: grid;
-  height: clamp(31px, 4.2vw, 52px);
+  height: clamp(23px, 3.7vw, 35px);
   min-width: 0;
   grid-column: span var(--key-columns);
   place-items: center;
@@ -392,22 +392,22 @@ button.diagnostic-keyboard-key:focus-visible {
 }
 
 .diagnostic-keyboard-key strong {
-  font-size: clamp(10px, 1.25vw, 15px);
+  font-size: clamp(7px, .85vw, 10px);
   font-weight: 680;
   line-height: 1;
 }
 
 .diagnostic-keyboard-key small {
-  font-size: clamp(6px, .65vw, 8px);
+  font-size: clamp(5px, .45vw, 6px);
   line-height: 1;
 }
 
 .diagnostic-keyboard-key em {
   position: absolute;
-  top: 3px;
-  right: 4px;
+  top: 2px;
+  right: 3px;
   color: var(--accent);
-  font-size: clamp(5px, .55vw, 7px);
+  font-size: clamp(4px, .4vw, 5px);
   font-style: normal;
   font-variant-numeric: tabular-nums;
 }
