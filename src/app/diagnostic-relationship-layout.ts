@@ -109,12 +109,12 @@ function relationshipPath(
   const xDistance = Math.abs(to.x - from.x);
   if (Math.abs(to.x - from.x) < 0.01) {
     const side = stableHash(`${id}:side`) % 2 === 0 ? -1 : 1;
-    const controlX = from.x + side * (2.2 + lane * 0.55);
+    const controlX = from.x + side * (1.5 + lane * 0.38);
     return `M ${from.x.toFixed(2)} ${from.y.toFixed(2)} C ${controlX.toFixed(2)} ${from.y.toFixed(2)}, ${controlX.toFixed(2)} ${to.y.toFixed(2)}, ${to.x.toFixed(2)} ${to.y.toFixed(2)}`;
   }
 
-  const baseRise = includesTone ? 1.15 : 0.62 + Math.min(1.05, xDistance / 22);
-  const laneRise = lane * (includesTone ? 0.18 : 0.14);
+  const baseRise = includesTone ? 0.72 : 0.3 + Math.min(0.58, xDistance / 38);
+  const laneRise = lane * (includesTone ? 0.1 : 0.08);
   const controlY = Math.min(from.y, to.y) - baseRise - laneRise;
   return `M ${from.x.toFixed(2)} ${from.y.toFixed(2)} C ${from.x.toFixed(2)} ${controlY.toFixed(2)}, ${to.x.toFixed(2)} ${controlY.toFixed(2)}, ${to.x.toFixed(2)} ${to.y.toFixed(2)}`;
 }
