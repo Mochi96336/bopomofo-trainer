@@ -49,6 +49,17 @@
   color: var(--ink);
 }
 
+.diagnostic-analysis:has(#diagnostic-analysis-tab-transition[aria-selected="true"]) .diagnostic-keyboard-key em,
+.diagnostic-analysis:has(#diagnostic-analysis-tab-confusion[aria-selected="true"]) .diagnostic-keyboard-key em {
+  display: none;
+}
+
+.diagnostic-analysis .diagnostic-inspector-identity small,
+.diagnostic-analysis .diagnostic-relation-pair small,
+.diagnostic-analysis .diagnostic-detail-card header h3 small {
+  display: none;
+}
+
 .diagnostic-analysis .diagnostic-checkbox input {
   accent-color: var(--ink);
 }
@@ -105,7 +116,7 @@
 
 .diagnostic-analysis .diagnostic-relationship-path {
   fill: none;
-  stroke: var(--ink-muted);
+  stroke: var(--accent);
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: var(--relation-width);
@@ -124,7 +135,7 @@
 .diagnostic-analysis .diagnostic-relationship-path:focus-visible,
 .diagnostic-analysis .diagnostic-relationship-path.selected,
 .diagnostic-analysis .diagnostic-relationship-path.list-hover {
-  stroke: var(--ink);
+  stroke: var(--accent);
   stroke-width: calc(var(--relation-width) + .65px);
   opacity: 1;
   outline: none;
