@@ -11,15 +11,14 @@ import {
   PRACTICE_CATALOG,
   SYNTAX_PROFILES,
 } from "./generated/catalog.js";
-import { loadLocalProductProgress } from "./local-progress.js";
+import { currentLocalProductProgress } from "./local-progress.js";
 import {
   createDiagnosticAnalysis,
   renderDiagnosticSummary,
 } from "./diagnostic-panel.js";
 import { mountDiagnosticRelationshipEnhancement } from "./diagnostic-relationship-enhancement.js";
 import {
-  DEFAULT_SELECTION_TUNING,
-  loadSelectionTuning,
+  currentSelectionTuning,
   policyForSelectionTuning,
   type SelectionTuning,
 } from "./selection-tuning.js";
@@ -45,25 +44,8 @@ function environmentForTuning(tuning: SelectionTuning): ProductEnvironment {
 }
 
 function currentDiagnosticModel() {
-  let tuning = DEFAULT_SELECTION_TUNING;
-  try {
-    tuning = loadSelectionTuning(localStorage);
-  } catch {
-    // The default policy still yields a complete read-only diagnostic model.
-  }
-  const environment = environmentForTuning(tuning);
-  let progress = null;
-  try {
-    progress = loadLocalProductProgress(
-      localStorage,
-      environment,
-      "guided",
-      STANDARD_BOPOMOFO_LAYOUT.id,
-    ).progress;
-  } catch {
-    // Storage may be blocked; an empty diagnostic model remains usable.
-  }
-  progress ??= createFreshProgressForEnvironment(
+  const environment = environmentForTuning(currentSelectionTuning());
+  const progress = currentLocalProductProgress() ?? createFreshProgressForEnvironment(
     environment,
     "diagnostic-empty",
     "guided",
@@ -90,7 +72,10 @@ function mountAnalysisTopLayer(): () => void {
   if (analysis === null) return () => undefined;
   const modal = document.createElement("dialog");
   modal.className = "diagnostic-analysis-modal";
-  modal.setAttribute("aria-label", "弱點診斷分析模式");
+  modal.setAttribute("aria-labelledby", "diagnostic-analysis-title");
+  analysis.removeAttribute("role");
+  analysis.removeAttribute("aria-modal");
+  analysis.removeAttribute("aria-labelledby");
   analysis.before(modal);
   modal.append(analysis);
 
@@ -122,7 +107,7 @@ export function mountDiagnosticEnhancement(): () => void {
     storage: localStorage,
   });
   const releaseTopLayer = mountAnalysisTopLayer();
-  const releaseRelationships = mountDiagnosticRelationshipEnhancement();
+  const releaseRelationships = mountDiagnosticRelationshipEnhancement(currentDiagnosticModel);
   let scheduled = false;
 
   const enhance = (): void => {
