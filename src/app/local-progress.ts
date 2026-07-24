@@ -18,6 +18,12 @@ export interface LocalProgressLoadResult {
   readonly recoveredFromInvalidState: boolean;
 }
 
+let liveProductProgress: ProductProgress | null = null;
+
+export function currentLocalProductProgress(): ProductProgress | null {
+  return liveProductProgress;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -69,9 +75,11 @@ export function loadLocalProductProgress(
   const discardedObsoleteState = clearObsoleteLocalProgress(storage);
   const source = storage.getItem(LOCAL_PROGRESS_KEY);
   if (source === null) {
+    liveProductProgress = null;
     return { progress: null, recoveredFromInvalidState: discardedObsoleteState };
   }
   if (!summaryReferencesAreKnown(source, environment)) {
+    liveProductProgress = null;
     return { progress: null, recoveredFromInvalidState: true };
   }
   const progress = parseProductProgress(
@@ -83,6 +91,7 @@ export function loadLocalProductProgress(
     environment.curriculumPolicy.version,
     environment.utterancePolicy,
   );
+  liveProductProgress = progress;
   return {
     progress,
     recoveredFromInvalidState: progress === null,
@@ -93,10 +102,12 @@ export function saveLocalProductProgress(
   storage: StorageLike,
   progress: ProductProgress,
 ): void {
+  liveProductProgress = progress;
   storage.setItem(LOCAL_PROGRESS_KEY, serializeProductProgress(progress));
 }
 
 export function clearLocalProductProgress(storage: StorageLike): void {
+  liveProductProgress = null;
   storage.removeItem(LOCAL_PROGRESS_KEY);
   clearObsoleteLocalProgress(storage);
 }
