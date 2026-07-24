@@ -2,9 +2,11 @@ import type {
   DiagnosticModel,
 } from "../diagnostics/types.js";
 import {
+  buildDiagnosticNetworkPaths,
   buildDiagnosticRelationshipPaths,
   DIAGNOSTIC_RELATIONSHIP_VIEWBOX,
   type DiagnosticRelationshipKind,
+  type DiagnosticRelationshipPath,
   type DiagnosticRelationshipRow,
 } from "./diagnostic-relationship-layout.js";
 
@@ -22,6 +24,29 @@ function activeKind(host: HTMLElement): DiagnosticRelationshipKind | null {
   const tab = host.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.dataset.tab;
   if (tab === "transition" || tab === "confusion") return tab;
   return null;
+}
+
+function networkOverlayEnabled(host: HTMLElement): boolean {
+  return host.querySelector<HTMLInputElement>('[data-action="toggle-network"]')?.checked ?? false;
+}
+
+const NETWORK_MARKER_ID = "diagnostic-arrow-network";
+
+function networkPathMarkup(path: DiagnosticRelationshipPath): string {
+  return `<path class="diagnostic-relationship-path network${path.includesTone ? " tone" : ""}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity};--relation-severity:${path.severity}" marker-end="url(#${NETWORK_MARKER_ID})"></path>`;
+}
+
+function renderNetworkOverlay(board: HTMLElement, model: DiagnosticModel): void {
+  const paths = buildDiagnosticNetworkPaths(model);
+  if (paths.length === 0) return;
+  const viewBox = DIAGNOSTIC_RELATIONSHIP_VIEWBOX;
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.classList.add("diagnostic-relationship-svg", "network");
+  svg.setAttribute("viewBox", `${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}`);
+  svg.setAttribute("preserveAspectRatio", "none");
+  svg.setAttribute("aria-hidden", "true");
+  svg.innerHTML = `<defs><marker id="${NETWORK_MARKER_ID}" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto" markerUnits="strokeWidth"><path class="diagnostic-relationship-arrow" d="M 0 0 L 8 4 L 0 8 z"></path></marker></defs>${paths.map(networkPathMarkup).join("")}`;
+  board.prepend(svg);
 }
 
 function visibleRelationshipRows(
@@ -46,10 +71,14 @@ function renderRelationshipOverlay(
   getModel: () => DiagnosticModel,
 ): void {
   host.querySelector(".diagnostic-relationship-svg")?.remove();
-  const kind = activeKind(host);
-  if (kind === null) return;
   const board = host.querySelector<HTMLElement>(".diagnostic-keyboard-board");
   if (board === null) return;
+  if (networkOverlayEnabled(host)) {
+    renderNetworkOverlay(board, getModel());
+    return;
+  }
+  const kind = activeKind(host);
+  if (kind === null) return;
   const buttons = [...host.querySelectorAll<HTMLButtonElement>(
     '.diagnostic-inspector-list button[data-action="select-relation"][data-id]',
   )];

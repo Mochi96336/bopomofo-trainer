@@ -141,6 +141,20 @@
   outline: none;
 }
 
+.diagnostic-analysis .diagnostic-relationship-path.network {
+  stroke: color-mix(
+    in srgb,
+    var(--ink-muted) calc((1 - var(--relation-severity)) * 100%),
+    var(--danger) calc(var(--relation-severity) * 100%)
+  );
+  cursor: default;
+}
+
+.diagnostic-analysis .diagnostic-relationship-path.network:hover {
+  stroke-width: calc(var(--relation-width) + .5px);
+  opacity: calc(var(--relation-opacity) + .2);
+}
+
 .diagnostic-analysis .diagnostic-relationship-arrow {
   fill: context-stroke;
 }

@@ -16,6 +16,7 @@ export interface DiagnosticPreferences {
   readonly confusionDirection: ConfusionDirection;
   readonly minimumSamples: number;
   readonly includeTone: boolean;
+  readonly networkOverlay: boolean;
 }
 
 export interface DiagnosticPreferenceStorage {
@@ -33,6 +34,7 @@ export const DEFAULT_DIAGNOSTIC_PREFERENCES: DiagnosticPreferences = {
   confusionDirection: "both",
   minimumSamples: 5,
   includeTone: true,
+  networkOverlay: true,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -76,6 +78,7 @@ export function parseDiagnosticPreferences(source: string): DiagnosticPreference
     || !isConfusionDirection(parsed.confusionDirection)
     || !isMinimumSamples(parsed.minimumSamples)
     || typeof parsed.includeTone !== "boolean"
+    || typeof parsed.networkOverlay !== "boolean"
   ) return null;
   return {
     expanded: parsed.expanded,
@@ -85,6 +88,7 @@ export function parseDiagnosticPreferences(source: string): DiagnosticPreference
     confusionDirection: parsed.confusionDirection,
     minimumSamples: parsed.minimumSamples,
     includeTone: parsed.includeTone,
+    networkOverlay: parsed.networkOverlay,
   };
 }
 

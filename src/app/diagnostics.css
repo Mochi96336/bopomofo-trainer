@@ -363,6 +363,12 @@ body.diagnostic-analysis-open {
   font-weight: 650;
 }
 
+.diagnostic-canvas-heading-actions {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
 .diagnostic-canvas-heading p {
   max-width: 340px;
   margin: 0;
@@ -370,6 +376,15 @@ body.diagnostic-analysis-open {
   font-size: 9px;
   line-height: 1.55;
   text-align: right;
+}
+
+.diagnostic-network-toggle {
+  gap: 8px;
+}
+
+.diagnostic-network-toggle strong {
+  font-size: 10px;
+  font-weight: 650;
 }
 
 .diagnostic-keyboard-stage {
@@ -383,8 +398,6 @@ body.diagnostic-analysis-open {
   display: grid;
   width: min(820px, 100%);
   gap: clamp(4px, .6vw, 7px);
-  transform: perspective(760px) rotateX(16deg);
-  transform-origin: 50% 100%;
 }
 
 .diagnostic-analysis.open .diagnostic-keyboard-board {
@@ -394,11 +407,11 @@ body.diagnostic-analysis-open {
 @keyframes diagnostic-keyboard-rise {
   from {
     opacity: .18;
-    transform: perspective(760px) rotateX(20deg) translateY(90px) scale(.94);
+    transform: translateY(20px);
   }
   to {
     opacity: 1;
-    transform: perspective(760px) rotateX(16deg) translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
@@ -417,7 +430,7 @@ body.diagnostic-analysis-open {
   grid-column: span var(--key-columns);
   place-items: center;
   border: 1px solid var(--key-border);
-  border-radius: 38% 44% 40% 46% / 42% 38% 46% 40%;
+  border-radius: 6px;
   background:
     linear-gradient(
       color-mix(in srgb, var(--accent) calc(var(--signal-strength) * 12%), transparent),
@@ -427,11 +440,20 @@ body.diagnostic-analysis-open {
     inset 0 -1px 0 var(--key-shadow-inset),
     0 1px 0 var(--key-shadow-highlight);
   color: var(--ink-muted);
-  transition: border-color 120ms ease, color 120ms ease, background 120ms ease, transform 120ms ease;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease, transform 120ms ease, box-shadow 120ms ease;
 }
 
-.diagnostic-keyboard-key:nth-child(3n) {
-  border-radius: 44% 38% 46% 40% / 38% 45% 39% 46%;
+.diagnostic-keyboard-key[data-code="KeyF"]::after,
+.diagnostic-keyboard-key[data-code="KeyJ"]::after {
+  position: absolute;
+  bottom: 18%;
+  left: 50%;
+  width: 26%;
+  height: 2px;
+  background: var(--key-notch);
+  border-radius: 999px;
+  content: "";
+  transform: translateX(-50%);
 }
 
 .diagnostic-keyboard-key.unmapped {
@@ -445,6 +467,9 @@ button.diagnostic-keyboard-key:focus-visible {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--key-border));
   color: var(--ink);
   transform: translateY(-2px);
+  box-shadow:
+    inset 0 -1px 0 var(--key-shadow-inset),
+    0 3px 8px var(--key-shadow-inset);
 }
 
 .diagnostic-keyboard-key.connected {

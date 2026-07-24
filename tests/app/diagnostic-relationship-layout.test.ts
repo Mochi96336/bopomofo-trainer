@@ -4,6 +4,7 @@ import type {
   TransitionDiagnostic,
 } from "../../src/diagnostics/types.js";
 import {
+  buildDiagnosticNetworkPaths,
   buildDiagnosticRelationshipPaths,
   diagnosticKeyboardPoints,
 } from "../../src/app/diagnostic-relationship-layout.js";
@@ -85,5 +86,33 @@ describe("diagnostic relationship layout", () => {
     } satisfies TransitionDiagnostic;
     expect(buildDiagnosticRelationshipPaths("transition", [toneTransition], null)[0]?.includesTone)
       .toBe(true);
+  });
+
+  it("derives severity from error share for confusions and timing bands for transitions", () => {
+    const [transitionPath] = buildDiagnosticRelationshipPaths("transition", [transition], null);
+    expect(transitionPath?.severity).toBe(1);
+
+    const [confusionPath] = buildDiagnosticRelationshipPaths("confusion", [confusion], null);
+    expect(confusionPath?.severity).toBe(0.8);
+
+    const fastTransition = { ...transition, timingMs: 200 } satisfies TransitionDiagnostic;
+    expect(buildDiagnosticRelationshipPaths("transition", [fastTransition], null)[0]?.severity)
+      .toBe(0);
+  });
+
+  it("builds an unranked, unfiltered network across both relation kinds", () => {
+    const paths = buildDiagnosticNetworkPaths({
+      transitions: [transition],
+      confusions: [confusion],
+    });
+    expect(paths.map((path) => path.id).sort()).toEqual(
+      [transition.id, confusion.id].sort(),
+    );
+    for (const path of paths) {
+      expect(path.selected).toBe(false);
+    }
+    const network = paths.find((path) => path.id === confusion.id);
+    expect(network?.width).toBeCloseTo(1.1 + 0.8 * 1.4);
+    expect(network?.opacity).toBeCloseTo(0.2 + 0.8 * 0.55);
   });
 });

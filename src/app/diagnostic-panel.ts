@@ -331,7 +331,9 @@ function keyboardSignals(
   const maximum = Math.max(1, ...relationCounts.values());
   for (const [tokenId, count] of relationCounts) {
     result.set(tokenId, {
-      badge: String(count),
+      // The full-network overlay already draws a severity-coloured line per
+      // relation, so a duplicate per-key count badge would be redundant.
+      badge: preferences.networkOverlay ? null : String(count),
       strength: Math.max(0.24, count / maximum),
       connected: true,
       selected: state.selectedKey === tokenId,
@@ -368,7 +370,13 @@ function keyboardMarkup(
   return `<section class="diagnostic-analysis-canvas" aria-label="鍵盤診斷視圖">
     <div class="diagnostic-canvas-heading">
       <div><span>${escapeHtml(tabLabel(preferences.activeTab))}</span><strong>${visibleCount} 筆</strong></div>
-      <p>${escapeHtml(caption)}</p>
+      <div class="diagnostic-canvas-heading-actions">
+        <label class="setting-row diagnostic-network-toggle" title="顯示所有轉換與誤按關聯，依嚴重程度從淡墨變紅">
+          <strong>全網</strong>
+          <input type="checkbox" data-action="toggle-network"${preferences.networkOverlay ? " checked" : ""} />
+        </label>
+        <p>${escapeHtml(caption)}</p>
+      </div>
     </div>
     <div class="diagnostic-keyboard-stage">
       <div class="diagnostic-keyboard-board">
@@ -386,7 +394,7 @@ function keyboardMarkup(
               signal?.selected ? "selected" : "",
             ].filter(Boolean).join(" ");
             const style = `--key-columns:${columns};--signal-strength:${signal?.strength ?? 0}`;
-            return `<button type="button" class="${classes}" style="${style}" data-action="select-key" data-token="${escapeHtml(tokenId)}" aria-pressed="${signal?.selected ?? false}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}">
+            return `<button type="button" class="${classes}" style="${style}" data-action="select-key" data-token="${escapeHtml(tokenId)}" data-code="${escapeHtml(key.code)}" aria-pressed="${signal?.selected ?? false}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}">
               <strong>${escapeHtml(tokenLabel(tokenId))}</strong>
               ${signal?.badge === null || signal?.badge === undefined ? "" : `<em>${escapeHtml(signal.badge)}</em>`}
             </button>`;
@@ -770,6 +778,8 @@ export function createDiagnosticAnalysis(
     } else if (action === "include-tone" && event.target instanceof HTMLInputElement) {
       preferences = { ...preferences, includeTone: event.target.checked };
       state = { ...state, selectedRelationId: null };
+    } else if (action === "toggle-network" && event.target instanceof HTMLInputElement) {
+      preferences = { ...preferences, networkOverlay: event.target.checked };
     } else {
       return;
     }

@@ -52,6 +52,10 @@ describe("diagnostic preferences", () => {
       ...DEFAULT_DIAGNOSTIC_PREFERENCES,
       activeTab: "unknown",
     }))).toBeNull();
+    expect(parseDiagnosticPreferences(JSON.stringify({
+      ...DEFAULT_DIAGNOSTIC_PREFERENCES,
+      networkOverlay: "yes",
+    }))).toBeNull();
 
     const storage = new MemoryStorage();
     storage.setItem(DIAGNOSTIC_PREFERENCES_KEY, "not-json");
