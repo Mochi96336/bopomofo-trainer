@@ -1,18 +1,12 @@
-import type { TokenId } from "../core/model.js";
-import { physicalKeyLabel, tokenLabel } from "../diagnostics/labels.js";
 import type {
-  ConfusionDiagnostic,
-  TransitionDiagnostic,
+  DiagnosticModel,
 } from "../diagnostics/types.js";
-import { STANDARD_BOPOMOFO_LAYOUT } from "../scheme/standard-layout.js";
 import {
   buildDiagnosticRelationshipPaths,
   DIAGNOSTIC_RELATIONSHIP_VIEWBOX,
   type DiagnosticRelationshipKind,
   type DiagnosticRelationshipRow,
 } from "./diagnostic-relationship-layout.js";
-
-const TOKEN_SEPARATOR = "→";
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/gu, (character) => ({
@@ -24,85 +18,33 @@ function escapeHtml(value: string): string {
   })[character] ?? character);
 }
 
-function tokenPhysicalKey(tokenId: TokenId): string {
-  for (const [code, currentTokenId] of Object.entries(STANDARD_BOPOMOFO_LAYOUT.bindings)) {
-    if (currentTokenId === tokenId) return physicalKeyLabel(code);
-  }
-  return "—";
-}
-
-function parseRelationId(
-  kind: DiagnosticRelationshipKind,
-  id: string,
-): readonly [TokenId, TokenId] | null {
-  const prefix = `${kind}:`;
-  if (!id.startsWith(prefix)) return null;
-  const tokens = id.slice(prefix.length).split(TOKEN_SEPARATOR);
-  if (tokens.length !== 2 || tokens[0] === "" || tokens[1] === "") return null;
-  return [tokens[0]!, tokens[1]!];
-}
-
-function firstInteger(element: Element | null): number {
-  const value = element?.textContent?.match(/\d+/u)?.[0];
-  return value === undefined ? 1 : Math.max(1, Number(value));
-}
-
-function relationRow(
-  kind: DiagnosticRelationshipKind,
-  button: HTMLButtonElement,
-): DiagnosticRelationshipRow | null {
-  const id = button.dataset.id;
-  if (id === undefined) return null;
-  const tokens = parseRelationId(kind, id);
-  if (tokens === null) return null;
-  const [fromTokenId, toTokenId] = tokens;
-  const fromSymbol = tokenLabel(fromTokenId);
-  const toSymbol = tokenLabel(toTokenId);
-  const fromPhysicalKey = tokenPhysicalKey(fromTokenId);
-  const toPhysicalKey = tokenPhysicalKey(toTokenId);
-
-  if (kind === "transition") {
-    const timingMs = firstInteger(button.querySelector(".diagnostic-inspector-main strong"));
-    const timingSamples = firstInteger(button.querySelector(".diagnostic-inspector-main small"));
-    return {
-      id,
-      fromTokenId,
-      toTokenId,
-      fromSymbol,
-      toSymbol,
-      fromPhysicalKey,
-      toPhysicalKey,
-      timingMs,
-      bestTimingMs: timingMs,
-      timingSamples,
-      dataState: "sufficient",
-      includesTone: fromTokenId.startsWith("tone:") || toTokenId.startsWith("tone:"),
-    } satisfies TransitionDiagnostic;
-  }
-
-  const occurrences = firstInteger(button.querySelector(".diagnostic-inspector-main strong"));
-  return {
-    id,
-    expectedTokenId: fromTokenId,
-    actualTokenId: toTokenId,
-    expectedSymbol: fromSymbol,
-    actualSymbol: toSymbol,
-    expectedPhysicalKey: fromPhysicalKey,
-    actualPhysicalKey: toPhysicalKey,
-    occurrences,
-    expectedConfusionTotal: occurrences,
-    expectedErrorShare: 1,
-    dataState: "sufficient",
-  } satisfies ConfusionDiagnostic;
-}
-
 function activeKind(host: HTMLElement): DiagnosticRelationshipKind | null {
   const tab = host.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.dataset.tab;
   if (tab === "transition" || tab === "confusion") return tab;
   return null;
 }
 
-function renderRelationshipOverlay(host: HTMLElement): void {
+function visibleRelationshipRows(
+  kind: DiagnosticRelationshipKind,
+  model: DiagnosticModel,
+  buttons: readonly HTMLButtonElement[],
+): readonly DiagnosticRelationshipRow[] {
+  const rows: readonly DiagnosticRelationshipRow[] = kind === "transition"
+    ? model.transitions
+    : model.confusions;
+  const rowsById = new Map(rows.map((row) => [row.id, row] as const));
+  return buttons.flatMap((button) => {
+    const id = button.dataset.id;
+    if (id === undefined) return [];
+    const row = rowsById.get(id);
+    return row === undefined ? [] : [row];
+  });
+}
+
+function renderRelationshipOverlay(
+  host: HTMLElement,
+  getModel: () => DiagnosticModel,
+): void {
   host.querySelector(".diagnostic-relationship-svg")?.remove();
   const kind = activeKind(host);
   if (kind === null) return;
@@ -111,9 +53,7 @@ function renderRelationshipOverlay(host: HTMLElement): void {
   const buttons = [...host.querySelectorAll<HTMLButtonElement>(
     '.diagnostic-inspector-list button[data-action="select-relation"][data-id]',
   )];
-  const rows = buttons
-    .map((button) => relationRow(kind, button))
-    .filter((row): row is DiagnosticRelationshipRow => row !== null);
+  const rows = visibleRelationshipRows(kind, getModel(), buttons);
   if (rows.length === 0) return;
   const selectedId = buttons.find((button) => button.classList.contains("selected"))?.dataset.id ?? null;
   const paths = buildDiagnosticRelationshipPaths(kind, rows, selectedId);
@@ -124,11 +64,7 @@ function renderRelationshipOverlay(host: HTMLElement): void {
   svg.setAttribute("viewBox", `${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}`);
   svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("aria-label", kind === "transition" ? "轉換關係" : "誤按關係");
-  svg.innerHTML = `<defs><marker id="${markerId}" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto" markerUnits="strokeWidth"><path class="diagnostic-relationship-arrow" d="M 0 0 L 8 4 L 0 8 z"></path></marker></defs>${paths.map((path) => {
-    const button = buttons.find((candidate) => candidate.dataset.id === path.id);
-    const label = button?.textContent?.replace(/\s+/gu, " ").trim() || path.label;
-    return `<path class="diagnostic-relationship-path${path.selected ? " selected" : ""}${path.includesTone ? " tone" : ""}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity}" marker-end="url(#${markerId})" tabindex="0" role="button" data-relation-id="${escapeHtml(path.id)}" aria-pressed="${path.selected}" aria-label="${escapeHtml(label)}"><title>${escapeHtml(label)}</title></path>`;
-  }).join("")}`;
+  svg.innerHTML = `<defs><marker id="${markerId}" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto" markerUnits="strokeWidth"><path class="diagnostic-relationship-arrow" d="M 0 0 L 8 4 L 0 8 z"></path></marker></defs>${paths.map((path) => `<path class="diagnostic-relationship-path${path.selected ? " selected" : ""}${path.includesTone ? " tone" : ""}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity}" marker-end="url(#${markerId})" tabindex="0" role="button" data-relation-id="${escapeHtml(path.id)}" aria-pressed="${path.selected}" aria-label="${escapeHtml(path.label)}"><title>${escapeHtml(path.label)}</title></path>`).join("")}`;
 
   for (const path of svg.querySelectorAll<SVGPathElement>(".diagnostic-relationship-path")) {
     const id = path.dataset.relationId;
@@ -152,7 +88,9 @@ function renderRelationshipOverlay(host: HTMLElement): void {
   board.prepend(svg);
 }
 
-export function mountDiagnosticRelationshipEnhancement(): () => void {
+export function mountDiagnosticRelationshipEnhancement(
+  getModel: () => DiagnosticModel,
+): () => void {
   const host = document.querySelector<HTMLElement>("#diagnostic-analysis");
   if (host === null) return () => undefined;
   let scheduled = false;
@@ -171,7 +109,7 @@ export function mountDiagnosticRelationshipEnhancement(): () => void {
     queueMicrotask(() => {
       scheduled = false;
       observer.disconnect();
-      renderRelationshipOverlay(host);
+      renderRelationshipOverlay(host, getModel);
       observe();
     });
   };
