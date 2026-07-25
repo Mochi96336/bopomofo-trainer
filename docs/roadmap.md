@@ -12,6 +12,8 @@ This records what is built, what is being worked on now, and the boundaries that
 
 **Frequency-first selection.** Reviewed commonness sets the base weight; expected-token error and accepted binding timing add capped, explainable boosts; recent entries, utterances, and templates are penalized. Selection is deterministic under a seed. See [selection policy](./frequency-first-utterance-policy.md).
 
+**Earned commonness levels.** Practice starts at the most common level; rarer levels open on how much of the keyboard has been practised cleanly, and unlocked levels can be switched on and off. See [commonness levels](./commonness-levels.md).
+
 **Local-first product.** Schema-versioned progress, Pilot history, and bounded progress-trend history in localStorage, with backup export/import and explicit deletion of obsolete generations. Nothing leaves the browser.
 
 **Weakness diagnostics.** A full-page analysis over binding, transition, and confusion aggregates, plus bounded per-key progress trends. See [weakness diagnostics](./weakness-diagnostics.md) and [progress history](./diagnostic-progress-history.md).

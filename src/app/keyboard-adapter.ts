@@ -23,15 +23,33 @@ export interface KeyboardLikeEvent {
   readonly shiftKey: boolean;
 }
 
-/** Hidden local-review shortcut; intentionally absent from the visible UI. */
-export function isInspectionAdvanceShortcut(event: KeyboardLikeEvent): boolean {
-  return event.code === "F8"
+function isBareFunctionKey(event: KeyboardLikeEvent, code: string): boolean {
+  return event.code === code
     && !event.repeat
     && !event.isComposing
     && !event.altKey
     && !event.ctrlKey
     && !event.metaKey
     && !event.shiftKey;
+}
+
+/** Hidden local-review shortcut; intentionally absent from the visible UI. */
+export function isInspectionAdvanceShortcut(event: KeyboardLikeEvent): boolean {
+  return isBareFunctionKey(event, "F8");
+}
+
+/**
+ * Hidden local-review shortcut that opens every commonness level for the
+ * current page only, so rarer vocabulary can be inspected without practising
+ * up to it. It writes nothing, so it cannot be mistaken for earned progress.
+ */
+export function isInspectionUnlockShortcut(event: KeyboardLikeEvent): boolean {
+  return isBareFunctionKey(event, "F9");
+}
+
+/** Hidden local-review shortcut that finishes the current sentence. */
+export function isInspectionCompleteShortcut(event: KeyboardLikeEvent): boolean {
+  return isBareFunctionKey(event, "F10");
 }
 
 export function keyboardEventToInput(

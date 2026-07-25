@@ -20,10 +20,10 @@ export const COMMONNESS_TIER_SHARES = [0.1, 0.25, 0.5] as const;
 export type CommonnessTierThresholds = readonly [number, number, number];
 
 export const COMMONNESS_TIER_LABELS: Readonly<Record<CommonnessTier, string>> = {
-  1: "最常用",
-  2: "常用",
-  3: "一般",
-  4: "少見",
+  1: "高頻",
+  2: "流行",
+  3: "尋常",
+  4: "罕見",
 };
 
 function percent(share: number): string {

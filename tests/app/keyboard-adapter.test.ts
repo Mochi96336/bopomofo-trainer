@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   isInspectionAdvanceShortcut,
+  isInspectionCompleteShortcut,
+  isInspectionUnlockShortcut,
   keyboardEventToInput,
 } from "../../src/app/keyboard-adapter.js";
 import { STANDARD_BOPOMOFO_LAYOUT } from "../../src/scheme/standard-layout.js";
@@ -88,5 +90,22 @@ describe("keyboardEventToInput", () => {
       key: "F8",
       isComposing: true,
     }))).toBe(false);
+  });
+
+  it("keeps one hidden shortcut per review action", () => {
+    const shortcuts = {
+      F8: isInspectionAdvanceShortcut,
+      F9: isInspectionUnlockShortcut,
+      F10: isInspectionCompleteShortcut,
+    } as const;
+    for (const [code, matches] of Object.entries(shortcuts)) {
+      expect(matches(event({ code, key: code }))).toBe(true);
+      for (const other of Object.keys(shortcuts).filter((candidate) => candidate !== code)) {
+        expect(matches(event({ code: other, key: other }))).toBe(false);
+      }
+      expect(matches(event({ code, key: code, ctrlKey: true }))).toBe(false);
+      expect(matches(event({ code, key: code, repeat: true }))).toBe(false);
+      expect(matches(event({ code, key: code, isComposing: true }))).toBe(false);
+    }
   });
 });

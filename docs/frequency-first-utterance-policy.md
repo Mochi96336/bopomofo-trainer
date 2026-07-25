@@ -15,7 +15,7 @@ Selection order is:
 
 ## Frequency base
 
-Every syntax-legal entry is eligible in every round. There is no stage gate and no coarse band: commonness is one continuous weight, and a rarer word is selected less often rather than locked out.
+Every syntax-legal entry in the practised commonness levels is eligible in every round. The selector itself has no stage gate and no coarse band: commonness is one continuous weight, and a rarer word is selected less often rather than locked out. Which levels are practised is decided outside selection, by what the learner has unlocked and left switched on; see [commonness levels](./commonness-levels.md).
 
 Reviewed NAER `commonness-v1` evidence supplies that weight. An entry without reviewed evidence weighs the same as the most common word, so a catalog without commonness evidence selects uniformly instead of carrying a second, parallel notion of how common a word is.
 
@@ -40,7 +40,7 @@ band 2 = 0.50
 band 3 = 0.25
 ```
 
-The maximum combined learner boost is `1.50`. Stage eligibility is still absolute: no learner boost can admit an entry from a locked band. Inside the unlocked set, learner evidence remains a bounded modifier of the reviewed frequency base.
+The maximum combined learner boost is `1.50`. Level eligibility is absolute: no learner boost can admit an entry from a commonness level the learner has not unlocked or has switched off, because such an entry is not in the pool the selector is given. Inside the practised levels, learner evidence remains a bounded modifier of the reviewed frequency base.
 
 ## Expected-token evidence
 
@@ -82,7 +82,7 @@ selector.
 
 ## Product catalog boundary
 
-Every syntax-legal runtime entry belongs to the ordinary practice catalog. The browser does not reserve a held-out vocabulary pool or insert automatic evaluation rounds. Research partitions and simulation evaluation remain archived experiment infrastructure and are not part of the browser selection loop.
+Every syntax-legal runtime entry belongs to the ordinary practice catalog. The browser does not reserve a held-out vocabulary pool or insert automatic evaluation rounds. It does narrow the catalog it draws from to the practised commonness levels, which is a filter over that one catalog rather than a second pool. Research partitions and simulation evaluation remain archived experiment infrastructure and are not part of the browser selection loop.
 
 ## Persistence boundary
 
