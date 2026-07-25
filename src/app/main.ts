@@ -79,6 +79,12 @@ import {
   type SelectionTuning,
 } from "./selection-tuning.js";
 import { applyTheme, DEFAULT_THEME, loadTheme, saveTheme, type Theme } from "./theme.js";
+import { practiceCurrentTargetText } from "./practice-accessibility.js";
+import {
+  captureFocusIdentity,
+  restoreFocusIdentity,
+  type FocusIdentity,
+} from "./focus-preservation.js";
 
 type VisualState = "done" | "current" | "upcoming";
 
@@ -341,9 +347,11 @@ function accuracyLabel(attempts: number, errors: number): string {
   return `${Math.round(((attempts - errors) / attempts) * 100)}%`;
 }
 
-function focusCapture(): void {
+function focusCapture(force = false): void {
   const dialog = document.querySelector<HTMLDialogElement>("#information-dialog");
   if (dialog?.open || imeWarning) return;
+  const active = document.activeElement;
+  if (!force && active !== null && active !== document.body && active !== capture) return;
   capture.focus({ preventScroll: true });
 }
 
@@ -383,7 +391,7 @@ function mountShell(): void {
     event.preventDefault();
     dialog.close();
   });
-  dialog.addEventListener("close", focusCapture);
+  dialog.addEventListener("close", () => focusCapture(true));
   dialog.addEventListener("click", (event) => {
     if (event.target !== dialog) return;
     const bounds = dialog.getBoundingClientRect();
@@ -393,7 +401,7 @@ function mountShell(): void {
       || event.clientY > bounds.bottom;
     if (outside) dialog.close();
   });
-  requireElement<HTMLElement>("#practice-stage").addEventListener("click", focusCapture);
+  requireElement<HTMLElement>("#practice-stage").addEventListener("click", () => focusCapture(true));
 }
 
 function clearUnlockNotice(): void {
@@ -556,6 +564,18 @@ function updatePracticeState(): void {
   requireElement<HTMLElement>("#progress-fill").style.width = `${currentProgressPercent()}%`;
   requireElement<HTMLElement>("#progress-count").textContent =
     `${product.session.position} / ${product.session.targets.length}`;
+  const target = product.session.targets[product.session.position];
+  const currentTarget = requireElement<HTMLElement>("#practice-current-target");
+  const announcement = target === undefined
+    ? ""
+    : practiceCurrentTargetText({
+      roundNumber: currentRoundNumber(),
+      position: product.session.position + 1,
+      total: product.session.targets.length,
+      tokenLabel: tokenLabel(target.tokenId),
+      physicalKeyLabel: physicalKeyLabel(reverseBindings.get(target.tokenId) ?? ""),
+    });
+  if (currentTarget.textContent !== announcement) currentTarget.textContent = announcement;
   updateKeyboardSketch();
   updatePracticeFeedback();
 }
@@ -816,9 +836,7 @@ function renderRaritySection(): string {
     <div class="panel-heading rarity-line">
       <h3>稀有度</h3>
       <div class="rarity-toggles" role="group" aria-label="稀有度">${toggles}</div>
-      ${rarityNotice
-        ? `<span class="panel-notice" role="status">${escapeHtml(rarityNotice)}</span>`
-        : `<output id="rarity-hint" class="panel-notice">${escapeHtml(rarityHintText())}</output>`}
+      <output id="rarity-hint" class="panel-notice" role="status">${escapeHtml(rarityNotice || rarityHintText())}</output>
     </div>
   </section>`;
 }
@@ -844,6 +862,31 @@ function bindRarityControls(content: HTMLElement): void {
   }
 }
 
+function restoreInformationFocus(content: HTMLElement, identity: FocusIdentity | null): void {
+  if (restoreFocusIdentity(content, identity)) return;
+  const tier = Number(identity?.data.rarityTier);
+  if (!Number.isFinite(tier)) return;
+  const candidates = [...content.querySelectorAll<HTMLButtonElement>("[data-rarity-tier]:not(:disabled)")]
+    .sort((left, right) =>
+      Math.abs(Number(left.dataset.rarityTier) - tier)
+      - Math.abs(Number(right.dataset.rarityTier) - tier));
+  candidates[0]?.focus({ preventScroll: true });
+}
+
+function updateTuningNotice(): void {
+  const notice = document.querySelector<HTMLElement>("#tuning-notice");
+  if (notice === null) return;
+  notice.textContent = tuningNotice;
+  notice.hidden = tuningNotice === "";
+}
+
+function updateDataNotice(): void {
+  const notice = document.querySelector<HTMLElement>("#data-notice");
+  if (notice === null) return;
+  notice.textContent = dataNotice;
+  notice.hidden = dataNotice === "";
+}
+
 function renderInformationPanel(): void {
   const { attempts, errors } = mappedRoundCounts();
   const roundStatus = requireElement<HTMLElement>("#information-round-status");
@@ -851,6 +894,7 @@ function renderInformationPanel(): void {
   roundStatus.innerHTML = `<span>第 ${currentRoundNumber()} 句</span><strong>${accuracyLabel(attempts, errors)}</strong>`;
   renderCommonnessStatus();
   const content = requireElement<HTMLElement>("#information-content");
+  const focusIdentity = captureFocusIdentity(content);
   content.innerHTML = `
     <section class="panel-section">
       <div class="panel-heading"><h3>顯示</h3></div>
@@ -882,7 +926,7 @@ function renderInformationPanel(): void {
     <section class="panel-section">
       <div class="panel-heading panel-heading-inline">
         <h3>選題權重</h3>
-        ${tuningNotice ? `<span class="panel-notice" role="status">${escapeHtml(tuningNotice)}</span>` : ""}
+        <span id="tuning-notice" class="panel-notice" role="status"${tuningNotice ? "" : " hidden"}>${escapeHtml(tuningNotice)}</span>
       </div>
       <div class="tuning-controls">
         <label class="tuning-row" for="error-influence">
@@ -900,7 +944,7 @@ function renderInformationPanel(): void {
 
     <section class="panel-section data-section">
       <div class="panel-heading"><h3>本機資料</h3></div>
-      ${dataNotice ? `<p class="panel-notice data-notice" role="status">${escapeHtml(dataNotice)}</p>` : ""}
+      <p id="data-notice" class="panel-notice data-notice" role="status"${dataNotice ? "" : " hidden"}>${escapeHtml(dataNotice)}</p>
       <div class="data-actions">
         <button id="download-backup" class="text-button" type="button">匯出存檔</button>
         <button id="choose-backup" class="text-button" type="button">匯入存檔</button>
@@ -933,6 +977,7 @@ function renderInformationPanel(): void {
   content.querySelector<HTMLButtonElement>("#choose-backup")?.addEventListener("click", () => backupInput?.click());
   backupInput?.addEventListener("change", () => void importProductBackup(backupInput));
   content.querySelector<HTMLButtonElement>("#reset-progress")?.addEventListener("click", resetProgress);
+  restoreInformationFocus(content, focusIdentity);
 }
 
 function openInformationPanel(): void {
@@ -1001,7 +1046,7 @@ function bindInfluenceControl(
     } catch {
       tuningNotice = "權重已套用，但無法保存。";
     }
-    renderInformationPanel();
+    updateTuningNotice();
   });
 }
 
@@ -1011,7 +1056,7 @@ function downloadProductBackup(): void {
     createProductBackup(product.progress, pilotHistory, progressHistory, selectionTuning),
   );
   dataNotice = "存檔已匯出。";
-  renderInformationPanel();
+  updateDataNotice();
 }
 
 async function importProductBackup(input: HTMLInputElement): Promise<void> {
@@ -1026,7 +1071,7 @@ async function importProductBackup(input: HTMLInputElement): Promise<void> {
     source = await file.text();
   } catch {
     dataNotice = "無法讀取這份存檔。";
-    renderInformationPanel();
+    updateDataNotice();
     return;
   }
   const backup = parseProductBackup(
@@ -1037,7 +1082,7 @@ async function importProductBackup(input: HTMLInputElement): Promise<void> {
   );
   if (backup === null) {
     dataNotice = "無法讀取這份存檔。";
-    renderInformationPanel();
+    updateDataNotice();
     return;
   }
   if (!window.confirm("匯入會取代目前進度，確定繼續嗎？")) {
@@ -1067,6 +1112,7 @@ async function importProductBackup(input: HTMLInputElement): Promise<void> {
   mountPracticeRound(true);
   updateTopbar();
   renderInformationPanel();
+  requireElement<HTMLButtonElement>("#choose-backup").focus({ preventScroll: true });
 }
 
 function resetProgress(): void {
@@ -1178,7 +1224,7 @@ function advanceRoundForInspection(): void {
   clearPreviousResult();
   mountPracticeRound(true);
   updateTopbar();
-  focusCapture();
+  focusCapture(true);
 }
 
 /**
@@ -1238,7 +1284,7 @@ capture.addEventListener("compositionend", () => {
   imeWarning = false;
   capture.value = "";
   updatePracticeState();
-  focusCapture();
+  focusCapture(true);
 });
 
 capture.addEventListener("input", (event) => {
@@ -1246,6 +1292,7 @@ capture.addEventListener("input", (event) => {
 });
 
 capture.addEventListener("keydown", (event) => {
+  if (event.key === "Tab") return;
   if (requireElement<HTMLDialogElement>("#information-dialog").open) {
     event.preventDefault();
     return;
@@ -1265,7 +1312,7 @@ capture.addEventListener("keydown", (event) => {
     imeWarning = false;
     capture.value = "";
   }
-  if (event.code === "Space" || event.code === "Tab") event.preventDefault();
+  if (event.code === "Space") event.preventDefault();
   const beforeSummary = product.summary;
   const beforeTraceCount = product.session.traces.length;
   product = applyProductInput(
@@ -1325,13 +1372,13 @@ document.addEventListener("keydown", (event) => {
     imeWarning = false;
     capture.value = "";
     updatePracticeState();
-    focusCapture();
+    focusCapture(true);
     return;
   }
   openInformationPanel();
 }, { capture: true });
 
-window.addEventListener("focus", focusCapture);
+window.addEventListener("focus", () => focusCapture());
 
 mountShell();
 renderNotices();

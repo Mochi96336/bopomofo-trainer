@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createProductBackup, parseProductBackup } from "../../src/app/backup.js";
+import {
+  loadLocalProductProgress,
+  LOCAL_PROGRESS_KEY,
+  type StorageLike,
+} from "../../src/app/local-progress.js";
 import { DEFAULT_SELECTION_TUNING } from "../../src/app/selection-tuning.js";
 import { pilotHistoryFromProgress } from "../../src/product/pilot-history.js";
 import {
@@ -26,6 +31,14 @@ const progress = {
 };
 const pilotHistory = pilotHistoryFromProgress(progress);
 const token = Object.keys(environment.practiceSupport.byToken)[0]!;
+const entryId = Object.keys(environment.practiceSupport.entriesById)[0]!;
+
+class MemoryStorage implements StorageLike {
+  private readonly values = new Map<string, string>();
+  getItem(key: string): string | null { return this.values.get(key) ?? null; }
+  setItem(key: string, value: string): void { this.values.set(key, value); }
+  removeItem(key: string): void { this.values.delete(key); }
+}
 
 const progressHistory: ProgressHistory = {
   ...createEmptyProgressHistory("guided", "standard"),
@@ -49,6 +62,41 @@ const progressHistory: ProgressHistory = {
 
 function parse(source: string) {
   return parseProductBackup(source, environment, "guided", "standard");
+}
+
+function progressWithSummary(entryIds: string[], focusTokenId: string | null) {
+  return {
+    ...progress,
+    recentSummaries: [{
+      kind: "practice" as const,
+      exerciseId: "practice-1",
+      completedAt: "2026-07-25T00:00:00.000Z",
+      entryIds,
+      utteranceId: "utterance:test",
+      templateId: null,
+      focusTokenId,
+      focusEvidence: focusTokenId === null ? null : "timed" as const,
+      attempts: 1,
+      errors: 0,
+      timingSamples: 0,
+    }],
+  };
+}
+
+function backupFor(candidate: typeof progress): string {
+  return createProductBackup(
+    candidate,
+    pilotHistory,
+    progressHistory,
+    DEFAULT_SELECTION_TUNING,
+  );
+}
+
+function localLoadFor(candidate: typeof progress) {
+  const storage = new MemoryStorage();
+  const backup = JSON.parse(backupFor(candidate)) as { progress: unknown };
+  storage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(backup.progress));
+  return loadLocalProductProgress(storage, environment, "guided", "standard");
 }
 
 describe("product backup with progress history", () => {
@@ -118,5 +166,29 @@ describe("product backup with progress history", () => {
     );
 
     expect(parse(source)).toBeNull();
+  });
+
+  it.each([
+    ["unknown entry", ["entry:not-known"], null],
+    ["duplicate entry", [entryId, entryId], null],
+    ["unknown focus token", [entryId], "zhuyin:not-known"],
+  ])("rejects %s consistently on import and local reload", (_label, entryIds, focusTokenId) => {
+    const candidate = progressWithSummary(entryIds, focusTokenId);
+
+    expect(parse(backupFor(candidate))).toBeNull();
+    expect(localLoadFor(candidate)).toEqual({
+      progress: null,
+      recoveredFromInvalidState: true,
+    });
+  });
+
+  it("accepts known summary references consistently on import and local reload", () => {
+    const candidate = progressWithSummary([entryId], token);
+
+    expect(parse(backupFor(candidate))?.progress).toEqual(candidate);
+    expect(localLoadFor(candidate)).toEqual({
+      progress: candidate,
+      recoveredFromInvalidState: false,
+    });
   });
 });

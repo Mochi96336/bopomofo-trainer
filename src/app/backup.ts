@@ -6,6 +6,7 @@ import {
   serializeProgressHistory,
 } from "../progress-history/serialize.js";
 import type { ProgressHistory } from "../progress-history/types.js";
+import { productProgressReferencesAreKnown } from "./product-progress-references.js";
 import { parseSelectionTuning, type SelectionTuning } from "./selection-tuning.js";
 
 export const PRODUCT_BACKUP_VERSION = 2 as const;
@@ -71,7 +72,10 @@ export function parseProductBackup(
   );
   const pilotHistory = parsePilotHistory(JSON.stringify(parsed.pilotHistory), environment);
   const selectionTuning = parseSelectionTuning(JSON.stringify(parsed.selectionTuning));
-  if (progress === null || pilotHistory === null || selectionTuning === null) return null;
+  if (progress === null
+    || !productProgressReferencesAreKnown(progress, environment)
+    || pilotHistory === null
+    || selectionTuning === null) return null;
   const completedRounds = progress.practiceRoundsCompleted;
   if (pilotHistory.records.some((record) => record.roundNumber > completedRounds)) return null;
 

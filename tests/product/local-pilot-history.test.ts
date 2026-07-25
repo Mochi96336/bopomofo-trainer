@@ -5,7 +5,6 @@ import {
   saveLocalPilotHistory,
 } from "../../src/app/pilot-history.js";
 import type { StorageLike } from "../../src/app/local-progress.js";
-import { createPilotExport } from "../../src/product/pilot-export.js";
 import {
   pilotHistoryFromProgress,
   PILOT_HISTORY_SCHEMA_VERSION,
@@ -53,7 +52,7 @@ function summary(round: number): ProductRoundSummary {
 function progressWithSummaries(count: number): ProductProgress {
   const fresh = createFreshProgressForEnvironment(
     environment,
-    "pilot-export-seed",
+    "pilot-history-seed",
     "guided",
     "standard",
   );
@@ -69,7 +68,7 @@ function withLatency(record: PilotRoundRecord, latency: number): PilotRoundRecor
   return { ...record, cleanLatencyMedianMs: latency };
 }
 
-describe("local pilot history and export", () => {
+describe("local pilot history", () => {
   it("derives current progress when the pilot key is absent", () => {
     const storage = new MemoryStorage();
     const progress = progressWithSummaries(3);
@@ -114,25 +113,5 @@ describe("local pilot history and export", () => {
     const loaded = loadLocalPilotHistory(storage, progress, environment);
     expect(loaded.recoveredFromInvalidState).toBe(true);
     expect(loaded.history.records).toHaveLength(2);
-  });
-
-  it("produces deterministic export without local seed or export timestamp", () => {
-    const progress = progressWithSummaries(2);
-    const history = pilotHistoryFromProgress(progress);
-    const first = createPilotExport(environment, progress, history);
-    const second = createPilotExport(environment, progress, history);
-    expect(first).toBe(second);
-    const parsed = JSON.parse(first) as Record<string, unknown>;
-    expect(parsed.seed).toBeUndefined();
-    expect(parsed.exportedAt).toBeUndefined();
-    expect(parsed.utterancePolicyVersion).toBe("frequency-first-utterance-v1");
-    expect(parsed.selection).toEqual(progress.selection);
-    expect(parsed.history).toEqual(history.records);
-    const partition = parsed.catalogPartition as {
-      practiceEntryIds: string[];
-      evaluationEntryIds: string[];
-    };
-    expect(partition.practiceEntryIds).toEqual([...partition.practiceEntryIds].sort());
-    expect(partition.evaluationEntryIds).toEqual([...partition.evaluationEntryIds].sort());
   });
 });
