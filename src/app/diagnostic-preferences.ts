@@ -1,21 +1,13 @@
 import type {
-  ConfusionDirection,
   KeyDiagnosticSort,
-  TransitionDirection,
 } from "../diagnostics/selectors.js";
 
 export type DiagnosticTab = "key" | "transition" | "confusion";
-export const DIAGNOSTIC_MINIMUM_SAMPLE_OPTIONS = [1, 3, 5, 8] as const;
-export type DiagnosticMinimumSamples = typeof DIAGNOSTIC_MINIMUM_SAMPLE_OPTIONS[number];
 
 export interface DiagnosticPreferences {
   readonly expanded: boolean;
   readonly activeTab: DiagnosticTab;
   readonly keySort: KeyDiagnosticSort;
-  readonly transitionDirection: TransitionDirection;
-  readonly confusionDirection: ConfusionDirection;
-  readonly minimumSamples: number;
-  readonly includeTone: boolean;
   readonly networkOverlay: boolean;
 }
 
@@ -30,10 +22,6 @@ export const DEFAULT_DIAGNOSTIC_PREFERENCES: DiagnosticPreferences = {
   expanded: true,
   activeTab: "key",
   keySort: "error-ratio",
-  transitionDirection: "both",
-  confusionDirection: "both",
-  minimumSamples: 5,
-  includeTone: true,
   networkOverlay: true,
 };
 
@@ -49,19 +37,6 @@ function isKeySort(value: unknown): value is KeyDiagnosticSort {
   return value === "error-ratio" || value === "timing";
 }
 
-function isTransitionDirection(value: unknown): value is TransitionDirection {
-  return value === "incoming" || value === "outgoing" || value === "both";
-}
-
-function isConfusionDirection(value: unknown): value is ConfusionDirection {
-  return value === "expected" || value === "actual" || value === "both";
-}
-
-function isMinimumSamples(value: unknown): value is DiagnosticMinimumSamples {
-  return typeof value === "number"
-    && DIAGNOSTIC_MINIMUM_SAMPLE_OPTIONS.some((option) => option === value);
-}
-
 export function parseDiagnosticPreferences(source: string): DiagnosticPreferences | null {
   let parsed: unknown;
   try {
@@ -74,20 +49,12 @@ export function parseDiagnosticPreferences(source: string): DiagnosticPreference
     || typeof parsed.expanded !== "boolean"
     || !isTab(parsed.activeTab)
     || !isKeySort(parsed.keySort)
-    || !isTransitionDirection(parsed.transitionDirection)
-    || !isConfusionDirection(parsed.confusionDirection)
-    || !isMinimumSamples(parsed.minimumSamples)
-    || typeof parsed.includeTone !== "boolean"
     || typeof parsed.networkOverlay !== "boolean"
   ) return null;
   return {
     expanded: parsed.expanded,
     activeTab: parsed.activeTab,
     keySort: parsed.keySort,
-    transitionDirection: parsed.transitionDirection,
-    confusionDirection: parsed.confusionDirection,
-    minimumSamples: parsed.minimumSamples,
-    includeTone: parsed.includeTone,
     networkOverlay: parsed.networkOverlay,
   };
 }

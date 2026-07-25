@@ -26,27 +26,33 @@ function activeKind(host: HTMLElement): DiagnosticRelationshipKind | null {
   return null;
 }
 
+// aria-pressed already encodes the *effective* visibility (preference minus
+// any active selection stepping the mesh aside) — see networkVisible() in
+// diagnostic-panel.ts, the single source of truth for that computation.
 function networkOverlayEnabled(host: HTMLElement): boolean {
-  return host.querySelector<HTMLInputElement>('[data-action="toggle-network"]')?.checked ?? false;
+  return host.querySelector('[data-action="toggle-network"]')?.getAttribute("aria-pressed") === "true";
 }
 
-const NETWORK_MARKER_ID = "diagnostic-arrow-network";
-
+// Zhuyin composition has one fixed order, so a direction arrow adds nothing
+// here; the network is a heat-map of severity, not a set of instructions.
 function networkPathMarkup(path: DiagnosticRelationshipPath): string {
-  return `<path class="diagnostic-relationship-path network${path.includesTone ? " tone" : ""}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity};--relation-severity:${path.severity}" marker-end="url(#${NETWORK_MARKER_ID})"></path>`;
+  const classes = ["diagnostic-relationship-path", "network", path.includesTone ? "tone" : "", path.potential ? "potential" : ""]
+    .filter(Boolean).join(" ");
+  const title = path.potential ? "" : `<title>${escapeHtml(path.label)}</title>`;
+  return `<path class="${classes}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity};--relation-severity:${path.severity}">${title}</path>`;
 }
 
-function renderNetworkEmptyState(board: HTMLElement): void {
+function renderNetworkEmptyState(stage: HTMLElement): void {
   const empty = document.createElement("p");
   empty.className = "diagnostic-network-empty";
-  empty.textContent = "全網已開啟，但目前沒有足夠的轉換或誤按資料可畫出關聯線。";
-  board.prepend(empty);
+  empty.textContent = "全網已開啟，但目前沒有可標示的按鍵。";
+  stage.append(empty);
 }
 
-function renderNetworkOverlay(board: HTMLElement, model: DiagnosticModel): void {
+function renderNetworkOverlay(stage: HTMLElement, board: HTMLElement, model: DiagnosticModel): void {
   const paths = buildDiagnosticNetworkPaths(model);
   if (paths.length === 0) {
-    renderNetworkEmptyState(board);
+    renderNetworkEmptyState(stage);
     return;
   }
   const viewBox = DIAGNOSTIC_RELATIONSHIP_VIEWBOX;
@@ -55,7 +61,7 @@ function renderNetworkOverlay(board: HTMLElement, model: DiagnosticModel): void 
   svg.setAttribute("viewBox", `${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}`);
   svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("aria-hidden", "true");
-  svg.innerHTML = `<defs><marker id="${NETWORK_MARKER_ID}" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="5" markerHeight="5" orient="auto" markerUnits="strokeWidth"><path class="diagnostic-relationship-arrow" d="M 0 0 L 8 4 L 0 8 z"></path></marker></defs>${paths.map(networkPathMarkup).join("")}`;
+  svg.innerHTML = paths.map(networkPathMarkup).join("");
   board.prepend(svg);
 }
 
@@ -82,10 +88,11 @@ function renderRelationshipOverlay(
 ): void {
   host.querySelector(".diagnostic-relationship-svg")?.remove();
   host.querySelector(".diagnostic-network-empty")?.remove();
+  const stage = host.querySelector<HTMLElement>(".diagnostic-keyboard-stage");
   const board = host.querySelector<HTMLElement>(".diagnostic-keyboard-board");
-  if (board === null) return;
+  if (stage === null || board === null) return;
   if (networkOverlayEnabled(host)) {
-    renderNetworkOverlay(board, getModel());
+    renderNetworkOverlay(stage, board, getModel());
     return;
   }
   const kind = activeKind(host);

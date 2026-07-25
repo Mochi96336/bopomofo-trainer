@@ -7,6 +7,11 @@ import type {
 } from "../diagnostics/types.js";
 import { STANDARD_BOPOMOFO_LAYOUT } from "../scheme/standard-layout.js";
 import {
+  analyseSyllableBody,
+  listSupportedCatalogSyllableBodies,
+} from "../scheme/syllable-grammar.js";
+import { TONES, toneToken, zhuyinToken } from "../scheme/tokens.js";
+import {
   KEYBOARD_GEOMETRY_ROWS,
   keyboardColumnSpan,
 } from "./keyboard-geometry.js";
@@ -29,6 +34,9 @@ export interface DiagnosticRelationshipPath {
   readonly includesTone: boolean;
   // 0 (fast/rare, faint ink) to 1 (slow/frequent, full red).
   readonly severity: number;
+  // A grammatically-possible transition with no measurements yet, not a
+  // measured relation.
+  readonly potential: boolean;
 }
 
 const KEYBOARD_COLUMNS = 60;
@@ -162,6 +170,7 @@ export function buildDiagnosticRelationshipPaths(
       selected: selectedId === row.id,
       includesTone,
       severity: relationSeverity(kind, row),
+      potential: false,
     }];
   });
 }
@@ -188,17 +197,89 @@ function networkPath(
     selected: false,
     includesTone,
     severity,
+    potential: false,
   };
 }
 
+function pairKey(a: TokenId, b: TokenId): string {
+  return `${a} ${b}`;
+}
+
+// Bopomofo input has one fixed compositional order (initial, then medial
+// and/or final, then tone), never reversed. This walks every syllable body
+// the practice catalog actually supports and reads off the adjacent-symbol
+// pairs that order permits, so the mesh reflects real Zhuyin structure
+// instead of guessing from keyboard geometry.
+function possibleTransitionPairs(): readonly (readonly [TokenId, TokenId])[] {
+  const pairs = new Map<string, readonly [TokenId, TokenId]>();
+  for (const body of listSupportedCatalogSyllableBodies()) {
+    const { initial, rime } = analyseSyllableBody(body);
+    const chain: TokenId[] = initial === null ? [] : [zhuyinToken(initial)];
+    for (const symbol of rime) chain.push(zhuyinToken(symbol));
+    for (let index = 0; index < chain.length - 1; index += 1) {
+      const from = chain[index]!;
+      const to = chain[index + 1]!;
+      pairs.set(pairKey(from, to), [from, to]);
+    }
+    const last = chain[chain.length - 1];
+    if (last !== undefined) {
+      for (const tone of TONES) {
+        const to = toneToken(tone);
+        pairs.set(pairKey(last, to), [last, to]);
+      }
+    }
+  }
+  return [...pairs.values()];
+}
+
+function potentialPath(
+  points: ReadonlyMap<TokenId, DiagnosticKeyboardPoint>,
+  fromTokenId: TokenId,
+  toTokenId: TokenId,
+): DiagnosticRelationshipPath {
+  const from = points.get(fromTokenId)!;
+  const to = points.get(toTokenId)!;
+  const includesTone = fromTokenId.startsWith("tone:") || toTokenId.startsWith("tone:");
+  const id = `potential:${fromTokenId}:${toTokenId}`;
+  return {
+    id,
+    path: relationshipPath(id, from, to, includesTone),
+    label: "",
+    width: 0.8,
+    opacity: 0.14,
+    selected: false,
+    includesTone,
+    severity: 0,
+    potential: true,
+  };
+}
+
+// Every measured transition, plus a faint backdrop mesh of every
+// grammatically-possible transition that has no data yet, so the network
+// reads as a graph that fills in with red rather than one that only shows up
+// once something has already gone wrong. Confusions are deliberately left
+// out: they are error events, not part of the syllable-order structure this
+// mesh visualises, and mixing them in muddied what the lines meant.
 export function buildDiagnosticNetworkPaths(
-  model: Pick<DiagnosticModel, "transitions" | "confusions">,
+  model: Pick<DiagnosticModel, "transitions">,
 ): readonly DiagnosticRelationshipPath[] {
   const points = diagnosticKeyboardPoints();
-  return [
-    ...model.transitions.flatMap((row) => networkPath(points, "transition", row) ?? []),
-    ...model.confusions.flatMap((row) => networkPath(points, "confusion", row) ?? []),
-  ];
+  const covered = new Set<string>();
+  const real: DiagnosticRelationshipPath[] = [];
+  for (const row of model.transitions) {
+    const path = networkPath(points, "transition", row);
+    if (path === null) continue;
+    real.push(path);
+    covered.add(pairKey(row.fromTokenId, row.toTokenId));
+  }
+  const potential: DiagnosticRelationshipPath[] = [];
+  for (const [fromTokenId, toTokenId] of possibleTransitionPairs()) {
+    const key = pairKey(fromTokenId, toTokenId);
+    if (covered.has(key)) continue;
+    if (points.get(fromTokenId) === undefined || points.get(toTokenId) === undefined) continue;
+    potential.push(potentialPath(points, fromTokenId, toTokenId));
+  }
+  return [...potential, ...real];
 }
 
 export const DIAGNOSTIC_RELATIONSHIP_VIEWBOX = Object.freeze({

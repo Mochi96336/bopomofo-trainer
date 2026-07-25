@@ -100,19 +100,41 @@ describe("diagnostic relationship layout", () => {
       .toBe(0);
   });
 
-  it("builds an unranked, unfiltered network across both relation kinds", () => {
+  it("builds an unranked, unfiltered network of transitions only, never confusions", () => {
     const paths = buildDiagnosticNetworkPaths({
       transitions: [transition],
-      confusions: [confusion],
     });
-    expect(paths.map((path) => path.id).sort()).toEqual(
-      [transition.id, confusion.id].sort(),
-    );
+    const real = paths.filter((path) => !path.potential);
+    expect(real.map((path) => path.id)).toEqual([transition.id]);
     for (const path of paths) {
       expect(path.selected).toBe(false);
+      expect(path.id.startsWith("confusion:")).toBe(false);
     }
-    const network = paths.find((path) => path.id === confusion.id);
-    expect(network?.width).toBeCloseTo(1.1 + 0.8 * 1.4);
-    expect(network?.opacity).toBeCloseTo(0.2 + 0.8 * 0.55);
+    const network = real.find((path) => path.id === transition.id);
+    expect(network?.width).toBeCloseTo(1.1 + 1 * 1.4);
+    expect(network?.opacity).toBeCloseTo(0.2 + 1 * 0.55);
+  });
+
+  it("fills unmeasured grammatically-possible transitions with a faint potential mesh", () => {
+    const paths = buildDiagnosticNetworkPaths({
+      transitions: [transition],
+    });
+    const potential = paths.filter((path) => path.potential);
+    expect(potential.length).toBeGreaterThan(100);
+    for (const path of potential) {
+      expect(path.id.startsWith("potential:")).toBe(true);
+      expect(path.severity).toBe(0);
+      expect(path.selected).toBe(false);
+      expect(path.path.startsWith("M ")).toBe(true);
+    }
+    // A common legal initial-then-final pair with no measurement shows up...
+    expect(potential.some((path) => path.id === "potential:zhuyin:ㄅ:zhuyin:ㄚ")).toBe(true);
+    // ...but the measured transition is not duplicated, even though ㄓ then
+    // ㄨ is itself a grammatically legal pair (聲母ㄓ + 韻母ㄨ).
+    expect(potential.some((path) => path.id.includes("zhuyin:ㄓ") && path.id.includes("zhuyin:ㄨ"))).toBe(false);
+    // Confusions have no "possible" universe of their own, so the measured
+    // ㄢ→ㄤ confusion never collides with (or gets treated as) a potential
+    // transition entry.
+    expect(potential.some((path) => path.id.includes("zhuyin:ㄢ") && path.id.includes("zhuyin:ㄤ"))).toBe(false);
   });
 });

@@ -128,6 +128,18 @@ describe("diagnostic selectors", () => {
     ]);
   });
 
+  it("does not let a single noisy sample outrank well-observed measurements", () => {
+    const reliableTiming = { ...key("A", null, 400, 8, 8), timingDataState: "sufficient" as const };
+    const noisyTiming = { ...key("B", null, 900, 8, 1), timingDataState: "insufficient" as const };
+    expect(selectKeyDiagnostics([noisyTiming, reliableTiming], "timing", true).map((row) => row.tokenId))
+      .toEqual(["A", "B"]);
+
+    const reliableRatio = { ...key("C", 0.4, null), errorDataState: "sufficient" as const };
+    const noisyRatio = { ...key("D", 1, null, 1), errorDataState: "insufficient" as const };
+    expect(selectKeyDiagnostics([noisyRatio, reliableRatio], "error-ratio", true).map((row) => row.tokenId))
+      .toEqual(["C", "D"]);
+  });
+
   it("keeps transition directions distinct and applies sample and tone filters", () => {
     expect(selectTransitionDiagnostics(transitions, {
       selectedKey: "A",

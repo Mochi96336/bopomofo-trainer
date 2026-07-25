@@ -2,6 +2,7 @@ import type { TokenId } from "../core/model.js";
 import { DIAGNOSTIC_POLICY } from "./policy.js";
 import type {
   ConfusionDiagnostic,
+  DiagnosticDataState,
   KeyDiagnostic,
   TransitionDiagnostic,
 } from "./types.js";
@@ -14,6 +15,12 @@ function codeUnitCompare(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+const DATA_STATE_RANK: Readonly<Record<DiagnosticDataState, number>> = {
+  insufficient: 0,
+  preliminary: 1,
+  sufficient: 2,
+};
+
 export function selectKeyDiagnostics(
   rows: readonly KeyDiagnostic[],
   sort: KeyDiagnosticSort,
@@ -25,6 +32,12 @@ export function selectKeyDiagnostics(
       const rightHasTiming = right.timingAvailability === "available" && right.timingMs !== null;
       if (leftHasTiming !== rightHasTiming) return leftHasTiming ? -1 : 1;
       if (leftHasTiming && rightHasTiming) {
+        // A single noisy sample can produce an extreme timing value; rank by
+        // how trustworthy the measurement is before ranking by how slow it
+        // looks, so a lone outlier can't outrank a well-observed slow key.
+        const reliabilityDifference = DATA_STATE_RANK[right.timingDataState ?? "insufficient"]
+          - DATA_STATE_RANK[left.timingDataState ?? "insufficient"];
+        if (reliabilityDifference !== 0) return reliabilityDifference;
         const timingDifference = (right.timingMs ?? 0) - (left.timingMs ?? 0);
         if (timingDifference !== 0) return timingDifference;
         if (right.timingSamples !== left.timingSamples) {
@@ -36,6 +49,9 @@ export function selectKeyDiagnostics(
       const rightHasRatio = right.displayedErrorRatio !== null;
       if (leftHasRatio !== rightHasRatio) return leftHasRatio ? -1 : 1;
       if (leftHasRatio && rightHasRatio) {
+        const reliabilityDifference = DATA_STATE_RANK[right.errorDataState]
+          - DATA_STATE_RANK[left.errorDataState];
+        if (reliabilityDifference !== 0) return reliabilityDifference;
         const ratioDifference = (right.displayedErrorRatio ?? 0)
           - (left.displayedErrorRatio ?? 0);
         if (ratioDifference !== 0) return ratioDifference;

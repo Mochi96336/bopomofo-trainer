@@ -33,9 +33,14 @@ import {
 } from "./keyboard-geometry.js";
 
 const DIAGNOSTIC_TABS = ["key", "transition", "confusion"] as const;
-const MINIMUM_SAMPLE_OPTIONS = [1, 3, 5, 8] as const;
 const ANALYSIS_ANIMATION_MS = 180;
 const KEYBOARD_TILT = "perspective(520px) rotateX(19deg)";
+const NETWORK_ICON_SVG = `<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+  <path d="M3.4 3.4 L12.6 3.4 M3.4 3.4 L8 13 M12.6 3.4 L8 13"></path>
+  <circle cx="3.4" cy="3.4" r="1.6" fill="currentColor" stroke="none"></circle>
+  <circle cx="12.6" cy="3.4" r="1.6" fill="currentColor" stroke="none"></circle>
+  <circle cx="8" cy="13" r="1.6" fill="currentColor" stroke="none"></circle>
+</svg>`;
 
 // Where the keyboard visually "comes from": the practice keyboard hint if it
 // is currently shown, otherwise a strip near the bottom of the practice
@@ -79,7 +84,6 @@ function animateKeyboardRise(board: HTMLElement): void {
 interface EphemeralDiagnosticState {
   readonly selectedKey: TokenId | null;
   readonly selectedRelationId: string | null;
-  readonly complete: Readonly<Record<DiagnosticTab, boolean>>;
 }
 
 interface KeyboardSignal {
@@ -157,38 +161,37 @@ function detailStateMarkup(state: DiagnosticDataState): string {
 function keyRows(
   model: DiagnosticModel,
   preferences: DiagnosticPreferences,
-  state: EphemeralDiagnosticState,
 ): readonly KeyDiagnostic[] {
   return selectKeyDiagnostics(
     model.keys.filter((row) => row.attempts > 0),
     preferences.keySort,
-    state.complete.key,
+    true,
   );
 }
 
+// Direction and minimum-sample filters proved to be noise nobody used; the
+// list always shows everything, filtered only by an explicit key selection.
 function transitionRows(
   model: DiagnosticModel,
-  preferences: DiagnosticPreferences,
   state: EphemeralDiagnosticState,
 ): readonly TransitionDiagnostic[] {
   return selectTransitionDiagnostics(model.transitions, {
     selectedKey: state.selectedKey,
-    direction: preferences.transitionDirection,
-    minimumSamples: preferences.minimumSamples,
-    includeTone: preferences.includeTone,
-    complete: state.complete.transition,
+    direction: "both",
+    minimumSamples: 3,
+    includeTone: true,
+    complete: true,
   });
 }
 
 function confusionRows(
   model: DiagnosticModel,
-  preferences: DiagnosticPreferences,
   state: EphemeralDiagnosticState,
 ): readonly ConfusionDiagnostic[] {
   return selectConfusionDiagnostics(model.confusions, {
     selectedKey: state.selectedKey,
-    direction: preferences.confusionDirection,
-    complete: state.complete.confusion,
+    direction: "both",
+    complete: true,
   });
 }
 
@@ -273,9 +276,9 @@ function visibleRowsForTab(
   preferences: DiagnosticPreferences,
   state: EphemeralDiagnosticState,
 ): readonly (KeyDiagnostic | TransitionDiagnostic | ConfusionDiagnostic)[] {
-  if (preferences.activeTab === "transition") return transitionRows(model, preferences, state);
-  if (preferences.activeTab === "confusion") return confusionRows(model, preferences, state);
-  return keyRows(model, preferences, state);
+  if (preferences.activeTab === "transition") return transitionRows(model, state);
+  if (preferences.activeTab === "confusion") return confusionRows(model, state);
+  return keyRows(model, preferences);
 }
 
 function keyboardSignals(
@@ -285,7 +288,7 @@ function keyboardSignals(
 ): ReadonlyMap<TokenId, KeyboardSignal> {
   const result = new Map<TokenId, KeyboardSignal>();
   if (preferences.activeTab === "key") {
-    const rows = keyRows(model, preferences, state);
+    const rows = keyRows(model, preferences);
     rows.forEach((row, index) => {
       const badge = preferences.keySort === "timing"
         ? row.timingMs === null ? null : String(Math.round(row.timingMs))
@@ -345,17 +348,12 @@ function keyboardMarkup(
   state: EphemeralDiagnosticState,
 ): string {
   const signals = keyboardSignals(model, preferences, state);
-  const visibleCount = visibleRowsForTab(model, preferences, state).length;
   return `<section class="diagnostic-analysis-canvas" aria-label="鍵盤診斷視圖">
-    <div class="diagnostic-canvas-heading">
-      <div><span>${escapeHtml(tabLabel(preferences.activeTab))}</span><strong>${visibleCount} 筆</strong></div>
-      <div class="diagnostic-canvas-heading-actions">
-        <label class="setting-row diagnostic-network-toggle" title="顯示所有轉換與誤按關聯，依嚴重程度從淡墨變紅">
-          <strong>全網</strong>
-          <input type="checkbox" data-action="toggle-network"${preferences.networkOverlay ? " checked" : ""} />
-        </label>
-        <p>${escapeHtml(metricExplanation(preferences))}</p>
-      </div>
+    <div class="diagnostic-analysis-title-block">
+      <h2 id="diagnostic-analysis-title" aria-label="弱點診斷分析">分析</h2>
+    </div>
+    <div class="diagnostic-network-icon-slot">
+      <button type="button" class="diagnostic-network-icon" data-action="toggle-network" aria-pressed="${networkVisible(preferences, state)}" aria-label="全網：顯示所有已發生與可能的關聯，依嚴重程度從淡墨變紅" title="全網">${NETWORK_ICON_SVG}</button>
     </div>
     <div class="diagnostic-keyboard-stage">
       <div class="diagnostic-keyboard-board">
@@ -363,12 +361,14 @@ function keyboardMarkup(
           ${row.map((key) => {
             const tokenId = STANDARD_BOPOMOFO_LAYOUT.bindings[key.code];
             const columns = keyboardColumnSpan(key);
+            const wide = key.units !== undefined ? " wide" : "";
             if (tokenId === undefined) {
-              return `<span class="diagnostic-keyboard-key unmapped" style="--key-columns:${columns}" aria-hidden="true"></span>`;
+              return `<span class="diagnostic-keyboard-key unmapped${wide}" style="--key-columns:${columns}" data-code="${escapeHtml(key.code)}" aria-hidden="true"></span>`;
             }
             const signal = signals.get(tokenId);
             const classes = [
               "diagnostic-keyboard-key",
+              wide.trim(),
               signal?.connected ? "connected" : "",
               signal?.selected ? "selected" : "",
             ].filter(Boolean).join(" ");
@@ -384,52 +384,31 @@ function keyboardMarkup(
   </section>`;
 }
 
-function topToggleMarkup(tab: DiagnosticTab, complete: boolean): string {
-  return `<div class="diagnostic-view-toggle" aria-label="顯示範圍">
-    <button type="button" data-action="set-complete" data-tab="${tab}" data-value="false" aria-pressed="${!complete}">前 5</button>
-    <button type="button" data-action="set-complete" data-tab="${tab}" data-value="true" aria-pressed="${complete}">全部</button>
+function segmentedRowMarkup(
+  label: string,
+  action: string,
+  options: readonly (readonly [string, string])[],
+  active: string,
+): string {
+  return `<div class="diagnostic-toolbar-row">
+    <span class="diagnostic-toolbar-label">${escapeHtml(label)}</span>
+    <div class="diagnostic-segments" aria-label="${escapeHtml(label)}">
+      ${options.map(([value, text]) => `<button type="button" data-action="${action}" data-value="${escapeHtml(value)}" aria-pressed="${active === value}">${escapeHtml(text)}</button>`).join("")}
+    </div>
   </div>`;
 }
 
-function inspectorToolbarMarkup(
-  preferences: DiagnosticPreferences,
-  state: EphemeralDiagnosticState,
-): string {
+// Direction, sample-count, and top-5/all filters all turned out to be noise
+// nobody used; every list now always shows everything it has. Only the
+// controls that change what the data itself means (sort basis, whether tone
+// relations count) remain.
+function inspectorToolbarMarkup(preferences: DiagnosticPreferences): string {
   if (preferences.activeTab === "key") {
     return `<div class="diagnostic-inspector-toolbar">
-      ${topToggleMarkup("key", state.complete.key)}
-      <label>排序
-        <select data-action="key-sort">
-          <option value="error-ratio"${preferences.keySort === "error-ratio" ? " selected" : ""}>錯誤觀察比例</option>
-          <option value="timing"${preferences.keySort === "timing" ? " selected" : ""}>有效鍵間時間</option>
-        </select>
-      </label>
+      ${segmentedRowMarkup("排序", "key-sort", [["error-ratio", "錯誤比例"], ["timing", "鍵間時間"]], preferences.keySort)}
     </div>`;
   }
-  if (preferences.activeTab === "transition") {
-    return `<div class="diagnostic-inspector-toolbar stacked">
-      <div class="diagnostic-segments" aria-label="轉換方向">
-        ${([["incoming", "進入"], ["outgoing", "離開"], ["both", "全部"]] as const)
-          .map(([value, label]) => `<button type="button" data-action="transition-direction" data-value="${value}" aria-pressed="${preferences.transitionDirection === value}">${label}</button>`).join("")}
-      </div>
-      <div class="diagnostic-inspector-options">
-        <label>至少
-          <select data-action="minimum-samples">
-            ${MINIMUM_SAMPLE_OPTIONS.map((value) => `<option value="${value}"${preferences.minimumSamples === value ? " selected" : ""}>${value}</option>`).join("")}
-          </select>
-        </label>
-        <label class="diagnostic-checkbox"><input type="checkbox" data-action="include-tone"${preferences.includeTone ? " checked" : ""} /> 聲調</label>
-        ${topToggleMarkup("transition", state.complete.transition)}
-      </div>
-    </div>`;
-  }
-  return `<div class="diagnostic-inspector-toolbar stacked">
-    <div class="diagnostic-segments" aria-label="誤按方向">
-      ${([["expected", "應按"], ["actual", "按成"], ["both", "全部"]] as const)
-        .map(([value, label]) => `<button type="button" data-action="confusion-direction" data-value="${value}" aria-pressed="${preferences.confusionDirection === value}">${label}</button>`).join("")}
-    </div>
-    <div class="diagnostic-inspector-options">${topToggleMarkup("confusion", state.complete.confusion)}</div>
-  </div>`;
+  return "";
 }
 
 function keyListRowMarkup(row: KeyDiagnostic, selected: boolean): string {
@@ -532,41 +511,68 @@ function confusionDetailMarkup(row: ConfusionDiagnostic | null): string {
   </article>`;
 }
 
+// Selecting a key or relation suppresses the mesh so the detail card is not
+// competing with it; the icon must reflect that suppressed state too, or a
+// click on an icon that still looks "on" would toggle the stored preference
+// off instead of clearing the selection that is actually hiding it.
+function networkVisible(preferences: DiagnosticPreferences, state: EphemeralDiagnosticState): boolean {
+  return preferences.networkOverlay && state.selectedKey === null && state.selectedRelationId === null;
+}
+
+function inspectorHeadMarkup(preferences: DiagnosticPreferences, state: EphemeralDiagnosticState): string {
+  return `<div class="diagnostic-inspector-head">
+    <div class="diagnostic-analysis-tabs" role="tablist" aria-label="弱點診斷類型">
+      ${DIAGNOSTIC_TABS.map((tab) => `<button id="${tabButtonId(tab)}" type="button" role="tab" data-action="select-tab" data-tab="${tab}" aria-selected="${preferences.activeTab === tab}" aria-controls="${tabPanelId(tab)}" tabindex="${preferences.activeTab === tab ? 0 : -1}">${tabLabel(tab)}</button>`).join("")}
+    </div>
+    <button type="button" class="diagnostic-analysis-close" data-action="close-analysis" aria-label="返回練習">Esc</button>
+  </div>`;
+}
+
+function inspectorSummaryMarkup(preferences: DiagnosticPreferences, visibleCount: number): string {
+  return `<p class="diagnostic-metric-hint">${visibleCount} 筆 · ${escapeHtml(metricExplanation(preferences))}</p>`;
+}
+
 function inspectorMarkup(
   model: DiagnosticModel,
   preferences: DiagnosticPreferences,
   state: EphemeralDiagnosticState,
 ): string {
   if (preferences.activeTab === "key") {
-    const rows = keyRows(model, preferences, state);
+    const rows = keyRows(model, preferences);
     const selected = model.keys.find((row) => row.tokenId === state.selectedKey) ?? rows[0] ?? null;
     return `<aside class="diagnostic-analysis-inspector" aria-label="按鍵診斷列表與細節">
-      ${inspectorToolbarMarkup(preferences, state)}
+      ${inspectorHeadMarkup(preferences, state)}
+      ${inspectorToolbarMarkup(preferences)}
       <div class="diagnostic-inspector-list">
         ${rows.length === 0 ? '<p class="diagnostic-inspector-empty">尚無按鍵資料。</p>' : rows.map((row) => keyListRowMarkup(row, selected?.tokenId === row.tokenId)).join("")}
       </div>
       <div class="diagnostic-inspector-detail">${keyDetailMarkup(selected)}</div>
+      ${inspectorSummaryMarkup(preferences, rows.length)}
     </aside>`;
   }
   if (preferences.activeTab === "transition") {
-    const rows = transitionRows(model, preferences, state);
+    const rows = transitionRows(model, state);
     const selected = rows.find((row) => row.id === state.selectedRelationId) ?? rows[0] ?? null;
     return `<aside class="diagnostic-analysis-inspector" aria-label="轉換診斷列表與細節">
-      ${inspectorToolbarMarkup(preferences, state)}
+      ${inspectorHeadMarkup(preferences, state)}
+      ${inspectorToolbarMarkup(preferences)}
       <div class="diagnostic-inspector-list">
         ${rows.length === 0 ? '<p class="diagnostic-inspector-empty">此範圍沒有轉換資料。</p>' : rows.map((row) => transitionListRowMarkup(row, selected?.id === row.id)).join("")}
       </div>
       <div class="diagnostic-inspector-detail">${transitionDetailMarkup(selected)}</div>
+      ${inspectorSummaryMarkup(preferences, rows.length)}
     </aside>`;
   }
-  const rows = confusionRows(model, preferences, state);
+  const rows = confusionRows(model, state);
   const selected = rows.find((row) => row.id === state.selectedRelationId) ?? rows[0] ?? null;
   return `<aside class="diagnostic-analysis-inspector" aria-label="誤按診斷列表與細節">
-    ${inspectorToolbarMarkup(preferences, state)}
+    ${inspectorHeadMarkup(preferences, state)}
+    ${inspectorToolbarMarkup(preferences)}
     <div class="diagnostic-inspector-list">
       ${rows.length === 0 ? '<p class="diagnostic-inspector-empty">此範圍沒有誤按資料。</p>' : rows.map((row) => confusionListRowMarkup(row, selected?.id === row.id)).join("")}
     </div>
     <div class="diagnostic-inspector-detail">${confusionDetailMarkup(selected)}</div>
+    ${inspectorSummaryMarkup(preferences, rows.length)}
   </aside>`;
 }
 
@@ -595,7 +601,6 @@ export function createDiagnosticAnalysis(
   let state: EphemeralDiagnosticState = {
     selectedKey: null,
     selectedRelationId: null,
-    complete: { key: false, transition: false, confusion: false },
   };
   let closingTimer: number | null = null;
 
@@ -609,17 +614,6 @@ export function createDiagnosticAnalysis(
 
   const render = (): void => {
     host.innerHTML = `<div class="diagnostic-analysis-shell">
-      <header class="diagnostic-analysis-header">
-        <div class="diagnostic-analysis-title-block">
-          <span>練習分析</span>
-          <h2 id="diagnostic-analysis-title">弱點診斷</h2>
-          <p>${escapeHtml(summaryText(model))}</p>
-        </div>
-        <div class="diagnostic-analysis-tabs" role="tablist" aria-label="弱點診斷類型">
-          ${DIAGNOSTIC_TABS.map((tab) => `<button id="${tabButtonId(tab)}" type="button" role="tab" data-action="select-tab" data-tab="${tab}" aria-selected="${preferences.activeTab === tab}" aria-controls="${tabPanelId(tab)}" tabindex="${preferences.activeTab === tab ? 0 : -1}">${tabLabel(tab)}</button>`).join("")}
-        </div>
-        <button type="button" class="diagnostic-analysis-close" data-action="close-analysis">返回練習 <span aria-hidden="true">Esc</span></button>
-      </header>
       <div id="${tabPanelId(preferences.activeTab)}" class="diagnostic-analysis-body" role="tabpanel" aria-labelledby="${tabButtonId(preferences.activeTab)}">
         ${keyboardMarkup(model, preferences, state)}
         ${inspectorMarkup(model, preferences, state)}
@@ -634,9 +628,6 @@ export function createDiagnosticAnalysis(
     document.body.classList.remove("diagnostic-analysis-open");
     const root = document.querySelector<HTMLElement>("#app");
     if (root !== null) root.inert = false;
-    const sourceDialog = document.querySelector<HTMLDialogElement>("#information-dialog");
-    sourceDialog?.classList.remove("diagnostic-source-hidden");
-    if (sourceDialog?.open) sourceDialog.close();
   };
 
   const close = (): void => {
@@ -653,17 +644,16 @@ export function createDiagnosticAnalysis(
       closingTimer = null;
     }
     model = options.getModel();
-    preferences = loadPreferences(options.storage);
+    preferences = { ...loadPreferences(options.storage), networkOverlay: true };
     if (initialTab !== undefined) preferences = { ...preferences, activeTab: initialTab };
     state = {
       selectedKey: null,
       selectedRelationId: null,
-      complete: { key: false, transition: false, confusion: false },
     };
     const root = document.querySelector<HTMLElement>("#app");
     if (root !== null) root.inert = true;
-    document.querySelector<HTMLDialogElement>("#information-dialog")
-      ?.classList.add("diagnostic-source-hidden");
+    const sourceDialog = document.querySelector<HTMLDialogElement>("#information-dialog");
+    if (sourceDialog?.open) sourceDialog.close();
     document.body.classList.add("diagnostic-analysis-open");
     host.hidden = false;
     host.classList.remove("closing");
@@ -697,17 +687,6 @@ export function createDiagnosticAnalysis(
       host.querySelector<HTMLButtonElement>(`#${tabButtonId(tab)}`)?.focus();
       return;
     }
-    if (action === "set-complete") {
-      const tab = target.dataset.tab;
-      if (!isDiagnosticTab(tab)) return;
-      state = {
-        ...state,
-        selectedRelationId: null,
-        complete: { ...state.complete, [tab]: target.dataset.value === "true" },
-      };
-      render();
-      return;
-    }
     if (action === "select-key") {
       const tokenId = target.dataset.token ?? null;
       state = {
@@ -724,47 +703,27 @@ export function createDiagnosticAnalysis(
       render();
       return;
     }
-    if (action === "transition-direction") {
+    if (action === "key-sort") {
       const value = target.dataset.value;
-      if (value !== "incoming" && value !== "outgoing" && value !== "both") return;
-      preferences = { ...preferences, transitionDirection: value };
-      state = { ...state, selectedRelationId: null };
+      if (value !== "error-ratio" && value !== "timing") return;
+      preferences = { ...preferences, keySort: value };
       persist();
       render();
       return;
     }
-    if (action === "confusion-direction") {
-      const value = target.dataset.value;
-      if (value !== "expected" && value !== "actual" && value !== "both") return;
-      preferences = { ...preferences, confusionDirection: value };
-      state = { ...state, selectedRelationId: null };
+    if (action === "toggle-network") {
+      // Toggle what the icon actually shows, not the raw stored preference:
+      // a selection can suppress the mesh while the preference stays true,
+      // and flipping that raw flag in that state would turn it off instead
+      // of clearing the selection that is hiding it.
+      const makeVisible = !networkVisible(preferences, state);
+      preferences = { ...preferences, networkOverlay: makeVisible };
+      state = makeVisible
+        ? { ...state, selectedKey: null, selectedRelationId: null }
+        : state;
       persist();
       render();
     }
-  };
-
-  host.onchange = (event) => {
-    if (!(event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement)) return;
-    const action = event.target.dataset.action;
-    if (action === "key-sort" && event.target instanceof HTMLSelectElement) {
-      if (event.target.value !== "error-ratio" && event.target.value !== "timing") return;
-      preferences = { ...preferences, keySort: event.target.value };
-      state = { ...state, selectedRelationId: null };
-    } else if (action === "minimum-samples" && event.target instanceof HTMLSelectElement) {
-      const value = Number(event.target.value);
-      if (!Number.isInteger(value) || !MINIMUM_SAMPLE_OPTIONS.includes(value as typeof MINIMUM_SAMPLE_OPTIONS[number])) return;
-      preferences = { ...preferences, minimumSamples: value };
-      state = { ...state, selectedRelationId: null };
-    } else if (action === "include-tone" && event.target instanceof HTMLInputElement) {
-      preferences = { ...preferences, includeTone: event.target.checked };
-      state = { ...state, selectedRelationId: null };
-    } else if (action === "toggle-network" && event.target instanceof HTMLInputElement) {
-      preferences = { ...preferences, networkOverlay: event.target.checked };
-    } else {
-      return;
-    }
-    persist();
-    render();
   };
 
   host.onkeydown = (event) => {
@@ -804,8 +763,6 @@ export function createDiagnosticAnalysis(
       const root = document.querySelector<HTMLElement>("#app");
       if (root !== null) root.inert = false;
       document.body.classList.remove("diagnostic-analysis-open");
-      document.querySelector<HTMLDialogElement>("#information-dialog")
-        ?.classList.remove("diagnostic-source-hidden");
       host.remove();
     },
   };

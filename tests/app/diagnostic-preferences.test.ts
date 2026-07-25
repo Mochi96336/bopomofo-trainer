@@ -27,26 +27,17 @@ describe("diagnostic preferences", () => {
       ...DEFAULT_DIAGNOSTIC_PREFERENCES,
       expanded: false,
       activeTab: "transition" as const,
-      minimumSamples: 8,
-      includeTone: false,
+      keySort: "timing" as const,
     };
     saveDiagnosticPreferences(storage, preferences);
     expect(loadDiagnosticPreferences(storage)).toEqual(preferences);
     expect(storage.getItem(DIAGNOSTIC_PREFERENCES_KEY)).not.toBeNull();
   });
 
-  it("falls back when stored fields are malformed, non-finite, or unsupported", () => {
+  it("falls back when stored fields are malformed or unsupported", () => {
     expect(parseDiagnosticPreferences(JSON.stringify({
       ...DEFAULT_DIAGNOSTIC_PREFERENCES,
-      minimumSamples: -1,
-    }))).toBeNull();
-    expect(parseDiagnosticPreferences(JSON.stringify({
-      ...DEFAULT_DIAGNOSTIC_PREFERENCES,
-      minimumSamples: Number.NaN,
-    }))).toBeNull();
-    expect(parseDiagnosticPreferences(JSON.stringify({
-      ...DEFAULT_DIAGNOSTIC_PREFERENCES,
-      minimumSamples: 7,
+      keySort: "unknown",
     }))).toBeNull();
     expect(parseDiagnosticPreferences(JSON.stringify({
       ...DEFAULT_DIAGNOSTIC_PREFERENCES,

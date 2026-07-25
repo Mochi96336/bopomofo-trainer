@@ -270,9 +270,12 @@ function mountShell(): void {
       <dialog id="information-dialog" class="information-dialog" aria-labelledby="information-title">
         <div class="dialog-shell">
           <header class="dialog-header">
-            <div><h2 id="information-title">設定與資料</h2></div>
+            <div class="dialog-title-row">
+              <h2 id="information-title">設定與資料</h2>
+              <div id="information-round-status" class="dialog-round-status" aria-live="polite"></div>
+            </div>
             <form method="dialog">
-              <button class="dialog-close" type="submit" aria-label="關閉設定面板">Esc</button>
+              <button class="dialog-close" type="button" aria-label="關閉設定面板">Esc</button>
             </form>
           </header>
           <div id="information-content" class="information-content"></div>
@@ -282,6 +285,11 @@ function mountShell(): void {
 
   requireElement<HTMLButtonElement>("#open-information").addEventListener("click", openInformationPanel);
   const dialog = requireElement<HTMLDialogElement>("#information-dialog");
+  requireElement<HTMLButtonElement>(".dialog-close").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    dialog.close();
+  });
   dialog.addEventListener("close", focusCapture);
   dialog.addEventListener("click", (event) => {
     if (event.target !== dialog) return;
@@ -613,15 +621,11 @@ function renderHistoryRows(): string {
 
 function renderInformationPanel(): void {
   const { attempts, errors } = mappedRoundCounts();
+  const roundStatus = requireElement<HTMLElement>("#information-round-status");
+  roundStatus.setAttribute("aria-label", `第 ${currentRoundNumber()} 句，目前正確率 ${accuracyLabel(attempts, errors)}`);
+  roundStatus.innerHTML = `<span>第 ${currentRoundNumber()} 句</span><strong>${accuracyLabel(attempts, errors)}</strong>`;
   const content = requireElement<HTMLElement>("#information-content");
   content.innerHTML = `
-    <section class="panel-section round-overview-section">
-      <div class="round-overview">
-        <span>第 ${currentRoundNumber()} 句</span>
-        <span class="round-accuracy">${accuracyLabel(attempts, errors)}</span>
-      </div>
-    </section>
-
     <section class="panel-section">
       <div class="panel-heading"><h3>顯示</h3></div>
       <div class="display-options">
@@ -634,6 +638,17 @@ function renderInformationPanel(): void {
           <input id="toggle-dark-theme" type="checkbox"${theme === "dark" ? " checked" : ""} />
         </label>
       </div>
+    </section>
+
+    <section class="panel-section" data-legacy-weak-section="true">
+      <div class="panel-heading"><h3>較弱按鍵</h3></div>
+      ${renderWeakBindingsSection()}
+    </section>
+
+    <section class="panel-section history-section">
+      <div class="panel-heading history-heading"><h3>最近紀錄</h3></div>
+      ${renderTrendSection()}
+      <div class="history-list">${renderHistoryRows()}</div>
     </section>
 
     <section class="panel-section">
@@ -651,17 +666,6 @@ function renderInformationPanel(): void {
           <input id="timing-influence" type="range" min="0" max="300" step="25" value="${Math.round(selectionTuning.timingInfluence * 100)}" />
         </label>
       </div>
-    </section>
-
-    <section class="panel-section" data-legacy-weak-section="true">
-      <div class="panel-heading"><h3>較弱按鍵</h3></div>
-      ${renderWeakBindingsSection()}
-    </section>
-
-    <section class="panel-section history-section">
-      <div class="panel-heading history-heading"><h3>最近紀錄</h3></div>
-      ${renderTrendSection()}
-      <div class="history-list">${renderHistoryRows()}</div>
     </section>
 
     <section class="panel-section data-section">
@@ -985,7 +989,12 @@ document.addEventListener("keydown", (event) => {
   }
   if (event.code !== "Escape") return;
   const dialog = requireElement<HTMLDialogElement>("#information-dialog");
-  if (dialog.open) return;
+  if (dialog.open) {
+    event.preventDefault();
+    event.stopPropagation();
+    dialog.close();
+    return;
+  }
   event.preventDefault();
   event.stopPropagation();
   if (imeWarning) {

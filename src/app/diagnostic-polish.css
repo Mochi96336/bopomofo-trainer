@@ -1,12 +1,16 @@
 /* Diagnostic emphasis is informational, not an error state. */
 .diagnostic-summary-section .diagnostic-open-analysis:hover,
 .diagnostic-summary-section .diagnostic-open-analysis:focus-visible {
-  border-color: var(--ink-muted);
   color: var(--ink);
 }
 
 .diagnostic-analysis .diagnostic-analysis-tabs button[aria-selected="true"]::after {
   background: var(--ink);
+}
+
+.diagnostic-analysis .diagnostic-network-icon[aria-pressed="true"] {
+  border-color: var(--ink);
+  color: var(--ink);
 }
 
 .diagnostic-analysis .diagnostic-analysis-close:hover,
@@ -85,7 +89,6 @@
 }
 
 .diagnostic-analysis .diagnostic-analysis-tabs button:focus-visible,
-.diagnostic-analysis .diagnostic-view-toggle button:focus-visible,
 .diagnostic-analysis .diagnostic-segments button:focus-visible {
   outline-color: color-mix(in srgb, var(--ink) 36%, transparent);
 }
@@ -155,16 +158,15 @@
 }
 
 .diagnostic-analysis .diagnostic-network-empty {
-  position: absolute;
-  z-index: 2;
-  top: 50%;
-  left: 50%;
   width: min(320px, 80%);
-  margin: 0;
+  margin: 10px 0 0;
   color: var(--ink-muted);
   font-size: 10px;
   line-height: 1.5;
   text-align: center;
-  transform: translate(-50%, -50%) rotateX(-19deg);
+  pointer-events: none;
+}
+
+.diagnostic-analysis .diagnostic-relationship-path.network.potential {
   pointer-events: none;
 }
