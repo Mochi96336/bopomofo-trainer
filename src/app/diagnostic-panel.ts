@@ -461,21 +461,25 @@ function keyTimingCaption(row: KeyDiagnostic): string {
 // ellipses, and the horizontal padding keeps the emphasized newest point fully
 // inside the frame.
 const PROGRESS_CHART = {
-  width: 230,
-  height: 52,
+  /** Left gutter reserved for the axis bound labels. */
+  gutter: 40,
+  plotWidth: 230,
+  height: 56,
   padX: 9,
-  padY: 8,
+  padY: 9,
+  tick: 3,
 } as const;
 
 function progressValueText(series: KeyProgressSeries, value: number): string {
   return series.unit === "percent" ? percent(value) : milliseconds(value);
 }
 
-function progressAxisText(series: KeyProgressSeries): string {
-  const { minimum, maximum } = series.chartDomain;
-  return series.unit === "percent"
-    ? `軸 ${percent(minimum)}–${percent(maximum)}`
-    : `軸 ${Math.round(minimum)}–${Math.round(maximum)} ms`;
+// The axis bounds are drawn on the chart itself rather than described beside
+// it, so the scale is read where it is used. They matter because the domain is
+// adaptive: without them a bounded 8%-to-7% fall and a real collapse would look
+// alike.
+function progressBoundText(series: KeyProgressSeries, value: number): string {
+  return series.unit === "percent" ? percent(value) : `${Math.round(value)} ms`;
 }
 
 // The delta line is the two comparison windows' representative values, not the
@@ -501,29 +505,51 @@ function progressPartialText(series: KeyProgressSeries): string {
  * the newest point.
  */
 function progressChartMarkup(series: KeyProgressSeries): string {
-  const { width, height, padX, padY } = PROGRESS_CHART;
+  const { gutter, plotWidth, height, padX, padY, tick } = PROGRESS_CHART;
   const { minimum, maximum } = series.chartDomain;
   const span = maximum - minimum || 1;
-  const innerWidth = width - padX * 2;
+  const width = gutter + plotWidth;
+  const left = gutter + padX;
+  const right = width - padX;
+  const innerWidth = right - left;
   const innerHeight = height - padY * 2;
+  const yFor = (value: number): number =>
+    padY + innerHeight - ((value - minimum) / span) * innerHeight;
+
   const step = series.points.length > 1 ? innerWidth / (series.points.length - 1) : 0;
   const placed = series.points.map((point) => ({
     point,
-    x: series.points.length > 1 ? padX + step * point.index : width / 2,
-    y: padY + innerHeight - ((point.value - minimum) / span) * innerHeight,
+    x: series.points.length > 1 ? left + step * point.index : left + innerWidth / 2,
+    y: yFor(point.value),
   }));
   const path = placed
     .map((entry, index) => `${index === 0 ? "M" : "L"}${entry.x.toFixed(1)},${entry.y.toFixed(1)}`)
     .join(" ");
-  const reference = series.trend.previousValue === null
+
+  // Upper and lower bound of the adaptive domain, labelled where they sit.
+  const bounds = [maximum, minimum].map((value) => {
+    const y = yFor(value).toFixed(1);
+    return `<line class="diagnostic-progress-axis-tick" x1="${gutter - tick}" x2="${gutter}" y1="${y}" y2="${y}"></line>`
+      + `<text class="diagnostic-progress-axis-label" x="${gutter - tick - 3}" y="${y}" text-anchor="end" dominant-baseline="middle">${escapeHtml(progressBoundText(series, value))}</text>`;
+  }).join("");
+
+  const referenceY = series.trend.previousValue === null
+    ? null
+    : yFor(series.trend.previousValue).toFixed(1);
+  const reference = referenceY === null
     ? ""
-    : `<line class="diagnostic-progress-reference" x1="${padX}" x2="${width - padX}" y1="${(padY + innerHeight - ((series.trend.previousValue - minimum) / span) * innerHeight).toFixed(1)}" y2="${(padY + innerHeight - ((series.trend.previousValue - minimum) / span) * innerHeight).toFixed(1)}"></line>`;
+    : `<line class="diagnostic-progress-reference" x1="${left}" x2="${right}" y1="${referenceY}" y2="${referenceY}"></line>`;
+
   const dots = placed.map((entry, index) => {
     const latest = index === placed.length - 1;
     const title = `第 ${entry.point.index + 1} 區段 · ${progressValueText(series, entry.point.value)} · ${entry.point.sampleCount} 樣本`;
     return `<circle class="diagnostic-progress-point${latest ? " latest" : ""}" cx="${entry.x.toFixed(1)}" cy="${entry.y.toFixed(1)}" r="${latest ? 3 : 1.9}"><title>${escapeHtml(title)}</title></circle>`;
   }).join("");
-  return `<svg class="diagnostic-progress-svg" viewBox="0 0 ${width} ${height}" role="presentation" focusable="false">
+
+  // Hidden from assistive technology: the accessible summary below already
+  // carries every value, so the axis text must not be read out as loose numbers.
+  return `<svg class="diagnostic-progress-svg" viewBox="0 0 ${width} ${height}" role="presentation" focusable="false" aria-hidden="true">
+    ${bounds}
     ${reference}
     ${placed.length > 1 ? `<path class="diagnostic-progress-line" d="${path}"></path>` : ""}
     ${dots}
@@ -560,17 +586,12 @@ function progressSeriesMarkup(series: KeyProgressSeries): string {
       ? "目前資料不足以判斷方向"
       : series.trend.label;
   const partial = progressPartialText(series);
-  const meta = [
-    progressAxisText(series),
-    series.metric === "timing" ? "越低越快" : "",
-    partial,
-  ].filter(Boolean).join(" · ");
 
   return `<figure class="diagnostic-progress-series" data-metric="${series.metric}" data-state="${series.state}" data-trend="${series.trend.state}">
     ${head}
     ${progressChartMarkup(series)}
     <p class="diagnostic-progress-trend">${escapeHtml(caption)}</p>
-    <p class="diagnostic-progress-meta">${escapeHtml(meta)}</p>
+    ${partial ? `<p class="diagnostic-progress-meta">${escapeHtml(partial)}</p>` : ""}
     ${summary}
   </figure>`;
 }

@@ -76,11 +76,26 @@ describe("selected-key recent-change rendering", () => {
     expect(markup).toContain("最近較快");
   });
 
-  it("states the axis bounds and the timing reading direction", () => {
+  it("draws the adaptive axis bounds inside the chart in each metric's own unit", () => {
+    const markup = keyProgressMarkup(trends(entry([0.1, 0.1, 0.08, 0.08], [400, 402, 398, 401])));
+    const labels = [...markup.matchAll(
+      /class="diagnostic-progress-axis-label"[^>]*>([^<]+)</gu,
+    )].map((match) => match[1]);
+
+    // Two bounds per chart, percent for correctness and ms for timing, so an
+    // adaptive domain can never be mistaken for a fixed one.
+    expect(labels).toHaveLength(4);
+    expect(labels.slice(0, 2).every((label) => label!.endsWith("%"))).toBe(true);
+    expect(labels.slice(2).every((label) => label!.endsWith(" ms"))).toBe(true);
+    // Upper bound is drawn first, at the top of the plot area.
+    expect(Number.parseInt(labels[2]!, 10)).toBeGreaterThan(Number.parseInt(labels[3]!, 10));
+  });
+
+  it("no longer repeats the axis or the reading direction as caption text", () => {
     const markup = keyProgressMarkup(trends(entry([0.1, 0.1, 0.08, 0.08], [400, 402, 398, 401])));
 
-    expect(markup).toContain("軸 ");
-    expect(markup).toContain("越低越快");
+    expect(markup).not.toContain("軸 ");
+    expect(markup).not.toContain("越低越快");
   });
 
   it("shows the upgrade state when there is no history yet", () => {

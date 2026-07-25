@@ -815,6 +815,20 @@ button.diagnostic-keyboard-key:focus-visible {
   vector-effect: non-scaling-stroke;
 }
 
+/* Axis bounds live inside the chart. Font size is in user units, so it scales
+   with the viewBox exactly like the rest of the drawing. */
+.diagnostic-progress-axis-label {
+  fill: var(--ink-muted);
+  font-size: 7.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.diagnostic-progress-axis-tick {
+  stroke: var(--ink-faint);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
 .diagnostic-progress-reference {
   stroke: var(--ink-faint);
   stroke-width: 1;

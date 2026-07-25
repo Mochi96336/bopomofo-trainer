@@ -173,10 +173,12 @@ The open partial bucket is reported as text, never plotted. Drawing it would put
 
 Neither chart autoscales freely to its own range.
 
-- Correctness is labelled in `%`, bounded to `0–100%`, with a minimum axis span of 10 percentage points, so `8% → 7%` cannot be drawn as a collapse.
-- Timing is labelled in `ms`, never negative, with a minimum axis span of 40 ms, and is captioned `越低越快`.
+- Correctness is bounded to `0–100%` with a minimum axis span of 10 percentage points, so `8% → 7%` cannot be drawn as a collapse.
+- Timing is never negative and has a minimum axis span of 40 ms.
 - Both add 15% padding around the observed range so the newest point is never on the frame edge.
-- The rendered axis bounds are printed under every chart (`軸 325–422 ms`).
+- Because the domain is adaptive, the upper and lower bound are **drawn on the chart itself**, as a tick and a label in that metric's own unit (`33%` / `0%`, `422 ms` / `325 ms`), in a reserved left gutter. The scale is read where it is used rather than described in a caption beside it, and the labelled bounds also make the timing chart's direction self-evident without a separate `越低越快` note.
+
+Below the chart there is only the trend sentence and, when a bucket is open, `下一個區段 3 / 5`.
 
 The SVG scales uniformly rather than stretching, so point markers stay circular at any pane width and the chart never forces the inspector to scroll sideways.
 
@@ -190,7 +192,7 @@ Every chart carries a visually hidden sentence naming the metric, the number of 
 ㄌ的有效鍵間時間不適用。
 ```
 
-The summary is produced by the diagnostics projection, so the text and the chart cannot diverge. Screen readers never walk SVG path coordinates: the `<svg>` is `role="presentation"` and `focusable="false"`, and no chart internal enters the tab order. Point titles are a hover convenience only — every value they show is already in the delta line and the accessible summary.
+The summary is produced by the diagnostics projection, so the text and the chart cannot diverge. Screen readers never walk SVG path coordinates or hear the axis labels read out as loose numbers: the `<svg>` is `role="presentation"`, `focusable="false"`, and `aria-hidden="true"`, and no chart internal enters the tab order. Point titles are a hover convenience only — every value they show is already in the delta line and the accessible summary.
 
 Existing analysis-mode behaviour is unchanged: `Escape` closes, focus stays contained, reduced motion is respected, tab semantics hold, and the full-network overlay's pointer behaviour is untouched.
 
