@@ -45,7 +45,9 @@ function networkPathMarkup(path: DiagnosticRelationshipPath): string {
 function renderNetworkEmptyState(stage: HTMLElement): void {
   const empty = document.createElement("p");
   empty.className = "diagnostic-network-empty";
-  empty.textContent = "全網已開啟，但目前沒有可標示的按鍵。";
+  // The overlay draws transitions, not keys, so an empty mesh means there is no
+  // transition to draw — measured or structurally possible.
+  empty.textContent = "全網已開啟，但目前沒有可標示的轉換。";
   stage.append(empty);
 }
 

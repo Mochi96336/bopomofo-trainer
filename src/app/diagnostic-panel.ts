@@ -6,6 +6,7 @@ import {
   physicalKeyLabel,
   tokenLabel,
 } from "../diagnostics/labels.js";
+import { DIAGNOSTIC_POLICY } from "../diagnostics/policy.js";
 import {
   selectConfusionDiagnostics,
   selectKeyDiagnostics,
@@ -170,8 +171,11 @@ function keyRows(
   );
 }
 
-// Direction and minimum-sample filters proved to be noise nobody used; the
-// list always shows everything, filtered only by an explicit key selection.
+// Direction and list-length filters proved to be noise nobody used and were
+// removed; there is no scope control left for copy to refer to. One gate does
+// remain: a transition still needs the policy's preliminary sample count before
+// it is listed at all, so empty-state copy has to say so rather than claim
+// there is no data.
 function transitionRows(
   model: DiagnosticModel,
   state: EphemeralDiagnosticState,
@@ -179,10 +183,25 @@ function transitionRows(
   return selectTransitionDiagnostics(model.transitions, {
     selectedKey: state.selectedKey,
     direction: "both",
-    minimumSamples: 3,
+    minimumSamples: DIAGNOSTIC_POLICY.relationshipSamples.preliminary,
     includeTone: true,
     complete: true,
   });
+}
+
+export function transitionEmptyMessage(
+  model: Pick<DiagnosticModel, "transitions">,
+  selectedKey: TokenId | null,
+): string {
+  if (selectedKey !== null) return `${tokenLabel(selectedKey)} 目前沒有可列出的轉換。`;
+  if (model.transitions.length === 0) return "尚無轉換資料。";
+  return `轉換樣本仍不足；累積 ${DIAGNOSTIC_POLICY.relationshipSamples.preliminary} 個樣本後才會列出。`;
+}
+
+export function confusionEmptyMessage(selectedKey: TokenId | null): string {
+  return selectedKey === null
+    ? "尚無誤按資料。"
+    : `${tokenLabel(selectedKey)} 目前沒有誤按紀錄。`;
 }
 
 function confusionRows(
@@ -235,9 +254,11 @@ export function renderDiagnosticSummary(
   const transitionValue = signals.transition === null
     ? "—"
     : `${signals.transition.fromSymbol} → ${signals.transition.toSymbol}`;
-  const transitionMeta = signals.transition === null
-    ? "轉換樣本不足"
-    : `${milliseconds(signals.transition.timingMs)} · ${signals.transition.timingSamples} 樣本`;
+  const transitionMeta = signals.transition !== null
+    ? `${milliseconds(signals.transition.timingMs)} · ${signals.transition.timingSamples} 樣本`
+    // No representative row means either nothing recorded at all or nothing that
+    // clears the sample gate; those read very differently to a learner.
+    : model.transitions.length === 0 ? "尚無轉換資料" : "轉換樣本不足";
   const confusionValue = signals.confusion === null
     ? "—"
     : `${signals.confusion.expectedSymbol} → ${signals.confusion.actualSymbol}`;
@@ -346,7 +367,7 @@ function keyboardMarkup(
       <h2 id="diagnostic-analysis-title" aria-label="弱點診斷分析">分析</h2>
     </div>
     <div class="diagnostic-network-icon-slot">
-      <button type="button" class="diagnostic-network-icon" data-action="toggle-network" aria-pressed="${networkVisible(preferences, state)}" aria-label="全網：顯示所有已發生與可能的關聯，依嚴重程度從淡墨變紅" title="全網">${NETWORK_ICON_SVG}</button>
+      <button type="button" class="diagnostic-network-icon" data-action="toggle-network" aria-pressed="${networkVisible(preferences, state)}" aria-label="全網：顯示所有已發生與注音結構上可能的轉換，依嚴重程度從淡墨變紅" title="全網">${NETWORK_ICON_SVG}</button>
     </div>
     <div class="diagnostic-keyboard-stage">
       <div class="diagnostic-keyboard-board">
@@ -405,10 +426,12 @@ function inspectorToolbarMarkup(preferences: DiagnosticPreferences): string {
 
 function keyListRowMarkup(row: KeyDiagnostic, selected: boolean): string {
   const primary = row.displayedErrorRatio === null ? "—" : percent(row.displayedErrorRatio);
+  // A null timing always means zero accepted samples, so the old
+  // `${timingSamples} 時間樣本` could only ever render "0 時間樣本".
   const timing = row.timingAvailability === "not-applicable"
     ? "時間不適用"
     : row.timingMs === null
-      ? `${row.timingSamples} 時間樣本`
+      ? "尚無時間樣本"
       : `${milliseconds(row.timingMs)} · ${row.timingSamples} 樣本`;
   return `<button type="button" class="diagnostic-inspector-row${selected ? " selected" : ""}" data-action="select-key" data-token="${escapeHtml(row.tokenId)}" aria-pressed="${selected}">
     <span class="diagnostic-inspector-identity"><strong>${escapeHtml(row.symbol)}</strong><small>${escapeHtml(row.physicalKey)}</small></span>
@@ -438,12 +461,13 @@ function keySampleNotices(row: KeyDiagnostic): string {
   if (row.errorDataState !== "sufficient") {
     notices.push(`<div><dt>錯誤觀察</dt><dd>${escapeHtml(diagnosticDataStateLabel(row.errorDataState))}</dd></div>`);
   }
+  // Timing availability and timing data state move together: the model only
+  // leaves the state null when timing is not applicable, which the first branch
+  // already covers. There is no third case to write copy for.
   if (row.timingAvailability === "not-applicable") {
     notices.push("<div><dt>鍵間時間</dt><dd>不適用</dd></div>");
   } else if (row.timingDataState !== null && row.timingDataState !== "sufficient") {
     notices.push(`<div><dt>鍵間時間</dt><dd>${escapeHtml(diagnosticDataStateLabel(row.timingDataState))}</dd></div>`);
-  } else if (row.timingDataState === null) {
-    notices.push("<div><dt>鍵間時間</dt><dd>資料不足</dd></div>");
   }
   if (notices.length === 0) return "";
   return `<section><h4>樣本提示</h4><dl class="diagnostic-detail-lines">${notices.join("")}</dl></section>`;
@@ -707,7 +731,7 @@ function inspectorMarkup(
       ${inspectorHeadMarkup(preferences, state)}
       ${inspectorToolbarMarkup(preferences)}
       <div class="diagnostic-inspector-list">
-        ${rows.length === 0 ? '<p class="diagnostic-inspector-empty">此範圍沒有轉換資料。</p>' : rows.map((row) => transitionListRowMarkup(row, selected?.id === row.id)).join("")}
+        ${rows.length === 0 ? `<p class="diagnostic-inspector-empty">${escapeHtml(transitionEmptyMessage(model, state.selectedKey))}</p>` : rows.map((row) => transitionListRowMarkup(row, selected?.id === row.id)).join("")}
       </div>
       <div class="diagnostic-inspector-detail">${transitionDetailMarkup(selected)}</div>
       ${inspectorSummaryMarkup(preferences, rows.length)}
@@ -719,7 +743,7 @@ function inspectorMarkup(
     ${inspectorHeadMarkup(preferences, state)}
     ${inspectorToolbarMarkup(preferences)}
     <div class="diagnostic-inspector-list">
-      ${rows.length === 0 ? '<p class="diagnostic-inspector-empty">此範圍沒有誤按資料。</p>' : rows.map((row) => confusionListRowMarkup(row, selected?.id === row.id)).join("")}
+      ${rows.length === 0 ? `<p class="diagnostic-inspector-empty">${escapeHtml(confusionEmptyMessage(state.selectedKey))}</p>` : rows.map((row) => confusionListRowMarkup(row, selected?.id === row.id)).join("")}
     </div>
     <div class="diagnostic-inspector-detail">${confusionDetailMarkup(selected)}</div>
     ${inspectorSummaryMarkup(preferences, rows.length)}

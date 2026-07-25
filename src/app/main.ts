@@ -604,7 +604,9 @@ function weakestBindings(): readonly WeakBinding[] {
 function renderWeakBindingsSection(): string {
   const rows = weakestBindings();
   if (rows.length === 0) {
-    return '<div class="history-empty">累積更多練習後，這裡會列出目前錯誤率較高的按鍵。</div>';
+    // 錯誤觀察比例, not 錯誤率: recovery input counts as another mapped
+    // observation, so this is not a first-attempt error rate.
+    return '<div class="history-empty">累積更多練習後，這裡會列出目前錯誤觀察比例較高的按鍵。</div>';
   }
   const maxRate = Math.max(...rows.map((row) => row.errorRate));
   return `<div class="weak-bindings">${rows.map((row) => {
@@ -847,7 +849,9 @@ async function importProductBackup(input: HTMLInputElement): Promise<void> {
 
 function resetProgress(): void {
   const confirmed = window.confirm(
-    "這會清除這台瀏覽器中的所有練習、評估與 Pilot 歷史，確定繼續嗎？",
+    // Automatic evaluation rounds were removed, so this no longer mentions
+    // them; it does now clear the progress-trend history as well.
+    "這會清除這台瀏覽器中的所有練習紀錄、進步趨勢與 Pilot 歷史，確定繼續嗎？",
   );
   if (!confirmed) return;
 
