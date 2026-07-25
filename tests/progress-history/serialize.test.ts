@@ -1,0 +1,194 @@
+import { describe, expect, it } from "vitest";
+import { PROGRESS_HISTORY_POLICY } from "../../src/progress-history/policy.js";
+import {
+  parseProgressHistory,
+  PROGRESS_HISTORY_KEY_LIMIT,
+  serializeProgressHistory,
+} from "../../src/progress-history/serialize.js";
+import {
+  PROGRESS_HISTORY_SCHEMA_VERSION,
+  type KeyProgressHistory,
+  type ProgressHistory,
+} from "../../src/progress-history/types.js";
+
+const TOKEN = "zhuyin:A";
+const VALID_TOKENS = new Set([TOKEN, "zhuyin:B"]);
+
+function entry(overrides: Partial<KeyProgressHistory> = {}): KeyProgressHistory {
+  return {
+    tokenId: TOKEN,
+    correctness: [
+      { endingObservation: 8, completedRound: 1, attempts: 8, errors: 2, errorRatio: 0.25 },
+      { endingObservation: 16, completedRound: 2, attempts: 8, errors: 1, errorRatio: 0.125 },
+    ],
+    timing: [
+      { endingSample: 5, completedRound: 1, samples: 5, representativeTimingMs: 420 },
+      { endingSample: 10, completedRound: 2, samples: 5, representativeTimingMs: 360 },
+    ],
+    partialCorrectness: { attempts: 3, errors: 1 },
+    partialTiming: { samples: [340, 355] },
+    totalObservations: 19,
+    totalTimingSamples: 12,
+    ...overrides,
+  };
+}
+
+function history(keyEntry: KeyProgressHistory = entry()): ProgressHistory {
+  return {
+    schemaVersion: PROGRESS_HISTORY_SCHEMA_VERSION,
+    mode: "guided",
+    layoutId: "zhuyin-standard",
+    lastCompletedRound: 4,
+    keys: { [TOKEN]: keyEntry },
+  };
+}
+
+function parse(source: string): ProgressHistory | null {
+  return parseProgressHistory(source, "guided", "zhuyin-standard", VALID_TOKENS);
+}
+
+function mutate(change: (draft: Record<string, unknown>) => void): string {
+  const draft = JSON.parse(serializeProgressHistory(history())) as Record<string, unknown>;
+  change(draft);
+  return JSON.stringify(draft);
+}
+
+function mutateEntry(change: (draft: Record<string, unknown>) => void): string {
+  return mutate((draft) => {
+    change((draft.keys as Record<string, Record<string, unknown>>)[TOKEN]!);
+  });
+}
+
+describe("progress history persistence", () => {
+  it("round-trips a valid history", () => {
+    const original = history();
+    expect(parse(serializeProgressHistory(original))).toEqual(original);
+  });
+
+  it("rejects unparsable source and an unsupported schema generation", () => {
+    expect(parse("{")).toBeNull();
+    expect(parse(mutate((draft) => { draft.schemaVersion = 2; }))).toBeNull();
+  });
+
+  it("rejects a history recorded under a different mode or layout", () => {
+    expect(parse(mutate((draft) => { draft.mode = "recall"; }))).toBeNull();
+    expect(parse(mutate((draft) => { draft.layoutId = "other"; }))).toBeNull();
+  });
+
+  it("rejects a token that the current layout and catalog support do not know", () => {
+    expect(parse(mutate((draft) => {
+      draft.keys = { "zhuyin:UNKNOWN": entry() };
+    }))).toBeNull();
+  });
+
+  it("gates the number of stored keys before validating them", () => {
+    const keys: Record<string, unknown> = {};
+    for (let index = 0; index <= PROGRESS_HISTORY_KEY_LIMIT; index += 1) {
+      keys[`zhuyin:${index}`] = entry();
+    }
+    expect(parse(mutate((draft) => { draft.keys = keys; }))).toBeNull();
+  });
+
+  it("rejects arrays longer than the completed-point limit", () => {
+    expect(parse(mutateEntry((draft) => {
+      draft.correctness = Array.from(
+        { length: PROGRESS_HISTORY_POLICY.completedPointLimit + 1 },
+        (_, index) => ({
+          endingObservation: (index + 1) * 8,
+          completedRound: 1,
+          attempts: 8,
+          errors: 0,
+          errorRatio: 0,
+        }),
+      );
+    }))).toBeNull();
+  });
+
+  it("rejects negative, non-integer, NaN, and Infinity values", () => {
+    expect(parse(mutateEntry((draft) => {
+      draft.partialCorrectness = { attempts: -1, errors: 0 };
+    }))).toBeNull();
+    expect(parse(mutateEntry((draft) => {
+      draft.partialCorrectness = { attempts: 2.5, errors: 0 };
+    }))).toBeNull();
+    expect(parse(mutateEntry((draft) => {
+      draft.partialTiming = { samples: [Number.NaN] };
+    }))).toBeNull();
+    expect(parse(mutate((draft) => {
+      draft.lastCompletedRound = Number.POSITIVE_INFINITY;
+    }))).toBeNull();
+    expect(parse(mutateEntry((draft) => {
+      draft.timing = [
+        { endingSample: 5, completedRound: 1, samples: 5, representativeTimingMs: -1 },
+      ];
+      draft.totalTimingSamples = 7;
+    }))).toBeNull();
+  });
+
+  it("rejects a point whose counts contradict its own stored ratio", () => {
+    expect(parse(mutateEntry((draft) => {
+      draft.correctness = [
+        { endingObservation: 8, completedRound: 1, attempts: 8, errors: 2, errorRatio: 0.9 },
+      ];
+      draft.totalObservations = 11;
+    }))).toBeNull();
+  });
+
+  it("rejects a point whose bucket size disagrees with the policy", () => {
+    expect(parse(mutateEntry((draft) => {
+      draft.correctness = [
+        { endingObservation: 4, completedRound: 1, attempts: 4, errors: 1, errorRatio: 0.25 },
+      ];
+      draft.totalObservations = 7;
+    }))).toBeNull();
+  });
+
+  it("rejects duplicate and out-of-order points", () => {
+    const point = {
+      endingObservation: 8,
+      completedRound: 2,
+      attempts: 8,
+      errors: 1,
+      errorRatio: 0.125,
+    };
+    expect(parse(mutateEntry((draft) => {
+      draft.correctness = [point, point];
+      draft.totalObservations = 11;
+    }))).toBeNull();
+    expect(parse(mutateEntry((draft) => {
+      draft.correctness = [
+        { ...point, endingObservation: 16, completedRound: 3 },
+        { ...point, endingObservation: 8, completedRound: 2 },
+      ];
+      draft.totalObservations = 11;
+    }))).toBeNull();
+  });
+
+  it("rejects an overfull partial bucket", () => {
+    expect(parse(mutateEntry((draft) => {
+      draft.partialCorrectness = {
+        attempts: PROGRESS_HISTORY_POLICY.correctnessBucketSize,
+        errors: 0,
+      };
+      draft.totalObservations = 16 + PROGRESS_HISTORY_POLICY.correctnessBucketSize;
+    }))).toBeNull();
+    expect(parse(mutateEntry((draft) => {
+      draft.partialTiming = {
+        samples: Array.from(
+          { length: PROGRESS_HISTORY_POLICY.timingBucketSize },
+          () => 300,
+        ),
+      };
+      draft.totalTimingSamples = 10 + PROGRESS_HISTORY_POLICY.timingBucketSize;
+    }))).toBeNull();
+  });
+
+  it("rejects totals that disagree with the stored points", () => {
+    expect(parse(mutateEntry((draft) => { draft.totalObservations = 40; }))).toBeNull();
+    expect(parse(mutateEntry((draft) => { draft.totalTimingSamples = 40; }))).toBeNull();
+  });
+
+  it("rejects a point recorded after the history's own last completed round", () => {
+    expect(parse(mutate((draft) => { draft.lastCompletedRound = 1; }))).toBeNull();
+  });
+});

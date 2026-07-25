@@ -16,6 +16,8 @@ import type {
   DiagnosticDataState,
   DiagnosticModel,
   KeyDiagnostic,
+  KeyProgressSeries,
+  KeyProgressTrends,
   TransitionDiagnostic,
 } from "../diagnostics/types.js";
 import { STANDARD_BOPOMOFO_LAYOUT } from "../scheme/standard-layout.js";
@@ -454,7 +456,143 @@ function keyTimingCaption(row: KeyDiagnostic): string {
   return `${row.timingSamples} 樣本`;
 }
 
-function keyDetailMarkup(row: KeyDiagnostic | null): string {
+// The viewBox scales uniformly (no `preserveAspectRatio="none"`), so the point
+// markers stay circular at every pane width instead of being squashed into
+// ellipses, and the horizontal padding keeps the emphasized newest point fully
+// inside the frame.
+const PROGRESS_CHART = {
+  width: 230,
+  height: 52,
+  padX: 9,
+  padY: 8,
+} as const;
+
+function progressValueText(series: KeyProgressSeries, value: number): string {
+  return series.unit === "percent" ? percent(value) : milliseconds(value);
+}
+
+function progressAxisText(series: KeyProgressSeries): string {
+  const { minimum, maximum } = series.chartDomain;
+  return series.unit === "percent"
+    ? `軸 ${percent(minimum)}–${percent(maximum)}`
+    : `軸 ${Math.round(minimum)}–${Math.round(maximum)} ms`;
+}
+
+// The delta line is the two comparison windows' representative values, not the
+// first and last raw points: a single outlying bucket at either end must not be
+// what the learner reads as the change.
+function progressDeltaText(series: KeyProgressSeries): string {
+  const { previousValue, recentValue } = series.trend;
+  if (previousValue !== null && recentValue !== null) {
+    return `${progressValueText(series, previousValue)} → ${progressValueText(series, recentValue)}`;
+  }
+  return series.latestValue === null ? "—" : progressValueText(series, series.latestValue);
+}
+
+function progressPartialText(series: KeyProgressSeries): string {
+  if (series.partialSampleCount === 0) return "";
+  return `下一個區段 ${series.partialSampleCount} / ${series.bucketSize}`;
+}
+
+/**
+ * A small inline chart. Points are positioned inside the domain the diagnostics
+ * projection already chose, which carries a minimum span, so a one-point
+ * difference cannot be drawn as a cliff. There is no extrapolated segment past
+ * the newest point.
+ */
+function progressChartMarkup(series: KeyProgressSeries): string {
+  const { width, height, padX, padY } = PROGRESS_CHART;
+  const { minimum, maximum } = series.chartDomain;
+  const span = maximum - minimum || 1;
+  const innerWidth = width - padX * 2;
+  const innerHeight = height - padY * 2;
+  const step = series.points.length > 1 ? innerWidth / (series.points.length - 1) : 0;
+  const placed = series.points.map((point) => ({
+    point,
+    x: series.points.length > 1 ? padX + step * point.index : width / 2,
+    y: padY + innerHeight - ((point.value - minimum) / span) * innerHeight,
+  }));
+  const path = placed
+    .map((entry, index) => `${index === 0 ? "M" : "L"}${entry.x.toFixed(1)},${entry.y.toFixed(1)}`)
+    .join(" ");
+  const reference = series.trend.previousValue === null
+    ? ""
+    : `<line class="diagnostic-progress-reference" x1="${padX}" x2="${width - padX}" y1="${(padY + innerHeight - ((series.trend.previousValue - minimum) / span) * innerHeight).toFixed(1)}" y2="${(padY + innerHeight - ((series.trend.previousValue - minimum) / span) * innerHeight).toFixed(1)}"></line>`;
+  const dots = placed.map((entry, index) => {
+    const latest = index === placed.length - 1;
+    const title = `第 ${entry.point.index + 1} 區段 · ${progressValueText(series, entry.point.value)} · ${entry.point.sampleCount} 樣本`;
+    return `<circle class="diagnostic-progress-point${latest ? " latest" : ""}" cx="${entry.x.toFixed(1)}" cy="${entry.y.toFixed(1)}" r="${latest ? 3 : 1.9}"><title>${escapeHtml(title)}</title></circle>`;
+  }).join("");
+  return `<svg class="diagnostic-progress-svg" viewBox="0 0 ${width} ${height}" role="presentation" focusable="false">
+    ${reference}
+    ${placed.length > 1 ? `<path class="diagnostic-progress-line" d="${path}"></path>` : ""}
+    ${dots}
+  </svg>`;
+}
+
+function progressSeriesMarkup(series: KeyProgressSeries): string {
+  const head = `<figcaption class="diagnostic-progress-head">
+      <span class="diagnostic-progress-metric">${escapeHtml(series.metricLabel)}</span>
+      <span class="diagnostic-progress-delta">${escapeHtml(progressDeltaText(series))}</span>
+    </figcaption>`;
+  const summary = `<p class="visually-hidden">${escapeHtml(series.accessibleSummary)}</p>`;
+
+  if (series.state === "not-applicable") {
+    return `<figure class="diagnostic-progress-series" data-metric="${series.metric}" data-state="not-applicable">
+      <figcaption class="diagnostic-progress-head"><span class="diagnostic-progress-metric">${escapeHtml(series.metricLabel)}</span></figcaption>
+      <p class="diagnostic-progress-note">不適用</p>
+      ${summary}
+    </figure>`;
+  }
+  if (series.state === "no-history") {
+    const partial = progressPartialText(series);
+    return `<figure class="diagnostic-progress-series" data-metric="${series.metric}" data-state="no-history">
+      <figcaption class="diagnostic-progress-head"><span class="diagnostic-progress-metric">${escapeHtml(series.metricLabel)}</span></figcaption>
+      <p class="diagnostic-progress-note">從本版本開始累積趨勢</p>
+      ${partial ? `<p class="diagnostic-progress-partial">${escapeHtml(partial)}</p>` : ""}
+      ${summary}
+    </figure>`;
+  }
+
+  const caption = series.state === "single-point"
+    ? "再累積一些有效觀察後才能比較"
+    : series.trend.state === "insufficient"
+      ? "目前資料不足以判斷方向"
+      : series.trend.label;
+  const partial = progressPartialText(series);
+  const meta = [
+    progressAxisText(series),
+    series.metric === "timing" ? "越低越快" : "",
+    partial,
+  ].filter(Boolean).join(" · ");
+
+  return `<figure class="diagnostic-progress-series" data-metric="${series.metric}" data-state="${series.state}" data-trend="${series.trend.state}">
+    ${head}
+    ${progressChartMarkup(series)}
+    <p class="diagnostic-progress-trend">${escapeHtml(caption)}</p>
+    <p class="diagnostic-progress-meta">${escapeHtml(meta)}</p>
+    ${summary}
+  </figure>`;
+}
+
+/**
+ * `最近變化` sits below the exact cumulative detail, never replacing it. The two
+ * metrics stay on separate charts with separate values: they are different
+ * observations and are never combined into one score or one axis.
+ */
+export function keyProgressMarkup(trends: KeyProgressTrends | undefined): string {
+  if (trends === undefined) return "";
+  return `<section class="diagnostic-progress">
+    <h4>最近變化</h4>
+    ${progressSeriesMarkup(trends.correctness)}
+    ${progressSeriesMarkup(trends.timing)}
+  </section>`;
+}
+
+function keyDetailMarkup(
+  row: KeyDiagnostic | null,
+  trends?: KeyProgressTrends,
+): string {
   if (row === null) return '<div class="diagnostic-detail-empty">選一個按鍵查看量測。</div>';
   return `<article class="diagnostic-detail-card">
     <header><div><span>按鍵</span><h3>${escapeHtml(row.symbol)} <small>${escapeHtml(row.physicalKey)}</small></h3></div>${detailStateMarkup(row.overallDataState)}</header>
@@ -472,6 +610,7 @@ function keyDetailMarkup(row: KeyDiagnostic | null): string {
       <div><dt>輸入干擾</dt><dd>${row.excludedSamples.interactionNoise}</dd></div>
     </dl></section>
     <section><h4>選題原因</h4><p>${escapeHtml(row.reinforcement.reason)}</p></section>
+    ${keyProgressMarkup(trends)}
   </article>`;
 }
 
@@ -536,7 +675,7 @@ function inspectorMarkup(
       <div class="diagnostic-inspector-list">
         ${rows.length === 0 ? '<p class="diagnostic-inspector-empty">尚無按鍵資料。</p>' : rows.map((row) => keyListRowMarkup(row, selected?.tokenId === row.tokenId)).join("")}
       </div>
-      <div class="diagnostic-inspector-detail">${keyDetailMarkup(selected)}</div>
+      <div class="diagnostic-inspector-detail">${keyDetailMarkup(selected, selected === null ? undefined : model.keyProgress[selected.tokenId])}</div>
       ${inspectorSummaryMarkup(preferences, rows.length)}
     </aside>`;
   }

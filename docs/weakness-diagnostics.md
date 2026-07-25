@@ -205,7 +205,10 @@ The detail pane shows:
 - visible warnings only when error or timing data is insufficient or preliminary;
 - accepted timing and best timing;
 - all four timing exclusion counters;
-- current frequency-first expected-token influence and reason.
+- current frequency-first expected-token influence and reason;
+- a `最近變化` section holding the bounded correctness and timing history charts.
+
+`最近變化` sits below the exact cumulative values and never replaces them. The two metrics keep separate charts, separate axes, and separate values; they are never combined into one score or one dual-axis chart. Its full contract — bucket semantics, bounded persistence, the trend dead zone, empty states, and the no-prediction boundary — is in [diagnostic progress history](./diagnostic-progress-history.md).
 
 ### Transition inspector
 
@@ -245,7 +248,7 @@ It must not introduce subjective counts such as `3 個值得注意的按鍵` unl
 
 ## Separate metrics
 
-Correctness and timing remain separate observations. The interface may use an overall conservative data state to decide whether a warning is needed, but it never combines metrics into a mastery or weakness score.
+Correctness and timing remain separate observations. The interface may use an overall conservative data state to decide whether a warning is needed, but it never combines metrics into a mastery or weakness score. This holds for progress history too: the two series are never merged into a mastery, weakness, skill, confidence, or progress score.
 
 The key correctness label is `錯誤觀察比例`:
 
@@ -332,6 +335,14 @@ Browser UI code does not read measurement aggregates directly. `src/diagnostics/
 
 The measurement-contract change rotates product progress to schema 4 and Pilot history to schema 3. Older generations are deleted rather than partially migrated, so aggregates with different confusion semantics are never mixed.
 
+Bounded per-key progress history uses its own independent key:
+
+```text
+bopomofo-trainer.progress-history.v1
+```
+
+It is deliberately not part of `ProductProgress`: adding it there would bump the progress schema and, under this repository's delete-rather-than-migrate rule, discard every existing learner's cumulative aggregates to add a feature that has no history to show them yet. Existing learners keep their aggregates and begin accumulating history from this version. See [diagnostic progress history](./diagnostic-progress-history.md).
+
 Diagnostic UI preferences use the independent key:
 
 ```text
@@ -357,7 +368,8 @@ The previously implemented drawer-expansion preference is retained only until th
 - graph/list hover, focus, click, and selection synchronization;
 - tone-specific relationship routing;
 - reduced-motion and keyboard tab navigation;
-- measurement-generation rotation for expanded confusion contexts.
+- measurement-generation rotation for expanded confusion contexts;
+- bounded per-key progress history with conservative recent-change summaries in the selected-key detail.
 
 ### Remaining cleanup
 
@@ -394,6 +406,8 @@ This workstream does not provide:
 - a combined weakness or mastery score;
 - first-attempt error rate;
 - statistical confidence intervals;
+- predicted mastery dates, remaining-lesson counts, unlock models, or any forward extrapolation of a trend;
+- transition or directional-confusion history (deferred with a documented extension point);
 - cross-user comparison;
 - ergonomic causal inference;
 - mobile-specific interaction design;

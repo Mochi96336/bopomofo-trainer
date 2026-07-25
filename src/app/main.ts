@@ -37,6 +37,13 @@ import {
   saveLocalProductProgress,
 } from "./local-progress.js";
 import {
+  clearLocalProgressHistory,
+  loadLocalProgressHistory,
+  saveLocalProgressHistory,
+} from "./local-progress-history.js";
+import { appendRoundToProgressHistory, createEmptyProgressHistory } from "../progress-history/update.js";
+import type { ProgressHistory } from "../progress-history/types.js";
+import {
   buildPracticeEntries,
   continuousExerciseText,
 } from "./presentation-model.js";
@@ -116,6 +123,19 @@ try {
   const loaded = loadLocalPilotHistory(localStorage, initialProgress, environment);
   pilotHistory = loaded.history;
   recoveredPilotHistory = loaded.recoveredFromInvalidState;
+} catch {
+  storageWarning = "瀏覽器無法讀取完整本機資料；練習仍可使用，但練習歷史可能無法保存。";
+}
+let progressHistory: ProgressHistory = createEmptyProgressHistory(
+  initialProgress.mode,
+  initialProgress.layoutId,
+);
+try {
+  progressHistory = loadLocalProgressHistory(
+    localStorage,
+    initialProgress,
+    environment,
+  ).history;
 } catch {
   storageWarning = "瀏覽器無法讀取完整本機資料；練習仍可使用，但練習歷史可能無法保存。";
 }
@@ -716,6 +736,7 @@ function persistProgress(): void {
   try {
     saveLocalProductProgress(localStorage, product.progress);
     saveLocalPilotHistory(localStorage, pilotHistory);
+    saveLocalProgressHistory(localStorage, progressHistory);
     storageWarning = "";
   } catch {
     storageWarning = "無法寫入 localStorage；請勿關閉頁面，否則本輪進度可能遺失。";
@@ -773,7 +794,7 @@ function bindInfluenceControl(
 function downloadProductBackup(): void {
   downloadJson(
     `bopomofo-backup-${new Date().toISOString().slice(0, 10)}.json`,
-    createProductBackup(product.progress, pilotHistory, selectionTuning),
+    createProductBackup(product.progress, pilotHistory, progressHistory, selectionTuning),
   );
   dataNotice = "存檔已匯出。";
   renderInformationPanel();
@@ -806,6 +827,7 @@ async function importProductBackup(input: HTMLInputElement): Promise<void> {
   );
   product = createProductState(environment, backup.progress, performance.now());
   pilotHistory = backup.pilotHistory;
+  progressHistory = backup.progressHistory;
   recoveredFromInvalidState = false;
   recoveredPilotHistory = false;
   inspectionAdvanceCount = 0;
@@ -833,6 +855,7 @@ function resetProgress(): void {
   try {
     clearLocalProductProgress(localStorage);
     clearLocalPilotHistory(localStorage);
+    clearLocalProgressHistory(localStorage);
     storageWarning = "";
   } catch {
     canPersist = false;
@@ -847,6 +870,7 @@ function resetProgress(): void {
   );
   product = createProductState(environment, progress, performance.now());
   pilotHistory = migratePilotHistory(progress);
+  progressHistory = createEmptyProgressHistory(progress.mode, progress.layoutId);
   recoveredFromInvalidState = false;
   recoveredPilotHistory = false;
   inspectionAdvanceCount = 0;
@@ -872,6 +896,17 @@ function completeRoundAndAdvance(): void {
     environment.measurementPolicy,
   );
   pilotHistory = appendPilotRoundRecord(pilotHistory, record);
+  // History is folded exactly here: once, after the round is finalized and the
+  // measurement decisions for it are settled. Opening diagnostics, reloading,
+  // or re-importing a backup never re-enters this path, and the append itself
+  // ignores rounds it has already seen.
+  progressHistory = appendRoundToProgressHistory({
+    history: progressHistory,
+    exercise: product.round.exercise,
+    traces: product.session.traces,
+    measurementPolicy: environment.measurementPolicy,
+    completedRound: roundNumber,
+  });
   persistProgress();
   product = startNextProductRound(environment, product, performance.now());
   imeWarning = false;

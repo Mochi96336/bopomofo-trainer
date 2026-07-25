@@ -1,6 +1,12 @@
 import { parsePilotHistory, serializePilotHistory, type PilotHistory } from "../product/pilot-history.js";
 import { parseProductProgress, serializeProductProgress } from "../product/progress.js";
 import type { ProductEnvironment, ProductProgress } from "../product/types.js";
+import {
+  parseProgressHistory,
+  serializeProgressHistory,
+} from "../progress-history/serialize.js";
+import { createEmptyProgressHistory } from "../progress-history/update.js";
+import type { ProgressHistory } from "../progress-history/types.js";
 import { parseSelectionTuning, type SelectionTuning } from "./selection-tuning.js";
 
 export const PRODUCT_BACKUP_VERSION = 1 as const;
@@ -10,6 +16,7 @@ export interface ProductBackup {
   readonly exportedAt: string;
   readonly progress: ProductProgress;
   readonly pilotHistory: PilotHistory;
+  readonly progressHistory: ProgressHistory;
   readonly selectionTuning: SelectionTuning;
 }
 
@@ -20,6 +27,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export function createProductBackup(
   progress: ProductProgress,
   pilotHistory: PilotHistory,
+  progressHistory: ProgressHistory,
   selectionTuning: SelectionTuning,
   exportedAt = new Date().toISOString(),
 ): string {
@@ -28,6 +36,7 @@ export function createProductBackup(
     exportedAt,
     progress: JSON.parse(serializeProductProgress(progress)) as unknown,
     pilotHistory: JSON.parse(serializePilotHistory(pilotHistory)) as unknown,
+    progressHistory: JSON.parse(serializeProgressHistory(progressHistory)) as unknown,
     selectionTuning,
   }, null, 2)}\n`;
 }
@@ -65,11 +74,28 @@ export function parseProductBackup(
   if (progress === null || pilotHistory === null || selectionTuning === null) return null;
   const completedRounds = progress.practiceRoundsCompleted + progress.evaluationRoundsCompleted;
   if (pilotHistory.records.some((record) => record.roundNumber > completedRounds)) return null;
+
+  // Backups written before progress history existed stay importable: a missing
+  // section means the learner simply has no history, which is the same upgrade
+  // state as a first run on this version. A present section must still parse.
+  const progressHistory = parsed.progressHistory === undefined
+    ? createEmptyProgressHistory(mode, layoutId)
+    : parseProgressHistory(
+        JSON.stringify(parsed.progressHistory),
+        mode,
+        layoutId,
+        new Set(Object.keys(environment.practiceSupport.byToken)),
+      );
+  if (progressHistory === null || progressHistory.lastCompletedRound > completedRounds) {
+    return null;
+  }
+
   return {
     backupVersion: PRODUCT_BACKUP_VERSION,
     exportedAt: parsed.exportedAt,
     progress,
     pilotHistory,
+    progressHistory,
     selectionTuning,
   };
 }

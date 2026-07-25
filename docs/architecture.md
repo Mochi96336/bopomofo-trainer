@@ -15,6 +15,7 @@ src/
   relations/     Ordered occurrence indexes, support analysis, partitions.
   practice/      Existing sessions, boundaries, and normalized traces.
   measurement/   Binding, transition, confusion, boundary estimators.
+  progress-history/ Bounded per-key observation buckets accumulated per round.
   curriculum/    Objective policies and historical binding-only baseline.
   diagnostics/   Pure user-facing projections, data states, and selectors.
   composition/   Retrieval, candidate costs, ordering, variable sequences.
@@ -57,7 +58,8 @@ Rules:
 9. experiment reports may read hidden truth only after a run for evaluation;
 10. integration code orchestrates public module APIs and does not reimplement importer, partition, composition, learner, or measurement rules;
 11. product and app modules contain no research selection algorithm;
-12. diagnostics project existing measurements and current product policy into display data, but never mutate learner state or recompute practice selection.
+12. diagnostics project existing measurements and current product policy into display data, but never mutate learner state or recompute practice selection;
+13. progress history accumulates only observations the measurement policy already accepted, is bounded by an explicit policy, is written once per completed round, and never reconstructs past points from cumulative aggregates.
 
 ## Evidence flow
 

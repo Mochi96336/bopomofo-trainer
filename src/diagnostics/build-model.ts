@@ -14,11 +14,14 @@ import {
   reinforcementStateLabel,
   tokenLabel,
 } from "./labels.js";
+import { PROGRESS_HISTORY_POLICY } from "../progress-history/policy.js";
+import type { ProgressHistory } from "../progress-history/types.js";
 import {
   conservativeDataState,
   dataStateForSamples,
   DIAGNOSTIC_POLICY,
 } from "./policy.js";
+import { buildProgressTrendIndex } from "./progress-trends.js";
 import type {
   ConfusionDiagnostic,
   DiagnosticModel,
@@ -33,6 +36,12 @@ export interface BuildDiagnosticModelInput {
   readonly support: CatalogSupportIndex;
   readonly layout: InputLayout;
   readonly selectionPolicy: FrequencyFirstUtterancePolicy;
+  /**
+   * Bounded progress history, when the browser has any. `null` and `undefined`
+   * both mean "no history yet", which the projection reports as the upgrade
+   * state rather than inventing points from cumulative aggregates.
+   */
+  readonly progressHistory?: ProgressHistory | null;
 }
 
 interface SelectionInfluence {
@@ -253,5 +262,16 @@ export function buildDiagnosticModel(
     keys,
     transitions,
     confusions,
+    keyProgress: buildProgressTrendIndex(
+      keys.map((key) => ({
+        tokenId: key.tokenId,
+        timingAvailable: key.timingAvailability === "available",
+      })),
+      input.progressHistory ?? null,
+      {
+        correctnessBucketSize: PROGRESS_HISTORY_POLICY.correctnessBucketSize,
+        timingBucketSize: PROGRESS_HISTORY_POLICY.timingBucketSize,
+      },
+    ),
   };
 }
