@@ -25,7 +25,7 @@ describe("commonness display", () => {
   // On screen the marks carry the level; the spoken label is the only place
   // that can say more or less than what, so it keeps the share.
   it("names both the level and its share of the catalog", () => {
-    expect(commonnessTierLabel(1)).toBe("等級 最常用 · 前 10%");
-    expect(commonnessTierLabel(4)).toBe("等級 少見 · 後 50%");
+    expect(commonnessTierLabel(1)).toBe("等級 高頻 · 前 10%");
+    expect(commonnessTierLabel(4)).toBe("等級 罕見 · 後 50%");
   });
 });

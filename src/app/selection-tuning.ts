@@ -1,3 +1,4 @@
+import { COMMONNESS_TIERS, type CommonnessTier } from "../commonness/tiers.js";
 import {
   FREQUENCY_FIRST_UTTERANCE_POLICY,
   type FrequencyFirstUtterancePolicy,
@@ -9,11 +10,19 @@ export const LOCAL_SELECTION_TUNING_KEY = "bopomofo-trainer.selection-tuning.v1"
 export interface SelectionTuning {
   readonly errorInfluence: number;
   readonly timingInfluence: number;
+  /**
+   * Commonness levels the learner wants practised, which is a wish rather than
+   * a state: levels not yet unlocked stay listed here and start being drawn on
+   * the round they open. What is actually practised is this narrowed to the
+   * unlocked levels by `effectiveCommonnessTiers`.
+   */
+  readonly rarityTiers: readonly CommonnessTier[];
 }
 
 export const DEFAULT_SELECTION_TUNING: SelectionTuning = {
   errorInfluence: 1,
   timingInfluence: 1,
+  rarityTiers: COMMONNESS_TIERS,
 };
 
 // Mirrors the last loaded/saved tuning so diagnostics can read the value the
@@ -28,6 +37,19 @@ function validInfluence(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 3;
 }
 
+/**
+ * `undefined` means a blob written before levels existed. Those learners never
+ * switched a level off, so they get the default wish for all of them, and their
+ * practice widens as they unlock rather than staying pinned at the first level.
+ */
+function parseRarityTiers(value: unknown): readonly CommonnessTier[] | null {
+  if (value === undefined) return DEFAULT_SELECTION_TUNING.rarityTiers;
+  if (!Array.isArray(value) || value.length === 0) return null;
+  const tiers = COMMONNESS_TIERS.filter((tier) => value.includes(tier));
+  if (tiers.length !== new Set(value).size || tiers.length !== value.length) return null;
+  return tiers;
+}
+
 export function parseSelectionTuning(source: string): SelectionTuning | null {
   let parsed: unknown;
   try {
@@ -37,11 +59,14 @@ export function parseSelectionTuning(source: string): SelectionTuning | null {
   }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
   const candidate = parsed as Record<string, unknown>;
+  const rarityTiers = parseRarityTiers(candidate.rarityTiers);
   if (!validInfluence(candidate.errorInfluence)
-    || !validInfluence(candidate.timingInfluence)) return null;
+    || !validInfluence(candidate.timingInfluence)
+    || rarityTiers === null) return null;
   return {
     errorInfluence: candidate.errorInfluence,
     timingInfluence: candidate.timingInfluence,
+    rarityTiers,
   };
 }
 

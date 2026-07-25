@@ -88,6 +88,6 @@ describe("commonness tiers", () => {
     expect(commonnessTierShareLabel(2)).toBe("前 10–25%");
     expect(commonnessTierShareLabel(3)).toBe("前 25–50%");
     expect(commonnessTierShareLabel(4)).toBe("後 50%");
-    expect(commonnessTierDescription(1)).toBe("最常用 · 前 10%");
+    expect(commonnessTierDescription(1)).toBe("高頻 · 前 10%");
   });
 });

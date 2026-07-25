@@ -101,6 +101,7 @@ button { touch-action: manipulation; }
 }
 
 .shell {
+  position: relative;
   width: min(1120px, calc(100% - 56px));
   min-height: 100vh;
   margin: 0 auto;
@@ -172,14 +173,22 @@ button { touch-action: manipulation; }
 }
 
 .notice-region:empty { display: none; }
+/* Out of flow on purpose: a notice appearing or retiring must not move the
+   sentence the learner is in the middle of typing. */
 .notice-region {
+  position: absolute;
+  z-index: 3;
+  top: 74px;
+  left: 0;
   display: grid;
+  width: min(100%, 460px);
   gap: 6px;
-  margin-top: 12px;
+  pointer-events: none;
 }
 .notice {
   padding: 8px 10px;
   border-left: 2px solid var(--ink-faint);
+  background: color-mix(in srgb, var(--canvas) 88%, transparent);
   color: var(--ink-muted);
   font-size: 11px;
   line-height: 1.5;
@@ -682,6 +691,63 @@ button { touch-action: manipulation; }
   outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
   outline-offset: 3px;
 }
+/* Three tracks so the marks sit at the row's centre rather than wherever the
+   label and the count happen to leave them. */
+.rarity-line {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 0;
+}
+.rarity-line .panel-notice {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.rarity-toggles {
+  display: flex;
+  gap: 10px;
+}
+.rarity-toggle {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  flex: 0 0 auto;
+  border: 1px solid var(--ink-faint);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ink-muted);
+  font: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease;
+}
+.rarity-toggle.on {
+  border-color: var(--accent);
+  background: var(--accent);
+  /* The same light face the switch knob uses on accent, in both themes. */
+  color: var(--switch-knob);
+}
+.rarity-toggle:disabled { cursor: default; }
+/* A locked level stays readable rather than fading out: it is the next thing to
+   earn, so it has to be legible enough to aim at. */
+.rarity-toggle.locked {
+  border-style: dashed;
+  color: var(--ink-faint);
+}
+.rarity-toggle:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.rarity-toggle:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  outline-offset: 2px;
+}
 .panel-note,
 .panel-notice {
   margin: 13px 0 0;
@@ -809,7 +875,51 @@ button { touch-action: manipulation; }
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.history-list { border-top: 1px solid var(--hairline); }
+.history-details summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+}
+.history-details summary::-webkit-details-marker { display: none; }
+.history-details summary::after {
+  color: var(--ink-faint);
+  content: "▾";
+  font-size: 10px;
+  transition: transform 120ms ease;
+}
+.history-details:not([open]) summary::after { transform: rotate(-90deg); }
+.history-details summary:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  outline-offset: 3px;
+}
+/* The list keeps its own bounded window, so a long history scrolls here instead
+   of pushing the sections below it out of reach. */
+.history-list {
+  max-height: 244px;
+  /* `scroll`, not `auto`: the bar stays put so the window is discoverable and
+     never changes width as records accumulate. The legacy `::-webkit-scrollbar`
+     rules below are what force a real, space-taking bar instead of an overlay
+     one that only appears mid-gesture -- Chromium ignores them as soon as the
+     standard `scrollbar-width`/`scrollbar-color` are set, so this list
+     deliberately does not set them. */
+  overflow-y: scroll;
+  border-top: 1px solid var(--hairline);
+  overscroll-behavior: contain;
+}
+.history-list:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  outline-offset: 2px;
+}
+.history-list::-webkit-scrollbar { width: 8px; }
+.history-list::-webkit-scrollbar-track { background: transparent; }
+.history-list::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--ink-faint);
+  background-clip: content-box;
+}
 .history-empty {
   padding: 20px 0 4px;
   color: var(--ink-muted);

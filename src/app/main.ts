@@ -1,9 +1,20 @@
 import "./style.css";
 import {
   catalogEntryCommonnessTier,
+  COMMONNESS_TIERS,
+  COMMONNESS_TIER_LABELS,
+  commonnessTierShareLabel,
   type CommonnessTier,
 } from "../commonness/tiers.js";
 import { commonnessDotsMarkup, commonnessTierLabel } from "./commonness-display.js";
+import {
+  catalogsForCommonnessTiers,
+  effectiveCommonnessTiers,
+  nextCommonnessUnlock,
+  practisedKeyCount,
+  requiredPractisedKeys,
+  unlockedCommonnessTiers,
+} from "../product/commonness-access.js";
 import type { TokenId } from "../core/model.js";
 import { createProductBackup, parseProductBackup } from "./backup.js";
 import {
@@ -20,7 +31,12 @@ import {
   createProductState,
   startNextProductRound,
 } from "../product/session.js";
-import type { ProductProgress, ProductState } from "../product/types.js";
+import type {
+  ProductCatalogs,
+  ProductEnvironment,
+  ProductProgress,
+  ProductState,
+} from "../product/types.js";
 import { STANDARD_BOPOMOFO_LAYOUT } from "../scheme/standard-layout.js";
 import {
   COMMONNESS_TIER_THRESHOLDS,
@@ -30,6 +46,8 @@ import {
 } from "./generated/catalog.js";
 import {
   isInspectionAdvanceShortcut,
+  isInspectionCompleteShortcut,
+  isInspectionUnlockShortcut,
   keyboardEventToInput,
 } from "./keyboard-adapter.js";
 import {
@@ -90,12 +108,31 @@ try {
   // Storage may be blocked; defaults still provide a complete local session.
 }
 applyTheme(theme);
-let environment = createProductEnvironment(
-  catalogs,
-  undefined,
-  undefined,
-  policyForSelectionTuning(selectionTuning),
-);
+
+function environmentFor(source: ProductCatalogs): ProductEnvironment {
+  return createProductEnvironment(
+    source,
+    undefined,
+    undefined,
+    policyForSelectionTuning(selectionTuning),
+  );
+}
+
+/**
+ * Stored progress, pilot history and backups are validated against the whole
+ * catalog, never the practised subset: their records point at entries that were
+ * drawn before the learner narrowed the levels, and reading them through the
+ * narrowed catalog would reject that history as invalid.
+ */
+let storageEnvironment = environmentFor(catalogs);
+// Play draws from the practised levels only. Until progress is loaded there is
+// nothing to unlock from, so it starts as the whole catalog.
+let environment = storageEnvironment;
+let unlockedTiers: readonly CommonnessTier[] = COMMONNESS_TIERS;
+let practisedTiers: readonly CommonnessTier[] = COMMONNESS_TIERS;
+// Hidden local-review override (F9). Deliberately not persisted: it opens the
+// levels for looking at, and nothing about it should survive as earned progress.
+let inspectionUnlockAll = false;
 
 function newSeed(): string {
   return globalThis.crypto?.randomUUID?.() ?? `local-${Date.now().toString(36)}`;
@@ -107,7 +144,7 @@ let loadedProgress: ProductProgress | null = null;
 try {
   const loaded = loadLocalProductProgress(
     localStorage,
-    environment,
+    storageEnvironment,
     "guided",
     STANDARD_BOPOMOFO_LAYOUT.id,
   );
@@ -118,7 +155,7 @@ try {
 }
 
 const initialProgress = loadedProgress ?? createFreshProgressForEnvironment(
-  environment,
+  storageEnvironment,
   newSeed(),
   "guided",
   STANDARD_BOPOMOFO_LAYOUT.id,
@@ -126,7 +163,7 @@ const initialProgress = loadedProgress ?? createFreshProgressForEnvironment(
 let pilotHistory: PilotHistory = migratePilotHistory(initialProgress);
 let recoveredPilotHistory = false;
 try {
-  const loaded = loadLocalPilotHistory(localStorage, initialProgress, environment);
+  const loaded = loadLocalPilotHistory(localStorage, initialProgress, storageEnvironment);
   pilotHistory = loaded.history;
   recoveredPilotHistory = loaded.recoveredFromInvalidState;
 } catch {
@@ -140,12 +177,13 @@ try {
   progressHistory = loadLocalProgressHistory(
     localStorage,
     initialProgress,
-    environment,
+    storageEnvironment,
   ).history;
 } catch {
   storageWarning = "瀏覽器無法讀取完整本機資料；練習仍可使用，但練習歷史可能無法保存。";
 }
 
+syncPractisedLevels(initialProgress);
 let product: ProductState = createProductState(
   environment,
   initialProgress,
@@ -158,7 +196,41 @@ let previousResult: PilotRoundRecord | null = null;
 let previousResultTimer: number | null = null;
 let inspectionAdvanceCount = 0;
 let tuningNotice = "";
+let rarityNotice = "";
 let dataNotice = "";
+let unlockNotice = "";
+let unlockNoticeTimer: number | null = null;
+
+/**
+ * Recomputes which levels are unlocked and which are practised, rebuilding the
+ * practice environment only when the practised set actually changes: rebuilding
+ * indexes the catalog, which is far too much work to repeat after every round
+ * just to arrive at the same pool.
+ *
+ * Returns the level that just unlocked, so the caller can say so.
+ */
+function syncPractisedLevels(
+  progress: ProductProgress,
+  rebuildAlways = false,
+): CommonnessTier | null {
+  const unlocked = inspectionUnlockAll
+    ? COMMONNESS_TIERS
+    : unlockedCommonnessTiers(progress.measurements);
+  const practised = effectiveCommonnessTiers(selectionTuning.rarityTiers, unlocked);
+  const opened = unlocked.filter((tier) => !unlockedTiers.includes(tier)).at(-1) ?? null;
+  const changed = practised.length !== practisedTiers.length
+    || practised.some((tier, index) => tier !== practisedTiers[index]);
+  unlockedTiers = unlocked;
+  practisedTiers = practised;
+  if (changed || rebuildAlways) environment = practiceEnvironment();
+  return opened;
+}
+
+function practiceEnvironment(): ProductEnvironment {
+  return environmentFor(
+    catalogsForCommonnessTiers(catalogs, COMMONNESS_TIER_THRESHOLDS, practisedTiers),
+  );
+}
 
 const reverseBindings = new Map<TokenId, string>();
 for (const [code, tokenId] of Object.entries(STANDARD_BOPOMOFO_LAYOUT.bindings)) {
@@ -330,8 +402,32 @@ function mountShell(): void {
   requireElement<HTMLElement>("#practice-stage").addEventListener("click", focusCapture);
 }
 
+function clearUnlockNotice(): void {
+  unlockNotice = "";
+  if (unlockNoticeTimer !== null) window.clearTimeout(unlockNoticeTimer);
+  unlockNoticeTimer = null;
+}
+
+/**
+ * The other notices in this region describe a lasting condition, so they stay.
+ * This one announces something that just happened, so it retires on its own
+ * rather than sitting in the corner for the rest of the session. Opening the
+ * information panel also retires it, because that is where it was pointing.
+ */
+function showUnlockNotice(message: string): void {
+  clearUnlockNotice();
+  unlockNotice = message;
+  renderNotices();
+  unlockNoticeTimer = window.setTimeout(() => {
+    unlockNotice = "";
+    unlockNoticeTimer = null;
+    renderNotices();
+  }, 6000);
+}
+
 function renderNotices(): void {
   const notices = [
+    unlockNotice,
     recoveredFromInvalidState
       ? "舊版或無效的本機進度已刪除，已從新的進度世代重新開始。"
       : "",
@@ -675,9 +771,83 @@ function renderCommonnessStatus(): void {
     return;
   }
   element.hidden = false;
-  element.setAttribute("aria-label", `本句最少見的詞 ${commonnessTierLabel(tier)}`);
+  element.setAttribute("aria-label", `本句最罕見的詞 ${commonnessTierLabel(tier)}`);
   element.innerHTML = `<span>等級</span>
     <span class="entry-commonness" data-tier="${tier}" aria-hidden="true">${commonnessDotsMarkup(tier)}</span>`;
+}
+
+/**
+ * Progress towards the next locked level, as practised keys over the keys it
+ * asks for. A count, not a sentence: the level names are already on the marks
+ * below it, and the pair of numbers is what changes round to round.
+ */
+function rarityHintText(): string {
+  const next = nextCommonnessUnlock(product.progress.measurements);
+  if (next === null) return "全部已解鎖";
+  // Under the review override the count is still the honest one; saying so keeps
+  // the open marks from reading as earned.
+  const count = `${next.practisedKeys}/${next.requiredKeys}`;
+  return inspectionUnlockAll ? `檢視用開放 · ${count}` : count;
+}
+
+/**
+ * One round mark per level, numbered in the same order as the level reading on
+ * the practice stage. A locked mark says what it is waiting for rather than only
+ * that it is closed, and the last lit mark cannot be switched off because a pool
+ * with no levels in it has no sentence to draw.
+ */
+function renderRaritySection(): string {
+  const practised = practisedKeyCount(product.progress.measurements);
+  const toggles = COMMONNESS_TIERS.map((tier) => {
+    const unlocked = unlockedTiers.includes(tier);
+    const enabled = practisedTiers.includes(tier);
+    const onlyEnabled = enabled && practisedTiers.length === 1;
+    const description = `${COMMONNESS_TIER_LABELS[tier]} · ${commonnessTierShareLabel(tier)}`;
+    const state = unlocked
+      ? onlyEnabled ? "至少要留一種稀有度" : enabled ? "練習中" : "未練習"
+      : `未解鎖：需練熟 ${requiredPractisedKeys(tier)} 個按鍵，目前 ${practised} 個`;
+    return `<button
+      type="button"
+      class="rarity-toggle${enabled ? " on" : ""}${unlocked ? "" : " locked"}"
+      data-rarity-tier="${tier}"
+      aria-pressed="${enabled ? "true" : "false"}"
+      aria-label="${escapeHtml(`等級 ${tier}：${description}，${state}`)}"
+      title="${escapeHtml(`${description}／${state}`)}"
+      ${unlocked && !onlyEnabled ? "" : "disabled"}
+    >${tier}</button>`;
+  }).join("");
+  // Label, marks and count share one line: four marks and a pair of numbers do
+  // not fill a row each, and reading them together is the whole point.
+  return `<section class="panel-section rarity-section">
+    <div class="panel-heading rarity-line">
+      <h3>稀有度</h3>
+      <div class="rarity-toggles" role="group" aria-label="稀有度">${toggles}</div>
+      ${rarityNotice
+        ? `<span class="panel-notice" role="status">${escapeHtml(rarityNotice)}</span>`
+        : `<output id="rarity-hint" class="panel-notice">${escapeHtml(rarityHintText())}</output>`}
+    </div>
+  </section>`;
+}
+
+function bindRarityControls(content: HTMLElement): void {
+  for (const button of content.querySelectorAll<HTMLButtonElement>("[data-rarity-tier]")) {
+    button.addEventListener("click", () => {
+      const tier = Number(button.dataset.rarityTier) as CommonnessTier;
+      const wanted = selectionTuning.rarityTiers.includes(tier)
+        ? selectionTuning.rarityTiers.filter((candidate) => candidate !== tier)
+        : COMMONNESS_TIERS.filter((candidate) =>
+          candidate === tier || selectionTuning.rarityTiers.includes(candidate));
+      selectionTuning = { ...selectionTuning, rarityTiers: wanted };
+      syncPractisedLevels(product.progress);
+      try {
+        saveSelectionTuning(localStorage, selectionTuning);
+        rarityNotice = "下一題生效";
+      } catch {
+        rarityNotice = "已套用，但無法保存";
+      }
+      renderInformationPanel();
+    });
+  }
 }
 
 function renderInformationPanel(): void {
@@ -708,9 +878,11 @@ function renderInformationPanel(): void {
     </section>
 
     <section class="panel-section history-section">
-      <div class="panel-heading history-heading"><h3>最近紀錄</h3></div>
-      ${renderTrendSection()}
-      <div class="history-list">${renderHistoryRows()}</div>
+      <details class="history-details" open>
+        <summary class="panel-heading history-heading"><h3>最近紀錄</h3></summary>
+        ${renderTrendSection()}
+        <div class="history-list" tabindex="0">${renderHistoryRows()}</div>
+      </details>
     </section>
 
     <section class="panel-section">
@@ -729,6 +901,8 @@ function renderInformationPanel(): void {
         </label>
       </div>
     </section>
+
+    ${renderRaritySection()}
 
     <section class="panel-section data-section">
       <div class="panel-heading"><h3>本機資料</h3></div>
@@ -759,6 +933,7 @@ function renderInformationPanel(): void {
   });
   bindInfluenceControl(content, "error-influence", "error-influence-value", "errorInfluence");
   bindInfluenceControl(content, "timing-influence", "timing-influence-value", "timingInfluence");
+  bindRarityControls(content);
   content.querySelector<HTMLButtonElement>("#download-backup")?.addEventListener("click", downloadProductBackup);
   const backupInput = content.querySelector<HTMLInputElement>("#import-backup");
   content.querySelector<HTMLButtonElement>("#choose-backup")?.addEventListener("click", () => backupInput?.click());
@@ -769,6 +944,14 @@ function renderInformationPanel(): void {
 function openInformationPanel(): void {
   const dialog = requireElement<HTMLDialogElement>("#information-dialog");
   if (dialog.open) return;
+  // The unlock notice points here, so opening the panel retires it early.
+  if (unlockNotice !== "") {
+    clearUnlockNotice();
+    renderNotices();
+  }
+  // The level notice takes the count's place while it shows, so a fresh open
+  // gets the count back rather than a stale "next sentence" line.
+  rarityNotice = "";
   renderInformationPanel();
   dialog.showModal();
   requireElement<HTMLButtonElement>(".dialog-close").focus({ preventScroll: true });
@@ -806,7 +989,7 @@ function bindInfluenceControl(
   content: HTMLElement,
   inputId: string,
   outputId: string,
-  key: keyof SelectionTuning,
+  key: "errorInfluence" | "timingInfluence",
 ): void {
   const input = content.querySelector<HTMLInputElement>(`#${inputId}`);
   const output = content.querySelector<HTMLOutputElement>(`#${outputId}`);
@@ -817,12 +1000,7 @@ function bindInfluenceControl(
   });
   input?.addEventListener("change", () => {
     selectionTuning = { ...selectionTuning, [key]: Number(input.value) / 100 };
-    environment = createProductEnvironment(
-      catalogs,
-      undefined,
-      undefined,
-      policyForSelectionTuning(selectionTuning),
-    );
+    environment = practiceEnvironment();
     try {
       saveSelectionTuning(localStorage, selectionTuning);
       tuningNotice = "權重已更新，下一題生效。";
@@ -847,7 +1025,7 @@ async function importProductBackup(input: HTMLInputElement): Promise<void> {
   if (file === undefined) return;
   const backup = parseProductBackup(
     await file.text(),
-    environment,
+    storageEnvironment,
     "guided",
     STANDARD_BOPOMOFO_LAYOUT.id,
   );
@@ -861,12 +1039,10 @@ async function importProductBackup(input: HTMLInputElement): Promise<void> {
     return;
   }
   selectionTuning = backup.selectionTuning;
-  environment = createProductEnvironment(
-    catalogs,
-    undefined,
-    undefined,
-    policyForSelectionTuning(selectionTuning),
-  );
+  // The imported tuning carries its own selection influences, so both
+  // environments are rebuilt even when the practised levels come out the same.
+  storageEnvironment = environmentFor(catalogs);
+  syncPractisedLevels(backup.progress, true);
   product = createProductState(environment, backup.progress, performance.now());
   pilotHistory = backup.pilotHistory;
   progressHistory = backup.progressHistory;
@@ -907,11 +1083,15 @@ function resetProgress(): void {
   }
 
   const progress = createFreshProgressForEnvironment(
-    environment,
+    storageEnvironment,
     newSeed(),
     "guided",
     STANDARD_BOPOMOFO_LAYOUT.id,
   );
+  // Cleared measurements mean nothing is unlocked any more, so practice returns
+  // to the most common level exactly as it does for a first run.
+  syncPractisedLevels(progress);
+  clearUnlockNotice();
   product = createProductState(environment, progress, performance.now());
   pilotHistory = migratePilotHistory(progress);
   progressHistory = createEmptyProgressHistory(progress.mode, progress.layoutId);
@@ -952,6 +1132,12 @@ function completeRoundAndAdvance(): void {
     completedRound: roundNumber,
   });
   persistProgress();
+  const opened = syncPractisedLevels(product.progress);
+  if (opened !== null) {
+    showUnlockNotice(
+      `稀有度「${COMMONNESS_TIER_LABELS[opened]}」已解鎖，已加入選題；可在資訊面板關閉。`,
+    );
+  }
   product = startNextProductRound(environment, product, performance.now());
   imeWarning = false;
   capture.value = "";
@@ -987,6 +1173,52 @@ function advanceRoundForInspection(): void {
   mountPracticeRound(true);
   updateTopbar();
   focusCapture();
+}
+
+/**
+ * Opens every commonness level for this page, or closes the override again.
+ *
+ * Nothing is written: the learner's measurements, unlock progress and level
+ * preference are untouched, so reloading returns to what was actually earned.
+ * The preference still applies, so a level switched off stays off.
+ */
+function toggleInspectionUnlock(): void {
+  inspectionUnlockAll = !inspectionUnlockAll;
+  syncPractisedLevels(product.progress);
+  showUnlockNotice(inspectionUnlockAll
+    ? "檢視用：已開放全部稀有度，重新載入後回到實際解鎖狀態。"
+    : "檢視用開放已關閉，回到實際解鎖狀態。");
+}
+
+/**
+ * Types the rest of the current sentence correctly and finishes the round.
+ *
+ * Each input is preceded by an unmapped guard input, which is exactly the
+ * interaction-noise case the measurement policy already excludes timing for: a
+ * machine typing at machine speed must not leave 0 ms best times behind. The
+ * correctness observations are real and do count -- the round is recorded as a
+ * clean one -- so this inflates accuracy and the practised-key counters. Use F9
+ * to look at rarer vocabulary; this key is for driving the round flow.
+ */
+function completeRoundForInspection(): void {
+  if (product.summary !== null) return;
+  const completedAt = new Date().toISOString();
+  while (product.summary === null) {
+    const target = product.session.targets[product.session.position];
+    if (target === undefined) return;
+    for (const actualToken of [null, target.tokenId]) {
+      product = applyProductInput(environment, product, {
+        timestampMs: performance.now(),
+        physicalCode: "InspectionComplete",
+        actualToken,
+        repeat: false,
+        composing: false,
+        modifierOnly: false,
+      }, completedAt);
+    }
+  }
+  clearPreviousResult();
+  completeRoundAndAdvance();
 }
 
 capture.addEventListener("compositionstart", () => {
@@ -1053,16 +1285,23 @@ capture.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.code === "F8") {
+  const inspectionAction = event.code === "F8"
+    ? { matches: isInspectionAdvanceShortcut, run: advanceRoundForInspection }
+    : event.code === "F9"
+      ? { matches: isInspectionUnlockShortcut, run: toggleInspectionUnlock }
+      : event.code === "F10"
+        ? { matches: isInspectionCompleteShortcut, run: completeRoundForInspection }
+        : null;
+  if (inspectionAction !== null) {
     event.preventDefault();
     event.stopPropagation();
     if (
-      isInspectionAdvanceShortcut(event)
+      inspectionAction.matches(event)
       && !compositionActive
       && !imeWarning
       && !requireElement<HTMLDialogElement>("#information-dialog").open
     ) {
-      advanceRoundForInspection();
+      inspectionAction.run();
     }
     return;
   }
