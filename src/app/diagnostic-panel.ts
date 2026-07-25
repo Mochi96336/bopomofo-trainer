@@ -34,6 +34,10 @@ import {
   KEYBOARD_GEOMETRY_ROWS,
   keyboardColumnSpan,
 } from "./keyboard-geometry.js";
+import {
+  captureFocusIdentity,
+  restoreFocusIdentity,
+} from "./focus-preservation.js";
 
 const DIAGNOSTIC_TABS = ["key", "transition", "confusion"] as const;
 const ANALYSIS_ANIMATION_MS = 180;
@@ -777,6 +781,8 @@ export function createDiagnosticAnalysis(
     selectedRelationId: null,
   };
   let closingTimer: number | null = null;
+  let analysisOpener: HTMLElement | null = null;
+  let sourceDialogToRestore: HTMLDialogElement | null = null;
 
   const persist = (): void => {
     try {
@@ -787,12 +793,19 @@ export function createDiagnosticAnalysis(
   };
 
   const render = (): void => {
+    const focusIdentity = captureFocusIdentity(host);
     host.innerHTML = `<div class="diagnostic-analysis-shell">
       <div id="${tabPanelId(preferences.activeTab)}" class="diagnostic-analysis-body" role="tabpanel" aria-labelledby="${tabButtonId(preferences.activeTab)}">
         ${keyboardMarkup(model, preferences, state)}
         ${inspectorMarkup(model, preferences, state)}
       </div>
     </div>`;
+    if (focusIdentity !== null) {
+      restoreFocusIdentity(host, focusIdentity, [
+        `#${tabButtonId(preferences.activeTab)}`,
+        ".diagnostic-analysis-close",
+      ]);
+    }
   };
 
   const finishClose = (): void => {
@@ -802,6 +815,20 @@ export function createDiagnosticAnalysis(
     document.body.classList.remove("diagnostic-analysis-open");
     const root = document.querySelector<HTMLElement>("#app");
     if (root !== null) root.inert = false;
+    window.setTimeout(() => {
+      if (sourceDialogToRestore !== null && !sourceDialogToRestore.open) {
+        sourceDialogToRestore.showModal();
+      }
+      if (analysisOpener?.isConnected === true
+        && (sourceDialogToRestore === null || sourceDialogToRestore.open)) {
+        analysisOpener.focus({ preventScroll: true });
+      } else {
+        document.querySelector<HTMLTextAreaElement>("#keyboard-capture")
+          ?.focus({ preventScroll: true });
+      }
+      analysisOpener = null;
+      sourceDialogToRestore = null;
+    }, 0);
   };
 
   const close = (): void => {
@@ -824,10 +851,14 @@ export function createDiagnosticAnalysis(
       selectedKey: null,
       selectedRelationId: null,
     };
+    analysisOpener = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
     const root = document.querySelector<HTMLElement>("#app");
     if (root !== null) root.inert = true;
     const sourceDialog = document.querySelector<HTMLDialogElement>("#information-dialog");
-    if (sourceDialog?.open) sourceDialog.close();
+    sourceDialogToRestore = sourceDialog?.open ? sourceDialog : null;
+    if (sourceDialogToRestore !== null) sourceDialogToRestore.close();
     document.body.classList.add("diagnostic-analysis-open");
     host.hidden = false;
     host.classList.remove("closing");

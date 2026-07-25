@@ -50,7 +50,7 @@ The primary product is a continuous sentence runway rather than a dashboard of p
 11. Display toggles, the weakness-diagnostic summary with its `進入分析` action, recent history, selection-weight controls, and local backup/reset live inside that surface.
 12. Desktop and narrow layouts preserve the same hierarchy without visible entry spacing or horizontal scrolling.
 
-The implementation keeps a hidden textarea so real composition events remain observable. Space and Tab are prevented from moving the page only while the practice capture target owns input; controls inside the information surface retain normal keyboard navigation.
+The implementation keeps a hidden textarea so real composition events remain observable. Space is prevented from moving the page while that capture target owns input; Tab and Shift+Tab leave it normally so the page controls remain keyboard reachable.
 
 ## Motion boundary
 
@@ -78,7 +78,7 @@ There are no success bursts, card scaling, staggered character entrances, animat
 4. Open and close the information panel with `Escape`; confirm focus returns to practice and Tab navigation stays inside the panel while open.
 5. Toggle the physical-key hint and confirm only the next expected key is exposed.
 6. Trigger wrong-key, unmapped-key, and IME states without causing sentence or progress layout shifts.
-7. Open `進入分析`, select a key, and confirm the cumulative detail and the `最近變化` trends describe the same key without contradicting each other.
+7. Open `進入分析`, select a key, and confirm the cumulative detail and the `最近變化` trends describe the same key without contradicting each other. Close it and confirm focus returns to the `進入分析` opener.
 8. Reload at least twice and verify completed history remains ordered, the deterministic next utterance is reproduced, and an open trend bucket continues rather than restarting.
 9. Check one 320 px viewport and one normal desktop viewport. Use a long sentence that would greedily leave one short final entry, and confirm the planner moves an earlier entry to produce a more even final line while preserving entry order.
 10. Resize across at least one line-break threshold and confirm only entry grouping changes: entered token state, current token, punctuation attachment, and sentence identity remain unchanged.

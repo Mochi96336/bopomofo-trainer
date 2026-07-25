@@ -22,9 +22,20 @@
     </script>
   </head>
   <body>
+    <p id="practice-input-instructions" class="visually-hidden">
+      請依目前目標使用標準注音鍵盤輸入。按 Tab 可離開練習區並巡覽頁面控制項，按 Escape 可開啟或關閉資訊面板。
+    </p>
+    <p
+      id="practice-current-target"
+      class="visually-hidden"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    ></p>
     <textarea
       id="keyboard-capture"
       class="keyboard-capture"
+      aria-describedby="practice-input-instructions practice-current-target"
       aria-label="注音鍵盤輸入區"
       autocomplete="off"
       autocapitalize="off"
