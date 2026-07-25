@@ -1,3 +1,4 @@
+import { catalogEntryFrequencyWeight } from "../commonness/catalog-projection.js";
 import type { CatalogEntry, RandomSource, TokenId } from "../core/model.js";
 import { weightedPick } from "./random.js";
 import { entryTokenSet } from "./support.js";
@@ -23,7 +24,7 @@ function candidateWeight(
 ): ExerciseCandidateWeight {
   const tokens = entryTokenSet(entry);
   const containsFocus = focusEntryIds.has(entry.id);
-  const frequencyWeight = policy.frequencyBandWeights[entry.frequencyBand];
+  const frequencyWeight = catalogEntryFrequencyWeight(entry);
   const focusWeight = containsFocus ? policy.focusedEntryBoost : 1;
   const recentEntryWeight = profile.recentEntryIds.includes(entry.id)
     ? policy.recentEntryPenalty

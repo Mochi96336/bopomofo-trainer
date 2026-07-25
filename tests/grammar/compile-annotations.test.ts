@@ -8,7 +8,6 @@ function entry(text: string, reading: string): CatalogEntry {
     id: `word:${text}:${reading.replace(/\s+/gu, "-")}`,
     prompt: { text, locale: "zh-TW" },
     syllables: [{ tokens: ["zhuyin:ㄅ", "tone:1"] }],
-    frequencyBand: 1,
     tags: ["test"],
     provenanceIds: ["test:grammar"],
   };

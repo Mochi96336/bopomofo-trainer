@@ -1,5 +1,5 @@
 import { partitionBindingPreservingBaseline } from "../../relations/partition/binding-baseline.js";
-import { partitionFrequencyStratified } from "../../relations/partition/frequency-stratified.js";
+import { partitionCommonnessStratified } from "../../relations/partition/commonness-stratified.js";
 import {
   partitionPathNovelty,
   partitionRelationSupportPreserving,
@@ -9,7 +9,7 @@ import type { PartitionPolicyId } from "../../relations/partition/types.js";
 import type { PartitionSelectorStrategy } from "../strategy-matrix.js";
 
 export function createPartitionStrategyRegistry(
-  allowCrossBandFallback: boolean,
+  allowCrossTierFallback: boolean,
 ): Readonly<Record<PartitionPolicyId, PartitionSelectorStrategy>> {
   return {
     "binding-preserving-baseline-v1": {
@@ -20,11 +20,11 @@ export function createPartitionStrategyRegistry(
       id: "relation-support-preserving-v1",
       partition: (input, options) => partitionRelationSupportPreserving(input, options),
     },
-    "frequency-stratified-v1": {
-      id: "frequency-stratified-v1",
-      partition: (input, options) => partitionFrequencyStratified(input, {
+    "commonness-stratified-v1": {
+      id: "commonness-stratified-v1",
+      partition: (input, options) => partitionCommonnessStratified(input, {
         ...options,
-        allowCrossBandFallback,
+        allowCrossTierFallback,
       }),
     },
     "seeded-maximum-coverage-v1": {

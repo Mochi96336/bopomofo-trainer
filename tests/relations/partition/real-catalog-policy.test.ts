@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   evaluatePartitionMetrics,
   partitionBindingPreservingBaseline,
-  partitionFrequencyStratified,
+  partitionCommonnessStratified,
   partitionPathNovelty,
   partitionRelationSupportPreserving,
   partitionSeededMaximumCoverage,
@@ -50,9 +50,9 @@ describe("relational partition policies (real catalog)", () => {
     const decisions: readonly PartitionDecision[] = [
       partitionBindingPreservingBaseline(input),
       partitionRelationSupportPreserving(input, options),
-      partitionFrequencyStratified(input, {
+      partitionCommonnessStratified(input, {
         ...options,
-        allowCrossBandFallback: true,
+        allowCrossTierFallback: true,
       }),
       partitionSeededMaximumCoverage(input, 20260720, options),
       partitionPathNovelty(input, options),

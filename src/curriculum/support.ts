@@ -1,3 +1,4 @@
+import { catalogCommonnessTiers, type CommonnessTier } from "../commonness/tiers.js";
 import type { CatalogEntry, TokenId } from "../core/model.js";
 import type { CatalogSupportIndex, CatalogTokenSupport } from "./types.js";
 
@@ -39,7 +40,8 @@ export function createCatalogSupportIndex(entries: readonly CatalogEntry[]): Cat
   const tokenEntries = new Map<TokenId, Set<string>>();
   const bindingEntries = new Map<TokenId, Set<string>>();
   const motorEntries = new Map<TokenId, Set<string>>();
-  const bandCounts = new Map<TokenId, { 1: number; 2: number; 3: number }>();
+  const tiers = catalogCommonnessTiers(entries);
+  const tierCounts = new Map<TokenId, Record<CommonnessTier, number>>();
 
   const add = (map: Map<TokenId, Set<string>>, tokenId: TokenId, entryId: string): void => {
     const ids = map.get(tokenId) ?? new Set<string>();
@@ -55,9 +57,9 @@ export function createCatalogSupportIndex(entries: readonly CatalogEntry[]): Cat
     const contexts = entryTokenContexts(entry);
     for (const tokenId of contexts.all) {
       add(tokenEntries, tokenId, entry.id);
-      const counts = bandCounts.get(tokenId) ?? { 1: 0, 2: 0, 3: 0 };
-      counts[entry.frequencyBand] += 1;
-      bandCounts.set(tokenId, counts);
+      const counts = tierCounts.get(tokenId) ?? { 1: 0, 2: 0, 3: 0, 4: 0 };
+      counts[tiers.get(entry.id)!] += 1;
+      tierCounts.set(tokenId, counts);
     }
     for (const tokenId of contexts.binding) add(bindingEntries, tokenId, entry.id);
     for (const tokenId of contexts.motor) add(motorEntries, tokenId, entry.id);
@@ -66,14 +68,14 @@ export function createCatalogSupportIndex(entries: readonly CatalogEntry[]): Cat
   const sortedIds = (map: Map<TokenId, Set<string>>, tokenId: TokenId): string[] =>
     [...(map.get(tokenId) ?? [])].sort(codeUnitCompare);
   const commonCount = (entryIds: readonly string[]): number =>
-    entryIds.filter((entryId) => entriesById[entryId]!.frequencyBand === 1).length;
+    entryIds.filter((entryId) => tiers.get(entryId) === 1).length;
 
   const byToken: Record<string, CatalogTokenSupport> = {};
   for (const tokenId of [...tokenEntries.keys()].sort(codeUnitCompare)) {
     const entryIds = sortedIds(tokenEntries, tokenId);
     const bindingEntryIds = sortedIds(bindingEntries, tokenId);
     const motorEntryIds = sortedIds(motorEntries, tokenId);
-    const frequencyBandCounts = bandCounts.get(tokenId)!;
+    const commonnessTierCounts = tierCounts.get(tokenId)!;
     byToken[tokenId] = {
       tokenId,
       entryIds,
@@ -82,10 +84,10 @@ export function createCatalogSupportIndex(entries: readonly CatalogEntry[]): Cat
       bindingEntryCount: bindingEntryIds.length,
       motorEntryIds,
       motorEntryCount: motorEntryIds.length,
-      commonEntryCount: frequencyBandCounts[1],
+      commonEntryCount: commonnessTierCounts[1],
       commonBindingEntryCount: commonCount(bindingEntryIds),
       commonMotorEntryCount: commonCount(motorEntryIds),
-      frequencyBandCounts,
+      commonnessTierCounts,
     };
   }
 

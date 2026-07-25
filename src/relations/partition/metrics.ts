@@ -1,3 +1,8 @@
+import {
+  catalogCommonnessTiers,
+  COMMONNESS_TIERS,
+  type CommonnessTier,
+} from "../../commonness/tiers.js";
 import type { CatalogEntry } from "../../core/model.js";
 import { createRelationalCatalogReport } from "../catalog-report.js";
 import type { CatalogPartition, RelationSupportSummary } from "../types.js";
@@ -51,24 +56,30 @@ function tagSet(entries: readonly CatalogEntry[]): ReadonlySet<string> {
   return new Set(entries.flatMap((entry) => entry.tags));
 }
 
-function bandDistribution(entries: readonly CatalogEntry[]): readonly [number, number, number] {
-  if (entries.length === 0) return [0, 0, 0];
-  const counts: [number, number, number] = [0, 0, 0];
+function tierDistribution(
+  entries: readonly CatalogEntry[],
+  tiers: ReadonlyMap<string, CommonnessTier>,
+): readonly number[] {
+  if (entries.length === 0) return COMMONNESS_TIERS.map(() => 0);
+  const counts = new Map<CommonnessTier, number>();
   for (const entry of entries) {
-    const index = entry.frequencyBand - 1;
-    counts[index] = (counts[index] ?? 0) + 1;
+    const tier = tiers.get(entry.id)!;
+    counts.set(tier, (counts.get(tier) ?? 0) + 1);
   }
-  return counts.map((count) => count / entries.length) as [number, number, number];
+  return COMMONNESS_TIERS.map((tier) => (counts.get(tier) ?? 0) / entries.length);
 }
 
-function frequencyBandDivergence(
+function commonnessTierDivergence(
   training: readonly CatalogEntry[],
   evaluation: readonly CatalogEntry[],
 ): number {
   if (training.length === 0 && evaluation.length === 0) return 0;
   if (training.length === 0 || evaluation.length === 0) return 1;
-  const trainingDistribution = bandDistribution(training);
-  const evaluationDistribution = bandDistribution(evaluation);
+  // Cut against the union: two independently cut halves would not share a
+  // scale, and the divergence would measure the cut rather than the split.
+  const tiers = catalogCommonnessTiers([...training, ...evaluation]);
+  const trainingDistribution = tierDistribution(training, tiers);
+  const evaluationDistribution = tierDistribution(evaluation, tiers);
   return rounded(
     0.5 * trainingDistribution.reduce(
       (total, value, index) => total + Math.abs(value - evaluationDistribution[index]!),
@@ -189,7 +200,7 @@ export function evaluatePartitionMetrics(
         ? 0
         : rounded(Math.max(...trainingConcentrations)),
     },
-    frequencyBandDivergence: frequencyBandDivergence(training, evaluation),
+    commonnessTierDivergence: commonnessTierDivergence(training, evaluation),
     tokenOverlap,
     transitionOverlap,
     lexicalCharacterOverlap,

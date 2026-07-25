@@ -21,7 +21,6 @@ const random: RandomSource = { next: () => 0 };
 
 function entry(
   id: string,
-  band: 1 | 2 | 3,
   selectionWeight?: number,
 ): CatalogEntry {
   const commonness = selectionWeight === undefined
@@ -46,7 +45,6 @@ function entry(
     id,
     prompt: { text: id, locale: "zh-TW" },
     syllables: [{ tokens: [id] }],
-    frequencyBand: band,
     ...commonness,
     tags: [],
     provenanceIds: [],
@@ -63,10 +61,7 @@ function annotation(id: string): GrammarAnnotation {
   };
 }
 
-function select(
-  entries: readonly CatalogEntry[],
-  stage: 1 | 2 | 3 = 3,
-) {
+function select(entries: readonly CatalogEntry[]) {
   return selectFrequencyFirstUtterance({
     entries,
     annotations: Object.fromEntries(
@@ -75,7 +70,6 @@ function select(
     measurement,
     mode: "guided",
     layoutId: "standard",
-    stage,
     history: {
       recentEntryIds: [],
       recentUtteranceIds: [],
@@ -87,24 +81,27 @@ function select(
 }
 
 describe("commonness-backed utterance selection", () => {
-  it("uses reviewed commonness and falls back to frequency band", () => {
+  // Reviewed evidence is the only source of a selection weight. An entry
+  // without it weighs the same as the most common word rather than falling
+  // back to a second notion of how common it is.
+  it("uses reviewed commonness and weighs unmeasured entries evenly", () => {
     const result = select([
-      entry("projected", 3, 0.8),
-      entry("fallback", 2),
+      entry("projected", 0.8),
+      entry("unmeasured"),
     ]);
     const candidates = result.slotSelections[0]?.candidates ?? [];
     const projected = candidates.find((item) => item.entryId === "projected")!;
-    const fallback = candidates.find((item) => item.entryId === "fallback")!;
+    const unmeasured = candidates.find((item) => item.entryId === "unmeasured")!;
     expect(projected.frequencyBase).toBe(0.8);
-    expect(fallback.frequencyBase).toBe(0.5);
+    expect(unmeasured.frequencyBase).toBe(1);
   });
 
-  it("keeps frequencyBand stage eligibility unchanged", () => {
+  it("offers every entry as a candidate", () => {
     const result = select([
-      entry("locked", 3, 1),
-      entry("eligible", 1, 0.05),
-    ], 1);
+      entry("rare", 0.05),
+      entry("common", 1),
+    ]);
     expect(result.slotSelections[0]?.candidates.map((item) => item.entryId))
-      .toEqual(["eligible"]);
+      .toEqual(["common", "rare"]);
   });
 });

@@ -1,3 +1,4 @@
+import { catalogCommonnessTiers } from "../../commonness/tiers.js";
 import { bindingRelationKey } from "../catalog-occurrences.js";
 import { createCatalogSupportIndex } from "../../curriculum/support.js";
 import { createPartitionDecision, numericConstraint } from "./decision.js";
@@ -69,8 +70,9 @@ export function partitionBindingPreservingBaseline(
     throw new RangeError("catalog must contain more entries than the evaluation target");
   }
   const originalSupport = createCatalogSupportIndex(entries);
+  const tiers = catalogCommonnessTiers(entries);
   const candidates = [...entries].sort((left, right) =>
-    left.frequencyBand - right.frequencyBand || compareText(left.id, right.id),
+    tiers.get(left.id)! - tiers.get(right.id)! || compareText(left.id, right.id),
   );
   const evaluationEntryIds = new Set<string>();
   const trace: PartitionSelectionTrace[] = [];
@@ -95,7 +97,7 @@ export function partitionBindingPreservingBaseline(
         evaluationCountBefore: evaluationEntryIds.size,
         evaluationCountAfter: evaluationEntryIds.size,
         scoreComponents: {
-          frequencyBand: entry.frequencyBand,
+          commonnessTier: tiers.get(entry.id)!,
           violatedTokenCount: violations.length,
           violatedContextCount: violations.reduce(
             (total, violation) => total + violation.contexts.length,
@@ -116,11 +118,11 @@ export function partitionBindingPreservingBaseline(
       step,
       candidateEntryId: entry.id,
       action: "selected",
-      reasonCode: "baseline-frequency-order-legal",
+      reasonCode: "baseline-commonness-order-legal",
       evaluationCountBefore: evaluationEntryIds.size - 1,
       evaluationCountAfter: evaluationEntryIds.size,
       scoreComponents: {
-        frequencyBand: entry.frequencyBand,
+        commonnessTier: tiers.get(entry.id)!,
         stableEntryId: entry.id,
       },
       violatedConstraintIds: [],

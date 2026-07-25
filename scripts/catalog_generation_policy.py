@@ -42,7 +42,6 @@ REVIEW_LANES: Mapping[str, str] = {
 WORDS_FIELDS = [
     "text",
     "reading",
-    "frequency_band",
     "tags",
     "status",
     "provenance_ids",

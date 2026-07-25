@@ -1,11 +1,10 @@
-import type { CatalogEntry, FrequencyBand, TokenId } from "../core/model.js";
+import type { CatalogEntry, TokenId } from "../core/model.js";
 
 export type CatalogEntryStatus = "provisional" | "reviewed" | "excluded";
 
 export interface CatalogSourceRow {
   readonly text: string;
   readonly reading: string;
-  readonly frequencyBand: FrequencyBand;
   readonly tags: readonly string[];
   readonly status: CatalogEntryStatus;
   readonly provenanceIds: readonly string[];
@@ -15,7 +14,6 @@ export interface CatalogSourceRow {
 export type CatalogErrorCode =
   | "missing-field"
   | "invalid-text"
-  | "invalid-frequency-band"
   | "invalid-status"
   | "missing-provenance"
   | "unknown-provenance"

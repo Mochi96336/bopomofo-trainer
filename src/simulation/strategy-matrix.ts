@@ -41,7 +41,7 @@ export const RELATIONAL_OBJECTIVE_STRATEGY_IDS = [
 export const RELATIONAL_PARTITION_POLICY_IDS = [
   "binding-preserving-baseline-v1",
   "relation-support-preserving-v1",
-  "frequency-stratified-v1",
+  "commonness-stratified-v1",
   "seeded-maximum-coverage-v1",
   "path-novelty-v1",
 ] as const satisfies readonly PartitionPolicyId[];

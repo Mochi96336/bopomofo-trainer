@@ -4,7 +4,7 @@ Status: product-facing projection contract. The source-specific NAER column mapp
 
 ## Purpose
 
-The practice selector needs a continuous commonness base without importing NAER-specific workbook fields into curriculum code. `commonness-v1` converts reviewed spoken and written frequency evidence into a source-neutral `CatalogCommonnessBase`. Catalog entries without reviewed evidence continue to use their existing `frequencyBand`.
+The practice selector needs a continuous commonness base without importing NAER-specific workbook fields into curriculum code. `commonness-v1` converts reviewed spoken and written frequency evidence into a source-neutral `CatalogCommonnessBase`. It is the only notion of how common a word is: there is no coarse band beside it.
 
 ## Input boundary
 
@@ -61,9 +61,28 @@ This keeps an observed zero selectable at a very low rate while preserving `scor
 
 ## Product seam
 
-`CatalogEntry.commonnessBase` is optional. Curriculum code reads `selectionWeight` when present and otherwise falls back to the declared weight for `frequencyBand`.
+`CatalogEntry.commonnessBase` is optional. Curriculum code reads `selectionWeight` when present; an entry without it weighs `1`, so a catalog with no evidence at all selects uniformly.
 
 The contract is source-neutral. NAER adapter types and workbook header names must remain under the reference/import boundary and must not enter curriculum modules.
+
+## Displayed tiers
+
+`selectionWeight` also drives what the learner sees, in exactly one place. The practice stage stays clean; the settings dialog carries a `等級` reading at the right of its header, drawn as four marks lit from the most common end -- one lit for the most common tenth, four for the rarest half. The frame keeps four marks at every level so the header does not shift around it.
+
+The reading is the current sentence's *rarest* word, not its most common one. Selection is already weighted towards common words, so on a 300-sentence sample 89% of sentences contained a tier-1 word and a "most common" reading would sit at one mark almost always; the rarest word spreads across 4/12/29/55% and is what makes a sentence hard.
+
+Tiers are cut by share of the packaged catalog, not by weight value:
+
+- tier 1 -- the most common 10%;
+- tier 2 -- up to 25%;
+- tier 3 -- up to 50%;
+- tier 4 -- the remaining half.
+
+The value cuts are computed at catalog compile time from the weights actually shipped and emitted as `COMMONNESS_TIER_THRESHOLDS`, so a model or source-version change moves the cuts with the data instead of leaving fixed numbers behind. Value-width bands would not work here: the normalization is logarithmic, so the shipped catalog's median weight sits near `0.18` while only about 4% of entries reach `0.5`, and equal-width bands would place nearly every word in one band.
+
+An entry without reviewed evidence has no tier and no marks. It has no measured position in the catalog, and drawing it as the rarest tier would state something the evidence does not.
+
+Tiers never gate selection. Analysis code also stratifies by them -- the relational partition policy `commonness-stratified-v1` and its `commonnessTierDivergence` metric -- through `catalogCommonnessTiers`, which is total where the display projection is not.
 
 ## Determinism
 

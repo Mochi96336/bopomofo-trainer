@@ -12,6 +12,7 @@ import {
   SYNTAX_PROFILES,
 } from "./generated/catalog.js";
 import { currentLocalProductProgress } from "./local-progress.js";
+import { currentLocalProgressHistory } from "./local-progress-history.js";
 import {
   createDiagnosticAnalysis,
   renderDiagnosticSummary,
@@ -57,6 +58,7 @@ function currentDiagnosticModel() {
     support: environment.practiceSupport,
     layout: STANDARD_BOPOMOFO_LAYOUT,
     selectionPolicy: environment.utterancePolicy,
+    progressHistory: currentLocalProgressHistory(),
   });
 }
 

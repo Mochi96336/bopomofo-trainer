@@ -1,3 +1,4 @@
+import { catalogEntryFrequencyWeight } from "../commonness/catalog-projection.js";
 import type { CatalogEntry, RandomSource } from "../core/model.js";
 import type {
   GrammarCompositionResult,
@@ -36,7 +37,7 @@ function nextUnit(random: RandomSource): number {
 }
 
 function defaultEntryWeight(entry: CatalogEntry): number {
-  return entry.commonnessBase?.selectionWeight ?? 1 / entry.frequencyBand;
+  return catalogEntryFrequencyWeight(entry);
 }
 
 function weightedIndex(

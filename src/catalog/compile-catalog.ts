@@ -1,4 +1,4 @@
-import type { CatalogEntry, FrequencyBand } from "../core/model.js";
+import type { CatalogEntry } from "../core/model.js";
 import { parseReading } from "../scheme/parse-reading.js";
 import type {
   CatalogCompilationResult,
@@ -11,7 +11,6 @@ import type { CsvRecord } from "./csv.js";
 const REQUIRED_FIELDS = [
   "text",
   "reading",
-  "frequency_band",
   "tags",
   "status",
   "provenance_ids",
@@ -76,18 +75,6 @@ function parseSourceRow(
     ));
   }
 
-  const frequencySource = record.values.frequency_band ?? "";
-  const frequency = Number(frequencySource);
-  if (!/^[123]$/u.test(frequencySource)) {
-    errors.push(issue(
-      "invalid-frequency-band",
-      "frequency_band 必須是 1、2 或 3",
-      record.rowNumber,
-      text || null,
-      "frequency_band",
-    ));
-  }
-
   const status = record.values.status as CatalogEntryStatus;
   if (!["provisional", "reviewed", "excluded"].includes(status)) {
     errors.push(issue(
@@ -142,7 +129,6 @@ function parseSourceRow(
     row: {
       text,
       reading: normalizeReading(record.values.reading ?? ""),
-      frequencyBand: frequency as FrequencyBand,
       tags,
       status,
       provenanceIds,
@@ -191,7 +177,6 @@ function compileRow(row: CatalogSourceRow):
       id: `word:${row.text}:${row.reading.replace(/\s+/gu, "-")}`,
       prompt: { text: row.text, locale: "zh-TW" },
       syllables: parsed.syllables,
-      frequencyBand: row.frequencyBand,
       tags: row.tags,
       provenanceIds: row.provenanceIds,
     },

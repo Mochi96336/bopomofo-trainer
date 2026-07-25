@@ -42,43 +42,194 @@
   "reviewedCatalog": [
     {
       "id": "integration:zhu-a",
-      "prompt": { "text": "朱", "locale": "zh-TW" },
-      "syllables": [{ "tokens": ["zhuyin:ㄓ", "zhuyin:ㄨ", "tone:1"] }],
-      "frequencyBand": 1,
-      "tags": ["integration", "common"],
-      "provenanceIds": ["integration-fixture"]
+      "prompt": {
+        "text": "朱",
+        "locale": "zh-TW"
+      },
+      "syllables": [
+        {
+          "tokens": [
+            "zhuyin:ㄓ",
+            "zhuyin:ㄨ",
+            "tone:1"
+          ]
+        }
+      ],
+      "tags": [
+        "integration",
+        "common"
+      ],
+      "provenanceIds": [
+        "integration-fixture"
+      ],
+      "commonnessBase": {
+        "modelVersion": "commonness-v1",
+        "sourceId": "synthetic-cohort",
+        "sourceVersion": "v1",
+        "sourceRowId": "integration:zhu-a",
+        "spokenPerMillion": null,
+        "writtenPerMillion": null,
+        "spokenStrength": null,
+        "writtenStrength": null,
+        "score": 0.9,
+        "selectionWeight": 0.9,
+        "confidence": "reviewed",
+        "reasons": [
+          "synthetic-cohort"
+        ]
+      }
     },
     {
       "id": "integration:zhu-b",
-      "prompt": { "text": "珠", "locale": "zh-TW" },
-      "syllables": [{ "tokens": ["zhuyin:ㄓ", "zhuyin:ㄨ", "tone:1"] }],
-      "frequencyBand": 1,
-      "tags": ["integration", "common"],
-      "provenanceIds": ["integration-fixture"]
+      "prompt": {
+        "text": "珠",
+        "locale": "zh-TW"
+      },
+      "syllables": [
+        {
+          "tokens": [
+            "zhuyin:ㄓ",
+            "zhuyin:ㄨ",
+            "tone:1"
+          ]
+        }
+      ],
+      "tags": [
+        "integration",
+        "common"
+      ],
+      "provenanceIds": [
+        "integration-fixture"
+      ],
+      "commonnessBase": {
+        "modelVersion": "commonness-v1",
+        "sourceId": "synthetic-cohort",
+        "sourceVersion": "v1",
+        "sourceRowId": "integration:zhu-b",
+        "spokenPerMillion": null,
+        "writtenPerMillion": null,
+        "spokenStrength": null,
+        "writtenStrength": null,
+        "score": 0.9,
+        "selectionWeight": 0.9,
+        "confidence": "reviewed",
+        "reasons": [
+          "synthetic-cohort"
+        ]
+      }
     },
     {
       "id": "integration:ba",
-      "prompt": { "text": "八", "locale": "zh-TW" },
-      "syllables": [{ "tokens": ["zhuyin:ㄅ", "tone:1"] }],
-      "frequencyBand": 1,
-      "tags": ["integration", "common"],
-      "provenanceIds": ["integration-fixture"]
+      "prompt": {
+        "text": "八",
+        "locale": "zh-TW"
+      },
+      "syllables": [
+        {
+          "tokens": [
+            "zhuyin:ㄅ",
+            "tone:1"
+          ]
+        }
+      ],
+      "tags": [
+        "integration",
+        "common"
+      ],
+      "provenanceIds": [
+        "integration-fixture"
+      ],
+      "commonnessBase": {
+        "modelVersion": "commonness-v1",
+        "sourceId": "synthetic-cohort",
+        "sourceVersion": "v1",
+        "sourceRowId": "integration:ba",
+        "spokenPerMillion": null,
+        "writtenPerMillion": null,
+        "spokenStrength": null,
+        "writtenStrength": null,
+        "score": 0.9,
+        "selectionWeight": 0.9,
+        "confidence": "reviewed",
+        "reasons": [
+          "synthetic-cohort"
+        ]
+      }
     },
     {
       "id": "integration:pa",
-      "prompt": { "text": "坡", "locale": "zh-TW" },
-      "syllables": [{ "tokens": ["zhuyin:ㄆ", "tone:1"] }],
-      "frequencyBand": 2,
-      "tags": ["integration"],
-      "provenanceIds": ["integration-fixture"]
+      "prompt": {
+        "text": "坡",
+        "locale": "zh-TW"
+      },
+      "syllables": [
+        {
+          "tokens": [
+            "zhuyin:ㄆ",
+            "tone:1"
+          ]
+        }
+      ],
+      "tags": [
+        "integration"
+      ],
+      "provenanceIds": [
+        "integration-fixture"
+      ],
+      "commonnessBase": {
+        "modelVersion": "commonness-v1",
+        "sourceId": "synthetic-cohort",
+        "sourceVersion": "v1",
+        "sourceRowId": "integration:pa",
+        "spokenPerMillion": null,
+        "writtenPerMillion": null,
+        "spokenStrength": null,
+        "writtenStrength": null,
+        "score": 0.5,
+        "selectionWeight": 0.5,
+        "confidence": "reviewed",
+        "reasons": [
+          "synthetic-cohort"
+        ]
+      }
     },
     {
       "id": "integration:ma",
-      "prompt": { "text": "媽", "locale": "zh-TW" },
-      "syllables": [{ "tokens": ["zhuyin:ㄇ", "tone:1"] }],
-      "frequencyBand": 1,
-      "tags": ["integration", "common"],
-      "provenanceIds": ["integration-fixture"]
+      "prompt": {
+        "text": "媽",
+        "locale": "zh-TW"
+      },
+      "syllables": [
+        {
+          "tokens": [
+            "zhuyin:ㄇ",
+            "tone:1"
+          ]
+        }
+      ],
+      "tags": [
+        "integration",
+        "common"
+      ],
+      "provenanceIds": [
+        "integration-fixture"
+      ],
+      "commonnessBase": {
+        "modelVersion": "commonness-v1",
+        "sourceId": "synthetic-cohort",
+        "sourceVersion": "v1",
+        "sourceRowId": "integration:ma",
+        "spokenPerMillion": null,
+        "writtenPerMillion": null,
+        "spokenStrength": null,
+        "writtenStrength": null,
+        "score": 0.9,
+        "selectionWeight": 0.9,
+        "confidence": "reviewed",
+        "reasons": [
+          "synthetic-cohort"
+        ]
+      }
     }
   ],
   "partition": {
@@ -103,7 +254,11 @@
       "tokenPathSignatures": []
     },
     "budget": {
-      "targetExposures": { "minimum": 1, "preferred": 1, "maximum": 1 },
+      "targetExposures": {
+        "minimum": 1,
+        "preferred": 1,
+        "maximum": 1
+      },
       "maximumTokens": 8,
       "maximumSyllables": 2,
       "maximumLexicalBoundaries": 1,

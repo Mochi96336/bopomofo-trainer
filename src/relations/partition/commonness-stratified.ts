@@ -1,4 +1,4 @@
-import type { FrequencyBand } from "../../core/model.js";
+import { catalogCommonnessTiers, COMMONNESS_TIERS, type CommonnessTier } from "../../commonness/tiers.js";
 import { createPartitionDecision, numericConstraint } from "./decision.js";
 import {
   createPartitionRelationModel,
@@ -6,7 +6,7 @@ import {
   validatePartitionInput,
 } from "./model.js";
 import type {
-  FrequencyStratifiedOptions,
+  CommonnessStratifiedOptions,
   PartitionDecision,
   PartitionFallbackReason,
   PartitionInput,
@@ -18,48 +18,43 @@ import {
   validatePositiveInteger,
 } from "./utils.js";
 
-export const DEFAULT_FREQUENCY_STRATIFIED_OPTIONS: FrequencyStratifiedOptions = {
+export const DEFAULT_COMMONNESS_STRATIFIED_OPTIONS: CommonnessStratifiedOptions = {
   evaluationEntryCount: 5,
   minimumTrainingDistinctEntries: 1,
-  allowCrossBandFallback: true,
+  allowCrossTierFallback: true,
 };
 
-const BANDS: readonly FrequencyBand[] = [1, 2, 3];
-
 function largestRemainderQuotas(
-  counts: Readonly<Record<FrequencyBand, number>>,
+  counts: Readonly<Record<CommonnessTier, number>>,
   totalEntries: number,
   evaluationEntryCount: number,
-): Readonly<Record<FrequencyBand, number>> {
-  const raw = BANDS.map((band) => ({
-    band,
-    exact: counts[band] / totalEntries * evaluationEntryCount,
+): Readonly<Record<CommonnessTier, number>> {
+  const raw = COMMONNESS_TIERS.map((tier) => ({
+    tier,
+    exact: counts[tier] / totalEntries * evaluationEntryCount,
   }));
-  const quotas: Record<FrequencyBand, number> = {
-    1: Math.floor(raw[0]!.exact),
-    2: Math.floor(raw[1]!.exact),
-    3: Math.floor(raw[2]!.exact),
-  };
-  let remaining = evaluationEntryCount - BANDS.reduce(
-    (total, band) => total + quotas[band],
+  const quotas: Record<CommonnessTier, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  for (const item of raw) quotas[item.tier] = Math.floor(item.exact);
+  let remaining = evaluationEntryCount - COMMONNESS_TIERS.reduce(
+    (total, tier) => total + quotas[tier],
     0,
   );
   const remainderOrder = [...raw].sort((left, right) =>
     (right.exact - Math.floor(right.exact))
       - (left.exact - Math.floor(left.exact))
-    || left.band - right.band,
+    || left.tier - right.tier,
   );
   for (const item of remainderOrder) {
     if (remaining <= 0) break;
-    quotas[item.band] += 1;
+    quotas[item.tier] += 1;
     remaining -= 1;
   }
   return quotas;
 }
 
-export function partitionFrequencyStratified(
+export function partitionCommonnessStratified(
   input: PartitionInput,
-  options: FrequencyStratifiedOptions = DEFAULT_FREQUENCY_STRATIFIED_OPTIONS,
+  options: CommonnessStratifiedOptions = DEFAULT_COMMONNESS_STRATIFIED_OPTIONS,
 ): PartitionDecision {
   validatePositiveInteger(options.evaluationEntryCount, "evaluationEntryCount");
   validatePositiveInteger(
@@ -70,10 +65,11 @@ export function partitionFrequencyStratified(
   if (entries.length <= options.evaluationEntryCount) {
     throw new RangeError("catalog must contain more entries than the evaluation target");
   }
-  const bandCounts: Record<FrequencyBand, number> = { 1: 0, 2: 0, 3: 0 };
-  for (const entry of entries) bandCounts[entry.frequencyBand] += 1;
+  const tiers = catalogCommonnessTiers(entries);
+  const tierCounts: Record<CommonnessTier, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  for (const entry of entries) tierCounts[tiers.get(entry.id)!] += 1;
   const quotas = largestRemainderQuotas(
-    bandCounts,
+    tierCounts,
     entries.length,
     options.evaluationEntryCount,
   );
@@ -83,15 +79,15 @@ export function partitionFrequencyStratified(
   const fallbackReasons: PartitionFallbackReason[] = [];
   let step = 0;
 
-  const selectedInBand = (band: FrequencyBand): number => entries.filter(
-    (entry) => entry.frequencyBand === band && evaluationEntryIds.has(entry.id),
+  const selectedInTier = (tier: CommonnessTier): number => entries.filter(
+    (entry) => tiers.get(entry.id) === tier && evaluationEntryIds.has(entry.id),
   ).length;
 
-  for (const band of BANDS) {
-    while (selectedInBand(band) < quotas[band]) {
+  for (const tier of COMMONNESS_TIERS) {
+    while (selectedInTier(tier) < quotas[tier]) {
       const candidates = entries
         .filter((entry) =>
-          entry.frequencyBand === band && !evaluationEntryIds.has(entry.id),
+          tiers.get(entry.id) === tier && !evaluationEntryIds.has(entry.id),
         )
         .sort((left, right) => compareText(left.id, right.id));
       let selected = false;
@@ -112,13 +108,13 @@ export function partitionFrequencyStratified(
             step,
             candidateEntryId: entry.id,
             action: "rejected",
-            reasonCode: "frequency-quota-relation-support-violation",
+            reasonCode: "commonness-quota-relation-support-violation",
             evaluationCountBefore: evaluationEntryIds.size,
             evaluationCountAfter: evaluationEntryIds.size,
             scoreComponents: {
-              frequencyBand: band,
-              bandQuota: quotas[band],
-              selectedInBand: selectedInBand(band),
+              commonnessTier: tier,
+              tierQuota: quotas[tier],
+              selectedInTier: selectedInTier(tier),
               violatedRelationCount: violations.length,
             },
             violatedConstraintIds: ["relation-training-support"],
@@ -133,13 +129,13 @@ export function partitionFrequencyStratified(
           step,
           candidateEntryId: entry.id,
           action: "selected",
-          reasonCode: "frequency-band-quota-selection",
+          reasonCode: "commonness-tier-quota-selection",
           evaluationCountBefore: evaluationEntryIds.size - 1,
           evaluationCountAfter: evaluationEntryIds.size,
           scoreComponents: {
-            frequencyBand: band,
-            bandQuota: quotas[band],
-            selectedInBand: selectedInBand(band),
+            commonnessTier: tier,
+            tierQuota: quotas[tier],
+            selectedInTier: selectedInTier(tier),
             stableEntryId: entry.id,
           },
           violatedConstraintIds: [],
@@ -151,12 +147,12 @@ export function partitionFrequencyStratified(
         break;
       }
       if (selected) continue;
-      const constraintId = `frequency-band-${band}-quota`;
+      const constraintId = `commonness-tier-${tier}-quota`;
       fallbackReasons.push({
-        code: "frequency-band-quota-unmet",
+        code: "commonness-tier-quota-unmet",
         constraintId,
         message:
-          `frequency band ${band} supplied ${selectedInBand(band)}/${quotas[band]} legal evaluation entries`,
+          `commonness tier ${tier} supplied ${selectedInTier(tier)}/${quotas[tier]} legal evaluation entries`,
         relatedEntryIds: [],
         relatedRelationKeys: sortedUnique(blockedKeys),
       });
@@ -164,13 +160,13 @@ export function partitionFrequencyStratified(
         step,
         candidateEntryId: null,
         action: "fallback",
-        reasonCode: "frequency-band-quota-unmet",
+        reasonCode: "commonness-tier-quota-unmet",
         evaluationCountBefore: evaluationEntryIds.size,
         evaluationCountAfter: evaluationEntryIds.size,
         scoreComponents: {
-          frequencyBand: band,
-          bandQuota: quotas[band],
-          selectedInBand: selectedInBand(band),
+          commonnessTier: tier,
+          tierQuota: quotas[tier],
+          selectedInTier: selectedInTier(tier),
         },
         violatedConstraintIds: [constraintId],
         relatedRelationKeys: sortedUnique(blockedKeys),
@@ -181,12 +177,12 @@ export function partitionFrequencyStratified(
     }
   }
 
-  if (options.allowCrossBandFallback) {
+  if (options.allowCrossTierFallback) {
     while (evaluationEntryIds.size < options.evaluationEntryCount) {
       const candidates = entries
         .filter((entry) => !evaluationEntryIds.has(entry.id))
         .sort((left, right) =>
-          left.frequencyBand - right.frequencyBand || compareText(left.id, right.id),
+          tiers.get(left.id)! - tiers.get(right.id)! || compareText(left.id, right.id),
         );
       let selected = false;
       const blockedKeys = new Set<string>();
@@ -206,11 +202,11 @@ export function partitionFrequencyStratified(
             step,
             candidateEntryId: entry.id,
             action: "rejected",
-            reasonCode: "cross-band-fallback-relation-support-violation",
+            reasonCode: "cross-tier-fallback-relation-support-violation",
             evaluationCountBefore: evaluationEntryIds.size,
             evaluationCountAfter: evaluationEntryIds.size,
             scoreComponents: {
-              frequencyBand: entry.frequencyBand,
+              commonnessTier: tiers.get(entry.id)!,
               violatedRelationCount: violations.length,
             },
             violatedConstraintIds: ["relation-training-support"],
@@ -225,13 +221,13 @@ export function partitionFrequencyStratified(
           step,
           candidateEntryId: entry.id,
           action: "fallback",
-          reasonCode: "cross-band-quota-fallback-selected",
+          reasonCode: "cross-tier-quota-fallback-selected",
           evaluationCountBefore: evaluationEntryIds.size - 1,
           evaluationCountAfter: evaluationEntryIds.size,
           scoreComponents: {
-            frequencyBand: entry.frequencyBand,
-            selectedInBand: selectedInBand(entry.frequencyBand),
-            bandQuota: quotas[entry.frequencyBand],
+            commonnessTier: tiers.get(entry.id)!,
+            selectedInTier: selectedInTier(tiers.get(entry.id)!),
+            tierQuota: quotas[tiers.get(entry.id)!],
             stableEntryId: entry.id,
           },
           violatedConstraintIds: [],
@@ -247,7 +243,7 @@ export function partitionFrequencyStratified(
         step,
         candidateEntryId: null,
         action: "stopped",
-        reasonCode: "no-legal-cross-band-fallback-candidate",
+        reasonCode: "no-legal-cross-tier-fallback-candidate",
         evaluationCountBefore: evaluationEntryIds.size,
         evaluationCountAfter: evaluationEntryIds.size,
         scoreComponents: {
@@ -269,7 +265,7 @@ export function partitionFrequencyStratified(
       action: "stopped",
       reasonCode: evaluationEntryIds.size === options.evaluationEntryCount
         ? "evaluation-target-reached"
-        : "frequency-quota-selection-complete",
+        : "commonness-quota-selection-complete",
       evaluationCountBefore: evaluationEntryIds.size,
       evaluationCountAfter: evaluationEntryIds.size,
       scoreComponents: {
@@ -284,7 +280,7 @@ export function partitionFrequencyStratified(
   }
 
   return createPartitionDecision(input, {
-    policyId: "frequency-stratified-v1",
+    policyId: "commonness-stratified-v1",
     seed: null,
     evaluationEntryIds,
     evaluationEntryCount: options.evaluationEntryCount,
@@ -292,17 +288,17 @@ export function partitionFrequencyStratified(
     relationSupportConstraintKind: "hard",
     selectionTrace: trace,
     fallbackReasons,
-    additionalConstraintResults: BANDS.map((band) => numericConstraint(
-      `frequency-band-${band}-quota`,
+    additionalConstraintResults: COMMONNESS_TIERS.map((tier) => numericConstraint(
+      `commonness-tier-${tier}-quota`,
       "soft",
-      selectedInBand(band),
+      selectedInTier(tier),
       "equal",
-      quotas[band],
-      selectedInBand(band) === quotas[band]
-        ? "frequency-band-quota-satisfied"
-        : "frequency-band-quota-diverged",
+      quotas[tier],
+      selectedInTier(tier) === quotas[tier]
+        ? "commonness-tier-quota-satisfied"
+        : "commonness-tier-quota-diverged",
       entries
-        .filter((entry) => entry.frequencyBand === band && evaluationEntryIds.has(entry.id))
+        .filter((entry) => tiers.get(entry.id) === tier && evaluationEntryIds.has(entry.id))
         .map((entry) => entry.id),
     )),
   });

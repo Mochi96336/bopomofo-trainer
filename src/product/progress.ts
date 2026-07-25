@@ -23,7 +23,6 @@ import {
   validateFrequencyFirstUtterancePolicy,
   type FrequencyFirstSelectionState,
   type FrequencyFirstUtterancePolicy,
-  type FrequencyStage,
 } from "../curriculum/frequency-first-utterance.js";
 import {
   PRODUCT_PROGRESS_SCHEMA_VERSION,
@@ -228,14 +227,9 @@ function parseMeasurementSummary(
   };
 }
 
-function parseFrequencyStage(value: unknown): FrequencyStage | null {
-  return value === 1 || value === 2 || value === 3 ? value : null;
-}
-
 function parseSummary(value: unknown): ProductRoundSummary | null {
   if (!isRecord(value) || !Array.isArray(value.entryIds)) return null;
   const kind = value.kind;
-  const phase = value.phase;
   const focusEvidence = value.focusEvidence;
   if (
     (kind !== "practice" && kind !== "evaluation")
@@ -244,7 +238,6 @@ function parseSummary(value: unknown): ProductRoundSummary | null {
     || Number.isNaN(Date.parse(value.completedAt))
     || value.entryIds.length === 0
     || value.entryIds.some((entryId) => typeof entryId !== "string")
-    || (phase !== "coverage" && phase !== "adaptive" && phase !== "evaluation")
     || (value.focusTokenId !== null && typeof value.focusTokenId !== "string")
     || (focusEvidence !== null && focusEvidence !== "timed" && focusEvidence !== "correctness-only")
     || !isNonNegativeInteger(value.attempts)
@@ -253,8 +246,7 @@ function parseSummary(value: unknown): ProductRoundSummary | null {
     || (value.errors as number) > (value.attempts as number)
     || (value.timingSamples as number) > (value.attempts as number)
   ) return null;
-  if (kind === "evaluation" && (phase !== "evaluation" || value.focusTokenId !== null || focusEvidence !== null)) return null;
-  if (kind === "practice" && phase === "evaluation") return null;
+  if (kind === "evaluation" && (value.focusTokenId !== null || focusEvidence !== null)) return null;
   if ((value.focusTokenId === null) !== (focusEvidence === null)) return null;
 
   const utteranceId = typeof value.utteranceId === "string"
@@ -265,10 +257,7 @@ function parseSummary(value: unknown): ProductRoundSummary | null {
     : typeof value.templateId === "string"
       ? value.templateId
       : undefined;
-  const frequencyStage = value.frequencyStage === undefined
-    ? 1
-    : parseFrequencyStage(value.frequencyStage);
-  if (templateId === undefined || frequencyStage === null) return null;
+  if (templateId === undefined) return null;
 
   return {
     kind,
@@ -277,8 +266,6 @@ function parseSummary(value: unknown): ProductRoundSummary | null {
     entryIds: value.entryIds as string[],
     utteranceId,
     templateId,
-    frequencyStage,
-    phase,
     focusTokenId: value.focusTokenId as string | null,
     focusEvidence,
     attempts: value.attempts as number,
@@ -294,11 +281,6 @@ function parseSelectionState(
   if (
     !isRecord(value)
     || value.policyVersion !== policy.version
-    || parseFrequencyStage(value.stage) === null
-    || !isNonNegativeInteger(value.stagePracticeRounds)
-    || !isNonNegativeInteger(value.stageAttempts)
-    || !isNonNegativeInteger(value.stageErrors)
-    || (value.stageErrors as number) > (value.stageAttempts as number)
     || !Array.isArray(value.recentUtteranceIds)
     || !Array.isArray(value.recentTemplateIds)
     || value.recentUtteranceIds.some((item) => typeof item !== "string")
@@ -308,10 +290,6 @@ function parseSelectionState(
   ) return null;
   return {
     policyVersion: policy.version,
-    stage: value.stage as FrequencyStage,
-    stagePracticeRounds: value.stagePracticeRounds as number,
-    stageAttempts: value.stageAttempts as number,
-    stageErrors: value.stageErrors as number,
     recentUtteranceIds: value.recentUtteranceIds as string[],
     recentTemplateIds: value.recentTemplateIds as string[],
   };

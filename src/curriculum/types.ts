@@ -1,3 +1,4 @@
+import type { CommonnessTier } from "../commonness/tiers.js";
 import type { BindingSkillScope, CatalogEntry, Exercise, PracticeMode, TokenId } from "../core/model.js";
 import type { BindingAggregate } from "../measurement/types.js";
 
@@ -18,7 +19,6 @@ export interface CurriculumPolicy {
   readonly cooldownRounds: number;
   readonly errorWeight: number;
   readonly timingWeight: number;
-  readonly frequencyBandWeights: Readonly<Record<1 | 2 | 3, number>>;
   readonly recentEntryPenalty: number;
   readonly recentTokenPenalty: number;
 }
@@ -34,7 +34,7 @@ export interface CatalogTokenSupport {
   readonly commonEntryCount: number;
   readonly commonBindingEntryCount: number;
   readonly commonMotorEntryCount: number;
-  readonly frequencyBandCounts: Readonly<Record<1 | 2 | 3, number>>;
+  readonly commonnessTierCounts: Readonly<Record<CommonnessTier, number>>;
 }
 
 export interface CatalogSupportIndex {
@@ -128,7 +128,7 @@ export interface SimulationRoundReport {
   readonly tokenExposure: Readonly<Record<string, number>>;
   readonly bindingObservationExposure: Readonly<Record<string, number>>;
   readonly motorTimingExposure: Readonly<Record<string, number>>;
-  readonly frequencyBands: Readonly<Record<"1" | "2" | "3", number>>;
+  readonly commonnessTiers: Readonly<Record<CommonnessTier, number>>;
   readonly repeatedEntryCount: number;
   readonly fallbackReasons: readonly string[];
   readonly picks: readonly ExercisePickTrace[];

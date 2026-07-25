@@ -14,11 +14,11 @@ import { parseCsv } from "../../src/catalog/csv.js";
 import type { CatalogCommonnessBase, CatalogEntry } from "../../src/core/model.js";
 import type { RuntimeSyntaxProfile, Upos } from "../../src/syntax/types.js";
 
-const CSV_HEADER = "text,reading,frequency_band,tags,status,provenance_ids";
+const CSV_HEADER = "text,reading,tags,status,provenance_ids";
 const KNOWN_PROVENANCE_IDS = new Set(["local:sample-v1"]);
 
 function compileOne(text: string, reading: string): CatalogEntry {
-  const csv = parseCsv(`${CSV_HEADER}\n${text},${reading},1,general,provisional,local:sample-v1\n`);
+  const csv = parseCsv(`${CSV_HEADER}\n${text},${reading},general,provisional,local:sample-v1\n`);
   const result = compileCatalog(csv.records, KNOWN_PROVENANCE_IDS);
   const entry = result.entries[0];
   if (result.errors.length > 0 || entry === undefined) {
@@ -65,7 +65,6 @@ describe("catalog entry encode/decode round trip", () => {
     expect(decoded.id).toBe(entry.id);
     expect(decoded.prompt).toEqual(entry.prompt);
     expect(decoded.syllables).toEqual(entry.syllables);
-    expect(decoded.frequencyBand).toBe(entry.frequencyBand);
     expect(decoded.commonnessBase?.selectionWeight).toBe(COMMONNESS_BASE.selectionWeight);
     expect(decoded.commonnessBase?.confidence).toBe("reviewed");
   });

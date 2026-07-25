@@ -22,21 +22,34 @@ function random(value: number): RandomSource {
 function entry(
   id: string,
   text: string,
-  frequencyBand: 1 | 2 | 3,
+  selectionWeight: number,
   tokens: readonly string[],
 ): CatalogEntry {
   return {
     id,
     prompt: { text, locale: "zh-TW" },
     syllables: [{ tokens }],
-    frequencyBand,
+    commonnessBase: {
+      modelVersion: "commonness-v1",
+      sourceId: "test",
+      sourceVersion: "test-v1",
+      sourceRowId: id,
+      spokenPerMillion: null,
+      writtenPerMillion: null,
+      spokenStrength: null,
+      writtenStrength: null,
+      score: selectionWeight,
+      selectionWeight,
+      confidence: "reviewed",
+      reasons: [],
+    },
     tags: ["test"],
     provenanceIds: ["test:frequency"],
   };
 }
 
-const common = entry("common", "謝謝", 1, ["zhuyin:ㄒ", "zhuyin:ㄧ", "tone:4"]);
-const lessCommon = entry("less-common", "再見", 2, ["zhuyin:ㄗ", "zhuyin:ㄞ", "tone:4"]);
+const common = entry("common", "謝謝", 0.9, ["zhuyin:ㄒ", "zhuyin:ㄧ", "tone:4"]);
+const lessCommon = entry("less-common", "再見", 0.3, ["zhuyin:ㄗ", "zhuyin:ㄞ", "tone:4"]);
 
 const annotations: Readonly<Record<string, GrammarAnnotation>> = {
   common: {
@@ -69,7 +82,6 @@ function emptyMeasurement(): MeasurementSummary {
 }
 
 function input(
-  stage: 1 | 2 | 3,
   measurement: MeasurementSummary = emptyMeasurement(),
   entries: readonly CatalogEntry[] = [common, lessCommon],
 ) {
@@ -79,7 +91,6 @@ function input(
     measurement,
     mode,
     layoutId,
-    stage,
     history: {
       recentEntryIds: [],
       recentUtteranceIds: [],
@@ -150,16 +161,8 @@ function weakLessCommonMeasurement(): MeasurementSummary {
 }
 
 describe("frequency-first grammatical utterance policy", () => {
-  it("keeps locked frequency bands out of the slot candidate universe", () => {
-    const selection = selectFrequencyFirstUtterance(input(1, weakLessCommonMeasurement()));
-    expect(selection.slotSelections).toHaveLength(1);
-    expect(selection.slotSelections[0]?.candidates.map((candidate) => candidate.entryId))
-      .toEqual(["common"]);
-    expect(selection.utterance.entries.map((candidate) => candidate.id)).toEqual(["common"]);
-  });
-
   it("adds bounded expected-token and exact-transition weight without erasing frequency priority", () => {
-    const selection = selectFrequencyFirstUtterance(input(2, weakLessCommonMeasurement()));
+    const selection = selectFrequencyFirstUtterance(input(weakLessCommonMeasurement()));
     const commonScore = slotCandidate(selection, "common");
     const weakScore = slotCandidate(selection, "less-common");
     expect(weakScore.expectedTokenBoost).toBeGreaterThan(1);
@@ -193,14 +196,14 @@ describe("frequency-first grammatical utterance policy", () => {
         },
       },
     };
-    expect(selectFrequencyFirstUtterance(input(2, withConfusion)).slotSelections)
-      .toEqual(selectFrequencyFirstUtterance(input(2, measurement)).slotSelections);
+    expect(selectFrequencyFirstUtterance(input(withConfusion)).slotSelections)
+      .toEqual(selectFrequencyFirstUtterance(input(measurement)).slotSelections);
   });
 
   it("penalizes recent utterances without making them invalid", () => {
-    const baseline = selectFrequencyFirstUtterance(input(1));
+    const baseline = selectFrequencyFirstUtterance(input());
     const repeated = selectFrequencyFirstUtterance({
-      ...input(1),
+      ...input(),
       history: {
         recentEntryIds: ["common"],
         recentUtteranceIds: [baseline.utterance.id],
@@ -215,38 +218,28 @@ describe("frequency-first grammatical utterance policy", () => {
   });
 
   it("replays identically after reversing catalog and annotation order", () => {
-    const forward = selectFrequencyFirstUtterance(input(2, weakLessCommonMeasurement()));
+    const forward = selectFrequencyFirstUtterance(input(weakLessCommonMeasurement()));
     const reversedAnnotations = Object.fromEntries(Object.entries(annotations).reverse());
     const reversed = selectFrequencyFirstUtterance({
-      ...input(2, weakLessCommonMeasurement(), [lessCommon, common]),
+      ...input(weakLessCommonMeasurement(), [lessCommon, common]),
       annotations: reversedAnnotations,
     });
     expect(reversed).toEqual(forward);
   });
 
-  it("unlocks the next stage only after enough accurate practice", () => {
+  // The selection state carries only what the next round needs: what was just
+  // practiced. There is no stage to unlock and no per-stage tally to keep.
+  it("remembers only the recent utterance and template", () => {
     const policy = FREQUENCY_FIRST_UTTERANCE_POLICY;
-    const selection = selectFrequencyFirstUtterance(input(1));
+    const selection = selectFrequencyFirstUtterance(input());
     let state = createFrequencyFirstSelectionState(policy);
-    state = updateFrequencyFirstSelectionState(state, selection, 15, 1, policy);
-    state = updateFrequencyFirstSelectionState(state, selection, 15, 1, policy);
-    expect(state.stage).toBe(1);
-    state = updateFrequencyFirstSelectionState(state, selection, 15, 1, policy);
-    expect(state).toMatchObject({
-      stage: 2,
-      stagePracticeRounds: 0,
-      stageAttempts: 0,
-      stageErrors: 0,
+    state = updateFrequencyFirstSelectionState(state, selection, policy);
+    expect(state).toEqual({
+      policyVersion: policy.version,
+      recentUtteranceIds: [selection.utterance.id],
+      recentTemplateIds: selection.utterance.templateId === null
+        ? []
+        : [selection.utterance.templateId],
     });
-  });
-
-  it("does not unlock when the stage error rate is too high", () => {
-    const policy = FREQUENCY_FIRST_UTTERANCE_POLICY;
-    const selection = selectFrequencyFirstUtterance(input(1));
-    let state = createFrequencyFirstSelectionState(policy);
-    for (let round = 0; round < 3; round += 1) {
-      state = updateFrequencyFirstSelectionState(state, selection, 15, 5, policy);
-    }
-    expect(state.stage).toBe(1);
   });
 });

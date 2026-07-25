@@ -6,26 +6,18 @@ The browser product selects complete grammar-valid utterances. It does not first
 
 Selection order is:
 
-1. determine the unlocked frequency stage;
-2. filter the catalog to entries in that stage;
-3. sample a bounded derivation rooted at the formal `Sentence` category;
-4. fill each lexical slot only from compatible admitted syntax profiles;
-5. give compatible entries and the completed utterance a frequency base;
-6. add bounded learner-specific weight from expected-token errors, identifiable binding timing, and exact within-syllable transition timing;
-7. apply recent entry and utterance penalties;
-8. make one deterministic seeded weighted selection.
+1. sample a bounded derivation rooted at the formal `Sentence` category;
+2. fill each lexical slot only from compatible admitted syntax profiles;
+3. give compatible entries and the completed utterance a frequency base;
+4. add bounded learner-specific weight from expected-token errors, identifiable binding timing, and exact within-syllable transition timing;
+5. apply recent entry and utterance penalties;
+6. make one deterministic seeded weighted selection.
 
-## Frequency stages
+## Frequency base
 
-Three bands continue to control eligibility:
+Every syntax-legal entry is eligible in every round. There is no stage gate and no coarse band: commonness is one continuous weight, and a rarer word is selected less often rather than locked out.
 
-- Stage 1: band 1 only;
-- Stage 2: bands 1–2;
-- Stage 3: bands 1–3.
-
-A locked band cannot be admitted by a high error or latency score. Stage advancement requires a minimum number of completed practice utterances, enough mapped attempts, and an acceptable cumulative error rate within the current stage.
-
-Within the unlocked set, reviewed NAER `commonness-v1` evidence supplies the entry's frequency weight. The coarse band weight remains the deterministic fallback when an entry has no reviewed commonness projection. This source-neutral boundary does not change the learner-evidence contract.
+Reviewed NAER `commonness-v1` evidence supplies that weight. An entry without reviewed evidence weighs the same as the most common word, so a catalog without commonness evidence selects uniformly instead of carrying a second, parallel notion of how common a word is.
 
 ## Utterance score
 
@@ -94,16 +86,14 @@ Every syntax-legal runtime entry belongs to the ordinary practice catalog. The b
 
 ## Persistence boundary
 
-Product progress schema 4 stores:
+Product progress schema 5 stores:
 
-- current frequency stage;
-- attempts, errors, and completed practice utterances accumulated toward the next stage;
 - recent utterance IDs;
 - recent template IDs;
-- utterance/template/stage fields in recent summaries;
+- utterance and template fields in recent summaries;
 - binding, directional confusion, and exact transition aggregates under measurement policy `phase-3-v2`.
 
-Schemas 1, 2, and 3 are not accepted. The browser deletes their obsolete storage keys before loading the current generation, then starts with fresh measurements, counters, summaries, and selection state. No legacy payload contributes to product or Pilot state.
+Schemas 1 through 4 are not accepted. The browser deletes their obsolete storage keys before loading the current generation, then starts with fresh measurements, counters, summaries, and selection state. No legacy payload contributes to product or Pilot state.
 
 ## Explainability
 

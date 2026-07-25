@@ -29,10 +29,9 @@ describe("frequency-first product real catalog integration", () => {
     );
     const state = createProductState(environment, progress, 0);
     expect(state.round.kind).toBe("practice");
-    expect(state.round.selection.stage).toBe(1);
     expect(state.round.exercise.entries).toEqual(state.round.selection.utterance.entries);
     expect(state.round.exercise.entries.length).toBeGreaterThan(1);
-    expect(state.round.exercise.entries.every((entry) => entry.frequencyBand === 1)).toBe(true);
+    expect(state.round.exercise.entries.every((entry) => entry.commonnessBase !== undefined)).toBe(true);
     expect(state.round.selection.utterance.kind).toBe("formal-syntax");
     expect(state.round.selection.utterance.syntaxDerivationId).toBeTruthy();
 

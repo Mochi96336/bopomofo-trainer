@@ -1,3 +1,4 @@
+import { catalogCommonnessTiers, type CommonnessTier } from "../../commonness/tiers.js";
 import type { CatalogEntry } from "../../core/model.js";
 import { createPartitionDecision } from "./decision.js";
 import {
@@ -54,14 +55,16 @@ function finalizeGuarded(
     entry: CatalogEntry,
     evaluationEntryIds: ReadonlySet<string>,
     model: PartitionRelationModel,
+    tiers: ReadonlyMap<string, CommonnessTier>,
   ) => CandidateScore,
 ): PartitionDecision {
   validateOptions(input, options);
+  const tiers = catalogCommonnessTiers(input.entries);
   const selection = selectWithRelationSupportGuard(
     input,
     options.evaluationEntryCount,
     options.minimumTrainingDistinctEntries,
-    scorer,
+    (entry, evaluationEntryIds, model) => scorer(entry, evaluationEntryIds, model, tiers),
   );
   return createPartitionDecision(input, {
     policyId,
@@ -85,10 +88,10 @@ export function partitionRelationSupportPreserving(
     options,
     "relation-support-preserving-v1",
     null,
-    (entry, _evaluationEntryIds, model) => ({
-      rank: [-entry.frequencyBand, -(model.entryRelationKeys[entry.id]?.length ?? 0)],
+    (entry, _evaluationEntryIds, model, tiers) => ({
+      rank: [-tiers.get(entry.id)!, -(model.entryRelationKeys[entry.id]?.length ?? 0)],
       scoreComponents: {
-        frequencyBand: entry.frequencyBand,
+        commonnessTier: tiers.get(entry.id)!,
         relationCount: model.entryRelationKeys[entry.id]?.length ?? 0,
         stableEntryId: entry.id,
       },
@@ -119,7 +122,7 @@ export function partitionSeededMaximumCoverage(
     options,
     "seeded-maximum-coverage-v1",
     seed,
-    (entry, evaluationEntryIds, model) => {
+    (entry, evaluationEntryIds, model, tiers) => {
       const represented = representedRelationKeys(evaluationEntryIds, model);
       const entryKeys = model.entryRelationKeys[entry.id] ?? [];
       const newBindingCount = entryKeys.filter(
@@ -135,13 +138,13 @@ export function partitionSeededMaximumCoverage(
           totalNewRelationCount,
           newTransitionCount,
           newBindingCount,
-          -entry.frequencyBand,
+          -tiers.get(entry.id)!,
         ],
         scoreComponents: {
           newRelationCount: totalNewRelationCount,
           newBindingCount,
           newTransitionCount,
-          frequencyBand: entry.frequencyBand,
+          commonnessTier: tiers.get(entry.id)!,
           stableEntryId: entry.id,
           seedTieBreak: tieBreak,
         },
@@ -195,7 +198,7 @@ export function partitionPathNovelty(
     options,
     "path-novelty-v1",
     null,
-    (entry, evaluationEntryIds) => {
+    (entry, evaluationEntryIds, _model, tiers) => {
       const candidate = featuresByEntryId.get(entry.id)!;
       const representedTransitions = unionFeatures(
         evaluationEntryIds,
@@ -257,7 +260,7 @@ export function partitionPathNovelty(
           newCharacterCount,
           newTagCount,
           newProvenanceCount,
-          -entry.frequencyBand,
+          -tiers.get(entry.id)!,
         ],
         scoreComponents: {
           newPathCount,
@@ -266,7 +269,7 @@ export function partitionPathNovelty(
           newCharacterCount,
           newTagCount,
           newProvenanceCount,
-          frequencyBand: entry.frequencyBand,
+          commonnessTier: tiers.get(entry.id)!,
           stableEntryId: entry.id,
         },
         seedTieBreak: null,

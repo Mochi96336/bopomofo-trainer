@@ -24,13 +24,10 @@ import {
   type SlotWeightedGrammarGeneration,
 } from "./slot-weighted-grammar.js";
 
-export type FrequencyStage = 1 | 2 | 3;
-
 const MAXIMUM_RECENT_UTTERANCE_ATTEMPTS = 4;
 
 export interface FrequencyFirstUtterancePolicy {
   readonly version: string;
-  readonly frequencyBandWeights: Readonly<Record<FrequencyStage, number>>;
   readonly minimumBindingAttempts: number;
   readonly minimumBindingTimingSamples: number;
   readonly minimumTransitionTimingSamples: number;
@@ -43,16 +40,12 @@ export interface FrequencyFirstUtterancePolicy {
   readonly recentEntryPenalty: number;
   readonly recentUtterancePenalty: number;
   readonly recentTemplatePenalty: number;
-  readonly minimumStagePracticeRounds: number;
-  readonly minimumStageAttempts: number;
-  readonly maximumStageErrorRate: number;
   readonly recentUtteranceLimit: number;
   readonly recentTemplateLimit: number;
 }
 
 export const FREQUENCY_FIRST_UTTERANCE_POLICY: FrequencyFirstUtterancePolicy = {
   version: "frequency-first-utterance-v1",
-  frequencyBandWeights: { 1: 1, 2: 0.5, 3: 0.25 },
   minimumBindingAttempts: 4,
   minimumBindingTimingSamples: 3,
   minimumTransitionTimingSamples: 3,
@@ -65,19 +58,12 @@ export const FREQUENCY_FIRST_UTTERANCE_POLICY: FrequencyFirstUtterancePolicy = {
   recentEntryPenalty: 0.72,
   recentUtterancePenalty: 0.3,
   recentTemplatePenalty: 0.78,
-  minimumStagePracticeRounds: 3,
-  minimumStageAttempts: 40,
-  maximumStageErrorRate: 0.15,
   recentUtteranceLimit: 8,
   recentTemplateLimit: 6,
 };
 
 export interface FrequencyFirstSelectionState {
   readonly policyVersion: string;
-  readonly stage: FrequencyStage;
-  readonly stagePracticeRounds: number;
-  readonly stageAttempts: number;
-  readonly stageErrors: number;
   readonly recentUtteranceIds: readonly string[];
   readonly recentTemplateIds: readonly string[];
 }
@@ -149,7 +135,6 @@ export interface UtteranceCandidateScore {
 
 export interface FrequencyFirstUtteranceSelection {
   readonly policyVersion: string;
-  readonly stage: FrequencyStage;
   readonly utterance: GrammarUtteranceCandidate;
   readonly score: UtteranceCandidateScore;
   readonly templateCandidates: readonly TemplateSelectionScore[];
@@ -164,7 +149,6 @@ export interface FrequencyFirstUtteranceInput {
   readonly measurement: MeasurementSummary;
   readonly mode: PracticeMode;
   readonly layoutId: string;
-  readonly stage: FrequencyStage;
   readonly history: UtteranceSelectionHistory;
   readonly policy: FrequencyFirstUtterancePolicy;
   readonly random: RandomSource;
@@ -307,10 +291,7 @@ function scoreEntry(
   entry: CatalogEntry,
   input: FrequencyFirstUtteranceInput,
 ): EntrySelectionScore {
-  const frequencyBase = catalogEntryFrequencyWeight(
-    entry,
-    input.policy.frequencyBandWeights,
-  );
+  const frequencyBase = catalogEntryFrequencyWeight(entry);
   const expectedTrace = expectedTokenTrace([entry], input);
   const transitions = transitionTrace([entry], input);
   const expectedTokenBoost = Math.max(1, ...expectedTrace.map((item) => item.boost));
@@ -353,9 +334,9 @@ function scoreCandidate(
   candidate: GrammarUtteranceCandidate,
   input: FrequencyFirstUtteranceInput,
 ): UtteranceCandidateScore {
-  const frequencyBase = geometricMean(candidate.entries.map((entry) =>
-    catalogEntryFrequencyWeight(entry, input.policy.frequencyBandWeights)
-  ));
+  const frequencyBase = geometricMean(
+    candidate.entries.map((entry) => catalogEntryFrequencyWeight(entry)),
+  );
   const expectedTrace = expectedTokenTrace(candidate.entries, input);
   const transitions = transitionTrace(candidate.entries, input);
   const expectedTokenBoost = Math.max(1, ...expectedTrace.map((item) => item.boost));
@@ -480,30 +461,15 @@ export function validateFrequencyFirstUtterancePolicy(
   policy: FrequencyFirstUtterancePolicy,
 ): void {
   if (policy.version.length === 0) throw new Error("utterance policy version must not be empty");
-  for (const stage of [1, 2, 3] as const) {
-    if (!Number.isFinite(policy.frequencyBandWeights[stage])
-      || policy.frequencyBandWeights[stage] <= 0) {
-      throw new RangeError("frequency band weights must be finite and positive");
-    }
-  }
-  if (!(policy.frequencyBandWeights[1] > policy.frequencyBandWeights[2]
-    && policy.frequencyBandWeights[2] > policy.frequencyBandWeights[3])) {
-    throw new RangeError("frequency band weights must decrease by stage");
-  }
   const positiveIntegers = [
     policy.minimumBindingAttempts,
     policy.minimumBindingTimingSamples,
     policy.minimumTransitionTimingSamples,
-    policy.minimumStagePracticeRounds,
-    policy.minimumStageAttempts,
     policy.recentUtteranceLimit,
     policy.recentTemplateLimit,
   ];
   if (positiveIntegers.some((value) => !Number.isInteger(value) || value <= 0)) {
     throw new RangeError("utterance policy counts must be positive integers");
-  }
-  if (policy.maximumStageErrorRate < 0 || policy.maximumStageErrorRate > 1) {
-    throw new RangeError("maximum stage error rate must be between 0 and 1");
   }
   for (const factor of [
     policy.recentEntryPenalty,
@@ -531,10 +497,6 @@ export function createFrequencyFirstSelectionState(
   validateFrequencyFirstUtterancePolicy(policy);
   return {
     policyVersion: policy.version,
-    stage: 1,
-    stagePracticeRounds: 0,
-    stageAttempts: 0,
-    stageErrors: 0,
     recentUtteranceIds: [],
     recentTemplateIds: [],
   };
@@ -544,7 +506,7 @@ export function selectFrequencyFirstUtterance(
   input: FrequencyFirstUtteranceInput,
 ): FrequencyFirstUtteranceSelection {
   validateFrequencyFirstUtterancePolicy(input.policy);
-  const eligibleEntries = input.entries.filter((entry) => entry.frequencyBand <= input.stage);
+  const eligibleEntries = input.entries;
   const entriesById = new Map(eligibleEntries.map((entry) => [entry.id, entry]));
   let generation: SlotWeightedGrammarGeneration | null = null;
   let score: UtteranceCandidateScore | null = null;
@@ -569,7 +531,6 @@ export function selectFrequencyFirstUtterance(
   }
   return {
     policyVersion: input.policy.version,
-    stage: input.stage,
     utterance: generation.candidate,
     score,
     templateCandidates: generation.templateCandidates.map((candidate) => {
@@ -609,31 +570,13 @@ function appendRecent(
 export function updateFrequencyFirstSelectionState(
   state: FrequencyFirstSelectionState,
   selection: FrequencyFirstUtteranceSelection,
-  attempts: number,
-  errors: number,
   policy: FrequencyFirstUtterancePolicy,
 ): FrequencyFirstSelectionState {
   if (state.policyVersion !== policy.version || selection.policyVersion !== policy.version) {
     throw new Error("utterance policy version mismatch");
   }
-  if (!Number.isInteger(attempts) || attempts < 0
-    || !Number.isInteger(errors) || errors < 0 || errors > attempts) {
-    throw new RangeError("round attempts and errors must be valid non-negative integers");
-  }
-  const stagePracticeRounds = state.stagePracticeRounds + 1;
-  const stageAttempts = state.stageAttempts + attempts;
-  const stageErrors = state.stageErrors + errors;
-  const errorRate = stageAttempts === 0 ? 0 : stageErrors / stageAttempts;
-  const unlock = state.stage < 3
-    && stagePracticeRounds >= policy.minimumStagePracticeRounds
-    && stageAttempts >= policy.minimumStageAttempts
-    && errorRate <= policy.maximumStageErrorRate;
   return {
     policyVersion: policy.version,
-    stage: unlock ? (state.stage + 1) as FrequencyStage : state.stage,
-    stagePracticeRounds: unlock ? 0 : stagePracticeRounds,
-    stageAttempts: unlock ? 0 : stageAttempts,
-    stageErrors: unlock ? 0 : stageErrors,
     recentUtteranceIds: appendRecent(
       state.recentUtteranceIds,
       selection.utterance.id,

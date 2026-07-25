@@ -55,7 +55,6 @@ function entry(id: string): CatalogEntry {
     id,
     prompt: { text: id, locale: "zh-TW" },
     syllables: [{ tokens: [`zhuyin:${id}`] }],
-    frequencyBand: 1,
     commonnessBase: {
       modelVersion: "commonness-v1",
       sourceId: "fixture",
@@ -100,7 +99,6 @@ function select(
     measurement,
     mode: "guided",
     layoutId: "standard",
-    stage: 1,
     history: {
       recentEntryIds: [],
       recentUtteranceIds: [],

@@ -43,11 +43,10 @@ Normalization and scoring remain unchanged from `commonness-v1`: accepted eviden
 The frequency-first utterance selector uses:
 
 ```text
-entry.commonnessBase?.selectionWeight
-?? frequencyBandWeights[entry.frequencyBand]
+entry.commonnessBase?.selectionWeight ?? 1
 ```
 
-The base for a complete grammar-valid utterance remains the geometric mean of its entry weights. `frequencyBand` still controls stage eligibility; expected-token and exact within-syllable transition evidence remain bounded learner boosts; confusion diagnostics remain disconnected from curriculum scoring.
+The base for a complete grammar-valid utterance remains the geometric mean of its entry weights. There is no eligibility gate: commonness only changes how often an entry is selected. Expected-token and exact within-syllable transition evidence remain bounded learner boosts; confusion diagnostics remain disconnected from curriculum scoring.
 
 ## Redistribution boundary
 

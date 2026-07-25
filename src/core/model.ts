@@ -1,5 +1,4 @@
 export type TokenId = string;
-export type FrequencyBand = 1 | 2 | 3;
 export type PracticeMode = "guided" | "recall";
 export type TimingContext =
   | "exercise-start"
@@ -42,7 +41,6 @@ export interface CatalogEntry {
   readonly id: string;
   readonly prompt: Prompt;
   readonly syllables: readonly Syllable[];
-  readonly frequencyBand: FrequencyBand;
   readonly commonnessBase?: CatalogCommonnessBase;
   readonly tags: readonly string[];
   readonly provenanceIds: readonly string[];

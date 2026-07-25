@@ -15,7 +15,6 @@ function entry(id: string, tokens: readonly (readonly string[])[]): CatalogEntry
     id,
     prompt: { text: id, locale: "zh-TW" },
     syllables: tokens.map((syllable) => ({ tokens: syllable })),
-    frequencyBand: 1,
     tags: ["confusion-pool-test"],
     provenanceIds: ["confusion-pool-test"],
   };

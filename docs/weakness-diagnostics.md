@@ -26,7 +26,9 @@ Analysis mode contains three views:
 - `轉換`: exact ordered timing between adjacent tokens inside one syllable;
 - `誤按`: directional expected-token to actual-token confusions.
 
-The mode combines spatial keyboard reading, exact lists, filters, sample warnings, selected-item details, and directional SVG relationships for transitions and confusions — by default combined into one severity-coloured full-network overlay, or separated per tab when that overlay is toggled off.
+The mode combines spatial keyboard reading, exact lists, sample warnings, selected-item details, and directional SVG relationships for transitions and confusions — by default replaced by one severity-coloured full-network overlay, or drawn per tab when that overlay is toggled off.
+
+Direction, minimum-sample, tone, and first-five/complete-list controls were all removed after review; the only user control over list contents is an optional key selection. Copy must therefore never refer to a chosen "scope" or "range".
 
 ## Design principles
 
@@ -63,17 +65,17 @@ While analysis mode is open:
 
 ## Desktop layout
 
-Analysis mode uses a full-viewport shell with a persistent header and two content regions.
+Analysis mode uses a full-viewport shell with two content regions; the tabs and exit control live in the inspector's head rather than in a separate header band.
 
 ```text
 ┌───────────────────────────────────────────────────────────────────────┐
-│ 弱點診斷   [按鍵] [轉換] [誤按]                         返回練習 │
-├───────────────────────────────────────────────────────────────────────┤
 │           keyboard analysis canvas          │      inspector rail     │
 │                                              │                         │
-│ shared keyboard geometry, tilt, key shape    │ filters                │
+│ 分析 title · 全網 toggle                      │ [按鍵][轉換][誤按] Esc │
+│ shared keyboard geometry, tilt, key shape    │ sort (key tab only)    │
 │ key emphasis / full-network relation overlay │ exact list             │
 │ selected item context                        │ selected detail        │
+│                                              │ count · metric note    │
 └───────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -83,16 +85,16 @@ Recommended desktop proportions:
 - inspector rail: `340–400px`;
 - overall content width: bounded by the existing product shell rhythm rather than edge-to-edge dashboard spacing.
 
-An earlier draft of this layout reserved a third `190–230px` overview rail (objective counts, a metric explanation, active-scope text, and a data-state legend) to the left of the canvas. Hands-on review found it duplicated the header's summary line and explained a dot legend the UI does not actually use, so it was removed rather than kept as under-used chrome; the one line worth keeping — the active metric's explanation — moved into the canvas heading caption instead. Mobile-specific interaction remains outside this workstream.
+An earlier draft of this layout reserved a third `190–230px` overview rail (objective counts, a metric explanation, active-scope text, and a data-state legend) to the left of the canvas. Hands-on review found it duplicated the header's summary line and explained a dot legend the UI does not actually use, so it was removed rather than kept as under-used chrome; the one line worth keeping — the active metric's explanation — moved to the foot of the inspector, beside the list it describes. Mobile-specific interaction remains outside this workstream.
 
 ## Header
 
-The analysis header contains:
+The analysis mode has no separate header band. The canvas carries a short `分析` title (labelled `弱點診斷分析` for assistive technology), and the inspector's own head holds:
 
-- `弱點診斷` title;
-- the objective summary in a secondary line;
 - `按鍵 / 轉換 / 誤按` tabs;
-- `返回練習` as the primary exit action.
+- the exit control, labelled `返回練習` for assistive technology and shown as `Esc`.
+
+The objective summary line lives in the drawer, not in analysis mode.
 
 Tabs use the WAI-ARIA tab pattern:
 
@@ -106,7 +108,7 @@ The active tab is persisted. Selected keys and selected relationships remain ses
 
 ## Canvas heading
 
-The objective counts (keys with observations, repeated confusions, slower sufficient-sample transitions) live once, in the header's summary line under `弱點診斷`. The canvas heading directly above the keyboard carries the one line worth repeating there: a short explanation of the active metric (including the `錯誤觀察比例` first-attempt limitation note on the key tab), plus the `全網` toggle described below.
+The objective counts (keys with observations, repeated confusions, slower sufficient-sample transitions) live once, in the drawer summary. The canvas heading carries the `分析` title and the `全網` toggle described below. The active metric's explanation — including the `錯誤觀察比例` first-attempt limitation note on the key tab — sits with the row count at the foot of the inspector, next to the list it describes.
 
 `資料足夠` remains an internal display state but is not shown as a badge or legend item. Sufficient data is the unmarked normal state; only `資料不足` and `初步` get visible warnings, inline on the rows and detail pane that carry them.
 
@@ -140,7 +142,7 @@ The key view emphasizes the exact keys returned by the active key selector.
 
 Unless the full-network overlay is on (see below), the transition view displays endpoints and directional SVG paths from the exact currently filtered transition rows.
 
-- selected key, direction, sample gate, tone setting, and list scope all affect both list and graph;
+- the selected key and the fixed sample gate affect both list and graph;
 - opposite directions remain separate paths;
 - selecting a path selects the corresponding inspector row;
 - hover and focus synchronize between path and row.
@@ -155,14 +157,18 @@ Unless the full-network overlay is on, the confusion view uses a separate direct
 
 ### Full-network overlay
 
-The `全網` toggle sits in the canvas heading, is on by default, and is the primary visual on entering analysis regardless of which tab is active. It draws every transition and confusion at once — unranked, unfiltered by the tab's own direction/sample/tone controls, and with no selection state — as one keyboard-wide relationship network. This intentionally supersedes two earlier constraints in this document: transition and confusion paths are now shown simultaneously, and their colour is not neutral ink.
+The `全網` toggle sits in the canvas heading, is on by default, and is the primary visual on entering analysis regardless of which tab is active. It draws the **transition** mesh at once — unranked, sample-gate-free, and with no selection state — as one keyboard-wide relationship network. This intentionally supersedes an earlier constraint in this document: these paths' colour is not neutral ink.
 
-Each path's colour and prominence are driven by its own severity, `0` to `1`:
+Two path kinds appear:
 
-- confusion severity is the actual `expectedErrorShare`;
-- transition severity has no error-rate equivalent, so it is slowness against `DIAGNOSTIC_POLICY.transitionTimingBandsMs` (`0` at or below `medium`, `1` at or above `slow`).
+- every measured transition;
+- every transition Bopomofo's fixed compositional order permits that has no measurement yet, drawn as a faint `potential` path with no hover title.
 
-Severity interpolates stroke colour from `var(--ink-muted)` to `var(--danger)`, and scales both opacity (`0.2`–`0.75`) and width (`1.1`–`2.5`) — a faint thin ink line for a low-severity relation, a thicker red one for a high-severity relation. Network paths are decorative and not part of the tab order: they carry a title on hover for sighted mouse users, but the accessible reading of the same data remains the per-tab inspector list, one click away via the toggle. When there is no transition or confusion data yet, the canvas shows a short inline notice instead of silently rendering nothing, so the toggle's effect is never mistaken for missing functionality.
+Confusions are **not** part of this overlay; they are drawn only per tab with the overlay off. Copy for the toggle must not promise otherwise.
+
+Measured path colour and prominence are driven by severity, `0` to `1`. Transition severity has no error-rate equivalent, so it is slowness against `DIAGNOSTIC_POLICY.transitionTimingBandsMs` (`0` at or below `medium`, `1` at or above `slow`).
+
+Severity interpolates stroke colour from `var(--ink-muted)` to `var(--danger)`, and scales both opacity (`0.2`–`0.75`) and width (`1.1`–`2.5`) — a faint thin ink line for a low-severity relation, a thicker red one for a high-severity relation. Network paths are decorative and not part of the tab order: they carry a title on hover for sighted mouse users, but the accessible reading of the same data remains the per-tab inspector list, one click away via the toggle. When there is no transition to draw at all, the canvas shows a short inline notice instead of silently rendering nothing, so the toggle's effect is never mistaken for missing functionality.
 
 Turning `全網` off restores the previous per-tab behaviour described above.
 
@@ -175,7 +181,7 @@ Relationship paths use:
 - explicit arrow direction;
 - separate higher, dashed routing for tone relations.
 
-Per-tab paths (network overlay off) additionally use stable sample-count width tiers, neutral ink styling, and hover/click/keyboard-focus/list synchronization. The current browser adapter builds them from the exact visible inspector rows after selectors have applied direction, sample, tone, and first-five/full-list filters. Direct model composition remains a cleanup milestone.
+Per-tab paths (network overlay off) additionally use stable sample-count width tiers, neutral ink styling, and hover/click/keyboard-focus/list synchronization. The current browser adapter builds them from the exact visible inspector rows after the selectors have applied the key selection and the fixed sample gate. Composing them directly from the model instead is listed under known gaps below.
 
 ## Inspector rail
 
@@ -183,10 +189,11 @@ The inspector rail is the exact-reading surface.
 
 It contains, from top to bottom:
 
-1. active filters;
-2. first-five / complete-list scope;
-3. exact rows;
-4. one persistent selected-item detail pane.
+1. tabs and the exit control;
+2. the sort control, on the key tab only;
+3. exact rows, always the complete list;
+4. one persistent selected-item detail pane;
+5. the row count and the active metric's explanation.
 
 Rows do not expand into long inline blocks. Selecting a row updates the detail pane, preserving list position and comparison context.
 
@@ -196,8 +203,9 @@ The key list supports:
 
 - sort by `錯誤觀察比例`;
 - sort by `有效鍵間時間`;
-- first five / complete list;
 - selected-key synchronization with the keyboard.
+
+Keys with no observations are omitted from the list; the empty state is `尚無按鍵資料。`
 
 The detail pane shows:
 
@@ -205,27 +213,31 @@ The detail pane shows:
 - visible warnings only when error or timing data is insufficient or preliminary;
 - accepted timing and best timing;
 - all four timing exclusion counters;
-- current frequency-first expected-token influence and reason.
+- current frequency-first expected-token influence and reason;
+- a `最近變化` section holding the bounded correctness and timing history charts.
+
+`最近變化` sits below the exact cumulative values and never replaces them. The two metrics keep separate charts, separate axes, and separate values; they are never combined into one score or one dual-axis chart. Its full contract — bucket semantics, bounded persistence, the trend dead zone, empty states, and the no-prediction boundary — is in [diagnostic progress history](./diagnostic-progress-history.md).
 
 ### Transition inspector
 
-The transition list supports:
+The transition list is filtered only by an optional key selection, in both directions, tones included. One fixed gate remains: a transition is listed once it reaches `DIAGNOSTIC_POLICY.relationshipSamples.preliminary` accepted samples, so the empty state must distinguish three real situations rather than blaming a scope the learner never chose:
 
-- selected key;
-- incoming / outgoing / all directions;
-- minimum accepted samples;
-- include tones;
-- first five / complete list.
+| Situation | Copy |
+| --- | --- |
+| A key is selected and has nothing listable | `ㄌ 目前沒有可列出的轉換。` |
+| No selection, no transitions recorded at all | `尚無轉換資料。` |
+| No selection, transitions exist but none reach the gate | `轉換樣本仍不足；累積 3 個樣本後才會列出。` |
 
 The detail pane shows exact direction, current and best accepted timing, sample count, and any non-sufficient sample warning.
 
 ### Confusion inspector
 
-The confusion list supports:
+The confusion list is filtered only by an optional key selection, in both directions. It has no sample gate — a confusion is listed from its first occurrence — so its copy must not promise a threshold:
 
-- selected key;
-- expected / actual / all directions;
-- first five / complete list.
+| Situation | Copy |
+| --- | --- |
+| A key is selected and has none | `ㄌ 目前沒有誤按紀錄。` |
+| No selection, none recorded | `尚無誤按資料。` |
 
 The detail pane shows exact expected and actual keys, occurrences, expected-token confusion total, expected-error share, and any non-sufficient sample warning.
 
@@ -245,7 +257,7 @@ It must not introduce subjective counts such as `3 個值得注意的按鍵` unl
 
 ## Separate metrics
 
-Correctness and timing remain separate observations. The interface may use an overall conservative data state to decide whether a warning is needed, but it never combines metrics into a mastery or weakness score.
+Correctness and timing remain separate observations. The interface may use an overall conservative data state to decide whether a warning is needed, but it never combines metrics into a mastery or weakness score. This holds for progress history too: the two series are never merged into a mastery, weakness, skill, confidence, or progress score.
 
 The key correctness label is `錯誤觀察比例`:
 
@@ -326,11 +338,19 @@ Browser UI code does not read measurement aggregates directly. `src/diagnostics/
 - catalog support used to distinguish available and non-applicable timing;
 - the current frequency-first selection policy, including user-selected influence scales.
 
-`src/diagnostics/selectors.ts` owns deterministic sorting, first-five limits, selected-key direction filters, sample gates, and tone inclusion. Drawer signals, inspector lists, and keyboard emphasis consume these selectors. The temporary relationship enhancement consumes the exact rendered inspector result so graph and list cannot diverge in visible scope.
+`src/diagnostics/selectors.ts` owns deterministic sorting, selected-key filtering, sample gates, and the first-five limit still used for the drawer's representative signals. Drawer signals, inspector lists, and keyboard emphasis consume these selectors. The temporary relationship enhancement consumes the exact rendered inspector result so graph and list cannot diverge in visible scope.
 
 ## Persistence
 
 The measurement-contract change rotates product progress to schema 4 and Pilot history to schema 3. Older generations are deleted rather than partially migrated, so aggregates with different confusion semantics are never mixed.
+
+Bounded per-key progress history uses its own independent key:
+
+```text
+bopomofo-trainer.progress-history.v1
+```
+
+It is deliberately not part of `ProductProgress`: adding it there would bump the progress schema and, under this repository's delete-rather-than-migrate rule, discard every existing learner's cumulative aggregates to add a feature that has no history to show them yet. Existing learners keep their aggregates and begin accumulating history from this version. See [diagnostic progress history](./diagnostic-progress-history.md).
 
 Diagnostic UI preferences use the independent key:
 
@@ -338,33 +358,18 @@ Diagnostic UI preferences use the independent key:
 bopomofo-trainer.diagnostics.v1
 ```
 
-The browser may retain active tab, ordering, direction filters, minimum samples, tone inclusion, and the full-network toggle. Selected keys, selected relationships, list scope, hover state, and detail selection are session-only.
+The browser retains the active tab, the key-list sort, and the full-network toggle. Selected keys, selected relationships, hover state, and detail selection are session-only.
 
 The previously implemented drawer-expansion preference is retained only until the analysis-mode preference cleanup; the final drawer summary is not collapsible.
 
-## Engineering status
+## Known gaps
 
-### Completed in this Draft PR
+These are real, currently true shortcuts, not planned features:
 
-- compact drawer summary;
-- full-viewport analysis shell;
-- keyboard canvas, inspector, and persistent detail pane, with the low-value overview rail removed after hands-on review;
-- keyboard canvas restored to the practice sketch's actual key shape and board tilt, with the mismatched hover-lift animation removed;
-- a measured FLIP entry animation from the practice keyboard hint's real on-screen position;
-- warning-only sample labels;
-- Bopomofo-only keyboard display with exact number-row tests;
-- deterministic transition and confusion SVG routing, plus a severity-coloured full-network overlay combining both kinds at once;
-- graph/list hover, focus, click, and selection synchronization;
-- tone-specific relationship routing;
-- reduced-motion and keyboard tab navigation;
-- measurement-generation rotation for expanded confusion contexts.
-
-### Remaining cleanup
-
-- remove the private keyboard geometry copy from `main.ts` and render practice from `src/app/keyboard-geometry.ts`;
-- replace temporary localStorage/model reconstruction with direct live-state composition;
-- replace the DOM relationship adapter with direct selector-result input when the analysis shell is integrated into `main.ts`;
-- add browser-level interaction screenshots or tests when the repository adopts a browser test harness.
+- `main.ts` still carries a private copy of the keyboard row geometry for the practice sketch instead of rendering it from `src/app/keyboard-geometry.ts`, so the two keyboards can drift;
+- the analysis shell is mounted as a browser enhancement layer that rebuilds its model from the mirrored localStorage progress rather than composing directly from live product state;
+- the relationship overlay reads the rendered inspector rows out of the DOM instead of taking a selector result directly;
+- the repository has no browser test harness, so interaction and visual behaviour are verified by hand rather than in CI.
 
 ## Validation
 
@@ -394,6 +399,8 @@ This workstream does not provide:
 - a combined weakness or mastery score;
 - first-attempt error rate;
 - statistical confidence intervals;
+- predicted mastery dates, remaining-lesson counts, unlock models, or any forward extrapolation of a trend;
+- transition or directional-confusion history (deferred with a documented extension point);
 - cross-user comparison;
 - ergonomic causal inference;
 - mobile-specific interaction design;

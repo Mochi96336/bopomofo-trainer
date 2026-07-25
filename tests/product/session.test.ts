@@ -144,7 +144,6 @@ describe("frequency-first grammatical product session loop", () => {
     expect(completed.round.kind).toBe("practice");
     expect(completed.progress.practiceRoundsCompleted).toBe(1);
     expect(completed.progress.curriculum.round).toBe(1);
-    expect(completed.progress.selection.stagePracticeRounds).toBe(1);
     expect(completed.progress.measurements.bindingObservationCount).toBeGreaterThan(0);
 
     const unchanged = applyProductInput(environment, completed, {

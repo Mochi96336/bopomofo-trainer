@@ -82,7 +82,6 @@ interface CatalogEntry {
   id: string;
   prompt: Prompt;
   syllables: readonly Syllable[];
-  frequencyBand: 1 | 2 | 3;
   tags: readonly string[];
   provenanceIds: readonly string[];
 }

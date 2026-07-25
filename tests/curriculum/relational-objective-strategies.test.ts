@@ -23,7 +23,6 @@ function entry(id: string, tokens: readonly string[]): CatalogEntry {
     id,
     prompt: { text: id, locale: "zh-TW" },
     syllables: [{ tokens }],
-    frequencyBand: 1,
     tags: ["objective-test", "common"],
     provenanceIds: ["objective-test"],
   };

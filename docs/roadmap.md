@@ -1,169 +1,54 @@
 # Roadmap
 
-## Completed foundation
+This records what is built, what is being worked on now, and the boundaries that must not be crossed. Completed work is summarized rather than replayed phase by phase; the detail lives in the contract documents and in Git history.
 
-### Phase 0 — Architecture baseline
+## Built
 
-Separated Chinese context, semantic Bopomofo tokens, physical layouts, guided/recall modes, catalog entries, and exercises.
+**Foundation.** Semantic Bopomofo tokens, physical layouts, guided/recall modes, catalog entries and exercises; explicit tones, legal syllable parsing, provenance, and catalog validation; a validated Taiwan Standard input path covering first-tone Space, boundaries, errors, recovery, and raw trace semantics.
 
-### Phase 1 — Scheme and catalog feasibility
+**Measurement.** Deterministic binding, confusion, and transition observations with explicit boundary, recovery, and noise exclusions. See [measurement policy](./measurement-policy.md).
 
-Implemented explicit tones, legal syllable parsing, provenance, validation, and a 49-entry provisional catalog.
+**Grammar-valid candidates.** Complete syntax coverage for the active catalog, reviewed lexical roles and predicate valency, and a formal production grammar that constrains every practice utterance. Missing, duplicate, inconsistent, or unprovenanced grammar metadata fails the build. See [formal syntax](./formal-syntax-system.md).
 
-### Phase 2 — Interaction spike
+**Frequency-first selection.** Reviewed commonness sets the base weight; expected-token error and accepted binding timing add capped, explainable boosts; recent entries, utterances, and templates are penalized. Selection is deterministic under a seed. See [selection policy](./frequency-first-utterance-policy.md).
 
-Validated Taiwan Standard physical input, first-tone Space, boundaries, errors, recovery, and raw trace semantics.
+**Local-first product.** Schema-versioned progress, Pilot history, and bounded progress-trend history in localStorage, with backup export/import and explicit deletion of obsolete generations. Nothing leaves the browser.
 
-### Phase 3 — Measurement baseline
+**Weakness diagnostics.** A full-page analysis over binding, transition, and confusion aggregates, plus bounded per-key progress trends. See [weakness diagnostics](./weakness-diagnostics.md) and [progress history](./diagnostic-progress-history.md).
 
-Implemented deterministic binding, confusion, and transition observations with explicit boundary, recovery, and noise exclusions.
+**Relational research (archived).** Catalog analysis, reference importing with manual review, relation-preserving partitions, variable-length composers, synthetic learners, a four-axis strategy matrix, and factorial experiments through candidate confirmation. **Neither candidate survived confirmation**; nothing was promoted to production. The harnesses remain reproducible under `docs/archive/` as evidence, not as a planned path.
 
-### Phase 4 — Historical curriculum baseline
+## Now
 
-Implemented coverage, eligibility, cooldown, seeded sampling, and fixed six-entry exercises. This remains comparison evidence only.
+### Reviewed lexicon expansion
 
-### Phases 5–6 — Browser and pilot adapters
+The active catalog is the automated-only NAER lexicon: 13,897 syntax-legal practice entries, 0 syntax exclusions.
 
-Connected measurement to a local-first browser, held-out evaluation, persistence, pilot history, export, and a focused interface.
+Review rigor deliberately changed partway through this work. Early waves reviewed every candidate by hand. Later waves traded manual grammar review for growth speed: grammar roles are assigned directly from stable UD evidence, and CC-CEDICT heteronyms are activated with every distinct reading as its own entry rather than picking one. Both carry an accepted, unmeasured error rate. Ordinary identity and reading resolution still fails closed on ambiguity; only grammar classification and explicit heteronym inclusion are looser.
 
-### Phase 7 — Relational research archive
+### Local human pilot
 
-Built:
-
-- exact binding/transition catalog analysis;
-- deterministic reference importing and manual review queues;
-- relation-preserving partitions;
-- variable-length relation-targeted composers;
-- latent relational learners and ordinary Phase 3 traces;
-- a four-axis strategy matrix;
-- 750-run / 1,500-round factorial experiments;
-- 770-run / 6,160-round candidate confirmation.
-
-Neither candidate survived confirmation. No objective/composer combination was promoted to production. The research system remains reproducible and useful for diagnostics, but it no longer blocks browser product work.
-
-## Completed product phase
-
-### Phase 8 — Frequency-first grammatical practice
-
-#### Phase 8A — Grammar-valid candidate universe
-
-Status: complete.
-
-Delivered:
-
-- complete grammar sidecar coverage for the current catalog;
-- reviewed grammatical roles and predicate valency;
-- explicit standalone and formulaic utterances;
-- deterministic Mandarin templates;
-- slot-level frame constraints;
-- balanced candidate enumeration;
-- fallback from complete template to standalone utterance or lexical prompt;
-- build failure for missing, duplicate, inconsistent, or unprovenanced grammar metadata.
-
-Exit condition: every multi-entry practice candidate matches one declared template, and no fallback returns an unrelated word list.
-
-#### Phase 8B — Frequency-first utterance selection
-
-Status: complete.
-
-Product policy:
-
-1. Stage 1 exposes frequency band 1 only.
-2. Stage 2 exposes bands 1–2.
-3. Stage 3 exposes bands 1–3.
-4. Grammar validity is checked before scoring.
-5. Frequency remains the dominant base.
-6. Expected-token error and accepted binding timing add capped weight.
-7. Exact within-syllable transition latency adds capped weight.
-8. The actual wrong token and confusion aggregate do not affect selection.
-9. Recent entries, utterances, and templates receive transparent penalties.
-10. Held-out evaluation remains grammar-valid and never updates training state.
-
-Deliverables:
-
-- versioned policy and complete score traces;
-- deterministic seeded selection;
-- persisted stage counters and recent utterance/template history;
-- generation-scoped local progress with explicit obsolete-state deletion;
-- browser presentation of one complete utterance;
-- Pilot export of selection policy and stage state;
-- regressions for locked stages, bounded boosts, confusion independence, exact transitions, replay, and held-out isolation.
-
-Exit condition: the browser never concatenates independently sampled words, reload reproduces the same next utterance, and exact-head CI is green.
-
-#### Phase 8C — Reviewed commonness data
-
-Status: complete for the active catalog.
-
-Delivered:
-
-- inspect and pin the current NAER workbook schema and checksum;
-- implement the smallest source-specific adapter after inspection;
-- retain raw spoken/written values and strict null/zero semantics;
-- project a versioned general-use base score;
-- keep existing frequency bands as fallback;
-- do not block on domain breadth, cross-source agreement, or automatic variant splitting.
-
-Exit condition: reviewed commonness evidence can replace coarse frequency bands without importing NAER-specific types into curriculum code.
-
-## Current product phase
-
-### Phase 9 — Reviewed lexicon expansion and human validation
-
-The next constraint is no longer selection architecture. It is catalog size and
-the absence of human evidence. Earlier bounded activation waves grew the
-catalog to 322 entries; their replay artifacts were retired after the accepted
-results became part of the active catalog and Git history.
-
-#### Phase 9A — Rank-ordered catalog expansion
-
-Status: in progress; the review-rigor policy below changed partway through.
-
-The first waves reviewed every candidate by hand: accept one evidenced lexical identity and reading, or record an explicit exclusion reason; review lexical role, standalone/formulaic status, and predicate valency; retain source and decision provenance; measure added grammar-candidate variety before merging.
-
-Product decision (this changed the rule below): later waves explicitly traded
-manual grammar review for lexicon growth speed. The forward-generation policy
-can assign existing grammar roles directly from stable UD evidence, and
-CC-CEDICT heteronyms are activated with every distinct reading as its own
-entry rather than picking one. Both carry an accepted, unmeasured error rate.
-A word's ordinary identity/reading resolution still fails closed on ambiguity;
-only grammar classification and explicit heteronym inclusion are looser.
-
-Exit condition: a current manifest-linked generation has a reviewed apply
-ledger, every included entry passes catalog and grammar gates, and the
-browser's candidate universe shows materially lower repetition.
-
-#### Phase 9B — Local human pilot
-
-Run short, repeatable guided-mode sessions only after the first expansion tranche is browser-verified. Record task completion, wrong-key recovery, IME friction, hint usage, repetition complaints, and local diagnostic exports. Treat accuracy and latency as observations, not a mastery score.
+Not yet run. Short repeatable guided-mode sessions recording task completion, wrong-key recovery, IME friction, hint usage, and repetition complaints. Accuracy and latency are observations, not a mastery score.
 
 Exit condition: observed friction is reproducible across sessions, the default flow can be completed without developer assistance, and any proposed threshold or UI change cites a concrete pilot failure mode.
 
-#### Phase 9C — Evidence-based product refinement
+### After the pilot, and only then
 
-Only after Phase 9B:
-
-- reevaluate PR #18 auto-advance against utterance boundaries;
-- review stage thresholds from real local pilot data;
+- review stage thresholds against real pilot data;
 - improve sentence variety without runtime LLM generation;
 - consider recall mode and alternate layouts as separate measurement scopes.
 
-Accounts, backend, telemetry, cloud sync, and learning-effectiveness claims remain out of scope.
-
 ## Guardrails
 
-- Word meaning and semantics are forbidden inputs throughout catalog
-  processing, grammar annotation, composition, selection, validation, and
-  evaluation. No definition, sense, semantic role, plausibility judgment,
-  world knowledge, embedding, language model, or semantic proxy may filter,
-  rank, repair, or reject a candidate. Only non-semantic form, frequency, and
-  syntactic evidence may be used; unresolved cases retain every otherwise
-  valid form or fail closed rather than being resolved by meaning.
+- Word meaning and semantics are forbidden inputs throughout catalog processing, grammar annotation, composition, selection, and validation. No definition, sense, semantic role, plausibility judgment, world knowledge, embedding, language model, or semantic proxy may filter, rank, repair, or reject a candidate. Only non-semantic form, frequency, and syntactic evidence may be used; unresolved cases retain every otherwise valid form or fail closed rather than being resolved by meaning.
 - Frequency eligibility cannot be bypassed by a weakness score.
 - Part of speech alone is insufficient; predicate frame remains explicit.
-- Formulaic utterances cannot fill ordinary subject/predicate/object slots.
 - Transitions never cross syllable or entry boundaries.
-- Confusion remains diagnostic unless a future product decision explicitly changes that boundary.
-- Evaluation never updates cumulative practice measurements or stage state.
+- Confusion remains diagnostic and never feeds selection, unless a future product decision explicitly changes that boundary.
+- The actual wrong token never gains selection weight; only the expected token does.
 - External reference candidates never enter the reviewed catalog automatically.
 - Simulation does not prove human learning effectiveness.
+
+## Out of scope
+
+Accounts, backend, telemetry, cloud sync, mobile-specific interaction design, and any claim about real learning effectiveness.

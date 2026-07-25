@@ -1,3 +1,4 @@
+import { catalogCommonnessTiers } from "../commonness/tiers.js";
 import type { CatalogEntry, TokenId } from "../core/model.js";
 import {
   bindingRelationKey,
@@ -300,6 +301,7 @@ export function retrieveCandidates(
 ): RetrievalResult {
   const exclusions: RetrievalExclusion[] = [];
   const entryMap = new Map<string, CatalogEntry>();
+  const tiers = catalogCommonnessTiers(entries);
   for (const entry of [...entries].sort((left, right) => compareText(left.id, right.id))) {
     if (entryMap.has(entry.id)) throw new Error(`duplicate catalog entry id: ${entry.id}`);
     entryMap.set(entry.id, entry);
@@ -366,7 +368,7 @@ export function retrieveCandidates(
       tokenCount: tokens,
       syllableCount: entry.syllables.length,
       tokenPathSignature: pathSignature(entry),
-      commonWord: entry.frequencyBand === 1,
+      commonWord: tiers.get(entry.id) === 1,
     });
   }
 

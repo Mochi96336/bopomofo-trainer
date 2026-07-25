@@ -1,6 +1,6 @@
+import type { CommonnessTier } from "../commonness/tiers.js";
 import type {
   BindingSkillScope,
-  FrequencyBand,
   TokenId,
 } from "../core/model.js";
 import type {
@@ -14,7 +14,7 @@ export type CatalogPartition = "training" | "evaluation";
 export interface CatalogOccurrenceBase {
   readonly entryId: string;
   readonly syllableIndex: number;
-  readonly frequencyBand: FrequencyBand;
+  readonly commonnessTier: CommonnessTier;
   readonly tags: readonly string[];
   readonly provenanceIds: readonly string[];
   readonly partition: CatalogPartition;
@@ -57,17 +57,13 @@ export type RelationRef =
   | TransitionRelationRef
   | ConfusionRelationRef;
 
-export interface FrequencyBandCounts {
-  readonly 1: number;
-  readonly 2: number;
-  readonly 3: number;
-}
+export type CommonnessTierCounts = Readonly<Record<CommonnessTier, number>>;
 
 export interface RelationSupportSummary {
   readonly relation: RelationRef;
   readonly occurrenceCount: number;
   readonly distinctEntryCount: number;
-  readonly frequencyBandCounts: FrequencyBandCounts;
+  readonly commonnessTierCounts: CommonnessTierCounts;
   readonly commonEntryCount: number;
   readonly entryConcentration: number;
   readonly trainingOccurrenceCount: number;

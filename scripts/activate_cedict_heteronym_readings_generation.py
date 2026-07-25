@@ -265,7 +265,6 @@ def apply_activations(
             words.append({
                 "text": activation["text"],
                 "reading": reading,
-                "frequency_band": "1",
                 "tags": "general",
                 "status": "reviewed",
                 "provenance_ids": PROVENANCE_ID,

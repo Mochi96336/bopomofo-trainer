@@ -1,4 +1,4 @@
-import type { CatalogCommonnessBase, CatalogEntry, FrequencyBand, Syllable } from "../core/model.js";
+import type { CatalogCommonnessBase, CatalogEntry, Syllable } from "../core/model.js";
 import {
   SYNTACTIC_FUNCTIONS,
   UPOS_VALUES,
@@ -11,7 +11,6 @@ const EMPTY_STRINGS: readonly string[] = [];
 export type EncodedCatalogEntry = readonly [
   text: string,
   syllableTokens: readonly (readonly string[])[],
-  frequencyBand: FrequencyBand,
   selectionWeight: number | null,
 ];
 
@@ -68,19 +67,17 @@ export function encodeCatalogEntry(entry: CatalogEntry): EncodedCatalogEntry {
   return [
     entry.prompt.text,
     entry.syllables.map((syllable) => syllable.tokens),
-    entry.frequencyBand,
     entry.commonnessBase?.selectionWeight ?? null,
   ];
 }
 
 export function decodeCatalogEntry(encoded: EncodedCatalogEntry): CatalogEntry {
-  const [text, syllableTokens, frequencyBand, selectionWeight] = encoded;
+  const [text, syllableTokens, selectionWeight] = encoded;
   const syllables: readonly Syllable[] = syllableTokens.map((tokens) => ({ tokens }));
   return {
     id: catalogEntryId(text, syllables),
     prompt: { text, locale: "zh-TW" },
     syllables,
-    frequencyBand,
     tags: EMPTY_STRINGS,
     provenanceIds: EMPTY_STRINGS,
     ...(selectionWeight === null ? {} : { commonnessBase: placeholderCommonnessBase(selectionWeight) }),

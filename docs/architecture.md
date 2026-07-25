@@ -15,6 +15,7 @@ src/
   relations/     Ordered occurrence indexes, support analysis, partitions.
   practice/      Existing sessions, boundaries, and normalized traces.
   measurement/   Binding, transition, confusion, boundary estimators.
+  progress-history/ Bounded per-key observation buckets accumulated per round.
   curriculum/    Objective policies and historical binding-only baseline.
   diagnostics/   Pure user-facing projections, data states, and selectors.
   composition/   Retrieval, candidate costs, ordering, variable sequences.
@@ -57,7 +58,8 @@ Rules:
 9. experiment reports may read hidden truth only after a run for evaluation;
 10. integration code orchestrates public module APIs and does not reimplement importer, partition, composition, learner, or measurement rules;
 11. product and app modules contain no research selection algorithm;
-12. diagnostics project existing measurements and current product policy into display data, but never mutate learner state or recompute practice selection.
+12. diagnostics project existing measurements and current product policy into display data, but never mutate learner state or recompute practice selection;
+13. progress history accumulates only observations the measurement policy already accepted, is bounded by an explicit policy, is written once per completed round, and never reconstructs past points from cumulative aggregates.
 
 ## Evidence flow
 
@@ -164,7 +166,7 @@ Only explicit experimental seams are preserved:
 
 ## Current artifacts
 
-The browser product now composes complete grammar-valid utterances from the complete syntax-legal practice catalog, selects them with reviewed commonness plus bounded learner evidence, persists schema-versioned local progress, exports pilot diagnostics, and presents a full-page weakness analysis over binding, transition, and confusion aggregates. The browser does not reserve held-out vocabulary or schedule automatic evaluation rounds. Archived relational importers, partition policies, variable-length composers, synthetic learners, strategy matrices, cohort experiments, and confirmation harnesses remain reproducible research evidence rather than the production selection path.
+The browser product now composes complete grammar-valid utterances from the complete syntax-legal practice catalog, selects them with reviewed commonness plus bounded learner evidence, persists schema-versioned local progress, Pilot history, and bounded progress-trend history, exports and re-imports all three as one local backup, and presents a full-page weakness analysis over binding, transition, and confusion aggregates with per-key progress trends. The browser does not reserve held-out vocabulary or schedule automatic evaluation rounds. Archived relational importers, partition policies, variable-length composers, synthetic learners, strategy matrices, cohort experiments, and confirmation harnesses remain reproducible research evidence rather than the production selection path.
 
 The data pipeline pins the active-catalog commonness and reading projections.
 Lexicon expansion runs in a disposable, manifest-linked generation workspace;

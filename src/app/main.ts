@@ -1,4 +1,9 @@
 import "./style.css";
+import {
+  catalogEntryCommonnessTier,
+  type CommonnessTier,
+} from "../commonness/tiers.js";
+import { commonnessDotsMarkup, commonnessTierLabel } from "./commonness-display.js";
 import type { TokenId } from "../core/model.js";
 import { createProductBackup, parseProductBackup } from "./backup.js";
 import {
@@ -18,6 +23,7 @@ import {
 import type { ProductProgress, ProductState } from "../product/types.js";
 import { STANDARD_BOPOMOFO_LAYOUT } from "../scheme/standard-layout.js";
 import {
+  COMMONNESS_TIER_THRESHOLDS,
   EVALUATION_CATALOG,
   PRACTICE_CATALOG,
   SYNTAX_PROFILES,
@@ -36,6 +42,13 @@ import {
   loadLocalProductProgress,
   saveLocalProductProgress,
 } from "./local-progress.js";
+import {
+  clearLocalProgressHistory,
+  loadLocalProgressHistory,
+  saveLocalProgressHistory,
+} from "./local-progress-history.js";
+import { appendRoundToProgressHistory, createEmptyProgressHistory } from "../progress-history/update.js";
+import type { ProgressHistory } from "../progress-history/types.js";
 import {
   buildPracticeEntries,
   continuousExerciseText,
@@ -116,6 +129,19 @@ try {
   const loaded = loadLocalPilotHistory(localStorage, initialProgress, environment);
   pilotHistory = loaded.history;
   recoveredPilotHistory = loaded.recoveredFromInvalidState;
+} catch {
+  storageWarning = "瀏覽器無法讀取完整本機資料；練習仍可使用，但練習歷史可能無法保存。";
+}
+let progressHistory: ProgressHistory = createEmptyProgressHistory(
+  initialProgress.mode,
+  initialProgress.layoutId,
+);
+try {
+  progressHistory = loadLocalProgressHistory(
+    localStorage,
+    initialProgress,
+    environment,
+  ).history;
 } catch {
   storageWarning = "瀏覽器無法讀取完整本機資料；練習仍可使用，但練習歷史可能無法保存。";
 }
@@ -273,6 +299,7 @@ function mountShell(): void {
             <div class="dialog-title-row">
               <h2 id="information-title">設定與資料</h2>
               <div id="information-round-status" class="dialog-round-status" aria-live="polite"></div>
+              <div id="information-commonness" class="dialog-commonness"></div>
             </div>
             <form method="dialog">
               <button class="dialog-close" type="button" aria-label="關閉設定面板">Esc</button>
@@ -584,7 +611,9 @@ function weakestBindings(): readonly WeakBinding[] {
 function renderWeakBindingsSection(): string {
   const rows = weakestBindings();
   if (rows.length === 0) {
-    return '<div class="history-empty">累積更多練習後，這裡會列出目前錯誤率較高的按鍵。</div>';
+    // 錯誤觀察比例, not 錯誤率: recovery input counts as another mapped
+    // observation, so this is not a first-attempt error rate.
+    return '<div class="history-empty">累積更多練習後，這裡會列出目前錯誤觀察比例較高的按鍵。</div>';
   }
   const maxRate = Math.max(...rows.map((row) => row.errorRate));
   return `<div class="weak-bindings">${rows.map((row) => {
@@ -619,11 +648,44 @@ function renderHistoryRows(): string {
   }).join("");
 }
 
+/**
+ * The rarest level in the current sentence; `null` when none is known.
+ *
+ * The rarest word, not the most common one: selection is already weighted
+ * towards common words, so nearly every sentence contains a top-tier word and
+ * that reading would sit at one mark almost always. The rarest word is what
+ * actually varies, and it is what makes a sentence hard.
+ */
+function roundRarestCommonnessTier(): CommonnessTier | null {
+  const tiers = product.round.exercise.entries
+    .map((entry) => catalogEntryCommonnessTier(entry, COMMONNESS_TIER_THRESHOLDS))
+    .filter((tier): tier is CommonnessTier => tier !== null);
+  if (tiers.length === 0) return null;
+  return tiers.reduce((rarest, tier) => (tier > rarest ? tier : rarest));
+}
+
+// One reading beside the round status, which is where a level is legible
+// without a legend on the practice stage.
+function renderCommonnessStatus(): void {
+  const element = requireElement<HTMLElement>("#information-commonness");
+  const tier = roundRarestCommonnessTier();
+  if (tier === null) {
+    element.hidden = true;
+    element.innerHTML = "";
+    return;
+  }
+  element.hidden = false;
+  element.setAttribute("aria-label", `本句最少見的詞 ${commonnessTierLabel(tier)}`);
+  element.innerHTML = `<span>等級</span>
+    <span class="entry-commonness" data-tier="${tier}" aria-hidden="true">${commonnessDotsMarkup(tier)}</span>`;
+}
+
 function renderInformationPanel(): void {
   const { attempts, errors } = mappedRoundCounts();
   const roundStatus = requireElement<HTMLElement>("#information-round-status");
   roundStatus.setAttribute("aria-label", `第 ${currentRoundNumber()} 句，目前正確率 ${accuracyLabel(attempts, errors)}`);
   roundStatus.innerHTML = `<span>第 ${currentRoundNumber()} 句</span><strong>${accuracyLabel(attempts, errors)}</strong>`;
+  renderCommonnessStatus();
   const content = requireElement<HTMLElement>("#information-content");
   content.innerHTML = `
     <section class="panel-section">
@@ -716,6 +778,7 @@ function persistProgress(): void {
   try {
     saveLocalProductProgress(localStorage, product.progress);
     saveLocalPilotHistory(localStorage, pilotHistory);
+    saveLocalProgressHistory(localStorage, progressHistory);
     storageWarning = "";
   } catch {
     storageWarning = "無法寫入 localStorage；請勿關閉頁面，否則本輪進度可能遺失。";
@@ -773,7 +836,7 @@ function bindInfluenceControl(
 function downloadProductBackup(): void {
   downloadJson(
     `bopomofo-backup-${new Date().toISOString().slice(0, 10)}.json`,
-    createProductBackup(product.progress, pilotHistory, selectionTuning),
+    createProductBackup(product.progress, pilotHistory, progressHistory, selectionTuning),
   );
   dataNotice = "存檔已匯出。";
   renderInformationPanel();
@@ -806,6 +869,7 @@ async function importProductBackup(input: HTMLInputElement): Promise<void> {
   );
   product = createProductState(environment, backup.progress, performance.now());
   pilotHistory = backup.pilotHistory;
+  progressHistory = backup.progressHistory;
   recoveredFromInvalidState = false;
   recoveredPilotHistory = false;
   inspectionAdvanceCount = 0;
@@ -825,7 +889,9 @@ async function importProductBackup(input: HTMLInputElement): Promise<void> {
 
 function resetProgress(): void {
   const confirmed = window.confirm(
-    "這會清除這台瀏覽器中的所有練習、評估與 Pilot 歷史，確定繼續嗎？",
+    // Automatic evaluation rounds were removed, so this no longer mentions
+    // them; it does now clear the progress-trend history as well.
+    "這會清除這台瀏覽器中的所有練習紀錄、進步趨勢與 Pilot 歷史，確定繼續嗎？",
   );
   if (!confirmed) return;
 
@@ -833,6 +899,7 @@ function resetProgress(): void {
   try {
     clearLocalProductProgress(localStorage);
     clearLocalPilotHistory(localStorage);
+    clearLocalProgressHistory(localStorage);
     storageWarning = "";
   } catch {
     canPersist = false;
@@ -847,6 +914,7 @@ function resetProgress(): void {
   );
   product = createProductState(environment, progress, performance.now());
   pilotHistory = migratePilotHistory(progress);
+  progressHistory = createEmptyProgressHistory(progress.mode, progress.layoutId);
   recoveredFromInvalidState = false;
   recoveredPilotHistory = false;
   inspectionAdvanceCount = 0;
@@ -872,6 +940,17 @@ function completeRoundAndAdvance(): void {
     environment.measurementPolicy,
   );
   pilotHistory = appendPilotRoundRecord(pilotHistory, record);
+  // History is folded exactly here: once, after the round is finalized and the
+  // measurement decisions for it are settled. Opening diagnostics, reloading,
+  // or re-importing a backup never re-enters this path, and the append itself
+  // ignores rounds it has already seen.
+  progressHistory = appendRoundToProgressHistory({
+    history: progressHistory,
+    exercise: product.round.exercise,
+    traces: product.session.traces,
+    measurementPolicy: environment.measurementPolicy,
+    completedRound: roundNumber,
+  });
   persistProgress();
   product = startNextProductRound(environment, product, performance.now());
   imeWarning = false;

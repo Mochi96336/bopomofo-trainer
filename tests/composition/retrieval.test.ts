@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import type { CommonnessTier } from "../../src/commonness/tiers.js";
 import type { CatalogEntry } from "../../src/core/model.js";
 import { composePracticeSequence } from "../../src/composition/composer.js";
 import type { TransitionOccurrence } from "../../src/relations/types.js";
@@ -22,7 +23,7 @@ interface TransitionFixture {
     readonly id: string;
     readonly text: string;
     readonly syllables: readonly (readonly string[])[];
-    readonly frequencyBand: 1 | 2 | 3;
+    readonly commonnessTier: CommonnessTier;
   }[];
   readonly indexedOccurrences: readonly {
     readonly entryId: string;
@@ -45,11 +46,12 @@ function loadTransitionFixture(): {
   const entries = fixture.entries.map((item) => entry(
     item.id,
     item.syllables,
-    item.frequencyBand,
+    // Tier 1 in the fixture means "common"; the retrieval index cuts tiers
+    // over the catalog it is given, so a high weight reproduces that.
+    item.commonnessTier === 1 ? 0.9 : 0.1,
   ));
-  const entryMap = new Map(entries.map((item) => [item.id, item]));
+  const tierByEntryId = new Map(fixture.entries.map((item) => [item.id, item.commonnessTier]));
   const occurrences = fixture.indexedOccurrences.map((item): TransitionOccurrence => {
-    const catalogEntry = entryMap.get(item.entryId)!;
     return {
       kind: "transition",
       entryId: item.entryId,
@@ -57,9 +59,9 @@ function loadTransitionFixture(): {
       fromTokenIndex: item.fromTokenIndex,
       fromToken: item.fromToken,
       toToken: item.toToken,
-      frequencyBand: catalogEntry.frequencyBand,
-      tags: catalogEntry.tags,
-      provenanceIds: catalogEntry.provenanceIds,
+      commonnessTier: tierByEntryId.get(item.entryId)!,
+      tags: ["general"],
+      provenanceIds: ["test"],
       partition: "training",
     };
   });

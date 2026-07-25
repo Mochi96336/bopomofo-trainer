@@ -756,3 +756,111 @@ button.diagnostic-keyboard-key:focus-visible {
     transition: none !important;
   }
 }
+
+/* Recent-change trends -----------------------------------------------------
+   An observation surface, not an alert surface: neutral ink for the line and
+   the historic points, one stronger point for the newest bucket, and no
+   traffic-light colouring for direction. Direction is carried by the words
+   underneath the chart, which is also what assistive technology reads. */
+
+.diagnostic-progress {
+  display: grid;
+  gap: 12px;
+}
+
+.diagnostic-progress-series {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  /* The inspector rail is narrow; the chart scales down with it rather than
+     forcing the pane to scroll sideways. */
+  min-width: 0;
+}
+
+.diagnostic-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.diagnostic-progress-metric {
+  color: var(--ink-muted);
+  font-size: 8px;
+  letter-spacing: .12em;
+}
+
+.diagnostic-progress-delta {
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 640;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.diagnostic-progress-svg {
+  display: block;
+  width: 100%;
+  /* Uniform scaling: the height follows the viewBox aspect so markers stay
+     round and the chart never forces the pane to scroll sideways. */
+  height: auto;
+}
+
+.diagnostic-progress-line {
+  fill: none;
+  stroke: var(--ink-upcoming);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Axis bounds live inside the chart. Font size is in user units, so it scales
+   with the viewBox exactly like the rest of the drawing. */
+.diagnostic-progress-axis-label {
+  fill: var(--ink-muted);
+  font-size: 7.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.diagnostic-progress-axis-tick {
+  stroke: var(--ink-faint);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.diagnostic-progress-reference {
+  stroke: var(--ink-faint);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.diagnostic-progress-point {
+  fill: var(--ink-upcoming);
+  vector-effect: non-scaling-stroke;
+}
+
+.diagnostic-progress-point.latest {
+  fill: var(--ink);
+}
+
+.diagnostic-progress-trend,
+.diagnostic-progress-note,
+.diagnostic-progress-meta,
+.diagnostic-progress-partial {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.diagnostic-progress-trend {
+  color: var(--ink);
+}
+
+.diagnostic-progress-meta,
+.diagnostic-progress-partial {
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}

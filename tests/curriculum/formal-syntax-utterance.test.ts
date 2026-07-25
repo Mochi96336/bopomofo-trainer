@@ -14,12 +14,25 @@ class SequenceRandom implements RandomSource {
   }
 }
 
-function entry(id: string, text: string, frequencyBand: 1 | 2 | 3): CatalogEntry {
+function entry(id: string, text: string, selectionWeight: number): CatalogEntry {
   return {
     id,
     prompt: { text, locale: "zh-TW" },
     syllables: [{ tokens: ["zhuyin:ㄅ", "tone:1"] }],
-    frequencyBand,
+    commonnessBase: {
+      modelVersion: "commonness-v1",
+      sourceId: "test",
+      sourceVersion: "test-v1",
+      sourceRowId: id,
+      spokenPerMillion: null,
+      writtenPerMillion: null,
+      spokenStrength: null,
+      writtenStrength: null,
+      score: selectionWeight,
+      selectionWeight,
+      confidence: "reviewed",
+      reasons: [],
+    },
     tags: ["test"],
     provenanceIds: ["test"],
   };
@@ -118,8 +131,8 @@ const twoSlotRules: readonly ProductionRule[] = [{
 
 describe("frequency-first formal syntax compatibility composer", () => {
   it("uses only stage-eligible entries and returns a formal candidate", () => {
-    const eligible = entry("entry:eligible", "甲", 1);
-    const excluded = entry("entry:excluded", "乙", 3);
+    const eligible = entry("entry:eligible", "甲", 0.9);
+    const excluded = entry("entry:excluded", "乙", 0.1);
     const result = composeFormalSyntaxUtterances({
       eligibleEntries: [eligible],
       profiles: [
@@ -141,7 +154,7 @@ describe("frequency-first formal syntax compatibility composer", () => {
   });
 
   it("keeps punctuation separate from candidate text", () => {
-    const eligible = entry("entry:eligible", "甲", 1);
+    const eligible = entry("entry:eligible", "甲", 0.9);
     const result = composeFormalSyntaxUtterances({
       eligibleEntries: [eligible],
       profiles: [profile("profile:eligible", eligible.id)],
@@ -157,8 +170,8 @@ describe("frequency-first formal syntax compatibility composer", () => {
   });
 
   it("applies explicit post-eligibility entry weights", () => {
-    const first = entry("entry:first", "甲", 1);
-    const second = entry("entry:second", "乙", 1);
+    const first = entry("entry:first", "甲", 0.9);
+    const second = entry("entry:second", "乙", 0.9);
     const result = composeFormalSyntaxUtterances({
       eligibleEntries: [first, second],
       profiles: [profile("profile:first", first.id), profile("profile:second", second.id)],
@@ -172,8 +185,8 @@ describe("frequency-first formal syntax compatibility composer", () => {
   });
 
   it("does not multiply entry weight by compatible profile count", () => {
-    const first = entry("entry:first", "甲", 1);
-    const second = entry("entry:second", "乙", 1);
+    const first = entry("entry:first", "甲", 0.9);
+    const second = entry("entry:second", "乙", 0.9);
     const result = composeFormalSyntaxUtterances({
       eligibleEntries: [first, second],
       profiles: [
@@ -190,8 +203,8 @@ describe("frequency-first formal syntax compatibility composer", () => {
   });
 
   it("does not reuse one entry in multiple lexical slots", () => {
-    const first = entry("entry:first", "甲", 1);
-    const second = entry("entry:second", "乙", 1);
+    const first = entry("entry:first", "甲", 0.9);
+    const second = entry("entry:second", "乙", 0.9);
     const result = composeFormalSyntaxUtterances({
       eligibleEntries: [first, second],
       profiles: [profile("profile:first", first.id), profile("profile:second", second.id)],
@@ -208,7 +221,7 @@ describe("frequency-first formal syntax compatibility composer", () => {
 
   it("fails closed without silently assigning a missing profile", () => {
     const result = composeFormalSyntaxUtterances({
-      eligibleEntries: [entry("entry:eligible", "甲", 1)],
+      eligibleEntries: [entry("entry:eligible", "甲", 0.9)],
       profiles: [],
       random: new SequenceRandom([0]),
       maximumCandidates: 1,

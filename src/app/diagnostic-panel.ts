@@ -6,6 +6,7 @@ import {
   physicalKeyLabel,
   tokenLabel,
 } from "../diagnostics/labels.js";
+import { DIAGNOSTIC_POLICY } from "../diagnostics/policy.js";
 import {
   selectConfusionDiagnostics,
   selectKeyDiagnostics,
@@ -16,6 +17,8 @@ import type {
   DiagnosticDataState,
   DiagnosticModel,
   KeyDiagnostic,
+  KeyProgressSeries,
+  KeyProgressTrends,
   TransitionDiagnostic,
 } from "../diagnostics/types.js";
 import { STANDARD_BOPOMOFO_LAYOUT } from "../scheme/standard-layout.js";
@@ -168,8 +171,11 @@ function keyRows(
   );
 }
 
-// Direction and minimum-sample filters proved to be noise nobody used; the
-// list always shows everything, filtered only by an explicit key selection.
+// Direction and list-length filters proved to be noise nobody used and were
+// removed; there is no scope control left for copy to refer to. One gate does
+// remain: a transition still needs the policy's preliminary sample count before
+// it is listed at all, so empty-state copy has to say so rather than claim
+// there is no data.
 function transitionRows(
   model: DiagnosticModel,
   state: EphemeralDiagnosticState,
@@ -177,10 +183,25 @@ function transitionRows(
   return selectTransitionDiagnostics(model.transitions, {
     selectedKey: state.selectedKey,
     direction: "both",
-    minimumSamples: 3,
+    minimumSamples: DIAGNOSTIC_POLICY.relationshipSamples.preliminary,
     includeTone: true,
     complete: true,
   });
+}
+
+export function transitionEmptyMessage(
+  model: Pick<DiagnosticModel, "transitions">,
+  selectedKey: TokenId | null,
+): string {
+  if (selectedKey !== null) return `${tokenLabel(selectedKey)} 目前沒有可列出的轉換。`;
+  if (model.transitions.length === 0) return "尚無轉換資料。";
+  return `轉換樣本仍不足；累積 ${DIAGNOSTIC_POLICY.relationshipSamples.preliminary} 個樣本後才會列出。`;
+}
+
+export function confusionEmptyMessage(selectedKey: TokenId | null): string {
+  return selectedKey === null
+    ? "尚無誤按資料。"
+    : `${tokenLabel(selectedKey)} 目前沒有誤按紀錄。`;
 }
 
 function confusionRows(
@@ -233,9 +254,11 @@ export function renderDiagnosticSummary(
   const transitionValue = signals.transition === null
     ? "—"
     : `${signals.transition.fromSymbol} → ${signals.transition.toSymbol}`;
-  const transitionMeta = signals.transition === null
-    ? "轉換樣本不足"
-    : `${milliseconds(signals.transition.timingMs)} · ${signals.transition.timingSamples} 樣本`;
+  const transitionMeta = signals.transition !== null
+    ? `${milliseconds(signals.transition.timingMs)} · ${signals.transition.timingSamples} 樣本`
+    // No representative row means either nothing recorded at all or nothing that
+    // clears the sample gate; those read very differently to a learner.
+    : model.transitions.length === 0 ? "尚無轉換資料" : "轉換樣本不足";
   const confusionValue = signals.confusion === null
     ? "—"
     : `${signals.confusion.expectedSymbol} → ${signals.confusion.actualSymbol}`;
@@ -344,7 +367,7 @@ function keyboardMarkup(
       <h2 id="diagnostic-analysis-title" aria-label="弱點診斷分析">分析</h2>
     </div>
     <div class="diagnostic-network-icon-slot">
-      <button type="button" class="diagnostic-network-icon" data-action="toggle-network" aria-pressed="${networkVisible(preferences, state)}" aria-label="全網：顯示所有已發生與可能的關聯，依嚴重程度從淡墨變紅" title="全網">${NETWORK_ICON_SVG}</button>
+      <button type="button" class="diagnostic-network-icon" data-action="toggle-network" aria-pressed="${networkVisible(preferences, state)}" aria-label="全網：顯示所有已發生與注音結構上可能的轉換，依嚴重程度從淡墨變紅" title="全網">${NETWORK_ICON_SVG}</button>
     </div>
     <div class="diagnostic-keyboard-stage">
       <div class="diagnostic-keyboard-board">
@@ -403,10 +426,12 @@ function inspectorToolbarMarkup(preferences: DiagnosticPreferences): string {
 
 function keyListRowMarkup(row: KeyDiagnostic, selected: boolean): string {
   const primary = row.displayedErrorRatio === null ? "—" : percent(row.displayedErrorRatio);
+  // A null timing always means zero accepted samples, so the old
+  // `${timingSamples} 時間樣本` could only ever render "0 時間樣本".
   const timing = row.timingAvailability === "not-applicable"
     ? "時間不適用"
     : row.timingMs === null
-      ? `${row.timingSamples} 時間樣本`
+      ? "尚無時間樣本"
       : `${milliseconds(row.timingMs)} · ${row.timingSamples} 樣本`;
   return `<button type="button" class="diagnostic-inspector-row${selected ? " selected" : ""}" data-action="select-key" data-token="${escapeHtml(row.tokenId)}" aria-pressed="${selected}">
     <span class="diagnostic-inspector-identity"><strong>${escapeHtml(row.symbol)}</strong><small>${escapeHtml(row.physicalKey)}</small></span>
@@ -436,12 +461,13 @@ function keySampleNotices(row: KeyDiagnostic): string {
   if (row.errorDataState !== "sufficient") {
     notices.push(`<div><dt>錯誤觀察</dt><dd>${escapeHtml(diagnosticDataStateLabel(row.errorDataState))}</dd></div>`);
   }
+  // Timing availability and timing data state move together: the model only
+  // leaves the state null when timing is not applicable, which the first branch
+  // already covers. There is no third case to write copy for.
   if (row.timingAvailability === "not-applicable") {
     notices.push("<div><dt>鍵間時間</dt><dd>不適用</dd></div>");
   } else if (row.timingDataState !== null && row.timingDataState !== "sufficient") {
     notices.push(`<div><dt>鍵間時間</dt><dd>${escapeHtml(diagnosticDataStateLabel(row.timingDataState))}</dd></div>`);
-  } else if (row.timingDataState === null) {
-    notices.push("<div><dt>鍵間時間</dt><dd>資料不足</dd></div>");
   }
   if (notices.length === 0) return "";
   return `<section><h4>樣本提示</h4><dl class="diagnostic-detail-lines">${notices.join("")}</dl></section>`;
@@ -454,7 +480,164 @@ function keyTimingCaption(row: KeyDiagnostic): string {
   return `${row.timingSamples} 樣本`;
 }
 
-function keyDetailMarkup(row: KeyDiagnostic | null): string {
+// The viewBox scales uniformly (no `preserveAspectRatio="none"`), so the point
+// markers stay circular at every pane width instead of being squashed into
+// ellipses, and the horizontal padding keeps the emphasized newest point fully
+// inside the frame.
+const PROGRESS_CHART = {
+  /** Left gutter reserved for the axis bound labels. */
+  gutter: 40,
+  plotWidth: 230,
+  height: 56,
+  padX: 9,
+  padY: 9,
+  tick: 3,
+} as const;
+
+function progressValueText(series: KeyProgressSeries, value: number): string {
+  return series.unit === "percent" ? percent(value) : milliseconds(value);
+}
+
+// The axis bounds are drawn on the chart itself rather than described beside
+// it, so the scale is read where it is used. They matter because the domain is
+// adaptive: without them a bounded 8%-to-7% fall and a real collapse would look
+// alike.
+function progressBoundText(series: KeyProgressSeries, value: number): string {
+  return series.unit === "percent" ? percent(value) : `${Math.round(value)} ms`;
+}
+
+// The delta line is the two comparison windows' representative values, not the
+// first and last raw points: a single outlying bucket at either end must not be
+// what the learner reads as the change.
+function progressDeltaText(series: KeyProgressSeries): string {
+  const { previousValue, recentValue } = series.trend;
+  if (previousValue !== null && recentValue !== null) {
+    return `${progressValueText(series, previousValue)} → ${progressValueText(series, recentValue)}`;
+  }
+  return series.latestValue === null ? "—" : progressValueText(series, series.latestValue);
+}
+
+function progressPartialText(series: KeyProgressSeries): string {
+  if (series.partialSampleCount === 0) return "";
+  return `下一個區段 ${series.partialSampleCount} / ${series.bucketSize}`;
+}
+
+/**
+ * A small inline chart. Points are positioned inside the domain the diagnostics
+ * projection already chose, which carries a minimum span, so a one-point
+ * difference cannot be drawn as a cliff. There is no extrapolated segment past
+ * the newest point.
+ */
+function progressChartMarkup(series: KeyProgressSeries): string {
+  const { gutter, plotWidth, height, padX, padY, tick } = PROGRESS_CHART;
+  const { minimum, maximum } = series.chartDomain;
+  const span = maximum - minimum || 1;
+  const width = gutter + plotWidth;
+  const left = gutter + padX;
+  const right = width - padX;
+  const innerWidth = right - left;
+  const innerHeight = height - padY * 2;
+  const yFor = (value: number): number =>
+    padY + innerHeight - ((value - minimum) / span) * innerHeight;
+
+  const step = series.points.length > 1 ? innerWidth / (series.points.length - 1) : 0;
+  const placed = series.points.map((point) => ({
+    point,
+    x: series.points.length > 1 ? left + step * point.index : left + innerWidth / 2,
+    y: yFor(point.value),
+  }));
+  const path = placed
+    .map((entry, index) => `${index === 0 ? "M" : "L"}${entry.x.toFixed(1)},${entry.y.toFixed(1)}`)
+    .join(" ");
+
+  // Upper and lower bound of the adaptive domain, labelled where they sit.
+  const bounds = [maximum, minimum].map((value) => {
+    const y = yFor(value).toFixed(1);
+    return `<line class="diagnostic-progress-axis-tick" x1="${gutter - tick}" x2="${gutter}" y1="${y}" y2="${y}"></line>`
+      + `<text class="diagnostic-progress-axis-label" x="${gutter - tick - 3}" y="${y}" text-anchor="end" dominant-baseline="middle">${escapeHtml(progressBoundText(series, value))}</text>`;
+  }).join("");
+
+  const referenceY = series.trend.previousValue === null
+    ? null
+    : yFor(series.trend.previousValue).toFixed(1);
+  const reference = referenceY === null
+    ? ""
+    : `<line class="diagnostic-progress-reference" x1="${left}" x2="${right}" y1="${referenceY}" y2="${referenceY}"></line>`;
+
+  const dots = placed.map((entry, index) => {
+    const latest = index === placed.length - 1;
+    const title = `第 ${entry.point.index + 1} 區段 · ${progressValueText(series, entry.point.value)} · ${entry.point.sampleCount} 樣本`;
+    return `<circle class="diagnostic-progress-point${latest ? " latest" : ""}" cx="${entry.x.toFixed(1)}" cy="${entry.y.toFixed(1)}" r="${latest ? 3 : 1.9}"><title>${escapeHtml(title)}</title></circle>`;
+  }).join("");
+
+  // Hidden from assistive technology: the accessible summary below already
+  // carries every value, so the axis text must not be read out as loose numbers.
+  return `<svg class="diagnostic-progress-svg" viewBox="0 0 ${width} ${height}" role="presentation" focusable="false" aria-hidden="true">
+    ${bounds}
+    ${reference}
+    ${placed.length > 1 ? `<path class="diagnostic-progress-line" d="${path}"></path>` : ""}
+    ${dots}
+  </svg>`;
+}
+
+function progressSeriesMarkup(series: KeyProgressSeries): string {
+  const head = `<figcaption class="diagnostic-progress-head">
+      <span class="diagnostic-progress-metric">${escapeHtml(series.metricLabel)}</span>
+      <span class="diagnostic-progress-delta">${escapeHtml(progressDeltaText(series))}</span>
+    </figcaption>`;
+  const summary = `<p class="visually-hidden">${escapeHtml(series.accessibleSummary)}</p>`;
+
+  if (series.state === "not-applicable") {
+    return `<figure class="diagnostic-progress-series" data-metric="${series.metric}" data-state="not-applicable">
+      <figcaption class="diagnostic-progress-head"><span class="diagnostic-progress-metric">${escapeHtml(series.metricLabel)}</span></figcaption>
+      <p class="diagnostic-progress-note">不適用</p>
+      ${summary}
+    </figure>`;
+  }
+  if (series.state === "no-history") {
+    const partial = progressPartialText(series);
+    return `<figure class="diagnostic-progress-series" data-metric="${series.metric}" data-state="no-history">
+      <figcaption class="diagnostic-progress-head"><span class="diagnostic-progress-metric">${escapeHtml(series.metricLabel)}</span></figcaption>
+      <p class="diagnostic-progress-note">從本版本開始累積趨勢</p>
+      ${partial ? `<p class="diagnostic-progress-partial">${escapeHtml(partial)}</p>` : ""}
+      ${summary}
+    </figure>`;
+  }
+
+  const caption = series.state === "single-point"
+    ? "再累積一些有效觀察後才能比較"
+    : series.trend.state === "insufficient"
+      ? "目前資料不足以判斷方向"
+      : series.trend.label;
+  const partial = progressPartialText(series);
+
+  return `<figure class="diagnostic-progress-series" data-metric="${series.metric}" data-state="${series.state}" data-trend="${series.trend.state}">
+    ${head}
+    ${progressChartMarkup(series)}
+    <p class="diagnostic-progress-trend">${escapeHtml(caption)}</p>
+    ${partial ? `<p class="diagnostic-progress-meta">${escapeHtml(partial)}</p>` : ""}
+    ${summary}
+  </figure>`;
+}
+
+/**
+ * `最近變化` sits below the exact cumulative detail, never replacing it. The two
+ * metrics stay on separate charts with separate values: they are different
+ * observations and are never combined into one score or one axis.
+ */
+export function keyProgressMarkup(trends: KeyProgressTrends | undefined): string {
+  if (trends === undefined) return "";
+  return `<section class="diagnostic-progress">
+    <h4>最近變化</h4>
+    ${progressSeriesMarkup(trends.correctness)}
+    ${progressSeriesMarkup(trends.timing)}
+  </section>`;
+}
+
+function keyDetailMarkup(
+  row: KeyDiagnostic | null,
+  trends?: KeyProgressTrends,
+): string {
   if (row === null) return '<div class="diagnostic-detail-empty">選一個按鍵查看量測。</div>';
   return `<article class="diagnostic-detail-card">
     <header><div><span>按鍵</span><h3>${escapeHtml(row.symbol)} <small>${escapeHtml(row.physicalKey)}</small></h3></div>${detailStateMarkup(row.overallDataState)}</header>
@@ -472,6 +655,7 @@ function keyDetailMarkup(row: KeyDiagnostic | null): string {
       <div><dt>輸入干擾</dt><dd>${row.excludedSamples.interactionNoise}</dd></div>
     </dl></section>
     <section><h4>選題原因</h4><p>${escapeHtml(row.reinforcement.reason)}</p></section>
+    ${keyProgressMarkup(trends)}
   </article>`;
 }
 
@@ -536,7 +720,7 @@ function inspectorMarkup(
       <div class="diagnostic-inspector-list">
         ${rows.length === 0 ? '<p class="diagnostic-inspector-empty">尚無按鍵資料。</p>' : rows.map((row) => keyListRowMarkup(row, selected?.tokenId === row.tokenId)).join("")}
       </div>
-      <div class="diagnostic-inspector-detail">${keyDetailMarkup(selected)}</div>
+      <div class="diagnostic-inspector-detail">${keyDetailMarkup(selected, selected === null ? undefined : model.keyProgress[selected.tokenId])}</div>
       ${inspectorSummaryMarkup(preferences, rows.length)}
     </aside>`;
   }
@@ -547,7 +731,7 @@ function inspectorMarkup(
       ${inspectorHeadMarkup(preferences, state)}
       ${inspectorToolbarMarkup(preferences)}
       <div class="diagnostic-inspector-list">
-        ${rows.length === 0 ? '<p class="diagnostic-inspector-empty">此範圍沒有轉換資料。</p>' : rows.map((row) => transitionListRowMarkup(row, selected?.id === row.id)).join("")}
+        ${rows.length === 0 ? `<p class="diagnostic-inspector-empty">${escapeHtml(transitionEmptyMessage(model, state.selectedKey))}</p>` : rows.map((row) => transitionListRowMarkup(row, selected?.id === row.id)).join("")}
       </div>
       <div class="diagnostic-inspector-detail">${transitionDetailMarkup(selected)}</div>
       ${inspectorSummaryMarkup(preferences, rows.length)}
@@ -559,7 +743,7 @@ function inspectorMarkup(
     ${inspectorHeadMarkup(preferences, state)}
     ${inspectorToolbarMarkup(preferences)}
     <div class="diagnostic-inspector-list">
-      ${rows.length === 0 ? '<p class="diagnostic-inspector-empty">此範圍沒有誤按資料。</p>' : rows.map((row) => confusionListRowMarkup(row, selected?.id === row.id)).join("")}
+      ${rows.length === 0 ? `<p class="diagnostic-inspector-empty">${escapeHtml(confusionEmptyMessage(state.selectedKey))}</p>` : rows.map((row) => confusionListRowMarkup(row, selected?.id === row.id)).join("")}
     </div>
     <div class="diagnostic-inspector-detail">${confusionDetailMarkup(selected)}</div>
     ${inspectorSummaryMarkup(preferences, rows.length)}

@@ -11,13 +11,12 @@ import type {
   FrequencyFirstSelectionState,
   FrequencyFirstUtterancePolicy,
   FrequencyFirstUtteranceSelection,
-  FrequencyStage,
 } from "../curriculum/frequency-first-utterance.js";
 import type { MeasurementPolicy, MeasurementSummary } from "../measurement/types.js";
 import type { InteractionSessionState } from "../practice/interaction-session.js";
 import type { RuntimeSyntaxProfile } from "../syntax/types.js";
 
-export const PRODUCT_PROGRESS_SCHEMA_VERSION = 4 as const;
+export const PRODUCT_PROGRESS_SCHEMA_VERSION = 5 as const;
 
 export type ProductRoundKind = "practice" | "evaluation";
 
@@ -41,8 +40,6 @@ export interface ProductRoundSummary {
   readonly entryIds: readonly string[];
   readonly utteranceId: string;
   readonly templateId: string | null;
-  readonly frequencyStage: FrequencyStage;
-  readonly phase: CurriculumPhase | "evaluation";
   readonly focusTokenId: TokenId | null;
   readonly focusEvidence: CurriculumEvidence | null;
   readonly attempts: number;

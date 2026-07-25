@@ -11,9 +11,9 @@ Most typing trainers assume that the prompt, the learned unit, and the physical 
 
 A useful research environment must preserve all four layers and retain the exact text occurrences that provide evidence for each relation.
 
-## Research thesis
+## Thesis
 
-The project studies how reviewed Traditional Chinese text can be indexed and composed to expose Bopomofo keyboard relations, and how different curriculum strategies behave against synthetic learners with known latent skill.
+The project builds a local-first Bopomofo trainer over reviewed Traditional Chinese text, and keeps the relational structures that make its evidence explainable.
 
 The core structures are:
 
@@ -22,20 +22,21 @@ The core structures are:
 - confusion edges: directional expected-to-actual substitutions;
 - catalog paths: ordered text-derived token sequences that support those relations.
 
-The browser interaction is one observation adapter. It does not define the research architecture.
+The browser is one observation adapter over these structures rather than the definition of them.
 
 ## Core loop
 
 1. compile reviewed text and explicit Bopomofo readings;
 2. index exact binding and transition occurrences and possible confusion contrasts;
-3. select a relation objective using a declared curriculum policy;
-4. retrieve supporting occurrences;
-5. compose a variable-length practice sequence under evidence and lexical budgets;
-6. let a synthetic learner emit ordinary input traces;
-7. aggregate estimates through the same measurement path used by real input;
-8. compare estimates and curriculum behavior against hidden learner truth.
+3. constrain candidates to grammar-valid utterances under the formal production grammar;
+4. select one utterance from reviewed commonness plus bounded, capped learner evidence;
+5. record ordinary input traces in the browser;
+6. aggregate them through the measurement policy into binding, transition, and confusion estimates;
+7. project those estimates into diagnostics the learner can read and question.
 
-Objective selection and text composition remain separate policies so they can be evaluated independently.
+Grammar legality, candidate selection, and measurement remain separate policies so each can be changed and tested on its own.
+
+A synthetic-learner and cohort-experiment arm was built to compare curriculum strategies against known latent skill. It is archived: no candidate strategy survived confirmation, and none reached production. See `docs/archive/`.
 
 ## Practice modes
 
@@ -53,25 +54,21 @@ Bopomofo is hidden or progressively revealed. Pronunciation retrieval is added t
 - Taiwan Standard Bopomofo layout;
 - binding, transition, and confusion identities scoped by mode and layout;
 - exact within-syllable adjacency only for transition evidence;
-- catalog provenance, frequency, lexical tags, and held-out partitions;
-- deterministic synthetic learners and seeded cohort experiments;
+- catalog provenance, frequency, and lexical tags;
+- deterministic seeded selection;
 - no fixed exercise word count.
 
-## Existing baseline
+## A note on timing evidence
 
-The completed Phase 4 curriculum focuses one token and selects six entries. It remains useful as a binding-only, fixed-count baseline.
+A destination token's timing is not treated as an identifiable intrinsic token speed. The same clean interval is more naturally evidence for the incoming transition edge, which is why binding timing and transition timing stay separate aggregates rather than being merged.
 
-Its destination-token timing score is not treated as an identifiable intrinsic token speed. The same clean interval is more naturally evidence for the incoming transition edge.
+## Non-goals
 
-## Non-goals before relational simulation is coherent
-
-- additional browser UI refinement;
-- immediate human pilot or device-specific optimization;
 - accounts, cloud sync, telemetry, or backend services;
 - candidate selection or IME prediction quality;
-- mobile soft keyboards;
+- mobile soft keyboards and device-specific optimization;
 - generated pseudo-words, unless introduced as a separately labeled experiment;
-- claiming that simulation proves human learning effectiveness.
+- any claim that simulation, or the product's own diagnostics, prove real learning effectiveness.
 
 ## Validation layers
 
@@ -79,8 +76,7 @@ Its destination-token timing score is not treated as an identifiable intrinsic t
 
 - every syllable ends with an explicit tone;
 - ordered relation occurrences are reproducible;
-- unsupported and concentrated relations are visible;
-- held-out partitioning does not silently remove all training support.
+- unsupported and concentrated relations are visible.
 
 ### Estimation behavior
 
@@ -97,4 +93,4 @@ Its destination-token timing score is not treated as an identifiable intrinsic t
 
 ### Human usefulness
 
-Human testing resumes after the relational architecture is stable. It will validate whether the simulated assumptions and resulting text sequences correspond to real learning and interaction, not define the architecture in advance.
+Untested. A local human pilot has not yet been run. It will observe whether the selected text sequences correspond to real learning and comfortable interaction; it does not get to define the architecture in advance, and no current claim depends on it.

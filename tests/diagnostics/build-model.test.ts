@@ -14,6 +14,8 @@ import type {
   MeasurementSummary,
   TransitionAggregate,
 } from "../../src/measurement/types.js";
+import type { ProgressHistory } from "../../src/progress-history/types.js";
+import { createEmptyProgressHistory } from "../../src/progress-history/update.js";
 
 const layout: InputLayout = {
   id: "test-layout",
@@ -119,7 +121,7 @@ const support: CatalogSupportIndex = {
       commonEntryCount: 3,
       commonBindingEntryCount: 3,
       commonMotorEntryCount: 3,
-      frequencyBandCounts: { 1: 3, 2: 0, 3: 0 },
+      commonnessTierCounts: { 1: 3, 2: 0, 3: 0, 4: 0 },
     },
     "zhuyin:B": {
       tokenId: "zhuyin:B",
@@ -132,7 +134,7 @@ const support: CatalogSupportIndex = {
       commonEntryCount: 3,
       commonBindingEntryCount: 3,
       commonMotorEntryCount: 0,
-      frequencyBandCounts: { 1: 3, 2: 0, 3: 0 },
+      commonnessTierCounts: { 1: 3, 2: 0, 3: 0, 4: 0 },
     },
     "zhuyin:C": {
       tokenId: "zhuyin:C",
@@ -145,7 +147,7 @@ const support: CatalogSupportIndex = {
       commonEntryCount: 3,
       commonBindingEntryCount: 3,
       commonMotorEntryCount: 3,
-      frequencyBandCounts: { 1: 3, 2: 0, 3: 0 },
+      commonnessTierCounts: { 1: 3, 2: 0, 3: 0, 4: 0 },
     },
   },
   entriesById: {},
@@ -172,15 +174,46 @@ const curriculum: CurriculumProfile = {
   recentTokenIds: [],
 };
 
-function build(selectionPolicy = FREQUENCY_FIRST_UTTERANCE_POLICY) {
+function build(
+  selectionPolicy = FREQUENCY_FIRST_UTTERANCE_POLICY,
+  progressHistory: ProgressHistory | null = null,
+) {
   return buildDiagnosticModel({
     measurements,
     curriculum,
     support,
     layout,
     selectionPolicy,
+    progressHistory,
   });
 }
+
+const progressHistory: ProgressHistory = {
+  ...createEmptyProgressHistory("guided", layout.id),
+  lastCompletedRound: 4,
+  keys: {
+    "zhuyin:A": {
+      tokenId: "zhuyin:A",
+      correctness: [0.25, 0.25, 0.125, 0].map((errorRatio, index) => ({
+        endingObservation: (index + 1) * 8,
+        completedRound: index + 1,
+        attempts: 8,
+        errors: errorRatio * 8,
+        errorRatio,
+      })),
+      timing: [480, 470, 340, 330].map((representativeTimingMs, index) => ({
+        endingSample: (index + 1) * 5,
+        completedRound: index + 1,
+        samples: 5,
+        representativeTimingMs,
+      })),
+      partialCorrectness: { attempts: 0, errors: 0 },
+      partialTiming: { samples: [] },
+      totalObservations: 32,
+      totalTimingSamples: 20,
+    },
+  },
+};
 
 describe("diagnostic model", () => {
   it("keeps error, timing, transition, and confusion semantics separate", () => {
@@ -258,5 +291,38 @@ describe("diagnostic model", () => {
       reason: "已有弱點觀察，但相關選題權重目前為 0%",
       expectedTokenBoost: 1,
     });
+  });
+
+  it("reports the upgrade state for every key when no history exists", () => {
+    const model = build();
+
+    // Cumulative aggregates are never reshaped into fabricated history points:
+    // an existing learner keeps their aggregate and starts accumulating here.
+    for (const key of model.keys) {
+      expect(model.keyProgress[key.tokenId]?.correctness.state).toBe("no-history");
+      expect(model.keyProgress[key.tokenId]?.correctness.points).toEqual([]);
+    }
+  });
+
+  it("projects stored history into separate correctness and timing series", () => {
+    const model = build(FREQUENCY_FIRST_UTTERANCE_POLICY, progressHistory);
+    const projected = model.keyProgress["zhuyin:A"]!;
+
+    expect(projected.correctness.points.map((point) => point.value))
+      .toEqual([0.25, 0.25, 0.125, 0]);
+    expect(projected.timing.points.map((point) => point.value))
+      .toEqual([480, 470, 340, 330]);
+    expect(projected.correctness.trend.state).toBe("improving");
+    expect(projected.timing.trend.state).toBe("improving");
+  });
+
+  it("suppresses the timing series for a key that can never be timed", () => {
+    const model = build(FREQUENCY_FIRST_UTTERANCE_POLICY, progressHistory);
+
+    // zhuyin:B has no motor catalog position, so timing stays 不適用 here for
+    // exactly the same reason it does in the cumulative detail.
+    expect(model.keys.find((row) => row.tokenId === "zhuyin:B")?.timingAvailability)
+      .toBe("not-applicable");
+    expect(model.keyProgress["zhuyin:B"]?.timing.state).toBe("not-applicable");
   });
 });
