@@ -372,16 +372,6 @@ button.diagnostic-keyboard-key:focus-visible {
   line-height: 1;
 }
 
-.diagnostic-keyboard-key em {
-  position: absolute;
-  top: 2px;
-  right: 3px;
-  color: var(--accent);
-  font-size: clamp(4px, .4vw, 5px);
-  font-style: normal;
-  font-variant-numeric: tabular-nums;
-}
-
 .diagnostic-analysis-inspector {
   display: flex;
   overflow: hidden;

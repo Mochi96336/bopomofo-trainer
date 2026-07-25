@@ -35,11 +35,11 @@ import {
 const DIAGNOSTIC_TABS = ["key", "transition", "confusion"] as const;
 const ANALYSIS_ANIMATION_MS = 180;
 const KEYBOARD_TILT = "perspective(520px) rotateX(19deg)";
-const NETWORK_ICON_SVG = `<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round">
+const NETWORK_ICON_SVG = `<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
   <path d="M3.4 3.4 L12.6 3.4 M3.4 3.4 L8 13 M12.6 3.4 L8 13"></path>
-  <circle cx="3.4" cy="3.4" r="1.6" fill="currentColor" stroke="none"></circle>
-  <circle cx="12.6" cy="3.4" r="1.6" fill="currentColor" stroke="none"></circle>
-  <circle cx="8" cy="13" r="1.6" fill="currentColor" stroke="none"></circle>
+  <circle cx="3.4" cy="3.4" r="1.7" fill="currentColor" stroke="none"></circle>
+  <circle cx="12.6" cy="3.4" r="1.7" fill="currentColor" stroke="none"></circle>
+  <circle cx="8" cy="13" r="1.7" fill="currentColor" stroke="none"></circle>
 </svg>`;
 
 // Where the keyboard visually "comes from": the practice keyboard hint if it
@@ -87,7 +87,6 @@ interface EphemeralDiagnosticState {
 }
 
 interface KeyboardSignal {
-  readonly badge: string | null;
   readonly strength: number;
   readonly connected: boolean;
   readonly selected: boolean;
@@ -290,11 +289,7 @@ function keyboardSignals(
   if (preferences.activeTab === "key") {
     const rows = keyRows(model, preferences);
     rows.forEach((row, index) => {
-      const badge = preferences.keySort === "timing"
-        ? row.timingMs === null ? null : String(Math.round(row.timingMs))
-        : row.displayedErrorRatio === null ? null : percent(row.displayedErrorRatio);
       result.set(row.tokenId, {
-        badge,
         strength: Math.max(0.18, 1 - index / Math.max(1, rows.length)),
         connected: true,
         selected: state.selectedKey === row.tokenId,
@@ -318,9 +313,6 @@ function keyboardSignals(
   const maximum = Math.max(1, ...relationCounts.values());
   for (const [tokenId, count] of relationCounts) {
     result.set(tokenId, {
-      // The full-network overlay already draws a severity-coloured line per
-      // relation, so a duplicate per-key count badge would be redundant.
-      badge: preferences.networkOverlay ? null : String(count),
       strength: Math.max(0.24, count / maximum),
       connected: true,
       selected: state.selectedKey === tokenId,
@@ -328,7 +320,6 @@ function keyboardSignals(
   }
   if (state.selectedKey !== null && !result.has(state.selectedKey)) {
     result.set(state.selectedKey, {
-      badge: null,
       strength: 1,
       connected: false,
       selected: true,
@@ -375,7 +366,6 @@ function keyboardMarkup(
             const style = `--key-columns:${columns};--signal-strength:${signal?.strength ?? 0}`;
             return `<button type="button" class="${classes}" style="${style}" data-action="select-key" data-token="${escapeHtml(tokenId)}" data-code="${escapeHtml(key.code)}" aria-pressed="${signal?.selected ?? false}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}">
               <strong>${escapeHtml(tokenLabel(tokenId))}</strong>
-              ${signal?.badge === null || signal?.badge === undefined ? "" : `<em>${escapeHtml(signal.badge)}</em>`}
             </button>`;
           }).join("")}
         </div>`).join("")}
