@@ -10,7 +10,9 @@
 
 .diagnostic-analysis .diagnostic-network-icon[aria-pressed="true"] {
   border-color: var(--ink);
-  color: var(--ink);
+  /* --ink alone reads as near-white in dark mode; warm it with a touch of
+     --accent so the active icon has some weight, not a flat pale glyph. */
+  color: color-mix(in srgb, var(--ink) 78%, var(--accent) 22%);
 }
 
 .diagnostic-analysis .diagnostic-analysis-close:hover,
@@ -41,15 +43,6 @@
 }
 
 .diagnostic-analysis .diagnostic-keyboard-key small {
-  display: none;
-}
-
-.diagnostic-analysis .diagnostic-keyboard-key em {
-  color: var(--ink);
-}
-
-.diagnostic-analysis:has(#diagnostic-analysis-tab-transition[aria-selected="true"]) .diagnostic-keyboard-key em,
-.diagnostic-analysis:has(#diagnostic-analysis-tab-confusion[aria-selected="true"]) .diagnostic-keyboard-key em {
   display: none;
 }
 
@@ -146,11 +139,9 @@
     var(--danger) calc(var(--relation-severity) * 100%)
   );
   cursor: default;
-}
-
-.diagnostic-analysis .diagnostic-relationship-path.network:hover {
-  stroke-width: calc(var(--relation-width) + .5px);
-  opacity: calc(var(--relation-opacity) + .2);
+  /* Purely a heat-map, not clickable — stays out of the key buttons'
+     hit area so a line crossing a key never steals its selection. */
+  pointer-events: none;
 }
 
 .diagnostic-analysis .diagnostic-relationship-arrow {
@@ -164,9 +155,5 @@
   font-size: 10px;
   line-height: 1.5;
   text-align: center;
-  pointer-events: none;
-}
-
-.diagnostic-analysis .diagnostic-relationship-path.network.potential {
   pointer-events: none;
 }
