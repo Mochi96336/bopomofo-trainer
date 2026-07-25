@@ -704,6 +704,10 @@ interface WeakBinding {
 const WEAK_BINDING_MIN_ATTEMPTS = 5;
 const WEAK_BINDING_LIMIT = 5;
 
+// The information panel links to licence files that live in the repository, not
+// in the deployed bundle, so they resolve against GitHub rather than the site.
+const REPOSITORY_URL = "https://github.com/a20030824/bopomofo-trainer";
+
 function weakestBindings(): readonly WeakBinding[] {
   const rows: WeakBinding[] = [];
   for (const record of Object.values(product.progress.curriculum.bindings)) {
@@ -950,8 +954,17 @@ function renderInformationPanel(): void {
         <button id="choose-backup" class="text-button" type="button">匯入存檔</button>
         <button id="reset-progress" class="danger-button" type="button">清除進度</button>
         <input id="import-backup" class="visually-hidden" type="file" accept="application/json,.json" />
-        <a href="https://github.com/a20030824/bopomofo-trainer" target="_blank" rel="noreferrer">GitHub ↗</a>
       </div>
+    </section>
+
+    <section class="panel-section about-section">
+      <div class="panel-heading"><h3>關於</h3></div>
+      <div class="about-links">
+        <a id="about-code-license" href="${REPOSITORY_URL}/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">程式碼授權 ↗</a>
+        <a id="about-third-party-notices" href="${REPOSITORY_URL}/blob/main/THIRD_PARTY_NOTICES.md" target="_blank" rel="noopener noreferrer">資料來源與第三方授權 ↗</a>
+        <a id="about-repository" href="${REPOSITORY_URL}" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+      </div>
+      <p class="panel-note">程式碼採 MIT 授權。讀音、詞頻與句法證據來自教育部辭典、CC-CEDICT、Universal Dependencies 與國教院詞頻表，各自的授權不因收錄於本專案而改變。</p>
     </section>`;
 
   content.querySelector<HTMLInputElement>("#toggle-keyboard-sketch")?.addEventListener("change", (event) => {

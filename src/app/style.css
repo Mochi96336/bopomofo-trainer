@@ -770,14 +770,24 @@ button { touch-action: manipulation; }
   gap: 16px;
   flex-wrap: wrap;
 }
-.data-actions a {
-  margin-left: auto;
+.about-links {
+  display: flex;
+  align-items: baseline;
+  gap: 8px 16px;
+  flex-wrap: wrap;
+}
+.about-links a {
   color: var(--ink-muted);
   font-size: 10px;
   text-decoration: none;
 }
-.data-actions a:hover,
-.data-actions a:focus-visible { color: var(--ink); }
+.about-links a:hover,
+.about-links a:focus-visible { color: var(--ink); }
+.about-links a:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
+  outline-offset: 3px;
+}
+.about-section .panel-note { margin-top: 10px; }
 .visually-hidden {
   position: absolute !important;
   width: 1px !important;

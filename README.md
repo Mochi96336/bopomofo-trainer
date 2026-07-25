@@ -99,6 +99,15 @@ docs/             架構、政策、證據與歷史研究文件
 - [進步趨勢歷史](docs/diagnostic-progress-history.md)
 - [Roadmap](docs/roadmap.md)
 - [架構決策](docs/decisions/)
+- [第三方資料來源與授權](THIRD_PARTY_NOTICES.md)
+
+## 資料來源與授權
+
+本專案原創且未另行標示的程式碼與文件採用 [MIT License](LICENSE)。
+
+詞頻、讀音、詞彙及句法證據等第三方資料，不因收錄於本 repository 而改以 MIT License 授權。教育部辭典、CC-CEDICT、Universal Dependencies 與國教院詞頻表的衍生內容仍受各自授權拘束，其來源、版本、處理方式與適用授權請見 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
+
+第三方的完整原始檔案一律保留在本機，不提交至本 repository；只有候選詞範圍內的最小投影會被提交。
 
 ## GitHub Pages
 

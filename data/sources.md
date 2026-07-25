@@ -1,5 +1,9 @@
 # Data Sources
 
+Licensing, attribution, and redistribution boundaries for every third-party
+source are recorded in [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
+The repository root MIT License does not cover them.
+
 The current `words.sample.csv` contains 50 hand-authored entries for parser, coverage, and interaction experiments. It is not a production vocabulary dataset, an authoritative pronunciation source, or validated frequency data.
 
 All current rows are marked `provisional` and reference `local:sample-v1` from `data/provenance.csv`. That status means they are suitable for engineering experiments only. It does not mean the reading, frequency band, or vocabulary choice has completed a documented review workflow.
