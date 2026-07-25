@@ -16,6 +16,14 @@ export const DEFAULT_SELECTION_TUNING: SelectionTuning = {
   timingInfluence: 1,
 };
 
+// Mirrors the last loaded/saved tuning so diagnostics can read the value the
+// running product is actually using without re-parsing storage.
+let liveSelectionTuning = DEFAULT_SELECTION_TUNING;
+
+export function currentSelectionTuning(): SelectionTuning {
+  return liveSelectionTuning;
+}
+
 function validInfluence(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 3;
 }
@@ -39,12 +47,15 @@ export function parseSelectionTuning(source: string): SelectionTuning | null {
 
 export function loadSelectionTuning(storage: StorageLike): SelectionTuning {
   const source = storage.getItem(LOCAL_SELECTION_TUNING_KEY);
-  return source === null
+  const tuning = source === null
     ? DEFAULT_SELECTION_TUNING
     : parseSelectionTuning(source) ?? DEFAULT_SELECTION_TUNING;
+  liveSelectionTuning = tuning;
+  return tuning;
 }
 
 export function saveSelectionTuning(storage: StorageLike, tuning: SelectionTuning): void {
+  liveSelectionTuning = tuning;
   storage.setItem(LOCAL_SELECTION_TUNING_KEY, JSON.stringify(tuning));
 }
 

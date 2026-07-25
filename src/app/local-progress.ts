@@ -1,9 +1,10 @@
 import { parseProductProgress, serializeProductProgress } from "../product/progress.js";
 import type { ProductEnvironment, ProductProgress } from "../product/types.js";
 
-export const LOCAL_PROGRESS_KEY = "bopomofo-trainer.progress.v3";
+export const LOCAL_PROGRESS_KEY = "bopomofo-trainer.progress.v4";
 export const OBSOLETE_LOCAL_PROGRESS_KEYS = [
   "bopomofo-trainer.progress.v1",
+  "bopomofo-trainer.progress.v3",
 ] as const;
 
 export interface StorageLike {
@@ -15,6 +16,14 @@ export interface StorageLike {
 export interface LocalProgressLoadResult {
   readonly progress: ProductProgress | null;
   readonly recoveredFromInvalidState: boolean;
+}
+
+// Mirrors the last loaded/saved progress so diagnostics can read the value the
+// running product is actually using without re-parsing and re-validating storage.
+let liveProductProgress: ProductProgress | null = null;
+
+export function currentLocalProductProgress(): ProductProgress | null {
+  return liveProductProgress;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -68,9 +77,11 @@ export function loadLocalProductProgress(
   const discardedObsoleteState = clearObsoleteLocalProgress(storage);
   const source = storage.getItem(LOCAL_PROGRESS_KEY);
   if (source === null) {
+    liveProductProgress = null;
     return { progress: null, recoveredFromInvalidState: discardedObsoleteState };
   }
   if (!summaryReferencesAreKnown(source, environment)) {
+    liveProductProgress = null;
     return { progress: null, recoveredFromInvalidState: true };
   }
   const progress = parseProductProgress(
@@ -82,6 +93,7 @@ export function loadLocalProductProgress(
     environment.curriculumPolicy.version,
     environment.utterancePolicy,
   );
+  liveProductProgress = progress;
   return {
     progress,
     recoveredFromInvalidState: progress === null,
@@ -92,10 +104,12 @@ export function saveLocalProductProgress(
   storage: StorageLike,
   progress: ProductProgress,
 ): void {
+  liveProductProgress = progress;
   storage.setItem(LOCAL_PROGRESS_KEY, serializeProductProgress(progress));
 }
 
 export function clearLocalProductProgress(storage: StorageLike): void {
+  liveProductProgress = null;
   storage.removeItem(LOCAL_PROGRESS_KEY);
   clearObsoleteLocalProgress(storage);
 }
