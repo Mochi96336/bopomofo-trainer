@@ -70,8 +70,6 @@ There are no success bursts, card scaling, staggered character entrances, animat
 
 `匯出存檔` writes deterministic local JSON containing product progress, Pilot history, bounded progress-trend history, and the selection-weight tuning. It omits export time, account data, and any confidence or mastery score. `匯入存檔` replaces current state after an explicit confirmation, and rejects a file whose history does not fit the progress it travels with.
 
-A separate `createPilotExport` helper exists in `src/product/pilot-export.ts` for analysis of a captured state. It is covered by tests but is not wired to a browser control.
-
 ## Manual protocol
 
 1. Complete 10–20 rounds without clearing progress or using the pointer.
