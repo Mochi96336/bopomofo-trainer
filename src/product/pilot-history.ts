@@ -99,9 +99,15 @@ export function createPilotRoundRecord(
   };
 }
 
-export function migratePilotHistory(progress: ProductProgress): PilotHistory {
-  const totalCompleted = progress.practiceRoundsCompleted
-    + progress.evaluationRoundsCompleted;
+/**
+ * Rebuilds what history it can from the summaries progress already carries.
+ *
+ * Progress and pilot history are separate storage keys, so one can be lost or
+ * rejected while the other survives. The summaries are the only record that
+ * outlives that, which makes them the fallback -- not a version migration.
+ */
+export function pilotHistoryFromProgress(progress: ProductProgress): PilotHistory {
+  const totalCompleted = progress.practiceRoundsCompleted;
   const records = progress.recentSummaries.map((summary, index) =>
     recordFromSummary(
       summary,

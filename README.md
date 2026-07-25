@@ -60,7 +60,9 @@ Vite 啟動後，開啟終端顯示的本機網址即可。
 npm run check
 ```
 
-這會依序執行 TypeScript typecheck、快速 Vitest、Python source-adapter 測試、catalog 驗證與 production build。
+這會依序執行 TypeScript typecheck、Vitest（快速與 simulation）、Python source-adapter 測試、catalog 驗證與 production build。
+
+唯一不在此關卡內的是 `npm run test:slow`：它會在完整 catalog 上跑五種關聯切分策略，單獨就要約五分鐘。
 
 ## 主要目錄
 

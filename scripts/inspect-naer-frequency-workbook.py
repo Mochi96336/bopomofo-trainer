@@ -12,7 +12,6 @@ import argparse
 import hashlib
 import json
 import math
-import os
 import posixpath
 import re
 import tempfile

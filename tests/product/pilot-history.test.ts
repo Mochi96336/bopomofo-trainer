@@ -9,7 +9,7 @@ import {
 import {
   appendPilotRoundRecord,
   createPilotRoundRecord,
-  migratePilotHistory,
+  pilotHistoryFromProgress,
   parsePilotHistory,
   PILOT_HISTORY_LIMIT,
   PILOT_HISTORY_SCHEMA_VERSION,
@@ -83,7 +83,7 @@ describe("pilot history", () => {
       completed.session.traces,
       environment.measurementPolicy,
     );
-    let history = migratePilotHistory(createFreshProgressForEnvironment(
+    let history = pilotHistoryFromProgress(createFreshProgressForEnvironment(
       environment,
       "empty",
       "guided",
@@ -101,14 +101,13 @@ describe("pilot history", () => {
     const completed = completeRound();
     const currentProgress: ProductProgress = {
       ...completed.progress,
-      practiceRoundsCompleted: 3,
-      evaluationRoundsCompleted: 1,
+      practiceRoundsCompleted: 4,
       recentSummaries: [completed.summary!],
     };
-    const migrated = migratePilotHistory(currentProgress);
-    expect(migrated.records).toHaveLength(1);
-    expect(migrated.records[0]?.roundNumber).toBe(4);
-    expect(migrated.records[0]?.cleanLatencyMedianMs).toBeNull();
+    const derived = pilotHistoryFromProgress(currentProgress);
+    expect(derived.records).toHaveLength(1);
+    expect(derived.records[0]?.roundNumber).toBe(4);
+    expect(derived.records[0]?.cleanLatencyMedianMs).toBeNull();
   });
 
   it("rejects history records that reference the wrong catalog partition", () => {

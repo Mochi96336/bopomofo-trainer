@@ -35,59 +35,84 @@ export function entryTokenSet(entry: CatalogEntry): ReadonlySet<TokenId> {
   return entryTokenContexts(entry).all;
 }
 
+interface TokenSupportAccumulator {
+  readonly entryIds: string[];
+  readonly bindingEntryIds: string[];
+  readonly motorEntryIds: string[];
+  readonly commonnessTierCounts: Record<CommonnessTier, number>;
+  commonBindingEntryCount: number;
+  commonMotorEntryCount: number;
+}
+
 export function createCatalogSupportIndex(entries: readonly CatalogEntry[]): CatalogSupportIndex {
   const entriesById: Record<string, CatalogEntry> = {};
-  const tokenEntries = new Map<TokenId, Set<string>>();
-  const bindingEntries = new Map<TokenId, Set<string>>();
-  const motorEntries = new Map<TokenId, Set<string>>();
-  const tiers = catalogCommonnessTiers(entries);
-  const tierCounts = new Map<TokenId, Record<CommonnessTier, number>>();
-
-  const add = (map: Map<TokenId, Set<string>>, tokenId: TokenId, entryId: string): void => {
-    const ids = map.get(tokenId) ?? new Set<string>();
-    ids.add(entryId);
-    map.set(tokenId, ids);
-  };
-
   for (const entry of entries) {
     if (entriesById[entry.id] !== undefined) {
       throw new Error(`duplicate catalog entry id: ${entry.id}`);
     }
     entriesById[entry.id] = entry;
+  }
+  const tiers = catalogCommonnessTiers(entries);
+
+  // Visiting the catalog in entry-id order leaves every per-token list sorted
+  // without a sort of its own. Sorting each list separately instead meant one
+  // comparator-driven sort per token per context -- three passes over roughly
+  // 80,000 ids on the real catalog -- which dominated building this index, and
+  // the index is rebuilt whenever the practised levels change.
+  const ordered = [...entries].sort((left, right) => codeUnitCompare(left.id, right.id));
+
+  const accumulators = new Map<TokenId, TokenSupportAccumulator>();
+  const accumulatorFor = (tokenId: TokenId): TokenSupportAccumulator => {
+    const existing = accumulators.get(tokenId);
+    if (existing !== undefined) return existing;
+    const created: TokenSupportAccumulator = {
+      entryIds: [],
+      bindingEntryIds: [],
+      motorEntryIds: [],
+      commonnessTierCounts: { 1: 0, 2: 0, 3: 0, 4: 0 },
+      commonBindingEntryCount: 0,
+      commonMotorEntryCount: 0,
+    };
+    accumulators.set(tokenId, created);
+    return created;
+  };
+
+  for (const entry of ordered) {
     const contexts = entryTokenContexts(entry);
+    const tier = tiers.get(entry.id)!;
+    const common = tier === 1;
     for (const tokenId of contexts.all) {
-      add(tokenEntries, tokenId, entry.id);
-      const counts = tierCounts.get(tokenId) ?? { 1: 0, 2: 0, 3: 0, 4: 0 };
-      counts[tiers.get(entry.id)!] += 1;
-      tierCounts.set(tokenId, counts);
+      const accumulator = accumulatorFor(tokenId);
+      accumulator.entryIds.push(entry.id);
+      accumulator.commonnessTierCounts[tier] += 1;
     }
-    for (const tokenId of contexts.binding) add(bindingEntries, tokenId, entry.id);
-    for (const tokenId of contexts.motor) add(motorEntries, tokenId, entry.id);
+    for (const tokenId of contexts.binding) {
+      const accumulator = accumulatorFor(tokenId);
+      accumulator.bindingEntryIds.push(entry.id);
+      if (common) accumulator.commonBindingEntryCount += 1;
+    }
+    for (const tokenId of contexts.motor) {
+      const accumulator = accumulatorFor(tokenId);
+      accumulator.motorEntryIds.push(entry.id);
+      if (common) accumulator.commonMotorEntryCount += 1;
+    }
   }
 
-  const sortedIds = (map: Map<TokenId, Set<string>>, tokenId: TokenId): string[] =>
-    [...(map.get(tokenId) ?? [])].sort(codeUnitCompare);
-  const commonCount = (entryIds: readonly string[]): number =>
-    entryIds.filter((entryId) => tiers.get(entryId) === 1).length;
-
   const byToken: Record<string, CatalogTokenSupport> = {};
-  for (const tokenId of [...tokenEntries.keys()].sort(codeUnitCompare)) {
-    const entryIds = sortedIds(tokenEntries, tokenId);
-    const bindingEntryIds = sortedIds(bindingEntries, tokenId);
-    const motorEntryIds = sortedIds(motorEntries, tokenId);
-    const commonnessTierCounts = tierCounts.get(tokenId)!;
+  for (const tokenId of [...accumulators.keys()].sort(codeUnitCompare)) {
+    const accumulator = accumulators.get(tokenId)!;
     byToken[tokenId] = {
       tokenId,
-      entryIds,
-      entryCount: entryIds.length,
-      bindingEntryIds,
-      bindingEntryCount: bindingEntryIds.length,
-      motorEntryIds,
-      motorEntryCount: motorEntryIds.length,
-      commonEntryCount: commonnessTierCounts[1],
-      commonBindingEntryCount: commonCount(bindingEntryIds),
-      commonMotorEntryCount: commonCount(motorEntryIds),
-      commonnessTierCounts,
+      entryIds: accumulator.entryIds,
+      entryCount: accumulator.entryIds.length,
+      bindingEntryIds: accumulator.bindingEntryIds,
+      bindingEntryCount: accumulator.bindingEntryIds.length,
+      motorEntryIds: accumulator.motorEntryIds,
+      motorEntryCount: accumulator.motorEntryIds.length,
+      commonEntryCount: accumulator.commonnessTierCounts[1],
+      commonBindingEntryCount: accumulator.commonBindingEntryCount,
+      commonMotorEntryCount: accumulator.commonMotorEntryCount,
+      commonnessTierCounts: accumulator.commonnessTierCounts,
     };
   }
 

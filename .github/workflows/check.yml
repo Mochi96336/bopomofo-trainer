@@ -60,6 +60,18 @@ jobs:
         with:
           name: vitest-failure-log
           path: vitest.log
+      - name: Simulation tests
+        id: simulation
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:simulation 2>&1 | tee simulation.log
+      - name: Upload simulation failure log
+        if: failure() && steps.simulation.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: simulation-failure-log
+          path: simulation.log
       - name: Source adapter tests
         run: npm run test:source-adapters
       - name: Validate catalog

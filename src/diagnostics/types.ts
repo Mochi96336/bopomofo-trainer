@@ -74,9 +74,9 @@ export type ProgressMetric = "correctness" | "timing";
 /**
  * How a series should be read, before any direction is discussed.
  *
- * `no-history` is the upgrade state: an existing learner keeps their cumulative
- * aggregate and starts accumulating history from this version, rather than
- * having two fabricated points invented from current and best values.
+ * `no-history` is the starting state: the learner has a cumulative aggregate
+ * but has not yet completed enough rounds to have recorded history, so nothing
+ * is charted rather than fabricating two points from current and best values.
  */
 export type ProgressSeriesState =
   | "not-applicable"

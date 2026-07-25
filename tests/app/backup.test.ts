@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createProductBackup, parseProductBackup } from "../../src/app/backup.js";
 import { DEFAULT_SELECTION_TUNING } from "../../src/app/selection-tuning.js";
-import { migratePilotHistory } from "../../src/product/pilot-history.js";
+import { pilotHistoryFromProgress } from "../../src/product/pilot-history.js";
 import {
   createFreshProgressForEnvironment,
   createProductEnvironment,
@@ -24,7 +24,7 @@ const progress = {
   practiceRoundsCompleted: 2,
   curriculum: { ...freshProgress.curriculum, round: 2 },
 };
-const pilotHistory = migratePilotHistory(progress);
+const pilotHistory = pilotHistoryFromProgress(progress);
 const token = Object.keys(environment.practiceSupport.byToken)[0]!;
 
 const progressHistory: ProgressHistory = {
@@ -67,7 +67,7 @@ describe("product backup with progress history", () => {
     expect(parsed!.progress).toEqual(progress);
   });
 
-  it("imports a backup written before progress history existed", () => {
+  it("rejects a backup with no progress history section", () => {
     const source = createProductBackup(
       progress,
       pilotHistory,
@@ -76,13 +76,10 @@ describe("product backup with progress history", () => {
     );
     const draft = JSON.parse(source) as Record<string, unknown>;
     delete draft.progressHistory;
-    const parsed = parse(JSON.stringify(draft));
 
-    // A missing section is the same upgrade state as a first run on this
-    // version: no history, accumulated from here rather than invented.
-    expect(parsed).not.toBeNull();
-    expect(parsed!.progressHistory.lastCompletedRound).toBe(0);
-    expect(parsed!.progressHistory.keys).toEqual({});
+    // Every backup this version writes carries the section, so a missing one
+    // is a malformed file rather than an older export to be filled in.
+    expect(parse(JSON.stringify(draft))).toBeNull();
   });
 
   it("rejects a backup whose progress history is malformed", () => {

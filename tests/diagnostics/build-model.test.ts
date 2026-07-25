@@ -293,7 +293,7 @@ describe("diagnostic model", () => {
     });
   });
 
-  it("reports the upgrade state for every key when no history exists", () => {
+  it("reports the starting state for every key when no history exists", () => {
     const model = build();
 
     // Cumulative aggregates are never reshaped into fabricated history points:

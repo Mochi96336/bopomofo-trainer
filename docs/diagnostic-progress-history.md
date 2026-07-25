@@ -94,7 +94,7 @@ History uses its own schema, independent of product progress:
 bopomofo-trainer.progress-history.v1
 ```
 
-Separate storage was chosen over extending `ProductProgress` because this repository deletes obsolete progress generations rather than migrating them. Folding history into `ProductProgress` would mean a schema bump, which would discard every existing learner's cumulative aggregates just to add a feature that has no history to show them yet. With a separate key, existing learners keep their aggregates and simply begin accumulating history from this version.
+Separate storage was chosen over extending `ProductProgress` because this repository rejects obsolete progress generations rather than migrating them. Folding history into `ProductProgress` would tie every future history change to a progress schema bump, discarding cumulative aggregates to ship a feature that has no history to show yet. A separate key lets the two records rotate independently.
 
 The parser rejects:
 
@@ -112,7 +112,7 @@ The parser rejects:
 
 Beyond parsing, the storage adapter discards a history whose `lastCompletedRound` exceeds the rounds the accompanying progress actually completed. History is only ever appended by a completed round, so a larger value means the two records have been separated, and showing points that no longer correspond to the displayed aggregates would be worse than starting over.
 
-Backups carry the history in a `progressHistory` section. Backups written before progress history existed stay importable: a missing section is treated as the same upgrade state as a first run, never as a reason to reject the file. A present section must parse.
+Backups carry the history in a `progressHistory` section. Every backup this version writes carries one, so a missing section is a malformed file and the import is rejected rather than filled in with an empty history.
 
 `清除進度` clears history along with progress and Pilot history. When storage is blocked, the current practice session is unaffected and the existing notice language is reused.
 
@@ -218,7 +218,7 @@ Locked by tests:
 - round idempotency, cross-round partial continuation, and identity mismatch rejection;
 - history totals agreeing exactly with the cumulative aggregate over real product rounds;
 - the full parser rejection list and a serialize/parse round trip;
-- backup round trip, pre-history backup import, and malformed-history rejection;
+- backup round trip, missing-section rejection, and malformed-history rejection;
 - storage-adapter load, save, clear, and separated-record recovery;
 - trend states, both metric directions, dead zone, variability, windowing, and chart domain bounds;
 - rendered states for no-history, single point, insufficient, not-applicable, partial bucket, accessible summary, and metric separation.

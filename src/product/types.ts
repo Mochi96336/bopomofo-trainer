@@ -16,7 +16,7 @@ import type { MeasurementPolicy, MeasurementSummary } from "../measurement/types
 import type { InteractionSessionState } from "../practice/interaction-session.js";
 import type { RuntimeSyntaxProfile } from "../syntax/types.js";
 
-export const PRODUCT_PROGRESS_SCHEMA_VERSION = 5 as const;
+export const PRODUCT_PROGRESS_SCHEMA_VERSION = 6 as const;
 
 export type ProductRoundKind = "practice" | "evaluation";
 
@@ -57,7 +57,6 @@ export interface ProductProgress {
   readonly curriculum: CurriculumProfile;
   readonly selection: FrequencyFirstSelectionState;
   readonly practiceRoundsCompleted: number;
-  readonly evaluationRoundsCompleted: number;
   readonly recentSummaries: readonly ProductRoundSummary[];
 }
 
@@ -68,8 +67,6 @@ export interface ProductEnvironment {
   readonly measurementPolicy: MeasurementPolicy;
   readonly curriculumPolicy: CurriculumPolicy;
   readonly utterancePolicy: FrequencyFirstUtterancePolicy;
-  readonly evaluationInterval: number;
-  readonly evaluationEntryCount: number;
 }
 
 export interface ProductState {

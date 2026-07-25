@@ -21,9 +21,16 @@ npm run check:pr
 This command runs:
 
 1. catalog generation and TypeScript typecheck;
-2. all non-simulation Vitest tests;
-3. catalog validation;
-4. the production build.
+2. every Vitest test except `tests/relations/partition/real-catalog-policy.test.ts` (`test:fast` then `test:simulation`);
+3. the Python source-adapter tests;
+4. catalog validation;
+5. the production build.
+
+The one excluded file runs all five relational partition strategies over the complete active catalog and takes roughly five minutes on its own, which is why it is not a routine gate. Run it directly when a change touches relational partitioning:
+
+```bash
+npm run test:slow
+```
 
 Run the full archived research verification only when a change touches the simulation or canonical research surface, including `src/simulation/**`, `tests/simulation/**`, relational experiment scripts, experiment fixtures, or committed research findings:
 

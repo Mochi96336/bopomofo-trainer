@@ -36,9 +36,6 @@ import type {
   ProductState,
 } from "./types.js";
 
-export const DEFAULT_EVALUATION_INTERVAL = 5;
-export const DEFAULT_EVALUATION_ENTRY_COUNT = 3;
-
 function validateSyntaxProfileCoverage(catalogs: ProductCatalogs): void {
   const entryIds = new Set(
     [...catalogs.practice, ...catalogs.evaluation].map((entry) => entry.id),
@@ -63,16 +60,8 @@ function validateSyntaxProfileCoverage(catalogs: ProductCatalogs): void {
 
 export function createProductEnvironment(
   catalogs: ProductCatalogs,
-  evaluationInterval = DEFAULT_EVALUATION_INTERVAL,
-  evaluationEntryCount = DEFAULT_EVALUATION_ENTRY_COUNT,
   utterancePolicy: FrequencyFirstUtterancePolicy = FREQUENCY_FIRST_UTTERANCE_POLICY,
 ): ProductEnvironment {
-  if (!Number.isInteger(evaluationInterval) || evaluationInterval <= 0) {
-    throw new RangeError("evaluationInterval must be a positive integer");
-  }
-  if (!Number.isInteger(evaluationEntryCount) || evaluationEntryCount <= 0) {
-    throw new RangeError("evaluationEntryCount must be a positive integer");
-  }
   if (catalogs.practice.length === 0) {
     throw new Error("product requires practice catalog entries");
   }
@@ -96,8 +85,6 @@ export function createProductEnvironment(
     measurementPolicy: PHASE_3_MEASUREMENT_POLICY,
     curriculumPolicy: PHASE_4_CURRICULUM_POLICY,
     utterancePolicy,
-    evaluationInterval,
-    evaluationEntryCount,
   };
 }
 

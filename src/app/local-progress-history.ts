@@ -48,9 +48,7 @@ export function loadLocalProgressHistory(
   // claims more rounds than the progress it belongs to has been separated from
   // that progress. Starting over is the only honest option: the alternative is
   // showing points that no longer correspond to the displayed aggregates.
-  const completedRounds = progress.practiceRoundsCompleted
-    + progress.evaluationRoundsCompleted;
-  if (parsed === null || parsed.lastCompletedRound > completedRounds) {
+  if (parsed === null || parsed.lastCompletedRound > progress.practiceRoundsCompleted) {
     liveProgressHistory = empty;
     return { history: empty, recoveredFromInvalidState: true };
   }

@@ -38,8 +38,8 @@ export interface BuildDiagnosticModelInput {
   readonly selectionPolicy: FrequencyFirstUtterancePolicy;
   /**
    * Bounded progress history, when the browser has any. `null` and `undefined`
-   * both mean "no history yet", which the projection reports as the upgrade
-   * state rather than inventing points from cumulative aggregates.
+   * both mean "no history yet", which the projection reports as such rather
+   * than inventing points from cumulative aggregates.
    */
   readonly progressHistory?: ProgressHistory | null;
 }

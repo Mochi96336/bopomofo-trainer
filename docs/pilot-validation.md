@@ -10,7 +10,7 @@ Product progress remains the source of truth for cumulative measurement and curr
 bopomofo-trainer.pilot-history.v3
 ```
 
-Obsolete `bopomofo-trainer.pilot-history.v1` and `.v2` keys are deleted before loading; their payloads are never parsed or migrated. Pilot-history schema 3 accompanies product-progress schema 4 and measurement policy `phase-3-v2`.
+A payload whose schema version is not the current one is rejected outright rather than migrated, and the learner restarts from a fresh generation. Pilot-history schema 3 accompanies product-progress schema 6 and measurement policy `phase-3-v2`.
 
 Bounded per-key progress trends are a third, independent record — see [progress history](./diagnostic-progress-history.md).
 

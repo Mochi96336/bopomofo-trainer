@@ -98,7 +98,7 @@ describe("selected-key recent-change rendering", () => {
     expect(markup).not.toContain("越低越快");
   });
 
-  it("shows the upgrade state when there is no history yet", () => {
+  it("shows the starting state when there is no history yet", () => {
     const markup = keyProgressMarkup(trends(null));
 
     expect(markup).toContain("從本版本開始累積趨勢");

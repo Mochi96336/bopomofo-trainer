@@ -1,7 +1,7 @@
 import {
   mergePilotHistories,
-  migratePilotHistory,
   parsePilotHistory,
+  pilotHistoryFromProgress,
   serializePilotHistory,
   type PilotHistory,
 } from "../product/pilot-history.js";
@@ -9,23 +9,10 @@ import type { ProductEnvironment, ProductProgress } from "../product/types.js";
 import type { StorageLike } from "./local-progress.js";
 
 export const LOCAL_PILOT_HISTORY_KEY = "bopomofo-trainer.pilot-history.v3";
-export const OBSOLETE_LOCAL_PILOT_HISTORY_KEYS = [
-  "bopomofo-trainer.pilot-history.v1",
-  "bopomofo-trainer.pilot-history.v2",
-] as const;
 
 export interface LocalPilotHistoryLoadResult {
   readonly history: PilotHistory;
   readonly recoveredFromInvalidState: boolean;
-}
-
-function clearObsoleteLocalPilotHistory(storage: StorageLike): boolean {
-  let removed = false;
-  for (const key of OBSOLETE_LOCAL_PILOT_HISTORY_KEYS) {
-    if (storage.getItem(key) !== null) removed = true;
-    storage.removeItem(key);
-  }
-  return removed;
 }
 
 export function loadLocalPilotHistory(
@@ -33,23 +20,17 @@ export function loadLocalPilotHistory(
   progress: ProductProgress,
   environment: ProductEnvironment,
 ): LocalPilotHistoryLoadResult {
-  const migrated = migratePilotHistory(progress);
-  const discardedObsoleteState = clearObsoleteLocalPilotHistory(storage);
+  const fromProgress = pilotHistoryFromProgress(progress);
   const source = storage.getItem(LOCAL_PILOT_HISTORY_KEY);
   if (source === null) {
-    return {
-      history: migrated,
-      recoveredFromInvalidState: discardedObsoleteState,
-    };
+    return { history: fromProgress, recoveredFromInvalidState: false };
   }
   const parsed = parsePilotHistory(source, environment);
   if (parsed === null) {
-    return { history: migrated, recoveredFromInvalidState: true };
+    return { history: fromProgress, recoveredFromInvalidState: true };
   }
-  const completedRounds = progress.practiceRoundsCompleted
-    + progress.evaluationRoundsCompleted;
   return {
-    history: mergePilotHistories(parsed, migrated, completedRounds),
+    history: mergePilotHistories(parsed, fromProgress, progress.practiceRoundsCompleted),
     recoveredFromInvalidState: false,
   };
 }
@@ -63,5 +44,4 @@ export function saveLocalPilotHistory(
 
 export function clearLocalPilotHistory(storage: StorageLike): void {
   storage.removeItem(LOCAL_PILOT_HISTORY_KEY);
-  clearObsoleteLocalPilotHistory(storage);
 }

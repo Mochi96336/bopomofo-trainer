@@ -37,13 +37,7 @@ function validInfluence(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 3;
 }
 
-/**
- * `undefined` means a blob written before levels existed. Those learners never
- * switched a level off, so they get the default wish for all of them, and their
- * practice widens as they unlock rather than staying pinned at the first level.
- */
 function parseRarityTiers(value: unknown): readonly CommonnessTier[] | null {
-  if (value === undefined) return DEFAULT_SELECTION_TUNING.rarityTiers;
   if (!Array.isArray(value) || value.length === 0) return null;
   const tiers = COMMONNESS_TIERS.filter((tier) => value.includes(tier));
   if (tiers.length !== new Set(value).size || tiers.length !== value.length) return null;

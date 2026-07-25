@@ -342,7 +342,7 @@ Browser UI code does not read measurement aggregates directly. `src/diagnostics/
 
 ## Persistence
 
-The measurement-contract change rotates product progress to schema 4 and Pilot history to schema 3. Older generations are deleted rather than partially migrated, so aggregates with different confusion semantics are never mixed.
+The measurement-contract change rotated Pilot history to schema 3; product progress has since rotated on to schema 6. Older generations are rejected rather than partially migrated, so aggregates with different confusion semantics are never mixed.
 
 Bounded per-key progress history uses its own independent key:
 

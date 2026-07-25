@@ -34,7 +34,6 @@ export function createPilotExport(
     },
     completedRounds: {
       practice: progress.practiceRoundsCompleted,
-      evaluation: progress.evaluationRoundsCompleted,
     },
     history: history.records,
     selection: progress.selection,

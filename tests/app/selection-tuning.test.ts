@@ -54,9 +54,8 @@ describe("selection tuning live source", () => {
 });
 
 describe("rarity level preference", () => {
-  it("reads a blob written before levels existed as wanting every level", () => {
-    expect(parseSelectionTuning('{"errorInfluence":1,"timingInfluence":1}'))
-      .toEqual(DEFAULT_SELECTION_TUNING);
+  it("rejects a blob with no level list", () => {
+    expect(parseSelectionTuning('{"errorInfluence":1,"timingInfluence":1}')).toBeNull();
   });
 
   it("keeps stored levels in the display order regardless of how they were written", () => {

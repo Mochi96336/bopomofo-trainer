@@ -20,7 +20,7 @@ import { createProductBackup, parseProductBackup } from "./backup.js";
 import {
   appendPilotRoundRecord,
   createPilotRoundRecord,
-  migratePilotHistory,
+  pilotHistoryFromProgress,
   type PilotHistory,
   type PilotRoundRecord,
 } from "../product/pilot-history.js";
@@ -110,12 +110,7 @@ try {
 applyTheme(theme);
 
 function environmentFor(source: ProductCatalogs): ProductEnvironment {
-  return createProductEnvironment(
-    source,
-    undefined,
-    undefined,
-    policyForSelectionTuning(selectionTuning),
-  );
+  return createProductEnvironment(source, policyForSelectionTuning(selectionTuning));
 }
 
 /**
@@ -160,7 +155,7 @@ const initialProgress = loadedProgress ?? createFreshProgressForEnvironment(
   "guided",
   STANDARD_BOPOMOFO_LAYOUT.id,
 );
-let pilotHistory: PilotHistory = migratePilotHistory(initialProgress);
+let pilotHistory: PilotHistory = pilotHistoryFromProgress(initialProgress);
 let recoveredPilotHistory = false;
 try {
   const loaded = loadLocalPilotHistory(localStorage, initialProgress, storageEnvironment);
@@ -311,8 +306,7 @@ function escapeHtml(value: string): string {
 }
 
 function completedRoundCount(): number {
-  return product.progress.practiceRoundsCompleted
-    + product.progress.evaluationRoundsCompleted;
+  return product.progress.practiceRoundsCompleted;
 }
 
 function currentRoundNumber(): number {
@@ -1023,8 +1017,20 @@ function downloadProductBackup(): void {
 async function importProductBackup(input: HTMLInputElement): Promise<void> {
   const file = input.files?.[0];
   if (file === undefined) return;
+  // Reading can fail on its own: the file may have moved or become unreadable
+  // between the picker and here. That has to reach the panel the same way an
+  // unparseable backup does, because the alternative is a rejected promise
+  // nobody handles and a panel that silently says nothing happened.
+  let source: string;
+  try {
+    source = await file.text();
+  } catch {
+    dataNotice = "無法讀取這份存檔。";
+    renderInformationPanel();
+    return;
+  }
   const backup = parseProductBackup(
-    await file.text(),
+    source,
     storageEnvironment,
     "guided",
     STANDARD_BOPOMOFO_LAYOUT.id,
@@ -1093,7 +1099,7 @@ function resetProgress(): void {
   syncPractisedLevels(progress);
   clearUnlockNotice();
   product = createProductState(environment, progress, performance.now());
-  pilotHistory = migratePilotHistory(progress);
+  pilotHistory = pilotHistoryFromProgress(progress);
   progressHistory = createEmptyProgressHistory(progress.mode, progress.layoutId);
   recoveredFromInvalidState = false;
   recoveredPilotHistory = false;

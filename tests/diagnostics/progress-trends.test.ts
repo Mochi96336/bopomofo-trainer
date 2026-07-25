@@ -144,7 +144,7 @@ describe("progress chart domain", () => {
 });
 
 describe("key progress projection", () => {
-  it("reports the upgrade state when a key has no history at all", () => {
+  it("reports the starting state when a key has no history at all", () => {
     const projected = buildKeyProgressTrends({
       tokenId: "zhuyin:ㄌ",
       entry: null,

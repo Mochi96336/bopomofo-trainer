@@ -37,8 +37,6 @@ function environmentForTuning(tuning: SelectionTuning): ProductEnvironment {
       evaluation: EVALUATION_CATALOG,
       syntaxProfiles: SYNTAX_PROFILES,
     },
-    undefined,
-    undefined,
     policyForSelectionTuning(tuning),
   );
   return cachedEnvironment;

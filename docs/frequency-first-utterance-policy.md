@@ -86,14 +86,14 @@ Every syntax-legal runtime entry belongs to the ordinary practice catalog. The b
 
 ## Persistence boundary
 
-Product progress schema 5 stores:
+Product progress schema 6 stores:
 
 - recent utterance IDs;
 - recent template IDs;
 - utterance and template fields in recent summaries;
 - binding, directional confusion, and exact transition aggregates under measurement policy `phase-3-v2`.
 
-Schemas 1 through 4 are not accepted. The browser deletes their obsolete storage keys before loading the current generation, then starts with fresh measurements, counters, summaries, and selection state. No legacy payload contributes to product or Pilot state.
+Schemas 1 through 5 are not accepted. A stored payload declaring any of them is rejected on load, and the learner starts with fresh measurements, counters, summaries, and selection state. No legacy payload contributes to product or Pilot state, and no migration path is kept for one.
 
 ## Explainability
 

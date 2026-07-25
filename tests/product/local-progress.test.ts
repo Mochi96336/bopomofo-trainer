@@ -4,7 +4,6 @@ import {
   currentLocalProductProgress,
   loadLocalProductProgress,
   LOCAL_PROGRESS_KEY,
-  OBSOLETE_LOCAL_PROGRESS_KEYS,
   saveLocalProductProgress,
   type StorageLike,
 } from "../../src/app/local-progress.js";
@@ -44,20 +43,23 @@ describe("local progress adapter", () => {
     expect(storage.getItem(LOCAL_PROGRESS_KEY)).toBeNull();
   });
 
-  it("deletes obsolete storage generations instead of migrating them", () => {
+  it("rejects a stored generation from an earlier schema instead of migrating it", () => {
     const storage = new MemoryStorage();
-    for (const obsoleteKey of OBSOLETE_LOCAL_PROGRESS_KEYS) {
-      storage.setItem(obsoleteKey, JSON.stringify({ schemaVersion: 3 }));
-    }
+    const progress = createFreshProgressForEnvironment(
+      environment,
+      "seed",
+      "guided",
+      "standard",
+    );
+    const stored = JSON.parse(JSON.stringify(progress)) as Record<string, unknown>;
+    stored.schemaVersion = 5;
+    storage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(stored));
+
     expect(loadLocalProductProgress(storage, environment, "guided", "standard")).toEqual({
       progress: null,
       recoveredFromInvalidState: true,
     });
     expect(currentLocalProductProgress()).toBeNull();
-    for (const obsoleteKey of OBSOLETE_LOCAL_PROGRESS_KEYS) {
-      expect(storage.getItem(obsoleteKey)).toBeNull();
-    }
-    expect(storage.getItem(LOCAL_PROGRESS_KEY)).toBeNull();
   });
 
   it("rejects summaries that reference unknown entries", () => {

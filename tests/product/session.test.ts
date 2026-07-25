@@ -193,7 +193,6 @@ describe("frequency-first grammatical product session loop", () => {
     const beforeMeasurements = state.progress.measurements.bindingObservationCount;
     const completed = complete(state);
     expect(completed.progress.practiceRoundsCompleted).toBe(6);
-    expect(completed.progress.evaluationRoundsCompleted).toBe(0);
     expect(completed.progress.curriculum.round).toBe(6);
     expect(completed.progress.measurements.bindingObservationCount)
       .toBeGreaterThan(beforeMeasurements);

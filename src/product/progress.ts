@@ -329,7 +329,6 @@ export function createFreshProductProgress(
     curriculum: createEmptyCurriculumProfile(support, mode, layoutId),
     selection: createFrequencyFirstSelectionState(utterancePolicy),
     practiceRoundsCompleted: 0,
-    evaluationRoundsCompleted: 0,
     recentSummaries: [],
   };
 }
@@ -356,7 +355,6 @@ export function serializeProductProgress(progress: ProductProgress): string {
     },
     selection: progress.selection,
     practiceRoundsCompleted: progress.practiceRoundsCompleted,
-    evaluationRoundsCompleted: progress.evaluationRoundsCompleted,
     recentSummaries: progress.recentSummaries,
   });
 }
@@ -385,7 +383,6 @@ export function parseProductProgress(
     || parsed.layoutId !== expectedLayoutId
     || parsed.curriculumPolicyVersion !== expectedCurriculumPolicyVersion
     || !isNonNegativeInteger(parsed.practiceRoundsCompleted)
-    || !isNonNegativeInteger(parsed.evaluationRoundsCompleted)
     || !Array.isArray(parsed.recentSummaries)
     || !isRecord(parsed.curriculum)
     || !isNonNegativeInteger(parsed.curriculum.round)
@@ -456,7 +453,6 @@ export function parseProductProgress(
     curriculum,
     selection,
     practiceRoundsCompleted: parsed.practiceRoundsCompleted as number,
-    evaluationRoundsCompleted: parsed.evaluationRoundsCompleted as number,
     recentSummaries: (summaries as ProductRoundSummary[]).slice(-RECENT_SUMMARY_LIMIT),
   };
 }
