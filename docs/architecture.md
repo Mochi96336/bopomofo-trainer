@@ -166,7 +166,7 @@ Only explicit experimental seams are preserved:
 
 ## Current artifacts
 
-The browser product now composes complete grammar-valid utterances from the complete syntax-legal practice catalog, selects them with reviewed commonness plus bounded learner evidence, persists schema-versioned local progress, exports pilot diagnostics, and presents a full-page weakness analysis over binding, transition, and confusion aggregates. The browser does not reserve held-out vocabulary or schedule automatic evaluation rounds. Archived relational importers, partition policies, variable-length composers, synthetic learners, strategy matrices, cohort experiments, and confirmation harnesses remain reproducible research evidence rather than the production selection path.
+The browser product now composes complete grammar-valid utterances from the complete syntax-legal practice catalog, selects them with reviewed commonness plus bounded learner evidence, persists schema-versioned local progress, Pilot history, and bounded progress-trend history, exports and re-imports all three as one local backup, and presents a full-page weakness analysis over binding, transition, and confusion aggregates with per-key progress trends. The browser does not reserve held-out vocabulary or schedule automatic evaluation rounds. Archived relational importers, partition policies, variable-length composers, synthetic learners, strategy matrices, cohort experiments, and confirmation harnesses remain reproducible research evidence rather than the production selection path.
 
 The data pipeline pins the active-catalog commonness and reading projections.
 Lexicon expansion runs in a disposable, manifest-linked generation workspace;

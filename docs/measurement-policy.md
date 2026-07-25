@@ -4,24 +4,28 @@
 
 Phase 3 converts raw `InteractionTrace` values into deterministic observations and aggregates. It does not claim to produce a final learning score, typing speed, or confidence value.
 
-The policy is versioned as `phase-3-v1` and lives in `src/measurement/policy.ts`. UI code does not decide which samples are valid.
+The policy is versioned as `phase-3-v2` and lives in `src/measurement/policy.ts`. UI code does not decide which samples are valid.
 
 ## Context policy
 
-| Context | Binding correctness | Motor timing | Transition timing |
-| --- | --- | --- | --- |
-| `exercise-start` | diagnostic only | excluded | excluded |
-| `entry-start` | diagnostic only | excluded | excluded |
-| `syllable-start` | included | excluded | excluded |
-| `within-syllable` | included | eligible | eligible |
-| `tone` | included | eligible | eligible |
+| Context | Binding correctness | Confusion | Motor timing | Transition timing |
+| --- | --- | --- | --- | --- |
+| `exercise-start` | excluded | excluded | excluded | excluded |
+| `entry-start` | excluded | excluded | excluded | excluded |
+| `syllable-start` | included | included | excluded | excluded |
+| `within-syllable` | included | included | eligible | eligible |
+| `tone` | included | included | eligible | eligible |
 
-The first key of an exercise or entry includes reading and orientation latency. The first key of a later syllable still contributes a binding correctness observation, but its timing remains separated from within-syllable motor timing.
+An excluded channel still receives an explicit machine-readable reason rather than silently disappearing.
+
+The first key of an exercise or entry includes reading and orientation latency, so it contributes nothing. The first key of a later syllable still contributes binding correctness and confusion, but its timing remains separated from within-syllable motor timing.
+
+Confusion deliberately has a wider context set than motor timing: which key a learner reaches for instead is worth recording at a syllable start, even though that keystroke's interval is not comparable with a within-syllable one.
 
 ## Event policy
 
 - Correct mapped, non-recovery input in `within-syllable` or `tone` may produce binding and transition timing.
-- Incorrect mapped input in a motor-eligible context produces a binding error and expected-to-actual confusion observation.
+- Incorrect mapped input in any binding context produces a binding error and an expected-to-actual confusion observation.
 - A correct key after a mapped error is retained as a binding completion, marked as recovery, and excluded from timing.
 - Unmapped keys are interaction noise. They do not create a binding or confusion observation and do not start recovery.
 - Repeats, modifier shortcuts, and composition events are also interaction noise rather than motor errors.

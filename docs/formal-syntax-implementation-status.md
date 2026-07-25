@@ -38,21 +38,7 @@ The rule index uses fixed-point category reachability rather than enumerating th
 
 Statuses are `indexed`, `no-ud-evidence`, `no-compatible-rule-position`, or `no-reachable-sentence-rule`. Missing evidence never becomes a guessed POS. Lexical requirements not represented by UD evidence fail closed; structural construction features remain rule-level constraints instead of being mistaken for lexical facts.
 
-## Verified 10,000-candidate run
-
-The local `naer-1141208-top-10000` generation currently reports:
-
-```text
-candidates                              10,000
-syntax profiles                          7,942
-candidates without UD evidence           3,881
-indexed through a Sentence rule           6,112
-profiles with no compatible rule slot         7
-profiled candidates without Sentence path     0
-globally realizable production rules        50
-```
-
-These outputs are disposable generated data and are not committed. They can be reproduced from the pinned inputs through the one-command pipeline.
+Generation outputs are disposable and are not committed. They can be reproduced from the pinned inputs through the one-command pipeline, so no run's counts are recorded here — the committed allowlist below is the artifact that matters.
 
 ## Product packaging gate
 
@@ -65,23 +51,24 @@ form reaches at least one `Sentence` production. Missing generation rows,
 missing UD evidence, incompatible rule positions, and unreachable sentence
 rules are exclusions.
 
-The current reviewed catalog contains 1,786 exact identities (1,717 distinct
-written forms). All 1,786 are legal under the full top-10,000 index, so the
-current site bundle contains 1,776 practice entries and 10 held-out evaluation
-entries, with zero syntax exclusions. This zero is a result of the current
-data, not a bypass: an incomplete, duplicated, stale, or digest-mismatched
-allowlist makes the build fail.
+The site bundle currently packages **13,897 practice entries with 0 syntax
+exclusions**, and **16,266 compact runtime syntax profiles**. There is no
+held-out evaluation catalog: that split was removed along with automatic
+evaluation rounds, and the packaged evaluation catalog is empty.
 
-The same command projects the admitted source profiles into 2,691 compact
-runtime profiles. They retain only UPOS, syntactic functions, valency,
+Zero exclusions is a result of the current data, not a bypass. An incomplete,
+duplicated, stale, or digest-mismatched allowlist makes the build fail.
+
+Runtime profiles retain only UPOS, syntactic functions, valency,
 dependency-relation counts, and surface-position counts needed for lexical-slot
-compatibility. The complete 23.5 MB UD evidence artifact remains outside the
-browser bundle. Product selection samples a bounded `Sentence` derivation and
-fills every lexical slot from these profiles; the old template and standalone
+compatibility. The complete UD evidence artifact stays outside the browser
+bundle. Product selection samples a bounded `Sentence` derivation and fills
+every lexical slot from these profiles; the old template and standalone
 fallback path is not reachable from `product/session.ts`.
 
-The former top-1,000-pinned coverage snapshot and its `grammar:formal-syntax-coverage`/
-`grammar:formal-syntax-verify` scripts are retired. The full top-10,000
-packaging allowlist above is the only formal syntax legality gate; its
-digest checks inside `applyCatalogSyntaxLegalityArtifact` already fail the
-build on any stale or incomplete allowlist, so `npm run build` alone verifies it.
+This allowlist is the only formal-syntax legality gate. Its digest checks inside
+`applyCatalogSyntaxLegalityArtifact` fail the build on any stale or incomplete
+allowlist, so `npm run build` alone verifies it.
+
+Counts change whenever the catalog is regenerated; `npm run app:catalog` prints
+the current ones.

@@ -181,7 +181,7 @@ Relationship paths use:
 - explicit arrow direction;
 - separate higher, dashed routing for tone relations.
 
-Per-tab paths (network overlay off) additionally use stable sample-count width tiers, neutral ink styling, and hover/click/keyboard-focus/list synchronization. The current browser adapter builds them from the exact visible inspector rows after the selectors have applied the key selection and the fixed sample gate. Direct model composition remains a cleanup milestone.
+Per-tab paths (network overlay off) additionally use stable sample-count width tiers, neutral ink styling, and hover/click/keyboard-focus/list synchronization. The current browser adapter builds them from the exact visible inspector rows after the selectors have applied the key selection and the fixed sample gate. Composing them directly from the model instead is listed under known gaps below.
 
 ## Inspector rail
 
@@ -362,30 +362,14 @@ The browser retains the active tab, the key-list sort, and the full-network togg
 
 The previously implemented drawer-expansion preference is retained only until the analysis-mode preference cleanup; the final drawer summary is not collapsible.
 
-## Engineering status
+## Known gaps
 
-### Completed in this Draft PR
+These are real, currently true shortcuts, not planned features:
 
-- compact drawer summary;
-- full-viewport analysis shell;
-- keyboard canvas, inspector, and persistent detail pane, with the low-value overview rail removed after hands-on review;
-- keyboard canvas restored to the practice sketch's actual key shape and board tilt, with the mismatched hover-lift animation removed;
-- a measured FLIP entry animation from the practice keyboard hint's real on-screen position;
-- warning-only sample labels;
-- Bopomofo-only keyboard display with exact number-row tests;
-- deterministic transition and confusion SVG routing, plus a severity-coloured full-network overlay combining both kinds at once;
-- graph/list hover, focus, click, and selection synchronization;
-- tone-specific relationship routing;
-- reduced-motion and keyboard tab navigation;
-- measurement-generation rotation for expanded confusion contexts;
-- bounded per-key progress history with conservative recent-change summaries in the selected-key detail.
-
-### Remaining cleanup
-
-- remove the private keyboard geometry copy from `main.ts` and render practice from `src/app/keyboard-geometry.ts`;
-- replace temporary localStorage/model reconstruction with direct live-state composition;
-- replace the DOM relationship adapter with direct selector-result input when the analysis shell is integrated into `main.ts`;
-- add browser-level interaction screenshots or tests when the repository adopts a browser test harness.
+- `main.ts` still carries a private copy of the keyboard row geometry for the practice sketch instead of rendering it from `src/app/keyboard-geometry.ts`, so the two keyboards can drift;
+- the analysis shell is mounted as a browser enhancement layer that rebuilds its model from the mirrored localStorage progress rather than composing directly from live product state;
+- the relationship overlay reads the rendered inspector rows out of the DOM instead of taking a selector result directly;
+- the repository has no browser test harness, so interaction and visual behaviour are verified by hand rather than in CI.
 
 ## Validation
 

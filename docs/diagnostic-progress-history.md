@@ -20,9 +20,9 @@ It deliberately does not answer:
 
 There is no validated learning model behind this feature, so it does not imitate one. No projected date, no remaining-lesson count, no unlock model, no probability of having learned a key, no confidence percentage, no regression line extended past the newest point.
 
-The feature lives inside the existing full-page analysis mode, in the persistent selected-key detail pane, under a `最近變化` heading below the exact cumulative values. It is not a new route, not a dashboard, and not a drawer chart. The information drawer keeps its summary role and gains nothing from this milestone.
+The feature lives inside the existing full-page analysis mode, in the persistent selected-key detail pane, under a `最近變化` heading below the exact cumulative values. It is not a new route, not a dashboard, and not a drawer chart. The information drawer keeps its summary role and gains nothing from it.
 
-## What is in scope this milestone
+## Scope
 
 | Series | Included | Reason |
 | --- | --- | --- |
@@ -31,7 +31,7 @@ The feature lives inside the existing full-page analysis mode, in the persistent
 | Transition timing | no — extension point only | See below. |
 | Directional confusion | no — extension point only | See below. |
 
-Relationship history is deferred rather than half-delivered. Both remaining series need something this milestone does not establish:
+Relationship history is deferred rather than half-delivered. Both remaining series need something the current design does not establish:
 
 - **Transition timing** would multiply stored identities by the number of ordered token pairs rather than the number of keys. Every bounded array in the current persistence contract is capped by a small fixed limit on a fixed set of identities; a transition series would need eviction *across* identities, which is a new persistence pattern and needs its own policy and tests before it is written to learner storage.
 - **Directional confusion** needs a denominator that actually tracks whether a mispress is becoming rarer. The cumulative `expectedErrorShare` does not: if `ㄓ → ㄗ` falls from five occurrences to two while every other `ㄓ` confusion disappears, that share *rises*. A trustworthy series must bucket by the expected token's own mapped observations and store, per bucket, the expected-token observation count plus each actual token's occurrence count, so a bucket where the pair never appeared projects to a true `0` rather than to missing data. That is a different bucket shape from the two shipped here.
@@ -76,7 +76,7 @@ These are different quantities and the interface must not blur them:
 | Correctness | all mapped observations to date | one 8-observation slice |
 | Timing | exponential moving average, `alpha = 0.25`, carrying every earlier sample forward | median of that point's own 5 accepted samples |
 
-The detail pane keeps showing the aggregate as the current state. The chart shows per-exposure representative values. The timing chart is captioned with its own axis bounds and `越低越快` so the two readings are not mistaken for the same computation.
+The detail pane keeps showing the aggregate as the current state. The chart shows per-exposure representative values, drawn against its own labelled axis bounds, so the two readings are not mistaken for the same computation.
 
 `bestTimeToTypeMs` remains one reference value in the cumulative detail. It is never drawn as a baseline ability, and `current / best` is never presented as a learning-progress percentage: a single fast sample can set it.
 
@@ -112,7 +112,7 @@ The parser rejects:
 
 Beyond parsing, the storage adapter discards a history whose `lastCompletedRound` exceeds the rounds the accompanying progress actually completed. History is only ever appended by a completed round, so a larger value means the two records have been separated, and showing points that no longer correspond to the displayed aggregates would be worse than starting over.
 
-Backups carry the history in a `progressHistory` section. Backups written before this milestone stay importable: a missing section is treated as the same upgrade state as a first run, never as a reason to reject the file. A present section must parse.
+Backups carry the history in a `progressHistory` section. Backups written before progress history existed stay importable: a missing section is treated as the same upgrade state as a first run, never as a reason to reject the file. A present section must parse.
 
 `清除進度` clears history along with progress and Pilot history. When storage is blocked, the current practice session is unaffected and the existing notice language is reused.
 
