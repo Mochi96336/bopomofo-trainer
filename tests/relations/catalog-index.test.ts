@@ -16,7 +16,6 @@ const entry: CatalogEntry = {
     { tokens: [zhuyinToken("ㄓ"), zhuyinToken("ㄨ"), zhuyinToken("ㄥ"), toneToken(1)] },
     { tokens: [zhuyinToken("ㄨ"), zhuyinToken("ㄣ"), toneToken(2)] },
   ],
-  frequencyBand: 1,
   tags: ["general"],
   provenanceIds: ["test"],
 };

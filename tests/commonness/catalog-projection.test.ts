@@ -4,21 +4,20 @@ import {
   catalogEntryFrequencyWeight,
 } from "../../src/commonness/catalog-projection.js";
 import { projectCommonness } from "../../src/commonness/project.js";
-import type { CatalogEntry, FrequencyBand } from "../../src/core/model.js";
+import type { CatalogEntry } from "../../src/core/model.js";
 
-function entry(id: string, frequencyBand: FrequencyBand): CatalogEntry {
+function entry(id: string): CatalogEntry {
   return {
     id,
     prompt: { text: id, locale: "zh-TW" },
     syllables: [],
-    frequencyBand,
-    tags: ["fixture"],
+        tags: ["fixture"],
     provenanceIds: ["fixture"],
   };
 }
 
 describe("catalog commonness projection", () => {
-  it("applies reviewed evidence and keeps frequency bands as fallback", () => {
+  it("applies reviewed evidence and weighs unmeasured entries evenly", () => {
     const projection = projectCommonness([
       {
         catalogEntryId: "high",
@@ -42,14 +41,12 @@ describe("catalog commonness projection", () => {
       },
     ]);
     const applied = applyCommonnessProjection([
-      entry("high", 3),
-      entry("fallback", 1),
+      entry("high"),
+      entry("fallback"),
     ], projection);
     expect(applied.appliedEntryIds).toEqual(["high"]);
     expect(applied.unusedProjectionEntryIds).toEqual(["unused"]);
-    expect(catalogEntryFrequencyWeight(applied.entries[0]!, { 1: 1, 2: 0.5, 3: 0.25 }))
-      .toBe(1);
-    expect(catalogEntryFrequencyWeight(applied.entries[1]!, { 1: 1, 2: 0.5, 3: 0.25 }))
-      .toBe(1);
+    expect(catalogEntryFrequencyWeight(applied.entries[0]!)).toBe(1);
+    expect(catalogEntryFrequencyWeight(applied.entries[1]!)).toBe(1);
   });
 });

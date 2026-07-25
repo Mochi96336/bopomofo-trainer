@@ -1,3 +1,4 @@
+import { catalogCommonnessTiers } from "../commonness/tiers.js";
 import type { CatalogEntry } from "../core/model.js";
 import { createCatalogSupportIndex } from "../curriculum/support.js";
 
@@ -32,8 +33,9 @@ export function partitionCatalogForProduct(
   }
 
   const originalSupport = createCatalogSupportIndex(entries);
+  const tiers = catalogCommonnessTiers(entries);
   const candidates = [...entries].sort((left, right) =>
-    left.frequencyBand - right.frequencyBand || compareText(left.id, right.id),
+    tiers.get(left.id)! - tiers.get(right.id)! || compareText(left.id, right.id),
   );
   const evaluationIds = new Set<string>();
 

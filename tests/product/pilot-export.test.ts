@@ -43,8 +43,6 @@ function summary(round: number): ProductRoundSummary {
     entryIds: PRACTICE.slice(0, 1).map((entry) => entry.id),
     utteranceId: `utterance:${round}`,
     templateId: null,
-    frequencyStage: 1,
-    phase: "coverage",
     focusTokenId: null,
     focusEvidence: null,
     attempts: 10,

@@ -1,4 +1,4 @@
-import type { CatalogEntry, FrequencyBand } from "../core/model.js";
+import type { CatalogEntry } from "../core/model.js";
 import type { CommonnessProjection } from "./types.js";
 
 export interface AppliedCatalogCommonnessProjection {
@@ -31,12 +31,14 @@ export function applyCommonnessProjection(
   };
 }
 
-export function catalogEntryFrequencyWeight(
-  entry: CatalogEntry,
-  fallbackWeights: Readonly<Record<FrequencyBand, number>>,
-): number {
+/**
+ * Selection weight for one entry. Commonness evidence is the only source; a
+ * catalog without it (fixtures, research subsets) weighs every entry equally
+ * rather than carrying a second, parallel notion of how common a word is.
+ */
+export function catalogEntryFrequencyWeight(entry: CatalogEntry): number {
   const projected = entry.commonnessBase?.selectionWeight;
-  if (projected === undefined) return fallbackWeights[entry.frequencyBand];
+  if (projected === undefined) return 1;
   if (!Number.isFinite(projected) || projected <= 0 || projected > 1) {
     throw new RangeError(`invalid commonness selection weight for ${entry.id}`);
   }

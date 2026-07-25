@@ -15,7 +15,6 @@ export function entry(id: string, tone: 1 | 2 = 1): CatalogEntry {
       { tokens: ["zhuyin:ㄇ", "zhuyin:ㄚ", `tone:${tone}`] },
       { tokens: ["zhuyin:ㄅ", "zhuyin:ㄛ", "tone:2"] },
     ],
-    frequencyBand: 1,
     tags: ["test"],
     provenanceIds: ["test"],
   };

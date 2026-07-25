@@ -18,7 +18,6 @@ export interface PilotRoundRecord {
   readonly exerciseId: string;
   readonly completedAt: string;
   readonly entryIds: readonly string[];
-  readonly phase: ProductRoundSummary["phase"];
   readonly focusTokenId: TokenId | null;
   readonly focusEvidence: ProductRoundSummary["focusEvidence"];
   readonly attempts: number;
@@ -60,7 +59,6 @@ function recordFromSummary(
     exerciseId: summary.exerciseId,
     completedAt: summary.completedAt,
     entryIds: summary.entryIds,
-    phase: summary.phase,
     focusTokenId: summary.focusTokenId,
     focusEvidence: summary.focusEvidence,
     attempts: summary.attempts,
@@ -156,7 +154,6 @@ function parsePilotRoundRecord(
 ): PilotRoundRecord | null {
   if (!isRecord(value) || !Array.isArray(value.entryIds)) return null;
   const kind = value.kind;
-  const phase = value.phase;
   const focusEvidence = value.focusEvidence;
   const latency = value.cleanLatencyMedianMs;
   if (
@@ -169,7 +166,6 @@ function parsePilotRoundRecord(
     || value.entryIds.length === 0
     || value.entryIds.some((entryId) => typeof entryId !== "string")
     || new Set(value.entryIds).size !== value.entryIds.length
-    || (phase !== "coverage" && phase !== "adaptive" && phase !== "evaluation")
     || (value.focusTokenId !== null && typeof value.focusTokenId !== "string")
     || (focusEvidence !== null
       && focusEvidence !== "timed"
@@ -190,11 +186,10 @@ function parsePilotRoundRecord(
     return null;
   }
   if (kind === "evaluation") {
-    if (phase !== "evaluation" || value.focusTokenId !== null || focusEvidence !== null) {
+    if (value.focusTokenId !== null || focusEvidence !== null) {
       return null;
     }
   } else {
-    if (phase === "evaluation") return null;
     if ((value.focusTokenId === null) !== (focusEvidence === null)) return null;
     if (
       typeof value.focusTokenId === "string"
@@ -208,7 +203,6 @@ function parsePilotRoundRecord(
     exerciseId: value.exerciseId,
     completedAt: value.completedAt,
     entryIds: value.entryIds as string[],
-    phase,
     focusTokenId: value.focusTokenId as TokenId | null,
     focusEvidence,
     attempts: value.attempts as number,

@@ -14,7 +14,6 @@ function plan(): RelationalExperimentPlan {
       id: "entry",
       prompt: { text: "中", locale: "zh-TW" },
       syllables: [{ tokens: ["zhuyin:ㄓ", "zhuyin:ㄨ", "tone:1"] }],
-      frequencyBand: 1,
       tags: ["test"],
       provenanceIds: ["test"],
     }],

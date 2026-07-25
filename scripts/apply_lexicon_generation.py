@@ -259,7 +259,6 @@ def main() -> None:
         {
             "text": row["text"],
             "reading": row["reading"],
-            "frequency_band": "1",
             "tags": "general",
             "status": "reviewed",
             "provenance_ids": arguments.provenance_id,

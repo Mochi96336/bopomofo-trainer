@@ -6,7 +6,6 @@ The Phase 1 source file is CSV with these columns:
 | --- | --- |
 | `text` | Pure Han-character prompt for the initial catalog. |
 | `reading` | Space-separated Bopomofo syllables, each ending in numeric tone `1`–`5`. |
-| `frequency_band` | Coarse priority `1`, `2`, or `3`; not a measured corpus frequency. |
 | `tags` | Semicolon-separated descriptive tags. |
 | `status` | `provisional`, `reviewed`, or `excluded`. |
 | `provenance_ids` | Semicolon-separated IDs registered in `data/provenance.csv`. |
@@ -14,11 +13,11 @@ The Phase 1 source file is CSV with these columns:
 Example:
 
 ```csv
-text,reading,frequency_band,tags,status,provenance_ids
-中文,ㄓㄨㄥ1 ㄨㄣ2,1,general,provisional,local:sample-v1
+text,reading,tags,status,provenance_ids
+中文,ㄓㄨㄥ1 ㄨㄣ2,general,provisional,local:sample-v1
 ```
 
-The compiler rejects missing fields, unsupported statuses or bands, non-Han prompts, malformed or unsupported syllables, character/syllable count mismatch, missing or unknown provenance IDs, and duplicate text-reading pairs.
+The compiler rejects missing fields, unsupported statuses, non-Han prompts, malformed or unsupported syllables, character/syllable count mismatch, missing or unknown provenance IDs, and duplicate text-reading pairs.
 
 `data/provenance.csv` is validated before catalog compilation. Every provenance row requires `id`, `kind`, `title`, `license`, and `notes`; duplicate IDs are rejected.
 

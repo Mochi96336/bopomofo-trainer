@@ -31,7 +31,6 @@ function entry(id: string, syllables: readonly (readonly TokenId[])[]): CatalogE
     id,
     prompt: { text: id, locale: "zh-TW" },
     syllables: syllables.map((tokens) => ({ tokens })),
-    frequencyBand: 1,
     tags: ["synthetic-test"],
     provenanceIds: ["synthetic-test"],
   };

@@ -21,7 +21,6 @@ const exercise: Exercise = {
       id: "entry:a",
       prompt: { text: "甲", locale: "zh-TW" },
       syllables: [{ tokens: ["zhuyin:A", "zhuyin:B", "tone:1"] }],
-      frequencyBand: 1,
       tags: ["test"],
       provenanceIds: ["test"],
     },

@@ -71,7 +71,7 @@ describe("relational confirmation plan", () => {
     const cells = [...source.cells];
     cells[index] = {
       ...cells[index]!,
-      partitionPolicyId: "frequency-stratified-v1",
+      partitionPolicyId: "commonness-stratified-v1",
     };
 
     expect(() => canonicalizeRelationalConfirmationPlan({ ...source, cells }))

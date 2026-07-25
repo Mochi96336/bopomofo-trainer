@@ -4,7 +4,7 @@ import {
   comparePartitionStability,
   evaluatePartitionMetrics,
   partitionBindingPreservingBaseline,
-  partitionFrequencyStratified,
+  partitionCommonnessStratified,
   partitionPathNovelty,
   partitionRelationSupportPreserving,
   partitionSeededMaximumCoverage,
@@ -38,9 +38,9 @@ describe("relational partition policies", () => {
     const input = createPartitionInput(await readPartitionFixture("feasible"));
     const decisions: readonly PartitionDecision[] = [
       partitionRelationSupportPreserving(input, THREE_ENTRY_OPTIONS),
-      partitionFrequencyStratified(input, {
+      partitionCommonnessStratified(input, {
         ...THREE_ENTRY_OPTIONS,
-        allowCrossBandFallback: true,
+        allowCrossTierFallback: true,
       }),
       partitionSeededMaximumCoverage(input, 17, THREE_ENTRY_OPTIONS),
       partitionPathNovelty(input, THREE_ENTRY_OPTIONS),
@@ -188,9 +188,9 @@ describe("relational partition policies", () => {
         input,
         THREE_ENTRY_OPTIONS,
       ),
-      (input: typeof forward) => partitionFrequencyStratified(input, {
+      (input: typeof forward) => partitionCommonnessStratified(input, {
         ...THREE_ENTRY_OPTIONS,
-        allowCrossBandFallback: true,
+        allowCrossTierFallback: true,
       }),
       (input: typeof forward) => partitionPathNovelty(input, THREE_ENTRY_OPTIONS),
       (input: typeof forward) => partitionSeededMaximumCoverage(

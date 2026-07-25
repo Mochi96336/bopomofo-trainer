@@ -4,12 +4,12 @@ import { createCoverageReport } from "../../src/catalog/coverage.js";
 import { parseCsv } from "../../src/catalog/csv.js";
 import { createProvenanceRegistry } from "../../src/catalog/provenance.js";
 
-const header = "text,reading,frequency_band,tags,status,provenance_ids";
+const header = "text,reading,tags,status,provenance_ids";
 const knownProvenanceIds = new Set(["local:sample-v1"]);
 
 describe("compileCatalog", () => {
   it("compiles semantic entries without physical key codes", () => {
-    const csv = parseCsv(`${header}\n中文,ㄓㄨㄥ1 ㄨㄣ2,1,general,provisional,local:sample-v1\n`);
+    const csv = parseCsv(`${header}\n中文,ㄓㄨㄥ1 ㄨㄣ2,general,provisional,local:sample-v1\n`);
     const result = compileCatalog(csv.records, knownProvenanceIds);
 
     expect(result.errors).toEqual([]);
@@ -22,8 +22,8 @@ describe("compileCatalog", () => {
   it("normalizes reading whitespace before duplicate and ID checks", () => {
     const csv = parseCsv([
       header,
-      "中文,ㄓㄨㄥ1 ㄨㄣ2,1,general,provisional,local:sample-v1",
-      "中文,ㄓㄨㄥ1   ㄨㄣ2,1,general,provisional,local:sample-v1",
+      "中文,ㄓㄨㄥ1 ㄨㄣ2,general,provisional,local:sample-v1",
+      "中文,ㄓㄨㄥ1   ㄨㄣ2,general,provisional,local:sample-v1",
     ].join("\n"));
     const result = compileCatalog(csv.records, knownProvenanceIds);
 
@@ -33,7 +33,7 @@ describe("compileCatalog", () => {
   });
 
   it("rejects provenance IDs that are not registered", () => {
-    const csv = parseCsv(`${header}\n中文,ㄓㄨㄥ1 ㄨㄣ2,1,general,provisional,local:typo\n`);
+    const csv = parseCsv(`${header}\n中文,ㄓㄨㄥ1 ㄨㄣ2,general,provisional,local:typo\n`);
     const result = compileCatalog(csv.records, knownProvenanceIds);
 
     expect(result.entries).toEqual([]);
@@ -43,41 +43,37 @@ describe("compileCatalog", () => {
   it("reports field, reading, count, and duplicate errors deterministically", () => {
     const csv = parseCsv([
       header,
-      "中文,ㄓㄨㄥ ㄨㄣ2,1,general,provisional,local:sample-v1",
-      "三個字,ㄙㄢ1 ㄍㄜ4,1,general,provisional,local:sample-v1",
-      "工程,ㄍㄨㄥ1 ㄔㄥ2,4,general,provisional,local:sample-v1",
-      "媽媽,ㄇㄚ1 ㄇㄚ5,1,general,provisional,local:sample-v1",
-      "媽媽,ㄇㄚ1 ㄇㄚ5,1,general,provisional,local:sample-v1",
+      "中文,ㄓㄨㄥ ㄨㄣ2,general,provisional,local:sample-v1",
+      "三個字,ㄙㄢ1 ㄍㄜ4,general,provisional,local:sample-v1",
+      "工程,ㄍㄨㄥ1 ㄔㄥ2,general,provisional,local:sample-v1",
+      "媽媽,ㄇㄚ1 ㄇㄚ5,general,provisional,local:sample-v1",
+      "媽媽,ㄇㄚ1 ㄇㄚ5,general,provisional,local:sample-v1",
     ].join("\n"));
 
     const result = compileCatalog(csv.records, knownProvenanceIds);
     expect(result.errors.map((error) => error.code)).toEqual([
       "reading-error",
       "syllable-count-mismatch",
-      "invalid-frequency-band",
       "duplicate-entry",
     ]);
   });
 
-  it("rejects non-canonical frequency bands and empty list values", () => {
+  it("rejects empty list values", () => {
     const csv = parseCsv([
       header,
-      "中文,ㄓㄨㄥ1 ㄨㄣ2,01,;,provisional,local:sample-v1",
+      "中文,ㄓㄨㄥ1 ㄨㄣ2,;,provisional,local:sample-v1",
     ].join("\n"));
     const result = compileCatalog(csv.records, knownProvenanceIds);
 
     expect(result.entries).toEqual([]);
-    expect(result.errors.map((error) => error.code)).toEqual([
-      "invalid-frequency-band",
-      "missing-field",
-    ]);
+    expect(result.errors.map((error) => error.code)).toEqual(["missing-field"]);
   });
 
   it("generates token and tone coverage", () => {
     const csv = parseCsv([
       header,
-      "中文,ㄓㄨㄥ1 ㄨㄣ2,1,general,provisional,local:sample-v1",
-      "媽媽,ㄇㄚ1 ㄇㄚ5,1,general,provisional,local:sample-v1",
+      "中文,ㄓㄨㄥ1 ㄨㄣ2,general,provisional,local:sample-v1",
+      "媽媽,ㄇㄚ1 ㄇㄚ5,general,provisional,local:sample-v1",
     ].join("\n"));
     const compiled = compileCatalog(csv.records, knownProvenanceIds);
     const report = createCoverageReport(compiled.entries);

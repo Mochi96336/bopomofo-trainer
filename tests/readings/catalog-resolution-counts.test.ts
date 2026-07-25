@@ -45,7 +45,7 @@ const manual = {
 describe("reading projection identity counts", () => {
   it("accepts exact-entry counts when heteronyms share one written form", () => {
     const catalogRecords = parseCsv([
-      "text,reading,frequency_band,tags,status,provenance_ids",
+      "text,reading,tags,status,provenance_ids",
       "行,ㄒㄧㄥ2,1,test,reviewed,test",
       "行,ㄏㄤ2,1,test,reviewed,test",
     ].join("\n")).records;
@@ -62,7 +62,7 @@ describe("reading projection identity counts", () => {
 
   it("rejects a mismatched normalized written-form count", () => {
     const catalogRecords = parseCsv([
-      "text,reading,frequency_band,tags,status,provenance_ids",
+      "text,reading,tags,status,provenance_ids",
       "行,ㄒㄧㄥ2,1,test,reviewed,test",
     ].join("\n")).records;
     expect(() => resolveCatalogReadings({

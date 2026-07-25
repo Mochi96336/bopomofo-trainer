@@ -4,7 +4,7 @@ import type { RelationalCatalogReport } from "../catalog-report.js";
 export type PartitionPolicyId =
   | "binding-preserving-baseline-v1"
   | "relation-support-preserving-v1"
-  | "frequency-stratified-v1"
+  | "commonness-stratified-v1"
   | "seeded-maximum-coverage-v1"
   | "path-novelty-v1";
 
@@ -18,8 +18,8 @@ export interface PartitionPolicyOptions {
   readonly minimumTrainingDistinctEntries: number;
 }
 
-export interface FrequencyStratifiedOptions extends PartitionPolicyOptions {
-  readonly allowCrossBandFallback: boolean;
+export interface CommonnessStratifiedOptions extends PartitionPolicyOptions {
+  readonly allowCrossTierFallback: boolean;
 }
 
 export type PartitionConstraintKind = "hard" | "soft" | "diagnostic";
@@ -91,7 +91,7 @@ export interface PartitionMetrics {
   readonly unsupportedAfterPartitionCount: number;
   readonly trainingDistinctEntrySupport: TrainingSupportMetrics;
   readonly relationConcentration: RelationConcentrationMetrics;
-  readonly frequencyBandDivergence: number;
+  readonly commonnessTierDivergence: number;
   readonly tokenOverlap: number;
   readonly transitionOverlap: number;
   readonly lexicalCharacterOverlap: number;

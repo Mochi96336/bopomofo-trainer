@@ -121,7 +121,7 @@ const support: CatalogSupportIndex = {
       commonEntryCount: 3,
       commonBindingEntryCount: 3,
       commonMotorEntryCount: 3,
-      frequencyBandCounts: { 1: 3, 2: 0, 3: 0 },
+      commonnessTierCounts: { 1: 3, 2: 0, 3: 0, 4: 0 },
     },
     "zhuyin:B": {
       tokenId: "zhuyin:B",
@@ -134,7 +134,7 @@ const support: CatalogSupportIndex = {
       commonEntryCount: 3,
       commonBindingEntryCount: 3,
       commonMotorEntryCount: 0,
-      frequencyBandCounts: { 1: 3, 2: 0, 3: 0 },
+      commonnessTierCounts: { 1: 3, 2: 0, 3: 0, 4: 0 },
     },
     "zhuyin:C": {
       tokenId: "zhuyin:C",
@@ -147,7 +147,7 @@ const support: CatalogSupportIndex = {
       commonEntryCount: 3,
       commonBindingEntryCount: 3,
       commonMotorEntryCount: 3,
-      frequencyBandCounts: { 1: 3, 2: 0, 3: 0 },
+      commonnessTierCounts: { 1: 3, 2: 0, 3: 0, 4: 0 },
     },
   },
   entriesById: {},

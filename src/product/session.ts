@@ -127,7 +127,6 @@ function selectRound(
     measurement: progress.measurements,
     mode: progress.mode,
     layoutId: progress.layoutId,
-    stage: progress.selection.stage,
     history: {
       recentEntryIds: progress.curriculum.recentEntryIds,
       recentUtteranceIds: progress.selection.recentUtteranceIds,
@@ -245,8 +244,6 @@ function finalizeRound(
     entryIds: state.round.exercise.entries.map((entry) => entry.id),
     utteranceId: state.round.selection.utterance.id,
     templateId: state.round.selection.utterance.templateId,
-    frequencyStage: state.round.selection.stage,
-    phase: state.round.selection.stage === 1 ? "coverage" : "adaptive",
     focusTokenId: null,
     focusEvidence: null,
     ...metrics,
@@ -265,8 +262,6 @@ function finalizeRound(
   const selection = updateFrequencyFirstSelectionState(
     state.progress.selection,
     state.round.selection,
-    metrics.attempts,
-    metrics.errors,
     environment.utterancePolicy,
   );
   const progress: ProductProgress = {

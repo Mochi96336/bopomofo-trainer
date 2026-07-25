@@ -87,7 +87,6 @@ def fixture_catalog(path: Path) -> None:
             fieldnames=[
                 "text",
                 "reading",
-                "frequency_band",
                 "tags",
                 "status",
                 "provenance_ids",
@@ -98,7 +97,6 @@ def fixture_catalog(path: Path) -> None:
             {
                 "text": "零",
                 "reading": "ㄌㄧㄥ2",
-                "frequency_band": "1",
                 "tags": "fixture",
                 "status": "provisional",
                 "provenance_ids": "fixture",

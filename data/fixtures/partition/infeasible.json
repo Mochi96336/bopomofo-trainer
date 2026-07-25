@@ -1,29 +1,123 @@
 [
   {
     "id": "fixture:singleton-a",
-    "prompt": { "text": "爸爸", "locale": "zh-TW" },
+    "prompt": {
+      "text": "爸爸",
+      "locale": "zh-TW"
+    },
     "syllables": [
-      { "tokens": ["zhuyin:ㄅ", "zhuyin:ㄚ", "tone:1"] },
-      { "tokens": ["zhuyin:ㄅ", "zhuyin:ㄚ", "tone:1"] }
+      {
+        "tokens": [
+          "zhuyin:ㄅ",
+          "zhuyin:ㄚ",
+          "tone:1"
+        ]
+      },
+      {
+        "tokens": [
+          "zhuyin:ㄅ",
+          "zhuyin:ㄚ",
+          "tone:1"
+        ]
+      }
     ],
-    "frequencyBand": 1,
-    "tags": ["singleton-a"],
-    "provenanceIds": ["fixture:partition"]
+    "tags": [
+      "singleton-a"
+    ],
+    "provenanceIds": [
+      "fixture:partition"
+    ],
+    "commonnessBase": {
+      "modelVersion": "commonness-v1",
+      "sourceId": "synthetic-cohort",
+      "sourceVersion": "v1",
+      "sourceRowId": "fixture:singleton-a",
+      "spokenPerMillion": null,
+      "writtenPerMillion": null,
+      "spokenStrength": null,
+      "writtenStrength": null,
+      "score": 0.9,
+      "selectionWeight": 0.9,
+      "confidence": "reviewed",
+      "reasons": [
+        "synthetic-cohort"
+      ]
+    }
   },
   {
     "id": "fixture:singleton-b",
-    "prompt": { "text": "德", "locale": "zh-TW" },
-    "syllables": [{ "tokens": ["zhuyin:ㄉ", "zhuyin:ㄜ", "tone:2"] }],
-    "frequencyBand": 2,
-    "tags": ["singleton-b"],
-    "provenanceIds": ["fixture:partition"]
+    "prompt": {
+      "text": "德",
+      "locale": "zh-TW"
+    },
+    "syllables": [
+      {
+        "tokens": [
+          "zhuyin:ㄉ",
+          "zhuyin:ㄜ",
+          "tone:2"
+        ]
+      }
+    ],
+    "tags": [
+      "singleton-b"
+    ],
+    "provenanceIds": [
+      "fixture:partition"
+    ],
+    "commonnessBase": {
+      "modelVersion": "commonness-v1",
+      "sourceId": "synthetic-cohort",
+      "sourceVersion": "v1",
+      "sourceRowId": "fixture:singleton-b",
+      "spokenPerMillion": null,
+      "writtenPerMillion": null,
+      "spokenStrength": null,
+      "writtenStrength": null,
+      "score": 0.5,
+      "selectionWeight": 0.5,
+      "confidence": "reviewed",
+      "reasons": [
+        "synthetic-cohort"
+      ]
+    }
   },
   {
     "id": "fixture:singleton-c",
-    "prompt": { "text": "古", "locale": "zh-TW" },
-    "syllables": [{ "tokens": ["zhuyin:ㄍ", "zhuyin:ㄨ", "tone:3"] }],
-    "frequencyBand": 3,
-    "tags": ["singleton-c"],
-    "provenanceIds": ["fixture:partition"]
+    "prompt": {
+      "text": "古",
+      "locale": "zh-TW"
+    },
+    "syllables": [
+      {
+        "tokens": [
+          "zhuyin:ㄍ",
+          "zhuyin:ㄨ",
+          "tone:3"
+        ]
+      }
+    ],
+    "tags": [
+      "singleton-c"
+    ],
+    "provenanceIds": [
+      "fixture:partition"
+    ],
+    "commonnessBase": {
+      "modelVersion": "commonness-v1",
+      "sourceId": "synthetic-cohort",
+      "sourceVersion": "v1",
+      "sourceRowId": "fixture:singleton-c",
+      "spokenPerMillion": null,
+      "writtenPerMillion": null,
+      "spokenStrength": null,
+      "writtenStrength": null,
+      "score": 0.1,
+      "selectionWeight": 0.1,
+      "confidence": "reviewed",
+      "reasons": [
+        "synthetic-cohort"
+      ]
+    }
   }
 ]

@@ -438,7 +438,7 @@ It contains no semantic score.
 The product order is:
 
 ```text
-frequency stage determines eligible catalog entries
+every syntax-legal catalog entry is eligible
 → load every syntax profile for those entries
 → derive grammar-valid structures
 → validate the derivation

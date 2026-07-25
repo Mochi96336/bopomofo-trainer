@@ -1,6 +1,6 @@
+import type { CommonnessTier } from "../../src/commonness/tiers.js";
 import type {
   CatalogEntry,
-  FrequencyBand,
   RandomSource,
 } from "../../src/core/model.js";
 import type { RelationObjective } from "../../src/curriculum/objectives.js";
@@ -37,17 +37,34 @@ export function sequenceRandom(values: readonly number[]): RandomSource {
   };
 }
 
+/**
+ * `selectionWeight` stands in for how common the word is: the fixtures used to
+ * say "band 1" or "band 3", and the projected weight is what carries that now.
+ */
 export function entry(
   id: string,
   syllables: readonly (readonly string[])[],
-  frequencyBand: FrequencyBand = 1,
+  selectionWeight = 0.9,
   tags: readonly string[] = ["general"],
 ): CatalogEntry {
   return {
     id,
     prompt: { text: id, locale: "zh-TW" },
     syllables: syllables.map((tokens) => ({ tokens })),
-    frequencyBand,
+    commonnessBase: {
+      modelVersion: "commonness-v1",
+      sourceId: "test",
+      sourceVersion: "test-v1",
+      sourceRowId: id,
+      spokenPerMillion: null,
+      writtenPerMillion: null,
+      spokenStrength: null,
+      writtenStrength: null,
+      score: selectionWeight,
+      selectionWeight,
+      confidence: "reviewed",
+      reasons: [],
+    },
     tags,
     provenanceIds: ["test"],
   };
@@ -59,6 +76,7 @@ export function bindingOccurrence(
   syllableIndex = 0,
   tokenIndex = 0,
   partition: "training" | "evaluation" = "training",
+  commonnessTier: CommonnessTier = 1,
 ): BindingOccurrence {
   return {
     kind: "binding",
@@ -72,7 +90,7 @@ export function bindingOccurrence(
         ? "syllable-start"
         : "within-syllable",
     entryInitial: syllableIndex === 0 && tokenIndex === 0,
-    frequencyBand: catalogEntry.frequencyBand,
+    commonnessTier,
     tags: catalogEntry.tags,
     provenanceIds: catalogEntry.provenanceIds,
     partition,
@@ -86,6 +104,7 @@ export function transitionOccurrence(
   syllableIndex = 0,
   fromTokenIndex = 0,
   partition: "training" | "evaluation" = "training",
+  commonnessTier: CommonnessTier = 1,
 ): TransitionOccurrence {
   return {
     kind: "transition",
@@ -94,7 +113,7 @@ export function transitionOccurrence(
     fromTokenIndex,
     fromToken,
     toToken,
-    frequencyBand: catalogEntry.frequencyBand,
+    commonnessTier,
     tags: catalogEntry.tags,
     provenanceIds: catalogEntry.provenanceIds,
     partition,
@@ -109,30 +128,31 @@ function supportSummary(
   const evaluation = occurrences.filter((occurrence) => occurrence.partition === "evaluation");
   const trainingEntries = new Set(training.map((occurrence) => occurrence.entryId));
   const evaluationEntries = new Set(evaluation.map((occurrence) => occurrence.entryId));
-  const frequencyBandCounts = {
-    1: occurrences.filter((occurrence) => occurrence.frequencyBand === 1).length,
-    2: occurrences.filter((occurrence) => occurrence.frequencyBand === 2).length,
-    3: occurrences.filter((occurrence) => occurrence.frequencyBand === 3).length,
+  const commonnessTierCounts = {
+    1: occurrences.filter((occurrence) => occurrence.commonnessTier === 1).length,
+    2: occurrences.filter((occurrence) => occurrence.commonnessTier === 2).length,
+    3: occurrences.filter((occurrence) => occurrence.commonnessTier === 3).length,
+    4: occurrences.filter((occurrence) => occurrence.commonnessTier === 4).length,
   } as const;
   return {
     relation,
     occurrenceCount: occurrences.length,
     distinctEntryCount: new Set(occurrences.map((occurrence) => occurrence.entryId)).size,
-    frequencyBandCounts,
+    commonnessTierCounts,
     commonEntryCount: new Set(occurrences
-      .filter((occurrence) => occurrence.frequencyBand === 1)
+      .filter((occurrence) => occurrence.commonnessTier === 1)
       .map((occurrence) => occurrence.entryId)).size,
     entryConcentration: occurrences.length === 0 ? 0 : 1,
     trainingOccurrenceCount: training.length,
     trainingDistinctEntryCount: trainingEntries.size,
     trainingCommonEntryCount: new Set(training
-      .filter((occurrence) => occurrence.frequencyBand === 1)
+      .filter((occurrence) => occurrence.commonnessTier === 1)
       .map((occurrence) => occurrence.entryId)).size,
     trainingEntryConcentration: training.length === 0 ? 0 : 1,
     evaluationOccurrenceCount: evaluation.length,
     evaluationDistinctEntryCount: evaluationEntries.size,
     evaluationCommonEntryCount: new Set(evaluation
-      .filter((occurrence) => occurrence.frequencyBand === 1)
+      .filter((occurrence) => occurrence.commonnessTier === 1)
       .map((occurrence) => occurrence.entryId)).size,
     supportState: training.length === 0 ? "unsupported" : "supported",
   };

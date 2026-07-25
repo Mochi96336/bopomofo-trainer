@@ -1,5 +1,6 @@
+import type { CommonnessTier } from "../commonness/tiers.js";
 import type {
-  FrequencyBandCounts,
+  CommonnessTierCounts,
   RelationOccurrence,
   RelationRef,
   RelationSupportSummary,
@@ -28,15 +29,15 @@ function distinctEntryIds(occurrences: readonly RelationOccurrence[]): ReadonlyS
   return new Set(occurrences.map((occurrence) => occurrence.entryId));
 }
 
-function frequencyBandCounts(
+function commonnessTierCounts(
   occurrences: readonly RelationOccurrence[],
-): FrequencyBandCounts {
-  const entryBands = new Map<string, 1 | 2 | 3>();
+): CommonnessTierCounts {
+  const entryTiers = new Map<string, CommonnessTier>();
   for (const occurrence of occurrences) {
-    entryBands.set(occurrence.entryId, occurrence.frequencyBand);
+    entryTiers.set(occurrence.entryId, occurrence.commonnessTier);
   }
-  const result = { 1: 0, 2: 0, 3: 0 };
-  for (const band of entryBands.values()) result[band] += 1;
+  const result: Record<CommonnessTier, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  for (const tier of entryTiers.values()) result[tier] += 1;
   return result;
 }
 
@@ -47,9 +48,9 @@ export function summarizeRelationSupport(
 ): RelationSupportSummary {
   const training = occurrences.filter((occurrence) => occurrence.partition === "training");
   const evaluation = occurrences.filter((occurrence) => occurrence.partition === "evaluation");
-  const bands = frequencyBandCounts(occurrences);
-  const trainingBands = frequencyBandCounts(training);
-  const evaluationBands = frequencyBandCounts(evaluation);
+  const tiers = commonnessTierCounts(occurrences);
+  const trainingTiers = commonnessTierCounts(training);
+  const evaluationTiers = commonnessTierCounts(evaluation);
   const trainingEntries = distinctEntryIds(training);
   const evaluationEntries = distinctEntryIds(evaluation);
   const trainingConcentration = concentration(training);
@@ -59,7 +60,7 @@ export function summarizeRelationSupport(
       ? "unsupported"
       : training.length === 0
         ? "evaluation-only"
-        : trainingBands[1] === 0
+        : trainingTiers[1] === 0
           ? "rare-only"
           : trainingEntries.size < policy.minimumTrainingEntries
             || trainingConcentration > policy.concentrationThreshold
@@ -70,16 +71,16 @@ export function summarizeRelationSupport(
     relation,
     occurrenceCount: occurrences.length,
     distinctEntryCount: distinctEntryIds(occurrences).size,
-    frequencyBandCounts: bands,
-    commonEntryCount: bands[1],
+    commonnessTierCounts: tiers,
+    commonEntryCount: tiers[1],
     entryConcentration: concentration(occurrences),
     trainingOccurrenceCount: training.length,
     trainingDistinctEntryCount: trainingEntries.size,
-    trainingCommonEntryCount: trainingBands[1],
+    trainingCommonEntryCount: trainingTiers[1],
     trainingEntryConcentration: trainingConcentration,
     evaluationOccurrenceCount: evaluation.length,
     evaluationDistinctEntryCount: evaluationEntries.size,
-    evaluationCommonEntryCount: evaluationBands[1],
+    evaluationCommonEntryCount: evaluationTiers[1],
     supportState,
   };
 }

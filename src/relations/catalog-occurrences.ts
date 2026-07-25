@@ -1,3 +1,4 @@
+import { catalogCommonnessTiers } from "../commonness/tiers.js";
 import type { CatalogEntry, TokenId } from "../core/model.js";
 import type {
   BindingOccurrence,
@@ -37,6 +38,7 @@ export function indexCatalogOccurrences(
   entries: readonly CatalogEntry[],
   partitionByEntryId: Readonly<Record<string, CatalogPartition>>,
 ): CatalogOccurrenceIndex {
+  const tiers = catalogCommonnessTiers(entries);
   const binding = new Map<string, BindingOccurrence[]>();
   const transition = new Map<string, TransitionOccurrence[]>();
   const seenEntryIds = new Set<string>();
@@ -69,7 +71,7 @@ export function indexCatalogOccurrences(
           tokenId,
           context: bindingContext(tokenId, tokenIndex),
           entryInitial: syllableIndex === 0 && tokenIndex === 0,
-          frequencyBand: entry.frequencyBand,
+          commonnessTier: tiers.get(entry.id)!,
           tags: entry.tags,
           provenanceIds: entry.provenanceIds,
           partition,
@@ -88,7 +90,7 @@ export function indexCatalogOccurrences(
           fromTokenIndex,
           fromToken,
           toToken,
-          frequencyBand: entry.frequencyBand,
+          commonnessTier: tiers.get(entry.id)!,
           tags: entry.tags,
           provenanceIds: entry.provenanceIds,
           partition,

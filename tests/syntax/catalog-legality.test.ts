@@ -14,7 +14,6 @@ function entry(id: string): CatalogEntry {
     id,
     prompt: { text: id, locale: "zh-TW" },
     syllables: [{ tokens: ["zhuyin:ㄅ", "tone:1"] }],
-    frequencyBand: 1,
     tags: ["test"],
     provenanceIds: ["test"],
   };

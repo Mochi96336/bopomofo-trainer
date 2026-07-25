@@ -39,8 +39,8 @@ describe("practice budgets and penalties", () => {
   });
 
   it("enforces minimum common-word share during candidate selection", () => {
-    const rare = entry("word:rare", [["ㄓ", "ㄨ", "ㄓ", "ㄨ", "tone:1"]], 3);
-    const common = entry("word:common", [["ㄓ", "ㄨ", "tone:1"]], 1);
+    const rare = entry("word:rare", [["ㄓ", "ㄨ", "ㄓ", "ㄨ", "tone:1"]], 0.1);
+    const common = entry("word:common", [["ㄓ", "ㄨ", "tone:1"]], 0.9);
     const result = composePracticeSequence(input({
       entries: [rare, common],
       index: relationIndex({
@@ -60,8 +60,8 @@ describe("practice budgets and penalties", () => {
   });
 
   it("rejects a higher-gain rare candidate when common-word share must remain one", () => {
-    const rare = entry("word:rare", [["ㄓ", "ㄨ", "ㄓ", "ㄨ", "tone:1"]], 3);
-    const common = entry("word:common", [["ㄓ", "ㄨ", "tone:1"]], 1);
+    const rare = entry("word:rare", [["ㄓ", "ㄨ", "ㄓ", "ㄨ", "tone:1"]], 0.1);
+    const common = entry("word:common", [["ㄓ", "ㄨ", "tone:1"]], 0.9);
     const result = composePracticeSequence(input({
       entries: [rare, common],
       index: relationIndex({
@@ -198,8 +198,8 @@ describe("practice budgets and penalties", () => {
   });
 
   it("records frequency contribution and repetition penalty", () => {
-    const common = entry("word:common", [["ㄓ", "tone:1"]], 1);
-    const rare = entry("word:rare", [["ㄓ", "tone:2"]], 3);
+    const common = entry("word:common", [["ㄓ", "tone:1"]], 0.9);
+    const rare = entry("word:rare", [["ㄓ", "tone:2"]], 0.1);
     const result = composePracticeSequence(input({
       objective: bindingObjective("ㄓ"),
       entries: [common, rare],

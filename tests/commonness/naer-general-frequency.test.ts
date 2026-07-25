@@ -20,7 +20,6 @@ function entry(id: string, text: string): CatalogEntry {
     id,
     prompt: { text, locale: "zh-TW" },
     syllables: [],
-    frequencyBand: 1,
     tags: [],
     provenanceIds: [],
   };

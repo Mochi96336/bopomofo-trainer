@@ -1,4 +1,9 @@
 import "./style.css";
+import {
+  catalogEntryCommonnessTier,
+  type CommonnessTier,
+} from "../commonness/tiers.js";
+import { commonnessDotsMarkup, commonnessTierLabel } from "./commonness-display.js";
 import type { TokenId } from "../core/model.js";
 import { createProductBackup, parseProductBackup } from "./backup.js";
 import {
@@ -18,6 +23,7 @@ import {
 import type { ProductProgress, ProductState } from "../product/types.js";
 import { STANDARD_BOPOMOFO_LAYOUT } from "../scheme/standard-layout.js";
 import {
+  COMMONNESS_TIER_THRESHOLDS,
   EVALUATION_CATALOG,
   PRACTICE_CATALOG,
   SYNTAX_PROFILES,
@@ -293,6 +299,7 @@ function mountShell(): void {
             <div class="dialog-title-row">
               <h2 id="information-title">設定與資料</h2>
               <div id="information-round-status" class="dialog-round-status" aria-live="polite"></div>
+              <div id="information-commonness" class="dialog-commonness"></div>
             </div>
             <form method="dialog">
               <button class="dialog-close" type="button" aria-label="關閉設定面板">Esc</button>
@@ -641,11 +648,44 @@ function renderHistoryRows(): string {
   }).join("");
 }
 
+/**
+ * The rarest level in the current sentence; `null` when none is known.
+ *
+ * The rarest word, not the most common one: selection is already weighted
+ * towards common words, so nearly every sentence contains a top-tier word and
+ * that reading would sit at one mark almost always. The rarest word is what
+ * actually varies, and it is what makes a sentence hard.
+ */
+function roundRarestCommonnessTier(): CommonnessTier | null {
+  const tiers = product.round.exercise.entries
+    .map((entry) => catalogEntryCommonnessTier(entry, COMMONNESS_TIER_THRESHOLDS))
+    .filter((tier): tier is CommonnessTier => tier !== null);
+  if (tiers.length === 0) return null;
+  return tiers.reduce((rarest, tier) => (tier > rarest ? tier : rarest));
+}
+
+// One reading beside the round status, which is where a level is legible
+// without a legend on the practice stage.
+function renderCommonnessStatus(): void {
+  const element = requireElement<HTMLElement>("#information-commonness");
+  const tier = roundRarestCommonnessTier();
+  if (tier === null) {
+    element.hidden = true;
+    element.innerHTML = "";
+    return;
+  }
+  element.hidden = false;
+  element.setAttribute("aria-label", `本句最少見的詞 ${commonnessTierLabel(tier)}`);
+  element.innerHTML = `<span>等級</span>
+    <span class="entry-commonness" data-tier="${tier}" aria-hidden="true">${commonnessDotsMarkup(tier)}</span>`;
+}
+
 function renderInformationPanel(): void {
   const { attempts, errors } = mappedRoundCounts();
   const roundStatus = requireElement<HTMLElement>("#information-round-status");
   roundStatus.setAttribute("aria-label", `第 ${currentRoundNumber()} 句，目前正確率 ${accuracyLabel(attempts, errors)}`);
   roundStatus.innerHTML = `<span>第 ${currentRoundNumber()} 句</span><strong>${accuracyLabel(attempts, errors)}</strong>`;
+  renderCommonnessStatus();
   const content = requireElement<HTMLElement>("#information-content");
   content.innerHTML = `
     <section class="panel-section">

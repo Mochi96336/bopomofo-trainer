@@ -1,3 +1,4 @@
+import { catalogCommonnessTiers } from "../commonness/tiers.js";
 import type { CatalogEntry, TokenId } from "../core/model.js";
 import type { BindingAggregate } from "../measurement/types.js";
 import { buildCurriculumExercise } from "./exercise-builder.js";
@@ -126,6 +127,7 @@ export function runCurriculumSimulation(
   scenario: SimulationScenario,
 ): CurriculumSimulationReport {
   validateCurriculumPolicy(policy);
+  const tiers = catalogCommonnessTiers(Object.values(support.entriesById));
   const random = createSeededRandom(scenario.seed);
   let profile = scenario.profile;
   const rounds: SimulationRoundReport[] = [];
@@ -161,9 +163,9 @@ export function runCurriculumSimulation(
       occurrences,
       (occurrence) => occurrence.motorEligible,
     );
-    const frequencyBands = { "1": 0, "2": 0, "3": 0 };
+    const commonnessTiers = { 1: 0, 2: 0, 3: 0, 4: 0 };
     for (const entry of built.exercise.entries) {
-      frequencyBands[String(entry.frequencyBand) as "1" | "2" | "3"] += 1;
+      commonnessTiers[tiers.get(entry.id)!] += 1;
     }
     const repeatedEntryCount = built.exercise.entries.filter(
       (entry) => profile.recentEntryIds.includes(entry.id),
@@ -179,7 +181,7 @@ export function runCurriculumSimulation(
       tokenExposure,
       bindingObservationExposure,
       motorTimingExposure,
-      frequencyBands,
+      commonnessTiers,
       repeatedEntryCount,
       fallbackReasons: built.fallbackReasons,
       picks: built.picks,

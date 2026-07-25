@@ -13,7 +13,6 @@ export const PHASE_4_CURRICULUM_POLICY: CurriculumPolicy = {
   cooldownRounds: 2,
   errorWeight: 0.6,
   timingWeight: 0.4,
-  frequencyBandWeights: { 1: 1, 2: 0.6, 3: 0.3 },
   recentEntryPenalty: 0.15,
   recentTokenPenalty: 0.85,
 };
@@ -47,10 +46,5 @@ export function validateCurriculumPolicy(policy: CurriculumPolicy): void {
   }
   if (policy.recentTokenPenalty <= 0 || policy.recentTokenPenalty > 1) {
     throw new RangeError("recentTokenPenalty must be greater than 0 and at most 1");
-  }
-  for (const weight of Object.values(policy.frequencyBandWeights)) {
-    if (!Number.isFinite(weight) || weight <= 0) {
-      throw new RangeError("frequency band weights must be finite and positive");
-    }
   }
 }

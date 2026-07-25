@@ -6,15 +6,15 @@ import {
   synchronizeRecordReadings,
 } from "../../src/readings/catalog-resolution.js";
 
-const catalogHeader = "text,reading,frequency_band,tags,status,provenance_ids";
+const catalogHeader = "text,reading,tags,status,provenance_ids";
 
 function fixtures() {
   const catalogRecords = parseCsv([
     catalogHeader,
-    "甲,ㄍㄚ3,1,general,provisional,local:sample-v1",
-    "乙,ㄧ3,1,general,provisional,local:sample-v1",
-    "丙,ㄅㄧㄥ3,1,general,provisional,local:sample-v1",
-    "丁,ㄉㄧㄥ1,1,general,provisional,local:sample-v1",
+    "甲,ㄍㄚ3,general,provisional,local:sample-v1",
+    "乙,ㄧ3,general,provisional,local:sample-v1",
+    "丙,ㄅㄧㄥ3,general,provisional,local:sample-v1",
+    "丁,ㄉㄧㄥ1,general,provisional,local:sample-v1",
   ].join("\n")).records;
   const moeConcisedProjection = {
     adapterVersion: "moe-concised-reading-adapter-v1",

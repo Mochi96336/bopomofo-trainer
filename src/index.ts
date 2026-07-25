@@ -31,7 +31,7 @@ export * from "./relations/catalog-report-text.js";
 export * from "./relations/partition/types.js";
 export * from "./relations/partition/strategies.js";
 export * from "./relations/partition/binding-baseline.js";
-export * from "./relations/partition/frequency-stratified.js";
+export * from "./relations/partition/commonness-stratified.js";
 export * from "./reference/types.js";
 export * from "./reference/manifest-parser.js";
 export * from "./reference/source-registry.js";

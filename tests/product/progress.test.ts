@@ -40,10 +40,10 @@ describe("product progress codec", () => {
     const progress = createProgress();
     const parsed = parse(serializeProductProgress(progress));
     expect(parsed).toEqual(progress);
-    expect(parsed!.selection).toMatchObject({
+    expect(parsed!.selection).toEqual({
       policyVersion: "frequency-first-utterance-v1",
-      stage: 1,
-      stagePracticeRounds: 0,
+      recentUtteranceIds: [],
+      recentTemplateIds: [],
     });
   });
 
