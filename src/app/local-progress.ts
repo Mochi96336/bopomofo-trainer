@@ -1,5 +1,6 @@
 import { parseProductProgress, serializeProductProgress } from "../product/progress.js";
 import type { ProductEnvironment, ProductProgress } from "../product/types.js";
+import { productProgressReferencesAreKnown } from "./product-progress-references.js";
 
 export const LOCAL_PROGRESS_KEY = "bopomofo-trainer.progress.v4";
 
@@ -22,39 +23,6 @@ export function currentLocalProductProgress(): ProductProgress | null {
   return liveProductProgress;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function summaryReferencesAreKnown(
-  source: string,
-  environment: ProductEnvironment,
-): boolean {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(source) as unknown;
-  } catch {
-    return true;
-  }
-  if (!isRecord(parsed) || !Array.isArray(parsed.recentSummaries)) return true;
-  const knownEntries = new Set([
-    ...Object.keys(environment.practiceSupport.entriesById),
-    ...Object.keys(environment.evaluationSupport.entriesById),
-  ]);
-  const knownFocusTokens = new Set(Object.keys(environment.practiceSupport.byToken));
-  return parsed.recentSummaries.every((summary) => {
-    if (!isRecord(summary) || !Array.isArray(summary.entryIds)) return false;
-    if (summary.entryIds.length === 0) return false;
-    if (summary.entryIds.some((entryId) =>
-      typeof entryId !== "string" || !knownEntries.has(entryId)
-    )) return false;
-    if (new Set(summary.entryIds).size !== summary.entryIds.length) return false;
-    return summary.focusTokenId === null
-      || (typeof summary.focusTokenId === "string"
-        && knownFocusTokens.has(summary.focusTokenId));
-  });
-}
-
 export function loadLocalProductProgress(
   storage: StorageLike,
   environment: ProductEnvironment,
@@ -66,10 +34,6 @@ export function loadLocalProductProgress(
     liveProductProgress = null;
     return { progress: null, recoveredFromInvalidState: false };
   }
-  if (!summaryReferencesAreKnown(source, environment)) {
-    liveProductProgress = null;
-    return { progress: null, recoveredFromInvalidState: true };
-  }
   const progress = parseProductProgress(
     source,
     environment.practiceSupport,
@@ -79,10 +43,13 @@ export function loadLocalProductProgress(
     environment.curriculumPolicy.version,
     environment.utterancePolicy,
   );
-  liveProductProgress = progress;
+  const validProgress = progress !== null && productProgressReferencesAreKnown(progress, environment)
+    ? progress
+    : null;
+  liveProductProgress = validProgress;
   return {
-    progress,
-    recoveredFromInvalidState: progress === null,
+    progress: validProgress,
+    recoveredFromInvalidState: validProgress === null,
   };
 }
 
