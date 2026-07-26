@@ -1,6 +1,23 @@
-import "./main.js";
+import {
+  bindBackupFileInputReset,
+  bindProductionInspectionBoundary,
+} from "./browser-boundaries.js";
 import { mountDiagnosticEnhancement } from "./diagnostic-enhancement.js";
+import {
+  recoverLocalPersistenceTransaction,
+} from "./persistence-transaction.js";
 import { planBalancedPracticeLines } from "./presentation-model.js";
+
+const unmountInspectionBoundary = bindProductionInspectionBoundary(
+  window,
+  import.meta.env.PROD,
+);
+try {
+  recoverLocalPersistenceTransaction(localStorage);
+} catch {
+  // Storage may be blocked. The main app retains its existing degraded-session
+  // handling and will surface the relevant warning after it mounts.
+}
 
 function requirePracticeStage(): HTMLElement {
   const element = document.querySelector<HTMLElement>("#practice-stage");
@@ -8,80 +25,91 @@ function requirePracticeStage(): HTMLElement {
   return element;
 }
 
-const stage = requirePracticeStage();
-let layoutFrame: number | null = null;
-let centerResizeObserver: ResizeObserver | null = null;
+async function mountBrowser(): Promise<void> {
+  // The production function-key boundary and interrupted-write recovery must be
+  // installed before main registers listeners or reads any local records.
+  await import("./main.js");
 
-function layoutPracticeRunway(): void {
-  const center = stage.querySelector<HTMLElement>(".practice-center");
-  const runway = center?.querySelector<HTMLElement>(".utterance-runway") ?? null;
-  if (center === null || runway === null) return;
+  const stage = requirePracticeStage();
+  let layoutFrame: number | null = null;
+  let centerResizeObserver: ResizeObserver | null = null;
 
-  const entries = [...runway.querySelectorAll<HTMLElement>(".practice-entry")]
-    .sort((left, right) =>
-      Number(left.dataset.entryIndex) - Number(right.dataset.entryIndex)
+  function layoutPracticeRunway(): void {
+    const center = stage.querySelector<HTMLElement>(".practice-center");
+    const runway = center?.querySelector<HTMLElement>(".utterance-runway") ?? null;
+    if (center === null || runway === null) return;
+
+    const entries = [...runway.querySelectorAll<HTMLElement>(".practice-entry")]
+      .sort((left, right) =>
+        Number(left.dataset.entryIndex) - Number(right.dataset.entryIndex)
+      );
+    if (entries.length === 0) return;
+
+    runway.style.removeProperty("width");
+    runway.replaceChildren(...entries);
+    const maxLineWidth = center.clientWidth;
+    if (maxLineWidth <= 0) return;
+
+    const entryWidths = entries.map((entry) => entry.getBoundingClientRect().width);
+    const lines = planBalancedPracticeLines(entryWidths, maxLineWidth);
+    const plannedWidth = Math.min(
+      maxLineWidth,
+      Math.max(...lines.map((line) => line.width)),
     );
-  if (entries.length === 0) return;
+    runway.style.width = `${Math.ceil(plannedWidth)}px`;
+    runway.dataset.lineCount = String(lines.length);
 
-  runway.style.removeProperty("width");
-  runway.replaceChildren(...entries);
-  const maxLineWidth = center.clientWidth;
-  if (maxLineWidth <= 0) return;
-
-  const entryWidths = entries.map((entry) => entry.getBoundingClientRect().width);
-  const lines = planBalancedPracticeLines(entryWidths, maxLineWidth);
-  const plannedWidth = Math.min(
-    maxLineWidth,
-    Math.max(...lines.map((line) => line.width)),
-  );
-  runway.style.width = `${Math.ceil(plannedWidth)}px`;
-  runway.dataset.lineCount = String(lines.length);
-
-  const fragment = document.createDocumentFragment();
-  for (const line of lines) {
-    const lineElement = document.createElement("div");
-    lineElement.className = "practice-line";
-    lineElement.setAttribute("role", "presentation");
-    lineElement.append(
-      ...entries.slice(line.startEntryIndex, line.endEntryIndex),
-    );
-    fragment.append(lineElement);
+    const fragment = document.createDocumentFragment();
+    for (const line of lines) {
+      const lineElement = document.createElement("div");
+      lineElement.className = "practice-line";
+      lineElement.setAttribute("role", "presentation");
+      lineElement.append(
+        ...entries.slice(line.startEntryIndex, line.endEntryIndex),
+      );
+      fragment.append(lineElement);
+    }
+    runway.replaceChildren(fragment);
   }
-  runway.replaceChildren(fragment);
-}
 
-function schedulePracticeLayout(): void {
-  if (layoutFrame !== null) window.cancelAnimationFrame(layoutFrame);
-  layoutFrame = window.requestAnimationFrame(() => {
-    layoutFrame = null;
+  function schedulePracticeLayout(): void {
+    if (layoutFrame !== null) window.cancelAnimationFrame(layoutFrame);
+    layoutFrame = window.requestAnimationFrame(() => {
+      layoutFrame = null;
+      layoutPracticeRunway();
+    });
+  }
+
+  function connectPracticeCenter(): void {
+    centerResizeObserver?.disconnect();
+    centerResizeObserver = null;
+    if (layoutFrame !== null) {
+      window.cancelAnimationFrame(layoutFrame);
+      layoutFrame = null;
+    }
+
     layoutPracticeRunway();
-  });
-}
-
-function connectPracticeCenter(): void {
-  centerResizeObserver?.disconnect();
-  centerResizeObserver = null;
-  if (layoutFrame !== null) {
-    window.cancelAnimationFrame(layoutFrame);
-    layoutFrame = null;
+    const center = stage.querySelector<HTMLElement>(".practice-center");
+    if (center === null || typeof ResizeObserver === "undefined") return;
+    centerResizeObserver = new ResizeObserver(schedulePracticeLayout);
+    centerResizeObserver.observe(center);
   }
 
-  layoutPracticeRunway();
-  const center = stage.querySelector<HTMLElement>(".practice-center");
-  if (center === null || typeof ResizeObserver === "undefined") return;
-  centerResizeObserver = new ResizeObserver(schedulePracticeLayout);
-  centerResizeObserver.observe(center);
+  const stageObserver = new MutationObserver(connectPracticeCenter);
+  stageObserver.observe(stage, { childList: true });
+  connectPracticeCenter();
+  void document.fonts.ready.then(schedulePracticeLayout);
+  const unmountDiagnostics = mountDiagnosticEnhancement();
+  const unmountBackupInputReset = bindBackupFileInputReset(document);
+
+  window.addEventListener("beforeunload", () => {
+    stageObserver.disconnect();
+    centerResizeObserver?.disconnect();
+    unmountDiagnostics();
+    unmountBackupInputReset();
+    unmountInspectionBoundary();
+    if (layoutFrame !== null) window.cancelAnimationFrame(layoutFrame);
+  }, { once: true });
 }
 
-const stageObserver = new MutationObserver(connectPracticeCenter);
-stageObserver.observe(stage, { childList: true });
-connectPracticeCenter();
-void document.fonts.ready.then(schedulePracticeLayout);
-const unmountDiagnostics = mountDiagnosticEnhancement();
-
-window.addEventListener("beforeunload", () => {
-  stageObserver.disconnect();
-  centerResizeObserver?.disconnect();
-  unmountDiagnostics();
-  if (layoutFrame !== null) window.cancelAnimationFrame(layoutFrame);
-}, { once: true });
+void mountBrowser();
