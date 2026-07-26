@@ -24,6 +24,15 @@ describe("browser launch boundaries", () => {
     expect(binding).not.toContain("event.preventDefault()");
   });
 
+  it("loads global styles before the async product mount", () => {
+    const source = readFileSync("src/app/browser.ts", "utf8");
+    const styleImport = source.indexOf('import "./style.css"');
+    const mainImport = source.indexOf('await import("./main.js")');
+
+    expect(styleImport).toBeGreaterThanOrEqual(0);
+    expect(mainImport).toBeGreaterThan(styleImport);
+  });
+
   it("installs recovery and the production boundary before main mounts", () => {
     const source = readFileSync("src/app/browser.ts", "utf8");
     const boundary = source.indexOf("bindProductionInspectionBoundary(");
