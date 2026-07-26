@@ -6,9 +6,12 @@ import {
   type PilotHistory,
 } from "../product/pilot-history.js";
 import type { ProductEnvironment, ProductProgress } from "../product/types.js";
-import type { StorageLike } from "./local-progress.js";
+import {
+  LOCAL_PILOT_HISTORY_KEY,
+  type StorageLike,
+} from "./persistence-transaction.js";
 
-export const LOCAL_PILOT_HISTORY_KEY = "bopomofo-trainer.pilot-history.v3";
+export { LOCAL_PILOT_HISTORY_KEY };
 
 export interface LocalPilotHistoryLoadResult {
   readonly history: PilotHistory;

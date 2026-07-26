@@ -5,9 +5,13 @@ import {
 import { createEmptyProgressHistory } from "../progress-history/update.js";
 import type { ProgressHistory } from "../progress-history/types.js";
 import type { ProductEnvironment, ProductProgress } from "../product/types.js";
-import type { StorageLike } from "./local-progress.js";
+import {
+  commitLocalPersistenceTransaction,
+  LOCAL_PROGRESS_HISTORY_KEY,
+  type StorageLike,
+} from "./persistence-transaction.js";
 
-export const LOCAL_PROGRESS_HISTORY_KEY = "bopomofo-trainer.progress-history.v1";
+export { LOCAL_PROGRESS_HISTORY_KEY };
 
 export interface LocalProgressHistoryLoadResult {
   readonly history: ProgressHistory;
@@ -60,11 +64,13 @@ export function saveLocalProgressHistory(
   storage: StorageLike,
   history: ProgressHistory,
 ): void {
-  liveProgressHistory = history;
   storage.setItem(LOCAL_PROGRESS_HISTORY_KEY, serializeProgressHistory(history));
+  liveProgressHistory = history;
+  commitLocalPersistenceTransaction(storage);
 }
 
 export function clearLocalProgressHistory(storage: StorageLike): void {
-  liveProgressHistory = null;
   storage.removeItem(LOCAL_PROGRESS_HISTORY_KEY);
+  liveProgressHistory = null;
+  commitLocalPersistenceTransaction(storage);
 }
