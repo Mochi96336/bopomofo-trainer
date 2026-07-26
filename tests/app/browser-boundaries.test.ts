@@ -1,17 +1,17 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
-  isInspectionShortcutCode,
+  isProductionBlockedInspectionCode,
   resetImportedBackupSelection,
 } from "../../src/app/browser-boundaries.js";
 
 describe("browser launch boundaries", () => {
-  it("recognizes only the three development inspection function keys", () => {
-    expect(isInspectionShortcutCode("F8")).toBe(true);
-    expect(isInspectionShortcutCode("F9")).toBe(true);
-    expect(isInspectionShortcutCode("F10")).toBe(true);
-    expect(isInspectionShortcutCode("F7")).toBe(false);
-    expect(isInspectionShortcutCode("Escape")).toBe(false);
+  it("blocks only inspection keys that can alter learner data", () => {
+    expect(isProductionBlockedInspectionCode("F8")).toBe(false);
+    expect(isProductionBlockedInspectionCode("F9")).toBe(true);
+    expect(isProductionBlockedInspectionCode("F10")).toBe(true);
+    expect(isProductionBlockedInspectionCode("F7")).toBe(false);
+    expect(isProductionBlockedInspectionCode("Escape")).toBe(false);
   });
 
   it("stops product propagation without cancelling the browser default", () => {
