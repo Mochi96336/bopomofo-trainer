@@ -1,13 +1,15 @@
-const INSPECTION_SHORTCUT_CODES = new Set(["F8", "F9", "F10"]);
+const PRODUCTION_BLOCKED_INSPECTION_CODES = new Set(["F9", "F10"]);
 
-export function isInspectionShortcutCode(code: string): boolean {
-  return INSPECTION_SHORTCUT_CODES.has(code);
+export function isProductionBlockedInspectionCode(code: string): boolean {
+  return PRODUCTION_BLOCKED_INSPECTION_CODES.has(code);
 }
 
 /**
- * Keeps development-only inspection keys from reaching the product listener in
- * production. Deliberately does not call preventDefault, so the browser or OS
- * remains free to handle the function key normally.
+ * Keeps inspection actions that can alter learner data from reaching the
+ * product listener in production. F8 remains available because it replaces the
+ * current preview while preserving progress, measurements, and history.
+ * Deliberately does not call preventDefault, so the browser or OS remains free
+ * to handle blocked function keys normally.
  */
 export function bindProductionInspectionBoundary(
   target: Window,
@@ -15,7 +17,7 @@ export function bindProductionInspectionBoundary(
 ): () => void {
   if (!production) return () => {};
   const listener = (event: KeyboardEvent): void => {
-    if (!isInspectionShortcutCode(event.code)) return;
+    if (!isProductionBlockedInspectionCode(event.code)) return;
     event.stopPropagation();
   };
   target.addEventListener("keydown", listener, { capture: true });
