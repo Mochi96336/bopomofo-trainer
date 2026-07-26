@@ -8,9 +8,12 @@ import {
 } from "./persistence-transaction.js";
 import { planBalancedPracticeLines } from "./presentation-model.js";
 
+const productionBuild = (import.meta as ImportMeta & {
+  readonly env: { readonly PROD: boolean };
+}).env.PROD;
 const unmountInspectionBoundary = bindProductionInspectionBoundary(
   window,
-  import.meta.env.PROD,
+  productionBuild,
 );
 try {
   recoverLocalPersistenceTransaction(localStorage);
