@@ -54,9 +54,14 @@ describe("semantic focus preservation", () => {
     expect(render).toContain("restoreFocusIdentity(host, focusIdentity");
   });
 
-  it("restores analysis close to its opener with capture as the fallback", () => {
-    const source = readFileSync("src/app/diagnostic-panel.ts", "utf8");
-    expect(source).toContain("analysisOpener");
-    expect(source).toContain("#keyboard-capture");
+  it("closes the information panel before analysis captures its return target", () => {
+    const source = readFileSync("src/app/diagnostic-enhancement.ts", "utf8");
+    const start = source.indexOf("function openAnalysisFromPractice(");
+    const end = source.indexOf("function mountAnalysisTopLayer", start);
+    const opening = source.slice(start, end);
+
+    expect(opening).toContain("sourceDialog?.open");
+    expect(opening.indexOf("sourceDialog.close()")).toBeLessThan(opening.indexOf("analysis.open()"));
+    expect(opening).toContain("return directly to practice");
   });
 });
