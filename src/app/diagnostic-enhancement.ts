@@ -67,10 +67,12 @@ function findLegacyWeakSection(content: HTMLElement): HTMLElement | null {
 
 function openAnalysisFromPractice(analysis: DiagnosticAnalysisController): void {
   // Analysis replaces the information panel instead of nesting under it. Close
-  // the source dialog before the analysis controller captures its restoration
-  // target, so Escape and the close button return directly to practice.
+  // the source dialog and anchor focus on practice before the analysis controller
+  // captures its return target, so Escape and the close button return home.
   const sourceDialog = document.querySelector<HTMLDialogElement>("#information-dialog");
   if (sourceDialog?.open) sourceDialog.close();
+  document.querySelector<HTMLTextAreaElement>("#keyboard-capture")
+    ?.focus({ preventScroll: true });
   analysis.open();
 }
 
