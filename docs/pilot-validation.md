@@ -78,7 +78,7 @@ There are no success bursts, card scaling, staggered character entrances, animat
 4. Open and close the information panel with `Escape`; confirm focus returns to practice and Tab navigation stays inside the panel while open.
 5. Toggle the physical-key hint and confirm only the next expected key is exposed.
 6. Trigger wrong-key, unmapped-key, and IME states without causing sentence or progress layout shifts.
-7. Open `進入分析`, select a key, and confirm the cumulative detail and the `最近變化` trends describe the same key without contradicting each other. Close it and confirm focus returns to the `進入分析` opener.
+7. Open `進入分析`, select a key, and confirm the cumulative detail and the `最近變化` trends describe the same key without contradicting each other. Close it with its button and with `Escape`; both must return directly to practice rather than reopening the information panel.
 8. Reload at least twice and verify completed history remains ordered, the deterministic next utterance is reproduced, and an open trend bucket continues rather than restarting.
 9. Check one 320 px viewport and one normal desktop viewport. Use a long sentence that would greedily leave one short final entry, and confirm the planner moves an earlier entry to produce a more even final line while preserving entry order.
 10. Resize across at least one line-break threshold and confirm only entry grouping changes: entered token state, current token, punctuation attachment, and sentence identity remain unchanged.
