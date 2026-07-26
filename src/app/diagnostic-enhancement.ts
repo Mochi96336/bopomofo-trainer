@@ -16,6 +16,7 @@ import { currentLocalProgressHistory } from "./local-progress-history.js";
 import {
   createDiagnosticAnalysis,
   renderDiagnosticSummary,
+  type DiagnosticAnalysisController,
 } from "./diagnostic-panel.js";
 import { mountDiagnosticRelationshipEnhancement } from "./diagnostic-relationship-enhancement.js";
 import {
@@ -62,6 +63,17 @@ function currentDiagnosticModel() {
 
 function findLegacyWeakSection(content: HTMLElement): HTMLElement | null {
   return content.querySelector<HTMLElement>('section[data-legacy-weak-section="true"]');
+}
+
+function openAnalysisFromPractice(analysis: DiagnosticAnalysisController): void {
+  // Analysis replaces the information panel instead of nesting under it. Close
+  // the source dialog and anchor focus on practice before the analysis controller
+  // captures its return target, so Escape and the close button return home.
+  const sourceDialog = document.querySelector<HTMLDialogElement>("#information-dialog");
+  if (sourceDialog?.open) sourceDialog.close();
+  document.querySelector<HTMLTextAreaElement>("#keyboard-capture")
+    ?.focus({ preventScroll: true });
+  analysis.open();
 }
 
 function mountAnalysisTopLayer(): () => void {
@@ -111,7 +123,11 @@ export function mountDiagnosticEnhancement(): () => void {
     scheduled = false;
     const section = findLegacyWeakSection(content);
     if (section === null) return;
-    renderDiagnosticSummary(section, currentDiagnosticModel(), () => analysis.open());
+    renderDiagnosticSummary(
+      section,
+      currentDiagnosticModel(),
+      () => openAnalysisFromPractice(analysis),
+    );
   };
   const schedule = (): void => {
     if (scheduled) return;
