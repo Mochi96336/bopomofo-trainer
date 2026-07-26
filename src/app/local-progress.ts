@@ -1,14 +1,14 @@
 import { parseProductProgress, serializeProductProgress } from "../product/progress.js";
 import type { ProductEnvironment, ProductProgress } from "../product/types.js";
 import { productProgressReferencesAreKnown } from "./product-progress-references.js";
+import {
+  beginLocalPersistenceTransaction,
+  LOCAL_PROGRESS_KEY,
+  type StorageLike,
+} from "./persistence-transaction.js";
 
-export const LOCAL_PROGRESS_KEY = "bopomofo-trainer.progress.v4";
-
-export interface StorageLike {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-}
+export { LOCAL_PROGRESS_KEY };
+export type { StorageLike };
 
 export interface LocalProgressLoadResult {
   readonly progress: ProductProgress | null;
@@ -57,11 +57,13 @@ export function saveLocalProductProgress(
   storage: StorageLike,
   progress: ProductProgress,
 ): void {
-  liveProductProgress = progress;
+  beginLocalPersistenceTransaction(storage);
   storage.setItem(LOCAL_PROGRESS_KEY, serializeProductProgress(progress));
+  liveProductProgress = progress;
 }
 
 export function clearLocalProductProgress(storage: StorageLike): void {
-  liveProductProgress = null;
+  beginLocalPersistenceTransaction(storage);
   storage.removeItem(LOCAL_PROGRESS_KEY);
+  liveProductProgress = null;
 }
