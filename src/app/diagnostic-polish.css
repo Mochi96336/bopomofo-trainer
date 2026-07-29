@@ -8,11 +8,18 @@
   background: var(--ink);
 }
 
+.diagnostic-analysis .diagnostic-network-icon {
+  border-width: 1.5px;
+}
+
+.diagnostic-analysis .diagnostic-network-icon svg {
+  display: block;
+  transform: translate(-.5px, .5px);
+}
+
 .diagnostic-analysis .diagnostic-network-icon[aria-pressed="true"] {
-  border-color: var(--ink);
-  /* --ink alone reads as near-white in dark mode; warm it with a touch of
-     --accent so the active icon has some weight, not a flat pale glyph. */
-  color: color-mix(in srgb, var(--ink) 78%, var(--accent) 22%);
+  border-color: color-mix(in srgb, var(--ink-muted) 45%, var(--hairline));
+  color: color-mix(in srgb, var(--ink-muted) 75%, var(--ink) 25%);
 }
 
 .diagnostic-analysis .diagnostic-analysis-close:hover,
