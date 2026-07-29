@@ -1,0 +1,114 @@
+import { describe, expect, it } from "vitest";
+import {
+  diagnosticNetworkVisible,
+  openDiagnosticAnalysisState,
+  selectDiagnosticAnalysisTab,
+  toggleDiagnosticNetwork,
+  type DiagnosticAnalysisState,
+} from "../../src/app/diagnostic-analysis-state.js";
+import {
+  DEFAULT_DIAGNOSTIC_PREFERENCES,
+} from "../../src/app/diagnostic-preferences.js";
+
+function state(overrides: Partial<DiagnosticAnalysisState> = {}): DiagnosticAnalysisState {
+  return {
+    preferences: DEFAULT_DIAGNOSTIC_PREFERENCES,
+    selection: {
+      selectedKey: null,
+      selectedRelationId: null,
+    },
+    ...overrides,
+  };
+}
+
+describe("diagnostic analysis state", () => {
+  it("opens key and transition with the overview, but confusion without it", () => {
+    expect(openDiagnosticAnalysisState(DEFAULT_DIAGNOSTIC_PREFERENCES, "key").preferences.networkOverlay)
+      .toBe(true);
+    expect(openDiagnosticAnalysisState(DEFAULT_DIAGNOSTIC_PREFERENCES, "transition").preferences.networkOverlay)
+      .toBe(true);
+    expect(openDiagnosticAnalysisState(DEFAULT_DIAGNOSTIC_PREFERENCES, "confusion").preferences.networkOverlay)
+      .toBe(false);
+  });
+
+  it("really closes the overview when confusion becomes active, even while a key hides it", () => {
+    const current = state({
+      preferences: {
+        ...DEFAULT_DIAGNOSTIC_PREFERENCES,
+        activeTab: "transition",
+        networkOverlay: true,
+      },
+      selection: {
+        selectedKey: "zhuyin:ㄌ",
+        selectedRelationId: "transition:one",
+      },
+    });
+
+    const next = selectDiagnosticAnalysisTab(current, "confusion");
+
+    expect(next.preferences).toMatchObject({
+      activeTab: "confusion",
+      networkOverlay: false,
+    });
+    expect(next.selection).toEqual({
+      selectedKey: "zhuyin:ㄌ",
+      selectedRelationId: null,
+    });
+  });
+
+  it("keeps the chosen network state when moving between key and transition", () => {
+    const current = state({
+      preferences: {
+        ...DEFAULT_DIAGNOSTIC_PREFERENCES,
+        activeTab: "key",
+        networkOverlay: false,
+      },
+    });
+
+    expect(selectDiagnosticAnalysisTab(current, "transition").preferences)
+      .toMatchObject({ activeTab: "transition", networkOverlay: false });
+  });
+
+  it("enabling the transition overview from confusion returns to transition", () => {
+    const current = state({
+      preferences: {
+        ...DEFAULT_DIAGNOSTIC_PREFERENCES,
+        activeTab: "confusion",
+        networkOverlay: false,
+      },
+      selection: {
+        selectedKey: "zhuyin:ㄌ",
+        selectedRelationId: "confusion:one",
+      },
+    });
+
+    const next = toggleDiagnosticNetwork(current);
+
+    expect(next.preferences).toMatchObject({
+      activeTab: "transition",
+      networkOverlay: true,
+    });
+    expect(next.selection).toEqual({
+      selectedKey: null,
+      selectedRelationId: null,
+    });
+    expect(diagnosticNetworkVisible(next)).toBe(true);
+  });
+
+  it("treats confusion and active selections as network-suppressed states", () => {
+    expect(diagnosticNetworkVisible(state({
+      preferences: {
+        ...DEFAULT_DIAGNOSTIC_PREFERENCES,
+        activeTab: "confusion",
+        networkOverlay: true,
+      },
+    }))).toBe(false);
+
+    expect(diagnosticNetworkVisible(state({
+      selection: {
+        selectedKey: "zhuyin:ㄌ",
+        selectedRelationId: null,
+      },
+    }))).toBe(false);
+  });
+});
