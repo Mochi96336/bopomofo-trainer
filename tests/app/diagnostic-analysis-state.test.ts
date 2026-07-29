@@ -22,12 +22,24 @@ function state(overrides: Partial<DiagnosticAnalysisState> = {}): DiagnosticAnal
 }
 
 describe("diagnostic analysis state", () => {
-  it("opens key and transition with the overview, but confusion without it", () => {
+  it("uses the saved overview choice for key and transition, but always closes it for confusion", () => {
     expect(openDiagnosticAnalysisState(DEFAULT_DIAGNOSTIC_PREFERENCES, "key").preferences.networkOverlay)
       .toBe(true);
-    expect(openDiagnosticAnalysisState(DEFAULT_DIAGNOSTIC_PREFERENCES, "transition").preferences.networkOverlay)
-      .toBe(true);
-    expect(openDiagnosticAnalysisState(DEFAULT_DIAGNOSTIC_PREFERENCES, "confusion").preferences.networkOverlay)
+
+    const savedOff = {
+      ...DEFAULT_DIAGNOSTIC_PREFERENCES,
+      networkOverlay: false,
+    };
+    expect(openDiagnosticAnalysisState(savedOff, "key").preferences.networkOverlay)
+      .toBe(false);
+    expect(openDiagnosticAnalysisState(savedOff, "transition").preferences.networkOverlay)
+      .toBe(false);
+
+    const savedOn = {
+      ...DEFAULT_DIAGNOSTIC_PREFERENCES,
+      networkOverlay: true,
+    };
+    expect(openDiagnosticAnalysisState(savedOn, "confusion").preferences.networkOverlay)
       .toBe(false);
   });
 
