@@ -22,9 +22,9 @@ function emptySelection(): DiagnosticAnalysisSelection {
 }
 
 /**
- * Creates one canonical state whenever analysis opens. The transition network
- * remains the default overview for key and transition views, but confusion is
- * always entered as its own per-tab relationship view.
+ * Creates one canonical state whenever analysis opens. Key and transition
+ * honor the persisted overview preference; confusion is always entered as its
+ * own per-tab relationship view.
  */
 export function openDiagnosticAnalysisState(
   loadedPreferences: DiagnosticPreferences,
@@ -35,7 +35,9 @@ export function openDiagnosticAnalysisState(
     preferences: {
       ...loadedPreferences,
       activeTab,
-      networkOverlay: activeTab !== "confusion",
+      networkOverlay: activeTab === "confusion"
+        ? false
+        : loadedPreferences.networkOverlay,
     },
     selection: emptySelection(),
   };
