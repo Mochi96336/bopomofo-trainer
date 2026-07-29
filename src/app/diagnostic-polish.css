@@ -18,8 +18,8 @@
 }
 
 .diagnostic-analysis .diagnostic-network-icon[aria-pressed="true"] {
-  border-color: var(--ink-muted);
-  color: var(--ink-muted);
+  border-color: color-mix(in srgb, var(--ink-muted) 45%, var(--hairline));
+  color: color-mix(in srgb, var(--ink-muted) 75%, var(--ink) 25%);
 }
 
 .diagnostic-analysis .diagnostic-analysis-close:hover,
