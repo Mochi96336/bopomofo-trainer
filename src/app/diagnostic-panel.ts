@@ -23,6 +23,14 @@ import type {
 } from "../diagnostics/types.js";
 import { STANDARD_BOPOMOFO_LAYOUT } from "../scheme/standard-layout.js";
 import {
+  diagnosticNetworkVisible,
+  openDiagnosticAnalysisState,
+  selectDiagnosticAnalysisTab,
+  toggleDiagnosticNetwork,
+  type DiagnosticAnalysisSelection,
+  type DiagnosticAnalysisState,
+} from "./diagnostic-analysis-state.js";
+import {
   DEFAULT_DIAGNOSTIC_PREFERENCES,
   loadDiagnosticPreferences,
   saveDiagnosticPreferences,
@@ -86,11 +94,6 @@ function animateKeyboardRise(board: HTMLElement): void {
     },
     { transform: KEYBOARD_TILT, opacity: 1 },
   ], { duration: 320, easing: "cubic-bezier(.2, .75, .25, 1)" });
-}
-
-interface EphemeralDiagnosticState {
-  readonly selectedKey: TokenId | null;
-  readonly selectedRelationId: string | null;
 }
 
 interface KeyboardSignal {
@@ -182,7 +185,7 @@ function keyRows(
 // there is no data.
 function transitionRows(
   model: DiagnosticModel,
-  state: EphemeralDiagnosticState,
+  state: DiagnosticAnalysisSelection,
 ): readonly TransitionDiagnostic[] {
   return selectTransitionDiagnostics(model.transitions, {
     selectedKey: state.selectedKey,
@@ -210,7 +213,7 @@ export function confusionEmptyMessage(selectedKey: TokenId | null): string {
 
 function confusionRows(
   model: DiagnosticModel,
-  state: EphemeralDiagnosticState,
+  state: DiagnosticAnalysisSelection,
 ): readonly ConfusionDiagnostic[] {
   return selectConfusionDiagnostics(model.confusions, {
     selectedKey: state.selectedKey,
@@ -300,7 +303,7 @@ function metricExplanation(preferences: DiagnosticPreferences): string {
 function visibleRowsForTab(
   model: DiagnosticModel,
   preferences: DiagnosticPreferences,
-  state: EphemeralDiagnosticState,
+  state: DiagnosticAnalysisSelection,
 ): readonly (KeyDiagnostic | TransitionDiagnostic | ConfusionDiagnostic)[] {
   if (preferences.activeTab === "transition") return transitionRows(model, state);
   if (preferences.activeTab === "confusion") return confusionRows(model, state);
@@ -310,7 +313,7 @@ function visibleRowsForTab(
 function keyboardSignals(
   model: DiagnosticModel,
   preferences: DiagnosticPreferences,
-  state: EphemeralDiagnosticState,
+  state: DiagnosticAnalysisSelection,
 ): ReadonlyMap<TokenId, KeyboardSignal> {
   const result = new Map<TokenId, KeyboardSignal>();
   if (preferences.activeTab === "key") {
@@ -360,10 +363,17 @@ export function diagnosticKeyboardTokenLabel(code: string): string | null {
   return tokenId === undefined ? null : tokenLabel(tokenId);
 }
 
+function networkVisible(
+  preferences: DiagnosticPreferences,
+  state: DiagnosticAnalysisSelection,
+): boolean {
+  return diagnosticNetworkVisible({ preferences, selection: state });
+}
+
 function keyboardMarkup(
   model: DiagnosticModel,
   preferences: DiagnosticPreferences,
-  state: EphemeralDiagnosticState,
+  state: DiagnosticAnalysisSelection,
 ): string {
   const signals = keyboardSignals(model, preferences, state);
   return `<section class="diagnostic-analysis-canvas" aria-label="鍵盤診斷視圖">
@@ -689,15 +699,7 @@ function confusionDetailMarkup(row: ConfusionDiagnostic | null): string {
   </article>`;
 }
 
-// Selecting a key or relation suppresses the mesh so the detail card is not
-// competing with it; the icon must reflect that suppressed state too, or a
-// click on an icon that still looks "on" would toggle the stored preference
-// off instead of clearing the selection that is actually hiding it.
-function networkVisible(preferences: DiagnosticPreferences, state: EphemeralDiagnosticState): boolean {
-  return preferences.networkOverlay && state.selectedKey === null && state.selectedRelationId === null;
-}
-
-function inspectorHeadMarkup(preferences: DiagnosticPreferences, state: EphemeralDiagnosticState): string {
+function inspectorHeadMarkup(preferences: DiagnosticPreferences, state: DiagnosticAnalysisSelection): string {
   return `<div class="diagnostic-inspector-head">
     <div class="diagnostic-analysis-tabs" role="tablist" aria-label="弱點診斷類型">
       ${DIAGNOSTIC_TABS.map((tab) => `<button id="${tabButtonId(tab)}" type="button" role="tab" data-action="select-tab" data-tab="${tab}" aria-selected="${preferences.activeTab === tab}" aria-controls="${tabPanelId(tab)}" tabindex="${preferences.activeTab === tab ? 0 : -1}">${tabLabel(tab)}</button>`).join("")}
@@ -713,7 +715,7 @@ function inspectorSummaryMarkup(preferences: DiagnosticPreferences, visibleCount
 function inspectorMarkup(
   model: DiagnosticModel,
   preferences: DiagnosticPreferences,
-  state: EphemeralDiagnosticState,
+  state: DiagnosticAnalysisSelection,
 ): string {
   if (preferences.activeTab === "key") {
     const rows = keyRows(model, preferences);
@@ -776,13 +778,18 @@ export function createDiagnosticAnalysis(
 
   let model = options.getModel();
   let preferences = loadPreferences(options.storage);
-  let state: EphemeralDiagnosticState = {
+  let state: DiagnosticAnalysisSelection = {
     selectedKey: null,
     selectedRelationId: null,
   };
   let closingTimer: number | null = null;
   let analysisOpener: HTMLElement | null = null;
   let sourceDialogToRestore: HTMLDialogElement | null = null;
+
+  const applyAnalysisState = (next: DiagnosticAnalysisState): void => {
+    preferences = next.preferences;
+    state = next.selection;
+  };
 
   const persist = (): void => {
     try {
@@ -806,6 +813,16 @@ export function createDiagnosticAnalysis(
         ".diagnostic-analysis-close",
       ]);
     }
+  };
+
+  const activateTab = (tab: DiagnosticTab): void => {
+    applyAnalysisState(selectDiagnosticAnalysisTab({
+      preferences,
+      selection: state,
+    }, tab));
+    persist();
+    render();
+    host.querySelector<HTMLButtonElement>(`#${tabButtonId(tab)}`)?.focus();
   };
 
   const finishClose = (): void => {
@@ -845,12 +862,10 @@ export function createDiagnosticAnalysis(
       closingTimer = null;
     }
     model = options.getModel();
-    preferences = { ...loadPreferences(options.storage), networkOverlay: true };
-    if (initialTab !== undefined) preferences = { ...preferences, activeTab: initialTab };
-    state = {
-      selectedKey: null,
-      selectedRelationId: null,
-    };
+    applyAnalysisState(openDiagnosticAnalysisState(
+      loadPreferences(options.storage),
+      initialTab,
+    ));
     analysisOpener = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
@@ -885,11 +900,7 @@ export function createDiagnosticAnalysis(
     if (action === "select-tab") {
       const tab = target.dataset.tab;
       if (!isDiagnosticTab(tab)) return;
-      preferences = { ...preferences, activeTab: tab };
-      state = { ...state, selectedRelationId: null };
-      persist();
-      render();
-      host.querySelector<HTMLButtonElement>(`#${tabButtonId(tab)}`)?.focus();
+      activateTab(tab);
       return;
     }
     if (action === "select-key") {
@@ -917,15 +928,10 @@ export function createDiagnosticAnalysis(
       return;
     }
     if (action === "toggle-network") {
-      // Toggle what the icon actually shows, not the raw stored preference:
-      // a selection can suppress the mesh while the preference stays true,
-      // and flipping that raw flag in that state would turn it off instead
-      // of clearing the selection that is hiding it.
-      const makeVisible = !networkVisible(preferences, state);
-      preferences = { ...preferences, networkOverlay: makeVisible };
-      state = makeVisible
-        ? { ...state, selectedKey: null, selectedRelationId: null }
-        : state;
+      applyAnalysisState(toggleDiagnosticNetwork({
+        preferences,
+        selection: state,
+      }));
       persist();
       render();
     }
@@ -943,12 +949,7 @@ export function createDiagnosticAnalysis(
     if (event.key === "End") nextIndex = DIAGNOSTIC_TABS.length - 1;
     if (nextIndex === null) return;
     event.preventDefault();
-    const nextTab = DIAGNOSTIC_TABS[nextIndex]!;
-    preferences = { ...preferences, activeTab: nextTab };
-    state = { ...state, selectedRelationId: null };
-    persist();
-    render();
-    host.querySelector<HTMLButtonElement>(`#${tabButtonId(nextTab)}`)?.focus();
+    activateTab(DIAGNOSTIC_TABS[nextIndex]!);
   };
 
   const interceptEscape = (event: KeyboardEvent): void => {
