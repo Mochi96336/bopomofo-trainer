@@ -33,13 +33,6 @@ function networkOverlayEnabled(host: HTMLElement): boolean {
   return host.querySelector('[data-action="toggle-network"]')?.getAttribute("aria-pressed") === "true";
 }
 
-export function shouldCloseNetworkOverview(
-  kind: DiagnosticRelationshipKind | null,
-  enabled: boolean,
-): boolean {
-  return kind === "confusion" && enabled;
-}
-
 // Zhuyin composition has one fixed order, so a direction arrow adds nothing
 // here; the network is a heat-map of severity, not a set of instructions.
 function networkPathMarkup(path: DiagnosticRelationshipPath): string {
@@ -100,23 +93,11 @@ function renderRelationshipOverlay(
   const stage = host.querySelector<HTMLElement>(".diagnostic-keyboard-stage");
   const board = host.querySelector<HTMLElement>(".diagnostic-keyboard-board");
   if (stage === null || board === null) return;
-
-  const kind = activeKind(host);
-  if (shouldCloseNetworkOverview(kind, networkOverlayEnabled(host))) {
-    const toggle = host.querySelector<HTMLButtonElement>('[data-action="toggle-network"]');
-    if (toggle !== null) {
-      toggle.click();
-      // The click synchronously re-renders the analysis while this observer is
-      // disconnected, so draw the newly active per-tab overlay immediately.
-      renderRelationshipOverlay(host, getModel);
-    }
-    return;
-  }
-
   if (networkOverlayEnabled(host)) {
     renderNetworkOverlay(stage, board, getModel());
     return;
   }
+  const kind = activeKind(host);
   if (kind === null) return;
   const buttons = [...host.querySelectorAll<HTMLButtonElement>(
     '.diagnostic-inspector-list button[data-action="select-relation"][data-id]',
