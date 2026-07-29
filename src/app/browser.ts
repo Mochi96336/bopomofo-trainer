@@ -9,6 +9,11 @@ import {
 } from "./persistence-transaction.js";
 import { planBalancedPracticeLines } from "./presentation-model.js";
 
+const RECOVERY_NOTICE_MESSAGES = new Set([
+  "舊版或無效的本機進度已刪除，已從新的進度世代重新開始。",
+  "舊版或無效的 Pilot 歷史已刪除；目前世代可由有效完成摘要補齊。",
+]);
+
 const productionBuild = (import.meta as ImportMeta & {
   readonly env: { readonly PROD: boolean };
 }).env.PROD;
@@ -29,11 +34,42 @@ function requirePracticeStage(): HTMLElement {
   return element;
 }
 
+function mountRecoveryNoticeRetirement(): () => void {
+  const region = document.querySelector<HTMLElement>("#notice-region");
+  if (region === null) return () => {};
+
+  const isRecoveryNotice = (notice: HTMLElement): boolean =>
+    RECOVERY_NOTICE_MESSAGES.has(notice.textContent?.trim() ?? "");
+  if (![...region.querySelectorAll<HTMLElement>(".notice")].some(isRecoveryNotice)) {
+    return () => {};
+  }
+
+  let retired = false;
+  const removeRecoveryNotices = (): void => {
+    if (!retired) return;
+    for (const notice of region.querySelectorAll<HTMLElement>(".notice")) {
+      if (isRecoveryNotice(notice)) notice.remove();
+    }
+  };
+  const observer = new MutationObserver(removeRecoveryNotices);
+  observer.observe(region, { childList: true });
+  const timer = window.setTimeout(() => {
+    retired = true;
+    removeRecoveryNotices();
+  }, 6000);
+
+  return () => {
+    window.clearTimeout(timer);
+    observer.disconnect();
+  };
+}
+
 async function mountBrowser(): Promise<void> {
   // The production function-key boundary and interrupted-write recovery must be
   // installed before main registers listeners or reads any local records.
   await import("./main.js");
 
+  const unmountRecoveryNoticeRetirement = mountRecoveryNoticeRetirement();
   const stage = requirePracticeStage();
   let layoutFrame: number | null = null;
   let centerResizeObserver: ResizeObserver | null = null;
@@ -111,6 +147,7 @@ async function mountBrowser(): Promise<void> {
     centerResizeObserver?.disconnect();
     unmountDiagnostics();
     unmountBackupInputReset();
+    unmountRecoveryNoticeRetirement();
     unmountInspectionBoundary();
     if (layoutFrame !== null) window.cancelAnimationFrame(layoutFrame);
   }, { once: true });
