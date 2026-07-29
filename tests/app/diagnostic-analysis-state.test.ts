@@ -95,6 +95,24 @@ describe("diagnostic analysis state", () => {
     expect(diagnosticNetworkVisible(next)).toBe(true);
   });
 
+  it("turns an active transition overview off without changing its tab", () => {
+    const current = state({
+      preferences: {
+        ...DEFAULT_DIAGNOSTIC_PREFERENCES,
+        activeTab: "transition",
+        networkOverlay: true,
+      },
+    });
+
+    const next = toggleDiagnosticNetwork(current);
+
+    expect(next.preferences).toMatchObject({
+      activeTab: "transition",
+      networkOverlay: false,
+    });
+    expect(next.selection).toBe(current.selection);
+  });
+
   it("treats confusion and active selections as network-suppressed states", () => {
     expect(diagnosticNetworkVisible(state({
       preferences: {
