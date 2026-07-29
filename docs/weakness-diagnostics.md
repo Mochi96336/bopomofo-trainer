@@ -108,7 +108,7 @@ The active tab is persisted. Selected keys and selected relationships remain ses
 
 ## Canvas heading
 
-The objective counts (keys with observations, repeated confusions, slower sufficient-sample transitions) live once, in the drawer summary. The canvas heading carries the `分析` title and the `全網` toggle described below. The active metric's explanation — including the `錯誤觀察比例` first-attempt limitation note on the key tab — sits with the row count at the foot of the inspector, next to the list it describes.
+The objective counts (keys with observations, repeated confusions, slower sufficient-sample transitions) live once, in the drawer summary. The canvas heading carries the `分析` title and the `轉換總覽` toggle described below. The active metric's explanation — including the `錯誤觀察比例` first-attempt limitation note on the key tab — sits with the row count at the foot of the inspector, next to the list it describes.
 
 `資料足夠` remains an internal display state but is not shown as a badge or legend item. Sufficient data is the unmarked normal state; only `資料不足` and `初步` get visible warnings, inline on the rows and detail pane that carry them.
 
@@ -157,7 +157,7 @@ The confusion view always uses its separate directional SVG overlay. Entering th
 
 ### Full-network overlay
 
-The `全網` toggle sits in the canvas heading. It is on by default when analysis opens in the key or transition view, but opens off when the persisted or requested view is confusion. It draws the **transition** mesh at once — unranked, sample-gate-free, and with no selection state — as one keyboard-wide relationship network. Enabling it while confusion is active returns to the transition tab and clears selections that would immediately suppress the overview. This intentionally supersedes an earlier constraint in this document: these paths' colour is not neutral ink.
+The `轉換總覽` toggle sits in the canvas heading. It is on by default when analysis opens in the key or transition view, but opens off when the persisted or requested view is confusion. It draws the **transition** mesh at once — unranked, sample-gate-free, and with no selection state — as one keyboard-wide relationship network. Enabling it while confusion is active returns to the transition tab and clears selections that would immediately suppress the overview. This intentionally supersedes an earlier constraint in this document: these paths' colour is not neutral ink.
 
 Two path kinds appear:
 
@@ -170,7 +170,7 @@ Measured path colour and prominence are driven by severity, `0` to `1`. Transiti
 
 Severity interpolates stroke colour from `var(--ink-muted)` to `var(--danger)`, and scales both opacity (`0.2`–`0.75`) and width (`1.1`–`2.5`) — a faint thin ink line for a low-severity relation, a thicker red one for a high-severity relation. Network paths are decorative and not part of the tab order: they carry a title on hover for sighted mouse users, but the accessible reading of the same data remains the per-tab inspector list, one click away via the toggle. When there is no transition to draw at all, the canvas shows a short inline notice instead of silently rendering nothing, so the toggle's effect is never mistaken for missing functionality.
 
-Turning `全網` off restores the per-tab behaviour of the current key or transition view. Entering confusion performs the same close operation as part of the tab transition rather than asking the rendering enhancement to repair the DOM afterward.
+Turning `轉換總覽` off restores the per-tab behaviour of the current key or transition view. Entering confusion performs the same close operation as part of the tab transition rather than asking the rendering enhancement to repair the DOM afterward.
 
 ### Relationship routing
 
@@ -224,9 +224,9 @@ The transition list is filtered only by an optional key selection, in both direc
 
 | Situation | Copy |
 | --- | --- |
-| A key is selected and has nothing listable | `ㄌ 目前沒有可列出的轉換。` |
+| A key is selected and has nothing listable | `ㄌ 相關的轉換尚無足夠資料。` |
 | No selection, no transitions recorded at all | `尚無轉換資料。` |
-| No selection, transitions exist but none reach the gate | `轉換樣本仍不足；累積 3 個樣本後才會列出。` |
+| No selection, transitions exist but none reach the gate | `同一組轉換累積 3 次有效輸入後才會顯示；目前資料仍不足。` |
 
 The detail pane shows exact direction, current and best accepted timing, sample count, and any non-sufficient sample warning.
 
