@@ -900,6 +900,19 @@ function renderInformationPanel(): void {
   const content = requireElement<HTMLElement>("#information-content");
   const focusIdentity = captureFocusIdentity(content);
   content.innerHTML = `
+    <section class="panel-section" data-legacy-weak-section="true">
+      <div class="panel-heading"><h3>較弱按鍵</h3></div>
+      ${renderWeakBindingsSection()}
+    </section>
+
+    <section class="panel-section history-section">
+      <details class="history-details" open>
+        <summary class="panel-heading history-heading"><h3>最近紀錄</h3></summary>
+        ${renderTrendSection()}
+        <div class="history-list" tabindex="0">${renderHistoryRows()}</div>
+      </details>
+    </section>
+
     <section class="panel-section">
       <div class="panel-heading"><h3>顯示</h3></div>
       <div class="display-options">
@@ -912,19 +925,6 @@ function renderInformationPanel(): void {
           <input id="toggle-dark-theme" type="checkbox"${theme === "dark" ? " checked" : ""} />
         </label>
       </div>
-    </section>
-
-    <section class="panel-section" data-legacy-weak-section="true">
-      <div class="panel-heading"><h3>較弱按鍵</h3></div>
-      ${renderWeakBindingsSection()}
-    </section>
-
-    <section class="panel-section history-section">
-      <details class="history-details" open>
-        <summary class="panel-heading history-heading"><h3>最近紀錄</h3></summary>
-        ${renderTrendSection()}
-        <div class="history-list" tabindex="0">${renderHistoryRows()}</div>
-      </details>
     </section>
 
     <section class="panel-section">
