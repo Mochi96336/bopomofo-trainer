@@ -26,7 +26,7 @@ Analysis mode contains three views:
 - `轉換`: exact ordered timing between adjacent tokens inside one syllable;
 - `誤按`: directional expected-token to actual-token confusions.
 
-The mode combines spatial keyboard reading, exact lists, sample warnings, selected-item details, and directional SVG relationships for transitions and confusions — by default replaced by one severity-coloured full-network overlay, or drawn per tab when that overlay is toggled off.
+The mode combines spatial keyboard reading, exact lists, sample warnings, selected-item details, and directional SVG relationships. The key and transition views may replace their per-tab paths with one severity-coloured transition overview. The confusion view is mutually exclusive with that overview and always draws its own directional relationships.
 
 Direction, minimum-sample, tone, and first-five/complete-list controls were all removed after review; the only user control over list contents is an optional key selection. Copy must therefore never refer to a chosen "scope" or "range".
 
@@ -104,7 +104,7 @@ Tabs use the WAI-ARIA tab pattern:
 - roving `tabindex`;
 - Left/Right, Home, and End keyboard navigation.
 
-The active tab is persisted. Selected keys and selected relationships remain session-only.
+The active tab is persisted. Selected keys and selected relationships remain session-only. Tab activation and overview toggling use the same pure analysis-state transitions for pointer and keyboard input.
 
 ## Canvas heading
 
@@ -140,7 +140,7 @@ The key view emphasizes the exact keys returned by the active key selector.
 
 ### Transition view
 
-Unless the full-network overlay is on (see below), the transition view displays endpoints and directional SVG paths from the exact currently filtered transition rows.
+When the transition overview is off, the transition view displays endpoints and directional SVG paths from the exact currently filtered transition rows.
 
 - the selected key and the fixed sample gate affect both list and graph;
 - opposite directions remain separate paths;
@@ -149,7 +149,7 @@ Unless the full-network overlay is on (see below), the transition view displays 
 
 ### Confusion view
 
-Unless the full-network overlay is on, the confusion view uses a separate directional SVG overlay.
+The confusion view always uses its separate directional SVG overlay. Entering this tab turns the transition overview off at the analysis-state boundary, including when a selected key had only made that overview appear temporarily hidden.
 
 - expected and actual direction remain explicit;
 - opposite directions remain separate records and paths;
@@ -157,20 +157,20 @@ Unless the full-network overlay is on, the confusion view uses a separate direct
 
 ### Full-network overlay
 
-The `全網` toggle sits in the canvas heading, is on by default, and is the primary visual on entering analysis regardless of which tab is active. It draws the **transition** mesh at once — unranked, sample-gate-free, and with no selection state — as one keyboard-wide relationship network. This intentionally supersedes an earlier constraint in this document: these paths' colour is not neutral ink.
+The `全網` toggle sits in the canvas heading. It is on by default when analysis opens in the key or transition view, but opens off when the persisted or requested view is confusion. It draws the **transition** mesh at once — unranked, sample-gate-free, and with no selection state — as one keyboard-wide relationship network. Enabling it while confusion is active returns to the transition tab and clears selections that would immediately suppress the overview. This intentionally supersedes an earlier constraint in this document: these paths' colour is not neutral ink.
 
 Two path kinds appear:
 
 - every measured transition;
 - every transition Bopomofo's fixed compositional order permits that has no measurement yet, drawn as a faint `potential` path with no hover title.
 
-Confusions are **not** part of this overlay; they are drawn only per tab with the overlay off. Copy for the toggle must not promise otherwise.
+Confusions are **not** part of this overlay; they are drawn only in the confusion tab with the overview off. Copy for the toggle must not promise otherwise.
 
 Measured path colour and prominence are driven by severity, `0` to `1`. Transition severity has no error-rate equivalent, so it is slowness against `DIAGNOSTIC_POLICY.transitionTimingBandsMs` (`0` at or below `medium`, `1` at or above `slow`).
 
 Severity interpolates stroke colour from `var(--ink-muted)` to `var(--danger)`, and scales both opacity (`0.2`–`0.75`) and width (`1.1`–`2.5`) — a faint thin ink line for a low-severity relation, a thicker red one for a high-severity relation. Network paths are decorative and not part of the tab order: they carry a title on hover for sighted mouse users, but the accessible reading of the same data remains the per-tab inspector list, one click away via the toggle. When there is no transition to draw at all, the canvas shows a short inline notice instead of silently rendering nothing, so the toggle's effect is never mistaken for missing functionality.
 
-Turning `全網` off restores the previous per-tab behaviour described above.
+Turning `全網` off restores the per-tab behaviour of the current key or transition view. Entering confusion performs the same close operation as part of the tab transition rather than asking the rendering enhancement to repair the DOM afterward.
 
 ### Relationship routing
 
@@ -340,6 +340,8 @@ Browser UI code does not read measurement aggregates directly. `src/diagnostics/
 
 `src/diagnostics/selectors.ts` owns deterministic sorting, selected-key filtering, sample gates, and the first-five limit still used for the drawer's representative signals. Drawer signals, inspector lists, and keyboard emphasis consume these selectors. The temporary relationship enhancement consumes the exact rendered inspector result so graph and list cannot diverge in visible scope.
 
+`src/app/diagnostic-analysis-state.ts` owns the analysis view-mode invariants. The panel asks it to open, select a tab, compute effective overview visibility, and toggle the transition overview. The relationship enhancement remains render-only and never changes tabs, preferences, or selections in response to DOM mutations.
+
 ## Persistence
 
 The measurement-contract change rotated Pilot history to schema 3; product progress has since rotated on to schema 6. Older generations are rejected rather than partially migrated, so aggregates with different confusion semantics are never mixed.
@@ -358,7 +360,7 @@ Diagnostic UI preferences use the independent key:
 bopomofo-trainer.diagnostics.v1
 ```
 
-The browser retains the active tab, the key-list sort, and the full-network toggle. Selected keys, selected relationships, hover state, and detail selection are session-only.
+The browser retains the active tab, the key-list sort, and the full-network toggle. Selected keys, selected relationships, hover state, and detail selection are session-only. `confusion + networkOverlay` is not a valid live view state: opening or entering confusion normalizes the overlay off, and enabling the overlay from confusion changes the active tab to transition.
 
 The previously implemented drawer-expansion preference is retained only until the analysis-mode preference cleanup; the final drawer summary is not collapsible.
 
@@ -388,6 +390,7 @@ Additional coverage locks:
 - measurement semantics and generation rejection;
 - diagnostic model and deterministic selectors;
 - preference validation;
+- diagnostic analysis view-mode invariants and transition/confusion exclusivity;
 - shared keyboard row geometry and number-row labels;
 - exact keyboard relationship coordinates;
 - deterministic directional routing, reverse-direction separation, selection, and tone marking.
