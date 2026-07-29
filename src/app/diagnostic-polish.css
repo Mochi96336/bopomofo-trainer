@@ -10,19 +10,16 @@
 
 .diagnostic-analysis .diagnostic-network-icon {
   border-width: 1.5px;
-  border-color: color-mix(in srgb, var(--ink) 42%, var(--hairline));
 }
 
 .diagnostic-analysis .diagnostic-network-icon svg {
   display: block;
-  transform: translateY(.5px);
+  transform: translate(-.5px, .5px);
 }
 
 .diagnostic-analysis .diagnostic-network-icon[aria-pressed="true"] {
-  border-color: var(--ink);
-  /* --ink alone reads as near-white in dark mode; warm it with a touch of
-     --accent so the active icon has some weight, not a flat pale glyph. */
-  color: color-mix(in srgb, var(--ink) 78%, var(--accent) 22%);
+  border-color: var(--ink-muted);
+  color: var(--ink-muted);
 }
 
 .diagnostic-analysis .diagnostic-analysis-close:hover,
