@@ -165,7 +165,7 @@ Wording that claims causation, mastery, or certainty — `訓練已生效`, `系
 | Timing can never apply | `不適用`, no chart |
 | One completed point | the point, plus `再累積一些有效輸入後，就能比較變化。` |
 | Two or three points | the chart, plus `目前資料不足以判斷變化。` |
-| Open bucket in progress | `下一次更新： 3 / 5` as text |
+| Open bucket in progress | `下一次更新：3 / 5 筆` as text |
 
 The open partial bucket is reported as text, never plotted. Drawing it would put an unequal-exposure point on the same line as completed ones, which is the easiest way to mislead.
 
@@ -178,7 +178,7 @@ Neither chart autoscales freely to its own range.
 - Both add 15% padding around the observed range so the newest point is never on the frame edge.
 - Because the domain is adaptive, the upper and lower bound are **drawn on the chart itself**, as a tick and a label in that metric's own unit (`33%` / `0%`, `422 ms` / `325 ms`), in a reserved left gutter. The scale is read where it is used rather than described in a caption beside it, and the labelled bounds also make the timing chart's direction self-evident without a separate `越低越快` note.
 
-Below the chart there is only the trend sentence and, when a bucket is open, `下一次更新： 3 / 5`.
+Below the chart there is only the trend sentence and, when a bucket is open, `下一次更新：3 / 5 筆`.
 
 The SVG scales uniformly rather than stretching, so point markers stay circular at any pane width and the chart never forces the inspector to scroll sideways.
 
@@ -188,7 +188,7 @@ Every chart carries a visually hidden sentence naming the metric, the number of 
 
 ```text
 ㄌ的錯誤觀察比例共有 6 個歷史區段，前期代表值 14%，近期代表值 8%，最近較少出錯。
-ㄞ的有效鍵間時間共有 2 個區段，目前資料不足以判斷變化。。
+ㄞ的有效鍵間時間共有 2 個區段，目前資料不足以判斷變化。
 ㄌ的有效鍵間時間不適用。
 ```
 
