@@ -1,0 +1,72 @@
+name: agent-diagnostic-copy-followup
+
+on:
+  push:
+    branches:
+      - agent/refine-transition-metric-copy
+
+permissions:
+  contents: write
+
+jobs:
+  patch-copy:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Align accessible and documented copy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_exact(path_name: str, old: str, new: str, expected: int = 1) -> None:
+              path = Path(path_name)
+              text = path.read_text(encoding="utf-8")
+              count = text.count(old)
+              if count != expected:
+                  raise SystemExit(
+                      f"{path_name}: expected {expected} occurrences of {old!r}, found {count}"
+                  )
+              path.write_text(text.replace(old, new), encoding="utf-8")
+
+          replace_exact(
+              "src/diagnostics/progress-trends.ts",
+              "從本版本開始累積趨勢。",
+              "變化資料將從現在開始累積。",
+          )
+          replace_exact(
+              "src/diagnostics/progress-trends.ts",
+              "目前資料不足以判斷方向。",
+              "目前資料不足以判斷變化。",
+          )
+          replace_exact(
+              "tests/diagnostics/progress-trends.test.ts",
+              'expect(projected.correctness.accessibleSummary).toContain("從本版本開始累積趨勢");',
+              'expect(projected.correctness.accessibleSummary).toContain("變化資料將從現在開始累積。");',
+          )
+          replace_exact(
+              "tests/diagnostics/progress-trends.test.ts",
+              'expect(projected.correctness.accessibleSummary).toContain("目前資料不足以判斷方向");',
+              'expect(projected.correctness.accessibleSummary).toContain("目前資料不足以判斷變化。");',
+          )
+          replace_exact(
+              "docs/diagnostic-progress-history.md",
+              "`下一次更新： 3 / 5`",
+              "`下一次更新：3 / 5 筆`",
+              expected=2,
+          )
+          replace_exact(
+              "docs/diagnostic-progress-history.md",
+              "目前資料不足以判斷變化。。",
+              "目前資料不足以判斷變化。",
+          )
+
+          Path(".github/workflows/agent-diagnostic-copy-followup.yml").unlink()
+          PY
+      - name: Commit copy follow-up
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/diagnostics/progress-trends.ts tests/diagnostics/progress-trends.test.ts docs/diagnostic-progress-history.md .github/workflows/agent-diagnostic-copy-followup.yml
+          git commit -m "fix: align diagnostic accessibility copy"
+          git push origin HEAD:agent/refine-transition-metric-copy
