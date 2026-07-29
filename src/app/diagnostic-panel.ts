@@ -296,7 +296,7 @@ function metricExplanation(preferences: DiagnosticPreferences): string {
       : "已映射觀察中的錯誤比例，不是首次作答錯誤率。";
   }
   return preferences.activeTab === "transition"
-    ? "同音節相鄰鍵的方向性時間；反向另計。"
+    ? "同音節相鄰鍵的輸入間隔；僅計正確且連續的輸入。"
     : "應按與實際按鍵的方向性關係；反向另計。";
 }
 
