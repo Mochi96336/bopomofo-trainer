@@ -44,9 +44,9 @@ describe("diagnostic empty-state copy", () => {
     expect(transitionEmptyMessage({ transitions: [] }, null)).toBe("尚無轉換資料。");
 
     const gated = transitionEmptyMessage({ transitions: [transition(1)] }, null);
-    expect(gated).toContain(String(DIAGNOSTIC_POLICY.relationshipSamples.preliminary));
-    expect(gated).toContain("有效輸入");
-    expect(gated).not.toBe("尚無轉換資料。");
+    expect(gated).toBe(
+      `同一組轉換累積 ${DIAGNOSTIC_POLICY.relationshipSamples.preliminary} 次有效輸入後才會顯示；目前資料仍不足。`,
+    );
   });
 
   it("names the selected key when a selection is what emptied the list", () => {
