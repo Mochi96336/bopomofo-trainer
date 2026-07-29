@@ -200,9 +200,9 @@ export function transitionEmptyMessage(
   model: Pick<DiagnosticModel, "transitions">,
   selectedKey: TokenId | null,
 ): string {
-  if (selectedKey !== null) return `${tokenLabel(selectedKey)} 目前沒有可列出的轉換。`;
+  if (selectedKey !== null) return `${tokenLabel(selectedKey)} 相關的轉換尚無足夠資料。`;
   if (model.transitions.length === 0) return "尚無轉換資料。";
-  return `轉換樣本仍不足；累積 ${DIAGNOSTIC_POLICY.relationshipSamples.preliminary} 個樣本後才會列出。`;
+  return `同一組轉換累積 ${DIAGNOSTIC_POLICY.relationshipSamples.preliminary} 次有效輸入後才會顯示；目前資料仍不足。`;
 }
 
 export function confusionEmptyMessage(selectedKey: TokenId | null): string {
@@ -292,12 +292,12 @@ export function renderDiagnosticSummary(
 function metricExplanation(preferences: DiagnosticPreferences): string {
   if (preferences.activeTab === "key") {
     return preferences.keySort === "timing"
-      ? "到達各鍵的有效鍵間時間；起始、錯誤、修正與干擾不計。"
-      : "已映射觀察中的錯誤比例，不是首次作答錯誤率。";
+      ? "按下各鍵前的有效輸入間隔；音節起始、誤按、修正與干擾不計。"
+      : "錯誤輸入占已記錄輸入的比例；修正後的正確輸入也會計入。";
   }
   return preferences.activeTab === "transition"
-    ? "同音節相鄰鍵的方向性時間；反向另計。"
-    : "應按與實際按鍵的方向性關係；反向另計。";
+    ? "同音節相鄰鍵的輸入間隔；僅計正確且連續的輸入。"
+    : "應按的鍵被誤按成哪一鍵；反向另計。";
 }
 
 function visibleRowsForTab(
@@ -381,7 +381,7 @@ function keyboardMarkup(
       <h2 id="diagnostic-analysis-title" aria-label="弱點診斷分析">分析</h2>
     </div>
     <div class="diagnostic-network-icon-slot">
-      <button type="button" class="diagnostic-network-icon" data-action="toggle-network" aria-pressed="${networkVisible(preferences, state)}" aria-label="全網：顯示所有已發生與注音結構上可能的轉換，依嚴重程度從淡墨變紅" title="全網">${NETWORK_ICON_SVG}</button>
+      <button type="button" class="diagnostic-network-icon" data-action="toggle-network" aria-pressed="${networkVisible(preferences, state)}" aria-label="轉換總覽：顯示已記錄與可能的按鍵轉換；輸入越慢，顏色越接近紅色。" title="轉換總覽">${NETWORK_ICON_SVG}</button>
     </div>
     <div class="diagnostic-keyboard-stage">
       <div class="diagnostic-keyboard-board">
@@ -465,7 +465,7 @@ function transitionListRowMarkup(row: TransitionDiagnostic, selected: boolean): 
 function confusionListRowMarkup(row: ConfusionDiagnostic, selected: boolean): string {
   return `<button type="button" class="diagnostic-inspector-row relation${selected ? " selected" : ""}" data-action="select-relation" data-id="${escapeHtml(row.id)}" aria-pressed="${selected}">
     <span class="diagnostic-relation-pair"><strong>${escapeHtml(row.expectedSymbol)}</strong><small>${escapeHtml(row.expectedPhysicalKey)}</small><i>→</i><strong>${escapeHtml(row.actualSymbol)}</strong><small>${escapeHtml(row.actualPhysicalKey)}</small></span>
-    <span class="diagnostic-inspector-main"><strong>${row.occurrences} 次</strong><small>同目標占 ${percent(row.expectedErrorShare)}</small></span>
+    <span class="diagnostic-inspector-main"><strong>${row.occurrences} 次</strong><small>此應按鍵中占 ${percent(row.expectedErrorShare)}</small></span>
     ${stateBadgeMarkup(row.dataState)}
   </button>`;
 }
@@ -533,7 +533,7 @@ function progressDeltaText(series: KeyProgressSeries): string {
 
 function progressPartialText(series: KeyProgressSeries): string {
   if (series.partialSampleCount === 0) return "";
-  return `下一個區段 ${series.partialSampleCount} / ${series.bucketSize}`;
+  return `下一次更新：${series.partialSampleCount} / ${series.bucketSize} 筆`;
 }
 
 /**
@@ -612,16 +612,16 @@ function progressSeriesMarkup(series: KeyProgressSeries): string {
     const partial = progressPartialText(series);
     return `<figure class="diagnostic-progress-series" data-metric="${series.metric}" data-state="no-history">
       <figcaption class="diagnostic-progress-head"><span class="diagnostic-progress-metric">${escapeHtml(series.metricLabel)}</span></figcaption>
-      <p class="diagnostic-progress-note">從本版本開始累積趨勢</p>
+      <p class="diagnostic-progress-note">變化資料將從現在開始累積。</p>
       ${partial ? `<p class="diagnostic-progress-partial">${escapeHtml(partial)}</p>` : ""}
       ${summary}
     </figure>`;
   }
 
   const caption = series.state === "single-point"
-    ? "再累積一些有效觀察後才能比較"
+    ? "再累積一些有效輸入後，就能比較變化。"
     : series.trend.state === "insufficient"
-      ? "目前資料不足以判斷方向"
+      ? "目前資料不足以判斷變化。"
       : series.trend.label;
   const partial = progressPartialText(series);
 
@@ -674,7 +674,7 @@ function keyDetailMarkup(
 }
 
 function transitionDetailMarkup(row: TransitionDiagnostic | null): string {
-  if (row === null) return '<div class="diagnostic-detail-empty">選一筆轉換查看數值。</div>';
+  if (row === null) return '<div class="diagnostic-detail-empty">尚無可查看的轉換資料。</div>';
   return `<article class="diagnostic-detail-card relation-detail">
     <header><div><span>轉換</span><h3>${escapeHtml(row.fromSymbol)} <small>${escapeHtml(row.fromPhysicalKey)}</small> → ${escapeHtml(row.toSymbol)} <small>${escapeHtml(row.toPhysicalKey)}</small></h3></div>${detailStateMarkup(row.dataState)}</header>
     <dl class="diagnostic-detail-metrics three">
@@ -682,20 +682,20 @@ function transitionDetailMarkup(row: TransitionDiagnostic | null): string {
       <div><dt>最佳</dt><dd>${milliseconds(row.bestTimingMs)}</dd></div>
       <div><dt>樣本</dt><dd>${row.timingSamples}</dd></div>
     </dl>
-    <section><h4>計算方式</h4><p>同音節、相鄰且正確的乾淨輸入；反向另計。</p></section>
+    <section><h4>計算方式</h4><p>只計同一音節中相鄰、正確且未受干擾的輸入。</p></section>
   </article>`;
 }
 
 function confusionDetailMarkup(row: ConfusionDiagnostic | null): string {
-  if (row === null) return '<div class="diagnostic-detail-empty">選一筆誤按查看數值。</div>';
+  if (row === null) return '<div class="diagnostic-detail-empty">尚無可查看的誤按紀錄。</div>';
   return `<article class="diagnostic-detail-card relation-detail">
     <header><div><span>誤按</span><h3>${escapeHtml(row.expectedSymbol)} <small>${escapeHtml(row.expectedPhysicalKey)}</small> → ${escapeHtml(row.actualSymbol)} <small>${escapeHtml(row.actualPhysicalKey)}</small></h3></div>${detailStateMarkup(row.dataState)}</header>
     <dl class="diagnostic-detail-metrics three">
       <div><dt>此組</dt><dd>${row.occurrences}</dd></div>
-      <div><dt>同目標總數</dt><dd>${row.expectedConfusionTotal}</dd></div>
+      <div><dt>此鍵誤按總數</dt><dd>${row.expectedConfusionTotal}</dd></div>
       <div><dt>占比</dt><dd>${percent(row.expectedErrorShare)}</dd></div>
     </dl>
-    <section><h4>計算方式</h4><p>分母是同一應按鍵的所有誤按；反向另計。</p></section>
+    <section><h4>計算方式</h4><p>占比以同一應按鍵的所有誤按為分母。</p></section>
   </article>`;
 }
 

@@ -101,7 +101,7 @@ describe("selected-key recent-change rendering", () => {
   it("shows the starting state when there is no history yet", () => {
     const markup = keyProgressMarkup(trends(null));
 
-    expect(markup).toContain("從本版本開始累積趨勢");
+    expect(markup).toContain("變化資料將從現在開始累積。");
     expect(markup).toContain('data-state="no-history"');
     expect(markup).not.toContain("diagnostic-progress-svg");
   });
@@ -110,7 +110,7 @@ describe("selected-key recent-change rendering", () => {
     const markup = keyProgressMarkup(trends(entry([0.25], [420])));
 
     expect(markup).toContain('data-state="single-point"');
-    expect(markup).toContain("再累積一些有效觀察後才能比較");
+    expect(markup).toContain("再累積一些有效輸入後，就能比較變化。");
     expect(markup).not.toContain("最近較少出錯");
     expect(markup).not.toContain("最近較快");
   });
@@ -119,7 +119,7 @@ describe("selected-key recent-change rendering", () => {
     const markup = keyProgressMarkup(trends(entry([0.25, 0.1], [420, 380])));
 
     expect(markup).toContain('data-trend="insufficient"');
-    expect(markup).toContain("目前資料不足以判斷方向");
+    expect(markup).toContain("目前資料不足以判斷變化。");
   });
 
   it("reuses the existing 不適用 wording instead of an empty timing chart", () => {
@@ -140,8 +140,8 @@ describe("selected-key recent-change rendering", () => {
       })),
     );
 
-    expect(markup).toContain(`下一個區段 3 / ${BUCKETS.correctnessBucketSize}`);
-    expect(markup).toContain(`下一個區段 2 / ${BUCKETS.timingBucketSize}`);
+    expect(markup).toContain(`下一次更新：3 / ${BUCKETS.correctnessBucketSize} 筆`);
+    expect(markup).toContain(`下一次更新：2 / ${BUCKETS.timingBucketSize} 筆`);
     // Four completed points, not five: the open bucket is never plotted.
     expect(markup.match(/class="diagnostic-progress-point/gu)).toHaveLength(8);
   });

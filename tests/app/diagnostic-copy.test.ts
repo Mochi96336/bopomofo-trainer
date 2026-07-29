@@ -44,14 +44,14 @@ describe("diagnostic empty-state copy", () => {
     expect(transitionEmptyMessage({ transitions: [] }, null)).toBe("尚無轉換資料。");
 
     const gated = transitionEmptyMessage({ transitions: [transition(1)] }, null);
-    expect(gated).toContain(String(DIAGNOSTIC_POLICY.relationshipSamples.preliminary));
-    expect(gated).toContain("樣本");
-    expect(gated).not.toBe("尚無轉換資料。");
+    expect(gated).toBe(
+      `同一組轉換累積 ${DIAGNOSTIC_POLICY.relationshipSamples.preliminary} 次有效輸入後才會顯示；目前資料仍不足。`,
+    );
   });
 
   it("names the selected key when a selection is what emptied the list", () => {
     expect(transitionEmptyMessage({ transitions: [transition(9)] }, "zhuyin:ㄌ"))
-      .toBe("ㄌ 目前沒有可列出的轉換。");
+      .toBe("ㄌ 相關的轉換尚無足夠資料。");
     expect(confusionEmptyMessage("zhuyin:ㄌ")).toBe("ㄌ 目前沒有誤按紀錄。");
     expect(confusionEmptyMessage("tone:4")).toBe("ˋ 目前沒有誤按紀錄。");
   });

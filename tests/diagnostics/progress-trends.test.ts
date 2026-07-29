@@ -154,14 +154,14 @@ describe("key progress projection", () => {
     expect(projected.correctness.state).toBe("no-history");
     expect(projected.correctness.points).toEqual([]);
     expect(projected.correctness.trend.state).toBe("insufficient");
-    expect(projected.correctness.accessibleSummary).toContain("從本版本開始累積趨勢");
+    expect(projected.correctness.accessibleSummary).toContain("變化資料將從現在開始累積。");
   });
 
   it("marks a single completed point as not yet comparable", () => {
     const projected = trends([0.25], [420]);
     expect(projected.correctness.state).toBe("single-point");
     expect(projected.correctness.trend.state).toBe("insufficient");
-    expect(projected.correctness.accessibleSummary).toContain("目前資料不足以判斷方向");
+    expect(projected.correctness.accessibleSummary).toContain("目前資料不足以判斷變化。");
   });
 
   it("keeps correctness and timing separate, including opposite directions", () => {

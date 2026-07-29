@@ -175,13 +175,13 @@ function accessibleSummary(
     return `${symbol}的${label}不適用。`;
   }
   if (series.state === "no-history") {
-    return `${symbol}的${label}尚無歷史區段，從本版本開始累積趨勢。`;
+    return `${symbol}的${label}尚無歷史區段，變化資料將從現在開始累積。`;
   }
   const count = `${symbol}的${label}共有 ${series.points.length} 個歷史區段`;
   if (series.trend.state === "insufficient"
     || series.trend.previousValue === null
     || series.trend.recentValue === null) {
-    return `${count}，目前資料不足以判斷方向。`;
+    return `${count}，目前資料不足以判斷變化。`;
   }
   return `${count}，前期代表值 ${formatValue(metric, series.trend.previousValue)}，`
     + `近期代表值 ${formatValue(metric, series.trend.recentValue)}，${series.trend.label}。`;
