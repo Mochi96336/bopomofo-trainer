@@ -8,6 +8,16 @@
   background: var(--ink);
 }
 
+.diagnostic-analysis .diagnostic-network-icon {
+  border-width: 1.5px;
+  border-color: color-mix(in srgb, var(--ink) 42%, var(--hairline));
+}
+
+.diagnostic-analysis .diagnostic-network-icon svg {
+  display: block;
+  transform: translateY(.5px);
+}
+
 .diagnostic-analysis .diagnostic-network-icon[aria-pressed="true"] {
   border-color: var(--ink);
   /* --ink alone reads as near-white in dark mode; warm it with a touch of
