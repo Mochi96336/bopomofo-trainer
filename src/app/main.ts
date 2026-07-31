@@ -85,6 +85,7 @@ import {
   restoreFocusIdentity,
   type FocusIdentity,
 } from "./focus-preservation.js";
+import { escapeHtml } from "./html.js";
 
 type VisualState = "done" | "current" | "upcoming";
 
@@ -299,16 +300,6 @@ function keyboardSketchMarkup(): string {
   return KEYBOARD_SKETCH_ROWS.map((row) => `<div class="keyboard-sketch-row">
     ${row.map((key) => `<span class="keyboard-sketch-key${key.units === undefined ? "" : " wide"}" data-code="${key.code}" style="--key-columns:${Math.round((key.units ?? 1) * 4)}"></span>`).join("")}
   </div>`).join("");
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/gu, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  })[character] ?? character);
 }
 
 function completedRoundCount(): number {
