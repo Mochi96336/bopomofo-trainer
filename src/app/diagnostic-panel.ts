@@ -1,12 +1,5 @@
 import "./diagnostics.css";
 import "./diagnostic-polish.css";
-import type { TokenId } from "../core/model.js";
-import {
-  diagnosticDataStateLabel,
-  physicalKeyLabel,
-  tokenLabel,
-} from "../diagnostics/labels.js";
-import { DIAGNOSTIC_POLICY } from "../diagnostics/policy.js";
 import {
   selectConfusionDiagnostics,
   selectKeyDiagnostics,
@@ -16,12 +9,9 @@ import type {
   ConfusionDiagnostic,
   DiagnosticModel,
   KeyDiagnostic,
-  KeyProgressTrends,
   TransitionDiagnostic,
 } from "../diagnostics/types.js";
-import { STANDARD_BOPOMOFO_LAYOUT } from "../scheme/standard-layout.js";
 import {
-  diagnosticNetworkVisible,
   openDiagnosticAnalysisState,
   selectDiagnosticAnalysisTab,
   toggleDiagnosticNetwork,
@@ -29,12 +19,12 @@ import {
   type DiagnosticAnalysisState,
 } from "./diagnostic-analysis-state.js";
 import {
-  boost,
-  detailStateMarkup,
-  milliseconds,
-  percent,
-  stateBadgeMarkup,
-} from "./diagnostic-format.js";
+  confusionDetailMarkup,
+  keyDetailMarkup,
+  transitionDetailMarkup,
+} from "./diagnostic-detail.js";
+import { milliseconds, percent } from "./diagnostic-format.js";
+import { keyboardMarkup } from "./diagnostic-keyboard.js";
 import {
   DEFAULT_DIAGNOSTIC_PREFERENCES,
   loadDiagnosticPreferences,
@@ -43,26 +33,24 @@ import {
   type DiagnosticPreferences,
   type DiagnosticTab,
 } from "./diagnostic-preferences.js";
-import { keyProgressMarkup } from "./diagnostic-progress-chart.js";
 import {
-  KEYBOARD_GEOMETRY_ROWS,
-  keyboardColumnSpan,
-} from "./keyboard-geometry.js";
+  confusionEmptyMessage,
+  confusionListRowMarkup,
+  confusionRows,
+  keyListRowMarkup,
+  keyRows,
+  transitionEmptyMessage,
+  transitionListRowMarkup,
+  transitionRows,
+} from "./diagnostic-rows.js";
 import {
   captureFocusIdentity,
   restoreFocusIdentity,
 } from "./focus-preservation.js";
 import { escapeHtml } from "./html.js";
-
 const DIAGNOSTIC_TABS = ["key", "transition", "confusion"] as const;
 const ANALYSIS_ANIMATION_MS = 180;
 const KEYBOARD_TILT = "perspective(520px) rotateX(19deg)";
-const NETWORK_ICON_SVG = `<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
-  <path d="M3.4 3.4 L12.6 3.4 M3.4 3.4 L8 13 M12.6 3.4 L8 13"></path>
-  <circle cx="3.4" cy="3.4" r="1.7" fill="currentColor" stroke="none"></circle>
-  <circle cx="12.6" cy="3.4" r="1.7" fill="currentColor" stroke="none"></circle>
-  <circle cx="8" cy="13" r="1.7" fill="currentColor" stroke="none"></circle>
-</svg>`;
 
 // Where the keyboard visually "comes from": the practice keyboard hint if it
 // is currently shown, otherwise a strip near the bottom of the practice
@@ -103,12 +91,6 @@ function animateKeyboardRise(board: HTMLElement): void {
   ], { duration: 320, easing: "cubic-bezier(.2, .75, .25, 1)" });
 }
 
-interface KeyboardSignal {
-  readonly strength: number;
-  readonly connected: boolean;
-  readonly selected: boolean;
-}
-
 export interface DiagnosticAnalysisController {
   open(initialTab?: DiagnosticTab): void;
   close(): void;
@@ -140,61 +122,6 @@ function tabPanelId(tab: DiagnosticTab): string {
 
 function isDiagnosticTab(value: string | undefined): value is DiagnosticTab {
   return value === "key" || value === "transition" || value === "confusion";
-}
-
-function keyRows(
-  model: DiagnosticModel,
-  preferences: DiagnosticPreferences,
-): readonly KeyDiagnostic[] {
-  return selectKeyDiagnostics(
-    model.keys.filter((row) => row.attempts > 0),
-    preferences.keySort,
-    true,
-  );
-}
-
-// Direction and list-length filters proved to be noise nobody used and were
-// removed; there is no scope control left for copy to refer to. One gate does
-// remain: a transition still needs the policy's preliminary sample count before
-// it is listed at all, so empty-state copy has to say so rather than claim
-// there is no data.
-function transitionRows(
-  model: DiagnosticModel,
-  state: DiagnosticAnalysisSelection,
-): readonly TransitionDiagnostic[] {
-  return selectTransitionDiagnostics(model.transitions, {
-    selectedKey: state.selectedKey,
-    direction: "both",
-    minimumSamples: DIAGNOSTIC_POLICY.relationshipSamples.preliminary,
-    includeTone: true,
-    complete: true,
-  });
-}
-
-export function transitionEmptyMessage(
-  model: Pick<DiagnosticModel, "transitions">,
-  selectedKey: TokenId | null,
-): string {
-  if (selectedKey !== null) return `${tokenLabel(selectedKey)} 相關的轉換尚無足夠資料。`;
-  if (model.transitions.length === 0) return "尚無轉換資料。";
-  return `同一組轉換累積 ${DIAGNOSTIC_POLICY.relationshipSamples.preliminary} 次有效輸入後才會顯示；目前資料仍不足。`;
-}
-
-export function confusionEmptyMessage(selectedKey: TokenId | null): string {
-  return selectedKey === null
-    ? "尚無誤按資料。"
-    : `${tokenLabel(selectedKey)} 目前沒有誤按紀錄。`;
-}
-
-function confusionRows(
-  model: DiagnosticModel,
-  state: DiagnosticAnalysisSelection,
-): readonly ConfusionDiagnostic[] {
-  return selectConfusionDiagnostics(model.confusions, {
-    selectedKey: state.selectedKey,
-    direction: "both",
-    complete: true,
-  });
 }
 
 function representativeSignals(model: DiagnosticModel): {
@@ -275,117 +202,6 @@ function metricExplanation(preferences: DiagnosticPreferences): string {
     : "應按的鍵被誤按成哪一鍵；反向另計。";
 }
 
-function visibleRowsForTab(
-  model: DiagnosticModel,
-  preferences: DiagnosticPreferences,
-  state: DiagnosticAnalysisSelection,
-): readonly (KeyDiagnostic | TransitionDiagnostic | ConfusionDiagnostic)[] {
-  if (preferences.activeTab === "transition") return transitionRows(model, state);
-  if (preferences.activeTab === "confusion") return confusionRows(model, state);
-  return keyRows(model, preferences);
-}
-
-function keyboardSignals(
-  model: DiagnosticModel,
-  preferences: DiagnosticPreferences,
-  state: DiagnosticAnalysisSelection,
-): ReadonlyMap<TokenId, KeyboardSignal> {
-  const result = new Map<TokenId, KeyboardSignal>();
-  if (preferences.activeTab === "key") {
-    const rows = keyRows(model, preferences);
-    rows.forEach((row, index) => {
-      result.set(row.tokenId, {
-        strength: Math.max(0.18, 1 - index / Math.max(1, rows.length)),
-        connected: true,
-        selected: state.selectedKey === row.tokenId,
-      });
-    });
-    return result;
-  }
-
-  const rows = visibleRowsForTab(model, preferences, state);
-  const relationCounts = new Map<TokenId, number>();
-  for (const row of rows) {
-    const tokens = "fromTokenId" in row
-      ? [row.fromTokenId, row.toTokenId]
-      : "expectedTokenId" in row
-        ? [row.expectedTokenId, row.actualTokenId]
-        : [row.tokenId];
-    for (const tokenId of tokens) {
-      relationCounts.set(tokenId, (relationCounts.get(tokenId) ?? 0) + 1);
-    }
-  }
-  const maximum = Math.max(1, ...relationCounts.values());
-  for (const [tokenId, count] of relationCounts) {
-    result.set(tokenId, {
-      strength: Math.max(0.24, count / maximum),
-      connected: true,
-      selected: state.selectedKey === tokenId,
-    });
-  }
-  if (state.selectedKey !== null && !result.has(state.selectedKey)) {
-    result.set(state.selectedKey, {
-      strength: 1,
-      connected: false,
-      selected: true,
-    });
-  }
-  return result;
-}
-
-export function diagnosticKeyboardTokenLabel(code: string): string | null {
-  const tokenId = STANDARD_BOPOMOFO_LAYOUT.bindings[code];
-  return tokenId === undefined ? null : tokenLabel(tokenId);
-}
-
-function networkVisible(
-  preferences: DiagnosticPreferences,
-  state: DiagnosticAnalysisSelection,
-): boolean {
-  return diagnosticNetworkVisible({ preferences, selection: state });
-}
-
-function keyboardMarkup(
-  model: DiagnosticModel,
-  preferences: DiagnosticPreferences,
-  state: DiagnosticAnalysisSelection,
-): string {
-  const signals = keyboardSignals(model, preferences, state);
-  return `<section class="diagnostic-analysis-canvas" aria-label="鍵盤診斷視圖">
-    <div class="diagnostic-analysis-title-block">
-      <h2 id="diagnostic-analysis-title" aria-label="弱點診斷分析">分析</h2>
-    </div>
-    <div class="diagnostic-network-icon-slot">
-      <button type="button" class="diagnostic-network-icon" data-action="toggle-network" aria-pressed="${networkVisible(preferences, state)}" aria-label="轉換總覽：顯示已記錄與可能的按鍵轉換；輸入越慢，顏色越接近紅色。" title="轉換總覽">${NETWORK_ICON_SVG}</button>
-    </div>
-    <div class="diagnostic-keyboard-stage">
-      <div class="diagnostic-keyboard-board">
-        ${KEYBOARD_GEOMETRY_ROWS.map((row) => `<div class="diagnostic-keyboard-row">
-          ${row.map((key) => {
-            const tokenId = STANDARD_BOPOMOFO_LAYOUT.bindings[key.code];
-            const columns = keyboardColumnSpan(key);
-            const wide = key.units !== undefined ? " wide" : "";
-            if (tokenId === undefined) {
-              return `<span class="diagnostic-keyboard-key unmapped${wide}" style="--key-columns:${columns}" data-code="${escapeHtml(key.code)}" aria-hidden="true"></span>`;
-            }
-            const signal = signals.get(tokenId);
-            const classes = [
-              "diagnostic-keyboard-key",
-              wide.trim(),
-              signal?.connected ? "connected" : "",
-              signal?.selected ? "selected" : "",
-            ].filter(Boolean).join(" ");
-            const style = `--key-columns:${columns};--signal-strength:${signal?.strength ?? 0}`;
-            return `<button type="button" class="${classes}" style="${style}" data-action="select-key" data-token="${escapeHtml(tokenId)}" data-code="${escapeHtml(key.code)}" aria-pressed="${signal?.selected ?? false}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}">
-              <strong>${escapeHtml(tokenLabel(tokenId))}</strong>
-            </button>`;
-          }).join("")}
-        </div>`).join("")}
-      </div>
-    </div>
-  </section>`;
-}
-
 function segmentedRowMarkup(
   label: string,
   action: string,
@@ -411,113 +227,6 @@ function inspectorToolbarMarkup(preferences: DiagnosticPreferences): string {
     </div>`;
   }
   return "";
-}
-
-function keyListRowMarkup(row: KeyDiagnostic, selected: boolean): string {
-  const primary = row.displayedErrorRatio === null ? "—" : percent(row.displayedErrorRatio);
-  // A null timing always means zero accepted samples, so the old
-  // `${timingSamples} 時間樣本` could only ever render "0 時間樣本".
-  const timing = row.timingAvailability === "not-applicable"
-    ? "時間不適用"
-    : row.timingMs === null
-      ? "尚無時間樣本"
-      : `${milliseconds(row.timingMs)} · ${row.timingSamples} 樣本`;
-  return `<button type="button" class="diagnostic-inspector-row${selected ? " selected" : ""}" data-action="select-key" data-token="${escapeHtml(row.tokenId)}" aria-pressed="${selected}">
-    <span class="diagnostic-inspector-identity"><strong>${escapeHtml(row.symbol)}</strong><small>${escapeHtml(row.physicalKey)}</small></span>
-    <span class="diagnostic-inspector-main"><strong>${escapeHtml(primary)}</strong><small>${escapeHtml(timing)}</small></span>
-    ${stateBadgeMarkup(row.overallDataState)}
-  </button>`;
-}
-
-function transitionListRowMarkup(row: TransitionDiagnostic, selected: boolean): string {
-  return `<button type="button" class="diagnostic-inspector-row relation${selected ? " selected" : ""}" data-action="select-relation" data-id="${escapeHtml(row.id)}" aria-pressed="${selected}">
-    <span class="diagnostic-relation-pair"><strong>${escapeHtml(row.fromSymbol)}</strong><small>${escapeHtml(row.fromPhysicalKey)}</small><i>→</i><strong>${escapeHtml(row.toSymbol)}</strong><small>${escapeHtml(row.toPhysicalKey)}</small></span>
-    <span class="diagnostic-inspector-main"><strong>${milliseconds(row.timingMs)}</strong><small>${row.timingSamples} 樣本</small></span>
-    ${stateBadgeMarkup(row.dataState)}
-  </button>`;
-}
-
-function confusionListRowMarkup(row: ConfusionDiagnostic, selected: boolean): string {
-  return `<button type="button" class="diagnostic-inspector-row relation${selected ? " selected" : ""}" data-action="select-relation" data-id="${escapeHtml(row.id)}" aria-pressed="${selected}">
-    <span class="diagnostic-relation-pair"><strong>${escapeHtml(row.expectedSymbol)}</strong><small>${escapeHtml(row.expectedPhysicalKey)}</small><i>→</i><strong>${escapeHtml(row.actualSymbol)}</strong><small>${escapeHtml(row.actualPhysicalKey)}</small></span>
-    <span class="diagnostic-inspector-main"><strong>${row.occurrences} 次</strong><small>此應按鍵中占 ${percent(row.expectedErrorShare)}</small></span>
-    ${stateBadgeMarkup(row.dataState)}
-  </button>`;
-}
-
-function keySampleNotices(row: KeyDiagnostic): string {
-  const notices: string[] = [];
-  if (row.errorDataState !== "sufficient") {
-    notices.push(`<div><dt>錯誤觀察</dt><dd>${escapeHtml(diagnosticDataStateLabel(row.errorDataState))}</dd></div>`);
-  }
-  // Timing availability and timing data state move together: the model only
-  // leaves the state null when timing is not applicable, which the first branch
-  // already covers. There is no third case to write copy for.
-  if (row.timingAvailability === "not-applicable") {
-    notices.push("<div><dt>鍵間時間</dt><dd>不適用</dd></div>");
-  } else if (row.timingDataState !== null && row.timingDataState !== "sufficient") {
-    notices.push(`<div><dt>鍵間時間</dt><dd>${escapeHtml(diagnosticDataStateLabel(row.timingDataState))}</dd></div>`);
-  }
-  if (notices.length === 0) return "";
-  return `<section><h4>樣本提示</h4><dl class="diagnostic-detail-lines">${notices.join("")}</dl></section>`;
-}
-
-function keyTimingCaption(row: KeyDiagnostic): string {
-  if (row.timingAvailability === "not-applicable") return "不適用";
-  if (row.timingDataState === "insufficient" || row.timingDataState === null) return "資料不足";
-  if (row.timingDataState === "preliminary") return "初步";
-  return `${row.timingSamples} 樣本`;
-}
-
-function keyDetailMarkup(
-  row: KeyDiagnostic | null,
-  trends?: KeyProgressTrends,
-): string {
-  if (row === null) return '<div class="diagnostic-detail-empty">選一個按鍵查看量測。</div>';
-  return `<article class="diagnostic-detail-card">
-    <header><div><span>按鍵</span><h3>${escapeHtml(row.symbol)} <small>${escapeHtml(row.physicalKey)}</small></h3></div>${detailStateMarkup(row.overallDataState)}</header>
-    <dl class="diagnostic-detail-metrics">
-      <div><dt>錯誤觀察比例</dt><dd>${row.displayedErrorRatio === null ? "—" : percent(row.displayedErrorRatio)}</dd><small>${row.errors} / ${row.attempts}</small></div>
-      <div><dt>有效鍵間時間</dt><dd>${row.timingMs === null ? "—" : milliseconds(row.timingMs)}</dd><small>${escapeHtml(keyTimingCaption(row))}</small></div>
-      <div><dt>最佳時間</dt><dd>${row.bestTimingMs === null ? "—" : milliseconds(row.bestTimingMs)}</dd><small>${row.timingSamples} 樣本</small></div>
-      <div><dt>選題倍率</dt><dd>${boost(row.reinforcement.expectedTokenBoost)}</dd><small>${escapeHtml(row.reinforcement.label)}</small></div>
-    </dl>
-    ${keySampleNotices(row)}
-    <section><h4>未計入時間</h4><dl class="diagnostic-detail-lines four">
-      <div><dt>音節起始</dt><dd>${row.excludedSamples.syllableStart}</dd></div>
-      <div><dt>錯誤輸入</dt><dd>${row.excludedSamples.incorrect}</dd></div>
-      <div><dt>修正輸入</dt><dd>${row.excludedSamples.recovery}</dd></div>
-      <div><dt>輸入干擾</dt><dd>${row.excludedSamples.interactionNoise}</dd></div>
-    </dl></section>
-    <section><h4>選題原因</h4><p>${escapeHtml(row.reinforcement.reason)}</p></section>
-    ${keyProgressMarkup(trends)}
-  </article>`;
-}
-
-function transitionDetailMarkup(row: TransitionDiagnostic | null): string {
-  if (row === null) return '<div class="diagnostic-detail-empty">尚無可查看的轉換資料。</div>';
-  return `<article class="diagnostic-detail-card relation-detail">
-    <header><div><span>轉換</span><h3>${escapeHtml(row.fromSymbol)} <small>${escapeHtml(row.fromPhysicalKey)}</small> → ${escapeHtml(row.toSymbol)} <small>${escapeHtml(row.toPhysicalKey)}</small></h3></div>${detailStateMarkup(row.dataState)}</header>
-    <dl class="diagnostic-detail-metrics three">
-      <div><dt>目前</dt><dd>${milliseconds(row.timingMs)}</dd></div>
-      <div><dt>最佳</dt><dd>${milliseconds(row.bestTimingMs)}</dd></div>
-      <div><dt>樣本</dt><dd>${row.timingSamples}</dd></div>
-    </dl>
-    <section><h4>計算方式</h4><p>只計同一音節中相鄰、正確且未受干擾的輸入。</p></section>
-  </article>`;
-}
-
-function confusionDetailMarkup(row: ConfusionDiagnostic | null): string {
-  if (row === null) return '<div class="diagnostic-detail-empty">尚無可查看的誤按紀錄。</div>';
-  return `<article class="diagnostic-detail-card relation-detail">
-    <header><div><span>誤按</span><h3>${escapeHtml(row.expectedSymbol)} <small>${escapeHtml(row.expectedPhysicalKey)}</small> → ${escapeHtml(row.actualSymbol)} <small>${escapeHtml(row.actualPhysicalKey)}</small></h3></div>${detailStateMarkup(row.dataState)}</header>
-    <dl class="diagnostic-detail-metrics three">
-      <div><dt>此組</dt><dd>${row.occurrences}</dd></div>
-      <div><dt>此鍵誤按總數</dt><dd>${row.expectedConfusionTotal}</dd></div>
-      <div><dt>占比</dt><dd>${percent(row.expectedErrorShare)}</dd></div>
-    </dl>
-    <section><h4>計算方式</h4><p>占比以同一應按鍵的所有誤按為分母。</p></section>
-  </article>`;
 }
 
 function inspectorHeadMarkup(preferences: DiagnosticPreferences, state: DiagnosticAnalysisSelection): string {

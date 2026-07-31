@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diagnosticKeyboardTokenLabel } from "../../src/app/diagnostic-panel.js";
+import { diagnosticKeyboardTokenLabel } from "../../src/app/diagnostic-keyboard.js";
 import {
   KEYBOARD_GEOMETRY_ROWS,
   keyboardColumnSpan,
