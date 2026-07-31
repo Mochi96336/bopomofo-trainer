@@ -53,17 +53,14 @@ import {
 } from "./keyboard-adapter.js";
 import {
   clearLocalPilotHistory,
-  loadLocalPilotHistory,
   saveLocalPilotHistory,
 } from "./pilot-history.js";
 import {
   clearLocalProductProgress,
-  loadLocalProductProgress,
   saveLocalProductProgress,
 } from "./local-progress.js";
 import {
   clearLocalProgressHistory,
-  loadLocalProgressHistory,
   saveLocalProgressHistory,
 } from "./local-progress-history.js";
 import { appendRoundToProgressHistory, createEmptyProgressHistory } from "../progress-history/update.js";
@@ -88,6 +85,7 @@ import {
 } from "./focus-preservation.js";
 import { escapeHtml } from "./html.js";
 import { createExpiringValue } from "./expiring-value.js";
+import { loadAppState } from "./load-app-state.js";
 import { renderTrendSection } from "./practice-sparkline.js";
 import { weakBindingsMarkup, weakestBindings } from "./weak-bindings.js";
 
@@ -149,50 +147,20 @@ function newSeed(): string {
   return globalThis.crypto?.randomUUID?.() ?? `local-${Date.now().toString(36)}`;
 }
 
-let storageWarning = "";
-let recoveredFromInvalidState = false;
-let loadedProgress: ProductProgress | null = null;
-try {
-  const loaded = loadLocalProductProgress(
-    localStorage,
-    storageEnvironment,
-    "guided",
-    STANDARD_BOPOMOFO_LAYOUT.id,
-  );
-  loadedProgress = loaded.progress;
-  recoveredFromInvalidState = loaded.recoveredFromInvalidState;
-} catch {
-  storageWarning = "瀏覽器無法讀取本機進度；本次練習仍可使用，但可能無法保存。";
-}
-
-const initialProgress = loadedProgress ?? createFreshProgressForEnvironment(
-  storageEnvironment,
-  newSeed(),
-  "guided",
-  STANDARD_BOPOMOFO_LAYOUT.id,
-);
-let pilotHistory: PilotHistory = pilotHistoryFromProgress(initialProgress);
-let recoveredPilotHistory = false;
-try {
-  const loaded = loadLocalPilotHistory(localStorage, initialProgress, storageEnvironment);
-  pilotHistory = loaded.history;
-  recoveredPilotHistory = loaded.recoveredFromInvalidState;
-} catch {
-  storageWarning = "瀏覽器無法讀取完整本機資料；練習仍可使用，但練習歷史可能無法保存。";
-}
-let progressHistory: ProgressHistory = createEmptyProgressHistory(
-  initialProgress.mode,
-  initialProgress.layoutId,
-);
-try {
-  progressHistory = loadLocalProgressHistory(
-    localStorage,
-    initialProgress,
-    storageEnvironment,
-  ).history;
-} catch {
-  storageWarning = "瀏覽器無法讀取完整本機資料；練習仍可使用，但練習歷史可能無法保存。";
-}
+const boot = loadAppState({
+  storage: localStorage,
+  environment: storageEnvironment,
+  mode: "guided",
+  layoutId: STANDARD_BOPOMOFO_LAYOUT.id,
+  newSeed,
+});
+const initialProgress = boot.progress;
+const loadedExistingProgress = boot.loadedExistingProgress;
+let storageWarning = boot.storageWarning;
+let recoveredFromInvalidState = boot.recoveredFromInvalidState;
+let recoveredPilotHistory = boot.recoveredPilotHistory;
+let pilotHistory: PilotHistory = boot.pilotHistory;
+let progressHistory: ProgressHistory = boot.progressHistory;
 
 syncPractisedLevels(initialProgress);
 let product: ProductState = createProductState(
@@ -1260,5 +1228,5 @@ mountShell();
 renderNotices();
 mountPracticeRound();
 updateTopbar();
-if (loadedProgress === null) persistProgress();
+if (!loadedExistingProgress) persistProgress();
 focusCapture();
