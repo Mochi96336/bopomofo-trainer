@@ -1,6 +1,7 @@
 import { mkdir, mkdtemp, open, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { runRelationalConfirmation } from "../src/simulation/confirmation/report.js";
 import {
   serializeConfirmationSeedAssessmentsCsv,
@@ -124,8 +125,8 @@ try {
   }
 
   if (process.argv.includes("--verify-findings")) {
-    const committed = resolve(
-      new URL("../docs/archive/research/strategy-confirmation.md", import.meta.url).pathname,
+    const committed = fileURLToPath(
+      new URL("../docs/archive/research/strategy-confirmation.md", import.meta.url),
     );
     if (!await filesAreByteIdentical(
       resolve(firstDirectory, "strategy-confirmation.md"),

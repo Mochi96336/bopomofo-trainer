@@ -1,13 +1,13 @@
 # Relational strategy confirmation
 
 - Plan: `relational-confirmatory-v1`
-- Plan digest: `cc6a4706`
+- Plan digest: `6b81e29a`
 - Source report digest: `cddf2d38`
 - Source analysis digest: `da68b959`
 - Source findings policy: `phase-7g-v2`
 - Confirmation policy: `phase-7h-v2`
 - Baseline cell: `["strategy-cell","binding-only-baseline","binding-preserving-baseline-v1","fixed-six-baseline","synthetic-relational-v1"]`
-- Report digest: `8d937f8f`
+- Report digest: `45d3c1f9`
 - Runs: 770
 - Adaptive rounds: 6160
 
