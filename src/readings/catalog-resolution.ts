@@ -205,7 +205,6 @@ function readSource(root: Record<string, unknown>, label: string): {
 
 function applySingleReadingAuthority(
   text: string,
-  reading: string,
   rowsByText: ReadonlyMap<string, readonly CsvRecord[]>,
   resolved: Map<string, ResolutionEvidence>,
   activeIdentities: ReadonlySet<string>,
@@ -244,7 +243,7 @@ function applyMoeConcised(
       stringValue(row.trainerReading, `MOE Concised row ${index}.trainerReading`),
     );
     const entryId = stringValue(row.sourceEntryId, `MOE Concised row ${index}.sourceEntryId`);
-    applySingleReadingAuthority(text, reading, rowsByText, resolved, activeIdentities, {
+    applySingleReadingAuthority(text, rowsByText, resolved, activeIdentities, {
       resolvedReading: reading,
       sourceKind: "moe-concised",
       sourceId: source.sourceId,
@@ -305,7 +304,7 @@ function applyMoeRevised(
       stringValue(row.trainerReading, `MOE Revised row ${index}.trainerReading`),
     );
     const entryId = stringValue(row.sourceEntryId, `MOE Revised row ${index}.sourceEntryId`);
-    applySingleReadingAuthority(text, reading, rowsByText, resolved, activeIdentities, {
+    applySingleReadingAuthority(text, rowsByText, resolved, activeIdentities, {
       resolvedReading: reading,
       sourceKind: "moe-revised",
       sourceId: source.sourceId,
@@ -372,7 +371,7 @@ function applyCedict(
       `CC-CEDICT row ${index}.records[0].sourceLine`,
     );
     const reading = numberedPinyinToTrainerReading(pinyin);
-    applySingleReadingAuthority(text, reading, rowsByText, resolved, activeIdentities, {
+    applySingleReadingAuthority(text, rowsByText, resolved, activeIdentities, {
       resolvedReading: reading,
       sourceKind: "cedict",
       sourceId: source.sourceId,
