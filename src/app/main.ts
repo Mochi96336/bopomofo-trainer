@@ -87,8 +87,14 @@ import {
   type FocusIdentity,
 } from "./focus-preservation.js";
 import { escapeHtml } from "./html.js";
+import { createExpiringValue } from "./expiring-value.js";
 import { renderTrendSection } from "./practice-sparkline.js";
 import { weakBindingsMarkup, weakestBindings } from "./weak-bindings.js";
+
+/** Long enough to read a sentence that appeared while the learner was typing. */
+const UNLOCK_NOTICE_MS = 6000;
+/** Short: the next round is already on screen behind it. */
+const PREVIOUS_RESULT_MS = 1400;
 
 type VisualState = "done" | "current" | "upcoming";
 
@@ -197,14 +203,16 @@ let product: ProductState = createProductState(
 let compositionActive = false;
 let imeWarning = false;
 let showKeyboardSketch = false;
-let previousResult: PilotRoundRecord | null = null;
-let previousResultTimer: number | null = null;
 let inspectionAdvanceCount = 0;
 let tuningNotice = "";
 let rarityNotice = "";
 let dataNotice = "";
-let unlockNotice = "";
-let unlockNoticeTimer: number | null = null;
+
+// Declared with the rest of the module state rather than beside the functions
+// that use them: both read a hoisted render function, so keeping them here
+// removes any ordering hazard if a top-level call is ever added above.
+const unlockNotice = createExpiringValue<string>(window, () => renderNotices());
+const previousResult = createExpiringValue<PilotRoundRecord>(window, () => updateTopbar());
 
 /**
  * Recomputes which levels are unlocked and which are practised, rebuilding the
@@ -381,9 +389,7 @@ function mountShell(): void {
 }
 
 function clearUnlockNotice(): void {
-  unlockNotice = "";
-  if (unlockNoticeTimer !== null) window.clearTimeout(unlockNoticeTimer);
-  unlockNoticeTimer = null;
+  unlockNotice.clear();
 }
 
 /**
@@ -393,19 +399,12 @@ function clearUnlockNotice(): void {
  * information panel also retires it, because that is where it was pointing.
  */
 function showUnlockNotice(message: string): void {
-  clearUnlockNotice();
-  unlockNotice = message;
-  renderNotices();
-  unlockNoticeTimer = window.setTimeout(() => {
-    unlockNotice = "";
-    unlockNoticeTimer = null;
-    renderNotices();
-  }, 6000);
+  unlockNotice.set(message, UNLOCK_NOTICE_MS);
 }
 
 function renderNotices(): void {
   const notices = [
-    unlockNotice,
+    unlockNotice.value ?? "",
     recoveredFromInvalidState
       ? "舊版或無效的本機進度已刪除，已從新的進度世代重新開始。"
       : "",
@@ -576,12 +575,13 @@ function updateKeyboardSketch(): void {
 
 function updateTopbar(): void {
   const status = requireElement<HTMLElement>("#round-status");
-  if (previousResult !== null) {
-    const latency = previousResult.cleanLatencyMedianMs === null
+  const shown = previousResult.value;
+  if (shown !== null) {
+    const latency = shown.cleanLatencyMedianMs === null
       ? ""
-      : ` · ${Math.round(previousResult.cleanLatencyMedianMs)} ms`;
+      : ` · ${Math.round(shown.cleanLatencyMedianMs)} ms`;
     status.setAttribute("aria-label", "上一句結果");
-    status.innerHTML = `<span>上一句</span><strong>${accuracyLabel(previousResult.attempts, previousResult.errors)}${latency}</strong>`;
+    status.innerHTML = `<span>上一句</span><strong>${accuracyLabel(shown.attempts, shown.errors)}${latency}</strong>`;
     return;
   }
   const { attempts, errors } = mappedRoundCounts();
@@ -590,21 +590,12 @@ function updateTopbar(): void {
 }
 
 function clearPreviousResult(): void {
-  previousResult = null;
-  if (previousResultTimer !== null) window.clearTimeout(previousResultTimer);
-  previousResultTimer = null;
+  previousResult.clear();
   updateTopbar();
 }
 
 function showPreviousResult(record: PilotRoundRecord): void {
-  previousResult = record;
-  if (previousResultTimer !== null) window.clearTimeout(previousResultTimer);
-  updateTopbar();
-  previousResultTimer = window.setTimeout(() => {
-    previousResult = null;
-    previousResultTimer = null;
-    updateTopbar();
-  }, 1400);
+  previousResult.set(record, PREVIOUS_RESULT_MS);
 }
 
 // The information panel links to licence files that live in the repository, not
@@ -869,7 +860,7 @@ function openInformationPanel(): void {
   const dialog = requireElement<HTMLDialogElement>("#information-dialog");
   if (dialog.open) return;
   // The unlock notice points here, so opening the panel retires it early.
-  if (unlockNotice !== "") {
+  if (unlockNotice.value !== null) {
     clearUnlockNotice();
     renderNotices();
   }
@@ -1208,7 +1199,7 @@ capture.addEventListener("keydown", (event) => {
   );
   const latest = product.session.traces.at(-1);
   if (
-    previousResult !== null
+    previousResult.value !== null
     && product.session.traces.length > beforeTraceCount
     && latest?.outcome === "correct"
   ) {
