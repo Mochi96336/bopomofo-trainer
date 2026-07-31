@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. The clause that the spike "may be replaced rather than evolved into production code" is superseded by [ADR 0007](./0007-structure-the-app-shell.md).
 
 ## Context
 
@@ -26,5 +26,9 @@ The deterministic curriculum simulator follows after the spike establishes a def
 
 - A small temporary web page is allowed before a product UI framework is chosen.
 - The spike may be replaced rather than evolved into production code.
+
+> **Superseded in part, 2026-07-31.** The spike was evolved into production code rather than replaced. It now carries the practice loop, commonness unlocking, weakness diagnostics, progress trends, local-first persistence, and backup import and export, and it is what the project distributes. [ADR 0007](./0007-structure-the-app-shell.md) accepts that and states how it gets structured.
+>
+> The decision this ADR was actually about — validating interaction timing before fixing curriculum metrics — was carried out and is unaffected.
 - Measurement rules must be justified by traces, not only by analogy to Keybr.
 - Curriculum work begins with fewer hidden assumptions and more credible synthetic profiles.

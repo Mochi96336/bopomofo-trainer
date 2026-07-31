@@ -9,16 +9,7 @@ import {
   type DiagnosticRelationshipPath,
   type DiagnosticRelationshipRow,
 } from "./diagnostic-relationship-layout.js";
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/gu, (character) => ({
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-  })[character] ?? character);
-}
+import { escapeHtml } from "./html.js";
 
 function activeKind(host: HTMLElement): DiagnosticRelationshipKind | null {
   const tab = host.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.dataset.tab;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { keyProgressMarkup } from "../../src/app/diagnostic-panel.js";
+import { keyProgressMarkup } from "../../src/app/diagnostic-progress-chart.js";
 import { buildKeyProgressTrends } from "../../src/diagnostics/progress-trends.js";
 import type { KeyProgressTrends } from "../../src/diagnostics/types.js";
 import { PROGRESS_HISTORY_POLICY } from "../../src/progress-history/policy.js";
