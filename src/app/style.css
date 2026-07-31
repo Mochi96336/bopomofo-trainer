@@ -64,13 +64,19 @@
 }
 
 * { box-sizing: border-box; }
+/*
+ * The floor is 300px rather than 320px because a 320px viewport that scrolls
+ * vertically only leaves 305px of content width: a 320px floor outgrows it and
+ * produces horizontal scrolling, which the interface hierarchy forbids. The
+ * shell reserves 10px on each side, so 300px is what the layout actually needs.
+ */
 html {
-  min-width: 320px;
+  min-width: 300px;
   scrollbar-color: var(--ink-faint) var(--canvas);
 }
 body {
   margin: 0;
-  min-width: 320px;
+  min-width: 300px;
   min-height: 100vh;
   background: var(--canvas);
 }

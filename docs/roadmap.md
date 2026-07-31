@@ -30,7 +30,15 @@ Review rigor deliberately changed partway through this work. Early waves reviewe
 
 ### Local human pilot
 
-Not yet run. Short repeatable guided-mode sessions recording task completion, wrong-key recovery, IME friction, hint usage, and repetition complaints. Accuracy and latency are observations, not a mastery score.
+Short repeatable guided-mode sessions recording task completion, wrong-key recovery, IME friction, hint usage, and repetition complaints. Accuracy and latency are observations, not a mastery score.
+
+**First session run 2026-07-31, by the developer.** No blocking friction was reported: the default flow was completed without intervention, and none of the manual protocol steps produced a failure the operator noticed.
+
+Instrumented checks alongside that session covered what a person reading the screen cannot verify. The page loads with no runtime console error — worth checking directly, because no test imports `src/app/main.ts` and a failure there would not show up in a green suite. The next utterance was reproduced identically across two reloads, and `Escape` opened and closed the information panel with focus returning to the capture target.
+
+Those checks also found one defect the manual pass did not: at a 320px viewport that scrolls vertically, only 305px of content width remains, so the 320px floor on `html` and `body` produced 15px of horizontal scrolling against interface rule 12. The floor is now 300px, which is what the layout actually needs.
+
+Still outstanding, and the reason this is not finished: the session was run by the developer, so the clause about completing the default flow *without developer assistance* cannot be self-certified, and a single session with no observed friction gives nothing to reproduce.
 
 Exit condition: observed friction is reproducible across sessions, the default flow can be completed without developer assistance, and any proposed threshold or UI change cites a concrete pilot failure mode.
 
