@@ -5,10 +5,8 @@ __pycache__/
 *.py[cod]
 data/external/
 data/reference-generated/
-data/generated/catalog.json
-data/generated/coverage.json
-data/generated/reading-resolution.json
-data/generated/lexicon/
+data/generated/*
+!data/generated/.gitkeep
 src/app/generated/catalog.ts
 *.log
 .DS_Store
