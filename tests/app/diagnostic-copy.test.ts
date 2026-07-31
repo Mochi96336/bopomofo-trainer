@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   confusionEmptyMessage,
   transitionEmptyMessage,
-} from "../../src/app/diagnostic-panel.js";
+} from "../../src/app/diagnostic-rows.js";
 import { DIAGNOSTIC_POLICY } from "../../src/diagnostics/policy.js";
 import type { TransitionDiagnostic } from "../../src/diagnostics/types.js";
 
