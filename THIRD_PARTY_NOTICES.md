@@ -245,4 +245,4 @@
 ## 回報問題
 
 若您是上述任一來源的權利人，認為本專案的收錄或投影方式超出授權範圍，請於 GitHub 開立 issue：
-<https://github.com/a20030824/bopomofo-trainer/issues>
+<https://github.com/Mochi96336/bopomofo-trainer/issues>

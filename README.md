@@ -1,7 +1,7 @@
 # 注音輸入訓練器
 
-[![CI](https://github.com/a20030824/bopomofo-trainer/actions/workflows/check.yml/badge.svg)](https://github.com/a20030824/bopomofo-trainer/actions/workflows/check.yml)
-[![Deploy Pages](https://github.com/a20030824/bopomofo-trainer/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/a20030824/bopomofo-trainer/actions/workflows/deploy-pages.yml)
+[![CI](https://github.com/Mochi96336/bopomofo-trainer/actions/workflows/check.yml/badge.svg)](https://github.com/Mochi96336/bopomofo-trainer/actions/workflows/check.yml)
+[![Deploy Pages](https://github.com/Mochi96336/bopomofo-trainer/actions/workflows/deploy-pages.yml/badge.svg)](https://github.com/Mochi96336/bopomofo-trainer/actions/workflows/deploy-pages.yml)
 
 一個在瀏覽器中運作、資料留在本機的繁體中文注音鍵盤訓練雛型。它以常用詞為基礎，記住真正按錯或明顯卡住的注音，讓這些弱點在後續題目中更常出現；句法規則負責讓練習內容維持可讀，而不是任意拼接詞語。
 
