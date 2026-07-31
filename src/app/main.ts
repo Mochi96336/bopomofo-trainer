@@ -16,6 +16,7 @@ import {
   unlockedCommonnessTiers,
 } from "../product/commonness-access.js";
 import type { TokenId } from "../core/model.js";
+import { physicalKeyLabel, tokenLabel } from "../diagnostics/labels.js";
 import { createProductBackup, parseProductBackup } from "./backup.js";
 import {
   appendPilotRoundRecord,
@@ -86,6 +87,8 @@ import {
   type FocusIdentity,
 } from "./focus-preservation.js";
 import { escapeHtml } from "./html.js";
+import { renderTrendSection } from "./practice-sparkline.js";
+import { weakBindingsMarkup, weakestBindings } from "./weak-bindings.js";
 
 type VisualState = "done" | "current" | "upcoming";
 
@@ -237,24 +240,6 @@ function practiceEnvironment(): ProductEnvironment {
 const reverseBindings = new Map<TokenId, string>();
 for (const [code, tokenId] of Object.entries(STANDARD_BOPOMOFO_LAYOUT.bindings)) {
   reverseBindings.set(tokenId, code);
-}
-
-function tokenLabel(tokenId: TokenId): string {
-  if (tokenId.startsWith("zhuyin:")) return tokenId.slice("zhuyin:".length);
-  return ({
-    "tone:1": "ˉ",
-    "tone:2": "ˊ",
-    "tone:3": "ˇ",
-    "tone:4": "ˋ",
-    "tone:5": "˙",
-  } as Readonly<Record<string, string>>)[tokenId] ?? tokenId;
-}
-
-function physicalKeyLabel(code: string): string {
-  if (code === "Space") return "Space";
-  if (code.startsWith("Key")) return code.slice(3);
-  if (code.startsWith("Digit")) return code.slice(5);
-  return code;
 }
 
 interface KeyboardSketchKey {
@@ -622,117 +607,9 @@ function showPreviousResult(record: PilotRoundRecord): void {
   }, 1400);
 }
 
-function sparklinePoints(
-  values: readonly number[],
-  width: number,
-  height: number,
-  pad: number,
-): readonly { readonly x: number; readonly y: number }[] {
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const span = max - min || 1;
-  const innerWidth = width - pad * 2;
-  const innerHeight = height - pad * 2;
-  const step = values.length > 1 ? innerWidth / (values.length - 1) : 0;
-  return values.map((value, index) => ({
-    x: pad + step * index,
-    y: pad + innerHeight - ((value - min) / span) * innerHeight,
-  }));
-}
-
-function renderSparkline(
-  label: string,
-  values: readonly number[],
-  formatValue: (value: number) => string,
-): string {
-  const width = 168;
-  const height = 40;
-  const pad = 4;
-  if (values.length < 2) {
-    return `<div class="trend-chart">
-      <div class="trend-chart-heading"><span class="trend-label">${escapeHtml(label)}</span></div>
-      <div class="trend-empty">還沒有足夠資料</div>
-    </div>`;
-  }
-  const points = sparklinePoints(values, width, height, pad);
-  const path = points
-    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(1)},${point.y.toFixed(1)}`)
-    .join(" ");
-  const last = points.at(-1)!;
-  return `<div class="trend-chart">
-    <div class="trend-chart-heading">
-      <span class="trend-label">${escapeHtml(label)}</span>
-      <span class="trend-value">${escapeHtml(formatValue(values.at(-1)!))}</span>
-    </div>
-    <svg class="trend-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none" aria-hidden="true">
-      <line x1="${pad}" y1="${height - pad}" x2="${width - pad}" y2="${height - pad}" class="trend-baseline"></line>
-      <path d="${path}" class="trend-line"></path>
-      <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="2.5" class="trend-dot"></circle>
-    </svg>
-  </div>`;
-}
-
-function renderTrendSection(): string {
-  const records = pilotHistory.records.filter((record) => record.attempts > 0);
-  const accuracyValues = records.map(
-    (record) => ((record.attempts - record.errors) / record.attempts) * 100,
-  );
-  const latencyValues = records
-    .map((record) => record.cleanLatencyMedianMs)
-    .filter((value): value is number => value !== null);
-  return `<div class="trend-row">
-    ${renderSparkline("正確率", accuracyValues, (value) => `${Math.round(value)}%`)}
-    ${renderSparkline("反應時間", latencyValues, (value) => `${Math.round(value)} ms`)}
-  </div>`;
-}
-
-interface WeakBinding {
-  readonly tokenId: TokenId;
-  readonly errorRate: number;
-  readonly attempts: number;
-}
-
-const WEAK_BINDING_MIN_ATTEMPTS = 5;
-const WEAK_BINDING_LIMIT = 5;
-
 // The information panel links to licence files that live in the repository, not
 // in the deployed bundle, so they resolve against GitHub rather than the site.
 const REPOSITORY_URL = "https://github.com/a20030824/bopomofo-trainer";
-
-function weakestBindings(): readonly WeakBinding[] {
-  const rows: WeakBinding[] = [];
-  for (const record of Object.values(product.progress.curriculum.bindings)) {
-    const aggregate = record.aggregate;
-    if (aggregate === null || aggregate.attempts < WEAK_BINDING_MIN_ATTEMPTS) continue;
-    const errorRate = aggregate.errors / aggregate.attempts;
-    if (errorRate <= 0) continue;
-    rows.push({ tokenId: record.scope.tokenId, errorRate, attempts: aggregate.attempts });
-  }
-  return rows
-    .sort((left, right) => right.errorRate - left.errorRate || right.attempts - left.attempts)
-    .slice(0, WEAK_BINDING_LIMIT);
-}
-
-function renderWeakBindingsSection(): string {
-  const rows = weakestBindings();
-  if (rows.length === 0) {
-    // 錯誤觀察比例, not 錯誤率: recovery input counts as another mapped
-    // observation, so this is not a first-attempt error rate.
-    return '<div class="history-empty">累積更多練習後，這裡會列出目前錯誤觀察比例較高的按鍵。</div>';
-  }
-  const maxRate = Math.max(...rows.map((row) => row.errorRate));
-  return `<div class="weak-bindings">${rows.map((row) => {
-    const code = reverseBindings.get(row.tokenId);
-    const keyLabel = code === undefined ? "—" : physicalKeyLabel(code);
-    const widthPercent = Math.max(6, Math.round((row.errorRate / maxRate) * 100));
-    return `<div class="weak-binding-row">
-      <span class="weak-binding-symbol">${escapeHtml(tokenLabel(row.tokenId))}</span>
-      <span class="weak-binding-key">${escapeHtml(keyLabel)}</span>
-      <span class="weak-binding-bar-track"><span class="weak-binding-bar" style="width:${widthPercent}%"></span></span>
-      <span class="weak-binding-rate">${Math.round(row.errorRate * 100)}%</span>
-    </div>`;
-  }).join("")}</div>`;
-}
 
 function renderHistoryRows(): string {
   const records = [...pilotHistory.records].reverse();
@@ -893,13 +770,13 @@ function renderInformationPanel(): void {
   content.innerHTML = `
     <section class="panel-section" data-legacy-weak-section="true">
       <div class="panel-heading"><h3>較弱按鍵</h3></div>
-      ${renderWeakBindingsSection()}
+      ${weakBindingsMarkup(weakestBindings(product.progress.curriculum.bindings), reverseBindings)}
     </section>
 
     <section class="panel-section history-section">
       <details class="history-details" open>
         <summary class="panel-heading history-heading"><h3>最近紀錄</h3></summary>
-        ${renderTrendSection()}
+        ${renderTrendSection(pilotHistory.records)}
         <div class="history-list" tabindex="0">${renderHistoryRows()}</div>
       </details>
     </section>
