@@ -1,6 +1,6 @@
 # ADR 0002: Keep the training core framework-independent
 
-- Status: Accepted
+- Status: Accepted. The presentation-layer disposability clause is superseded by [ADR 0007](./0007-structure-the-app-shell.md).
 - Date: 2026-07-19
 
 ## Context
@@ -14,6 +14,10 @@ At the same time, a small human-operated browser spike is required before timing
 The reusable core is plain TypeScript. Catalog compilation, exercise construction, session progression, measurement, and curriculum logic must remain callable without React, a browser, or persistent storage.
 
 The first executable artifact may be a disposable web interaction spike. Its browser adapter and temporary presentation layer are not the domain core and may be replaced. Selection of a product UI framework remains deferred until the validated interaction requires one.
+
+> **Superseded in part, 2026-07-31.** The clause that the presentation layer "may be replaced" no longer describes this project. No product UI framework was ever selected, and the spike became the product surface. [ADR 0007](./0007-structure-the-app-shell.md) retires the disposability of the browser layer and structures it in place instead.
+>
+> The rest of this decision stands unchanged, and is what makes that possible without a rewrite: the domain core is still plain TypeScript, still callable without a browser, and framework selection is still deferred — now indefinitely, since the project is distributed as a static page with no backend.
 
 ## Consequences
 

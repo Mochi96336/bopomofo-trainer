@@ -10,6 +10,8 @@ Accepted
 
 The spike is now the product surface. It carries the practice loop, commonness unlocking, weakness diagnostics, progress trends, local-first persistence, and backup import and export. No framework was chosen, and nothing about the current work suggests one is needed.
 
+Distribution settles that question rather than leaving it open. The project ships as a static page with no backend, served from GitHub Pages, with everything the learner needs already in the bundle. That bundle is 2.1 MB, almost all of it the compiled catalog. A UI framework would add runtime dependencies to a project that has none, and add them to the one artifact a visitor has to download before practising, in exchange for state management the shell can obtain by other means.
+
 What changed is the cost of leaving it unstructured:
 
 - `src/app/main.ts` is 1,309 lines with 25 module-level mutable bindings; `product` alone is read or written in 56 places;
@@ -31,7 +33,7 @@ Testability comes from extraction, not from a component library. Three rules gov
 
 Every step is behavior-preserving and lands with `npm run check:pr` green. No new runtime dependency is added; the project has none and that stays true. The domain core is not touched — `src/product`, `src/curriculum`, and `src/syntax` are already small and tested.
 
-The disposability clause of ADR 0002 and ADR 0006 no longer applies to the browser layer. Their framework-independence decision is unchanged and is the reason this work is possible without a rewrite.
+The disposability clause of [ADR 0002](./0002-framework-independent-core.md) and [ADR 0006](./0006-interaction-spike-before-curriculum.md) no longer applies to the browser layer, and both are annotated accordingly. Their framework-independence decision is unchanged and is the reason this work is possible without a rewrite.
 
 ## Consequences
 
