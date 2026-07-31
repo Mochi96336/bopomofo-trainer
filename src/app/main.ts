@@ -17,7 +17,9 @@ import {
 } from "../product/commonness-access.js";
 import type { TokenId } from "../core/model.js";
 import { physicalKeyLabel, tokenLabel } from "../diagnostics/labels.js";
-import { createProductBackup, parseProductBackup } from "./backup.js";
+import { createProductBackup, parseProductBackup, type ProductBackup } from "./backup.js";
+import { runBackupImport } from "./backup-import.js";
+import { clearLocalRecords } from "./clear-local-records.js";
 import {
   appendPilotRoundRecord,
   createPilotRoundRecord,
@@ -51,18 +53,9 @@ import {
   isInspectionUnlockShortcut,
   keyboardEventToInput,
 } from "./keyboard-adapter.js";
-import {
-  clearLocalPilotHistory,
-  saveLocalPilotHistory,
-} from "./pilot-history.js";
-import {
-  clearLocalProductProgress,
-  saveLocalProductProgress,
-} from "./local-progress.js";
-import {
-  clearLocalProgressHistory,
-  saveLocalProgressHistory,
-} from "./local-progress-history.js";
+import { saveLocalPilotHistory } from "./pilot-history.js";
+import { saveLocalProductProgress } from "./local-progress.js";
+import { saveLocalProgressHistory } from "./local-progress-history.js";
 import { appendRoundToProgressHistory, createEmptyProgressHistory } from "../progress-history/update.js";
 import type { ProgressHistory } from "../progress-history/types.js";
 import {
@@ -904,35 +897,35 @@ function downloadProductBackup(): void {
 }
 
 async function importProductBackup(input: HTMLInputElement): Promise<void> {
-  const file = input.files?.[0];
-  if (file === undefined) return;
-  // Reading can fail on its own: the file may have moved or become unreadable
-  // between the picker and here. That has to reach the panel the same way an
-  // unparseable backup does, because the alternative is a rejected promise
-  // nobody handles and a panel that silently says nothing happened.
-  let source: string;
-  try {
-    source = await file.text();
-  } catch {
-    dataNotice = "無法讀取這份存檔。";
-    updateDataNotice();
-    return;
-  }
-  const backup = parseProductBackup(
-    source,
-    storageEnvironment,
-    "guided",
-    STANDARD_BOPOMOFO_LAYOUT.id,
-  );
-  if (backup === null) {
-    dataNotice = "無法讀取這份存檔。";
-    updateDataNotice();
-    return;
-  }
-  if (!window.confirm("匯入會取代目前進度，確定繼續嗎？")) {
+  const outcome = await runBackupImport({
+    readSelectedFile: () => {
+      const file = input.files?.[0];
+      return file === undefined ? Promise.resolve(null) : file.text();
+    },
+    parse: (source) => parseProductBackup(
+      source,
+      storageEnvironment,
+      "guided",
+      STANDARD_BOPOMOFO_LAYOUT.id,
+    ),
+    confirmReplacement: () =>
+      Promise.resolve(window.confirm("匯入會取代目前進度，確定繼續嗎？")),
+  });
+
+  if (outcome.kind === "no-file") return;
+  if (outcome.kind === "cancelled") {
     input.value = "";
     return;
   }
+  if (outcome.kind === "unreadable") {
+    dataNotice = "無法讀取這份存檔。";
+    updateDataNotice();
+    return;
+  }
+  applyImportedBackup(outcome.backup);
+}
+
+function applyImportedBackup(backup: ProductBackup): void {
   selectionTuning = backup.selectionTuning;
   // The imported tuning carries its own selection influences, so both
   // environments are rebuilt even when the practised levels come out the same.
@@ -967,16 +960,8 @@ function resetProgress(): void {
   );
   if (!confirmed) return;
 
-  let canPersist = true;
-  try {
-    clearLocalProductProgress(localStorage);
-    clearLocalPilotHistory(localStorage);
-    clearLocalProgressHistory(localStorage);
-    storageWarning = "";
-  } catch {
-    canPersist = false;
-    storageWarning = "瀏覽器無法清除舊進度，但本頁已重新開始。";
-  }
+  const clearing = clearLocalRecords(localStorage);
+  storageWarning = clearing.storageWarning;
 
   const progress = createFreshProgressForEnvironment(
     storageEnvironment,
@@ -995,7 +980,7 @@ function resetProgress(): void {
   recoveredPilotHistory = false;
   inspectionAdvanceCount = 0;
   clearPreviousResult();
-  if (canPersist) persistProgress();
+  if (clearing.cleared) persistProgress();
   imeWarning = false;
   capture.value = "";
   requireElement<HTMLDialogElement>("#information-dialog").close();
