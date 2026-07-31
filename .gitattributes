@@ -1,0 +1,8 @@
+# Several verification steps compare a committed artifact byte-for-byte against
+# freshly generated output -- for example analyze-relational-experiments.ts
+# checks docs/archive/research/strategy-findings.md, and
+# run-relational-confirmation.ts checks strategy-confirmation.md. The generators
+# emit LF, so a working tree that carries CRLF fails those comparisons even when
+# the content is identical. Pin the working tree to LF everywhere so the checks
+# mean the same thing on every platform.
+* text=auto eol=lf
