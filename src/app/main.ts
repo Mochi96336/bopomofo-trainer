@@ -568,7 +568,7 @@ function showPreviousResult(record: PilotRoundRecord): void {
 
 // The information panel links to licence files that live in the repository, not
 // in the deployed bundle, so they resolve against GitHub rather than the site.
-const REPOSITORY_URL = "https://github.com/a20030824/bopomofo-trainer";
+const REPOSITORY_URL = "https://github.com/Mochi96336/bopomofo-trainer";
 
 function renderHistoryRows(): string {
   const records = [...pilotHistory.records].reverse();
