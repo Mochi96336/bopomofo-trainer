@@ -9,10 +9,8 @@ import {
 } from "./policy.js";
 import {
   PROGRESS_HISTORY_SCHEMA_VERSION,
-  type CorrectnessTrendPoint,
   type KeyProgressHistory,
   type ProgressHistory,
-  type TimingTrendPoint,
 } from "./types.js";
 
 export interface AppendRoundToProgressHistoryInput {

@@ -2,7 +2,6 @@ import type { CatalogEntry, Exercise, PracticeMode, TokenId } from "../core/mode
 import type {
   CatalogSupportIndex,
   CurriculumEvidence,
-  CurriculumPhase,
   CurriculumPolicy,
   CurriculumProfile,
   FocusSelection,

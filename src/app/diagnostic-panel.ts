@@ -229,7 +229,7 @@ function inspectorToolbarMarkup(preferences: DiagnosticPreferences): string {
   return "";
 }
 
-function inspectorHeadMarkup(preferences: DiagnosticPreferences, state: DiagnosticAnalysisSelection): string {
+function inspectorHeadMarkup(preferences: DiagnosticPreferences): string {
   return `<div class="diagnostic-inspector-head">
     <div class="diagnostic-analysis-tabs" role="tablist" aria-label="弱點診斷類型">
       ${DIAGNOSTIC_TABS.map((tab) => `<button id="${tabButtonId(tab)}" type="button" role="tab" data-action="select-tab" data-tab="${tab}" aria-selected="${preferences.activeTab === tab}" aria-controls="${tabPanelId(tab)}" tabindex="${preferences.activeTab === tab ? 0 : -1}">${tabLabel(tab)}</button>`).join("")}
@@ -251,7 +251,7 @@ function inspectorMarkup(
     const rows = keyRows(model, preferences);
     const selected = model.keys.find((row) => row.tokenId === state.selectedKey) ?? rows[0] ?? null;
     return `<aside class="diagnostic-analysis-inspector" aria-label="按鍵診斷列表與細節">
-      ${inspectorHeadMarkup(preferences, state)}
+      ${inspectorHeadMarkup(preferences)}
       ${inspectorToolbarMarkup(preferences)}
       <div class="diagnostic-inspector-list">
         ${rows.length === 0 ? '<p class="diagnostic-inspector-empty">尚無按鍵資料。</p>' : rows.map((row) => keyListRowMarkup(row, selected?.tokenId === row.tokenId)).join("")}
@@ -264,7 +264,7 @@ function inspectorMarkup(
     const rows = transitionRows(model, state);
     const selected = rows.find((row) => row.id === state.selectedRelationId) ?? rows[0] ?? null;
     return `<aside class="diagnostic-analysis-inspector" aria-label="轉換診斷列表與細節">
-      ${inspectorHeadMarkup(preferences, state)}
+      ${inspectorHeadMarkup(preferences)}
       ${inspectorToolbarMarkup(preferences)}
       <div class="diagnostic-inspector-list">
         ${rows.length === 0 ? `<p class="diagnostic-inspector-empty">${escapeHtml(transitionEmptyMessage(model, state.selectedKey))}</p>` : rows.map((row) => transitionListRowMarkup(row, selected?.id === row.id)).join("")}
@@ -276,7 +276,7 @@ function inspectorMarkup(
   const rows = confusionRows(model, state);
   const selected = rows.find((row) => row.id === state.selectedRelationId) ?? rows[0] ?? null;
   return `<aside class="diagnostic-analysis-inspector" aria-label="誤按診斷列表與細節">
-    ${inspectorHeadMarkup(preferences, state)}
+    ${inspectorHeadMarkup(preferences)}
     ${inspectorToolbarMarkup(preferences)}
     <div class="diagnostic-inspector-list">
       ${rows.length === 0 ? `<p class="diagnostic-inspector-empty">${escapeHtml(confusionEmptyMessage(state.selectedKey))}</p>` : rows.map((row) => confusionListRowMarkup(row, selected?.id === row.id)).join("")}
