@@ -58,7 +58,9 @@ It builds first and runs against the production build, since that is the artifac
 - Both belong to the `check` workflow, so the deploy gate — which waits on that workflow concluding successfully — covers the browser suite too.
 - The `research` job runs only through `workflow_dispatch` with `run_research=true`.
 - Concurrency is grouped by pull request or ref, and a newer run cancels the older run.
-- Pages deployment uses one fixed concurrency group, so the newest push wins rather than whichever build happens to finish last. A manual deployment is allowed only from `main`.
+- Pages deployment is triggered only by a successful `check` run on `main`, and always deploys the commit that run checked.
+- Its concurrency group is fixed (`pages`) so the newest deployment wins rather than whichever build happens to finish last, and it is declared on the deploy job rather than on the workflow — a group held at workflow level is entered by every run that starts, so a pull request's `check` completion, or a failed `check` on `main`, would cancel a live deployment and put nothing in its place.
+- `Deploy Pages` has no `workflow_dispatch` of its own. Dispatching it could only pin a branch, never the fact that the branch's current commit had passed anything. **To deploy by hand, run the `check` workflow manually on `main`**; success carries it through to deployment.
 - The fast jobs have a 20-minute timeout; the manually requested research job has a 60-minute timeout.
 - While hosted Actions quota is unavailable, a pull request may be reviewed and merged from recorded local verification plus diff review. Do not push repeatedly to probe CI.
 
