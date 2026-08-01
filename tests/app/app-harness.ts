@@ -177,6 +177,7 @@ export function mountApp(options: MountOptions = {}): MountedApp {
     ? mountDiagnosticEnhancement({
       closePanel: () => app?.closePanel(),
       focusPractice: () => app?.focusPractice(),
+      getSnapshot: () => app?.getDiagnosticSnapshot() ?? null,
       storage: createMemoryStorage(),
     })
     : null;

@@ -12,6 +12,7 @@ import type {
   TransitionDiagnostic,
 } from "../diagnostics/types.js";
 import {
+  diagnosticNetworkVisible,
   openDiagnosticAnalysisState,
   selectDiagnosticAnalysisTab,
   toggleDiagnosticNetwork,
@@ -48,6 +49,7 @@ import {
   captureFocusIdentity,
   restoreFocusIdentity,
 } from "./focus-preservation.js";
+import type { DiagnosticRelationshipView } from "./diagnostic-relationship-layout.js";
 import { escapeHtml } from "./html.js";
 const DIAGNOSTIC_TABS = ["key", "transition", "confusion"] as const;
 const ANALYSIS_ANIMATION_MS = 180;
@@ -106,6 +108,14 @@ export interface DiagnosticAnalysisController {
 export interface DiagnosticAnalysisOptions {
   readonly getModel: () => DiagnosticModel;
   readonly storage: DiagnosticPreferenceStorage;
+  /**
+   * Called with what was rendered, every time the analysis renders.
+   *
+   * The relationship overlay draws over this markup and needs to know what is
+   * on it. It used to read that back out of the DOM; being told is the same
+   * answer from the side that decided it.
+   */
+  readonly onRendered?: (view: DiagnosticRelationshipView) => void;
 }
 
 function summaryText(model: DiagnosticModel): string {
@@ -372,6 +382,26 @@ export function createDiagnosticAnalysis(
     }
   };
 
+  /**
+   * The same rows, order and selection `inspectorMarkup` just rendered.
+   *
+   * Both read the state through the same two selectors, so this describes the
+   * markup rather than approximating it -- including the fallback to the first
+   * row, which is what makes a list with no explicit selection still show one.
+   */
+  const relationshipView = (): DiagnosticRelationshipView => {
+    const networkVisible = diagnosticNetworkVisible({ preferences, selection: state });
+    if (preferences.activeTab === "key") {
+      return { kind: null, rows: [], selectedId: null, networkVisible, model };
+    }
+    const kind = preferences.activeTab;
+    const rows = kind === "transition"
+      ? transitionRows(model, state)
+      : confusionRows(model, state);
+    const selected = rows.find((row) => row.id === state.selectedRelationId) ?? rows[0] ?? null;
+    return { kind, rows, selectedId: selected?.id ?? null, networkVisible, model };
+  };
+
   const render = (): void => {
     const focusIdentity = captureFocusIdentity(host);
     host.innerHTML = `<div class="diagnostic-analysis-shell">
@@ -386,6 +416,8 @@ export function createDiagnosticAnalysis(
         ".diagnostic-analysis-close",
       ]);
     }
+    // Last, so anything drawing over this markup finds it in place.
+    options.onRendered?.(relationshipView());
   };
 
   /**

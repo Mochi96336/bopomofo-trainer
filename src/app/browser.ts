@@ -125,6 +125,7 @@ let app: App | null = null;
 const enhancement = mountDiagnosticEnhancement({
   closePanel: () => app?.closePanel(),
   focusPractice: () => app?.focusPractice(),
+  getSnapshot: () => app?.getDiagnosticSnapshot() ?? null,
   storage: localStorage,
 });
 

@@ -90,6 +90,7 @@ import {
   rarityProgressText,
   type PanelActionStatus,
 } from "./information-panel-model.js";
+import type { DiagnosticSnapshot } from "./diagnostic-snapshot.js";
 import { createExpiringValue } from "./expiring-value.js";
 import { loadAppState } from "./load-app-state.js";
 import type { StorageLike } from "./persistence-transaction.js";
@@ -159,6 +160,14 @@ export interface App {
    * into the document for the capture element is how that used to be done.
    */
   focusPractice(): void;
+  /**
+   * The state this instance is practising against, as of right now.
+   *
+   * Read by the diagnostics layer at the moment it renders. It reports what the
+   * session is actually using, including when storage refused the last write and
+   * the session is continuing in memory alone.
+   */
+  getDiagnosticSnapshot(): DiagnosticSnapshot;
   /**
    * Removes the listeners and timers this instance owns, so a second instance
    * can be built over the same document without the first still answering.
@@ -1396,6 +1405,9 @@ export function createApp(deps: AppDependencies): App {
     },
     focusPractice(): void {
       focusCapture(true);
+    },
+    getDiagnosticSnapshot(): DiagnosticSnapshot {
+      return { progress: product.progress, progressHistory, selectionTuning };
     },
     destroy(): void {
       // Everything on the document, the window and the capture textarea goes at

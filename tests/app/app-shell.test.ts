@@ -147,6 +147,29 @@ describe("practice shell mounting", () => {
   });
 });
 
+describe("diagnostics over a degraded session", () => {
+  // Diagnostics used to read module-level mirrors of what had last reached
+  // storage. With every write refused nothing was ever mirrored, so the panel
+  // described an empty session while practice carried on in memory -- two
+  // answers about one session, from a product that promises the session
+  // continues. It is handed the shell's live state now.
+  it("describes the running session when storage refuses every write", () => {
+    const app = mountApp({ storage: createUnwritableStorage(), diagnostics: true });
+    mounted = app;
+    // Finishes a round, so there are real measurements that no write preserved.
+    document.dispatchEvent(new KeyboardEvent("keydown", {
+      code: "F10",
+      bubbles: true,
+      cancelable: true,
+    }));
+    app.openPanel();
+
+    const meta = app.find(".diagnostic-summary-signals div small").textContent;
+    expect(meta).not.toBe("尚無按鍵資料");
+    expect(meta).toMatch(/\d+ 次$/);
+  });
+});
+
 describe("recovery notices", () => {
   // Invalid stored progress is dropped at boot, and the notice explaining why
   // retires on its own. The browser layer used to do this by matching notice

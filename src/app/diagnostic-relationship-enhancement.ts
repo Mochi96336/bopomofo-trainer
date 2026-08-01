@@ -5,24 +5,25 @@ import {
   buildDiagnosticNetworkPaths,
   buildDiagnosticRelationshipPaths,
   DIAGNOSTIC_RELATIONSHIP_VIEWBOX,
-  type DiagnosticRelationshipKind,
   type DiagnosticRelationshipPath,
-  type DiagnosticRelationshipRow,
+  type DiagnosticRelationshipView,
 } from "./diagnostic-relationship-layout.js";
 import { escapeHtml } from "./html.js";
 
-function activeKind(host: HTMLElement): DiagnosticRelationshipKind | null {
-  const tab = host.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')?.dataset.tab;
-  if (tab === "transition" || tab === "confusion") return tab;
-  return null;
-}
-
-// aria-pressed already encodes the *effective* visibility (preference minus
-// any active selection stepping the mesh aside) — see networkVisible() in
-// diagnostic-panel.ts, the single source of truth for that computation.
-function networkOverlayEnabled(host: HTMLElement): boolean {
-  return host.querySelector('[data-action="toggle-network"]')?.getAttribute("aria-pressed") === "true";
-}
+/**
+ * Draws the relationship graph over the keyboard the analysis just rendered.
+ *
+ * What is on screen arrives as a view model from the panel that rendered it.
+ * This module used to work the same facts out by reading that markup back --
+ * the selected tab, the network toggle's `aria-pressed`, the `selected` class
+ * on a list button, the `data-id` on each -- and to guess when to redraw with a
+ * subtree `MutationObserver` that had to be disconnected around its own writes.
+ * None of that is here any more.
+ *
+ * The DOM lookup that remains is of a different kind: the list buttons are
+ * found in order to wire hover and activation between each path and its row.
+ * That is connecting two rendered things, not recovering state from one.
+ */
 
 // Zhuyin composition has one fixed order, so a direction arrow adds nothing
 // here; the network is a heat-map of severity, not a set of instructions.
@@ -58,44 +59,24 @@ function renderNetworkOverlay(stage: HTMLElement, board: HTMLElement, model: Dia
   board.prepend(svg);
 }
 
-function visibleRelationshipRows(
-  kind: DiagnosticRelationshipKind,
-  model: DiagnosticModel,
-  buttons: readonly HTMLButtonElement[],
-): readonly DiagnosticRelationshipRow[] {
-  const rows: readonly DiagnosticRelationshipRow[] = kind === "transition"
-    ? model.transitions
-    : model.confusions;
-  const rowsById = new Map(rows.map((row) => [row.id, row] as const));
-  return buttons.flatMap((button) => {
-    const id = button.dataset.id;
-    if (id === undefined) return [];
-    const row = rowsById.get(id);
-    return row === undefined ? [] : [row];
-  });
-}
-
-function renderRelationshipOverlay(
+export function renderDiagnosticRelationshipOverlay(
   host: HTMLElement,
-  getModel: () => DiagnosticModel,
+  view: DiagnosticRelationshipView,
 ): void {
   host.querySelector(".diagnostic-relationship-svg")?.remove();
   host.querySelector(".diagnostic-network-empty")?.remove();
   const stage = host.querySelector<HTMLElement>(".diagnostic-keyboard-stage");
   const board = host.querySelector<HTMLElement>(".diagnostic-keyboard-board");
   if (stage === null || board === null) return;
-  if (networkOverlayEnabled(host)) {
-    renderNetworkOverlay(stage, board, getModel());
+  if (view.networkVisible) {
+    renderNetworkOverlay(stage, board, view.model);
     return;
   }
-  const kind = activeKind(host);
-  if (kind === null) return;
+  const { kind, rows, selectedId } = view;
+  if (kind === null || rows.length === 0) return;
   const buttons = [...host.querySelectorAll<HTMLButtonElement>(
     '.diagnostic-inspector-list button[data-action="select-relation"][data-id]',
   )];
-  const rows = visibleRelationshipRows(kind, getModel(), buttons);
-  if (rows.length === 0) return;
-  const selectedId = buttons.find((button) => button.classList.contains("selected"))?.dataset.id ?? null;
   const paths = buildDiagnosticRelationshipPaths(kind, rows, selectedId);
   const markerId = `diagnostic-arrow-${kind}`;
   const viewBox = DIAGNOSTIC_RELATIONSHIP_VIEWBOX;
@@ -126,35 +107,4 @@ function renderRelationshipOverlay(
     button.addEventListener("blur", () => path.classList.remove("list-hover"));
   }
   board.prepend(svg);
-}
-
-export function mountDiagnosticRelationshipEnhancement(
-  getModel: () => DiagnosticModel,
-): () => void {
-  const host = document.querySelector<HTMLElement>("#diagnostic-analysis");
-  if (host === null) return () => undefined;
-  let scheduled = false;
-  let observer: MutationObserver;
-  const observe = (): void => {
-    observer.observe(host, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ["hidden"],
-    });
-  };
-  const schedule = (): void => {
-    if (scheduled) return;
-    scheduled = true;
-    queueMicrotask(() => {
-      scheduled = false;
-      observer.disconnect();
-      renderRelationshipOverlay(host, getModel);
-      observe();
-    });
-  };
-  observer = new MutationObserver(schedule);
-  observe();
-  schedule();
-  return () => observer.disconnect();
 }

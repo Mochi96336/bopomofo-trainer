@@ -19,6 +19,38 @@ import {
 export type DiagnosticRelationshipRow = TransitionDiagnostic | ConfusionDiagnostic;
 export type DiagnosticRelationshipKind = "transition" | "confusion";
 
+/**
+ * What the analysis panel just put on screen, stated rather than inferred.
+ *
+ * The overlay that draws relationships over the keyboard used to work this out
+ * by reading the panel's own markup back: which tab carried
+ * `aria-selected="true"`, which control carried `aria-pressed`, which list
+ * button carried a `selected` class, and which `data-id` each of them held. It
+ * worked, but it made a rendering detail into an interface -- renaming a class
+ * or restructuring the list would have made the graph quietly disappear with
+ * nothing to report it -- and it needed a subtree `MutationObserver` to guess
+ * when to redraw, which then had to be disconnected around its own writes so it
+ * would not answer them.
+ *
+ * The panel knows all four of these before it renders. Handing them over costs
+ * one call and removes the observer, the guessing and the coupling together.
+ */
+export interface DiagnosticRelationshipView {
+  /** Null on the key tab, where there is no relationship list to draw. */
+  readonly kind: DiagnosticRelationshipKind | null;
+  /** The rows the inspector listed, in the order it listed them. */
+  readonly rows: readonly DiagnosticRelationshipRow[];
+  readonly selectedId: string | null;
+  /**
+   * Whether the whole-keyboard mesh is showing, which is the preference already
+   * narrowed by anything that steps it aside. It can be on for any tab, so it
+   * is reported independently of `kind`.
+   */
+  readonly networkVisible: boolean;
+  /** The mesh is drawn from the whole model rather than from the listed rows. */
+  readonly model: DiagnosticModel;
+}
+
 export interface DiagnosticKeyboardPoint {
   readonly x: number;
   readonly y: number;
