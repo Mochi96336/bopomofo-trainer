@@ -37,8 +37,12 @@ export interface BackupImportPorts {
   /** The chosen file's text, or `null` when nothing was chosen. May reject. */
   readSelectedFile(): Promise<string | null>;
   parse(source: string): ProductBackup | null;
-  /** Resolves false when the learner declines to replace what they have. */
-  confirmReplacement(): Promise<boolean>;
+  /**
+   * Resolves false when the learner declines to replace what they have. Receives
+   * the parsed backup, because a confirmation that cannot describe what is
+   * arriving can only repeat the question.
+   */
+  confirmReplacement(backup: ProductBackup): Promise<boolean>;
 }
 
 export async function runBackupImport(
@@ -62,6 +66,6 @@ export async function runBackupImport(
   // Asked only once the replacement is known to be possible. Confirming an
   // import that was going to fail anyway puts the learner's answer somewhere it
   // cannot be honoured.
-  if (!await ports.confirmReplacement()) return { kind: "cancelled" };
+  if (!await ports.confirmReplacement(backup)) return { kind: "cancelled" };
   return { kind: "applied", backup };
 }

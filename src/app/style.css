@@ -150,7 +150,8 @@ button { touch-action: manipulation; }
 .information-button,
 .dialog-close,
 .text-button,
-.danger-button {
+.danger-button,
+.confirm-actions button {
   border: 0;
   background: transparent;
   color: inherit;
@@ -388,6 +389,79 @@ button { touch-action: manipulation; }
 @keyframes drawer-in {
   from { opacity: .72; transform: translateX(18px); }
   to { opacity: 1; transform: translateX(0); }
+}
+
+.confirm-dialog {
+  width: min(360px, calc(100% - 32px));
+  max-width: none;
+  padding: 0;
+  border: 0;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+/*
+ * Half strength, because this one is rarely alone. A confirmation opened from
+ * the information panel stacks a second backdrop over the panel's own, and two
+ * tints at full strength read as a third surface rather than as depth. It only
+ * has to separate the question from what it is about.
+ */
+.confirm-dialog::backdrop {
+  background: color-mix(in srgb, var(--backdrop-tint) 50%, transparent);
+}
+.confirm-form {
+  display: grid;
+  gap: 14px;
+  padding: 18px 18px 6px;
+}
+.confirm-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+}
+.confirm-sections {
+  display: grid;
+  gap: 12px;
+}
+.confirm-section h3 {
+  margin: 0 0 3px;
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 620;
+}
+.confirm-items {
+  display: grid;
+  gap: 1px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.confirm-note {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 10px;
+  line-height: 1.6;
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  border-top: 1px solid var(--hairline);
+}
+.confirm-actions button {
+  padding: 10px 0;
+  font-size: 11px;
+  font-weight: 620;
+}
+.confirm-cancel { color: var(--ink-muted); }
+.confirm-accept { color: var(--ink); }
+.confirm-accept.danger { color: var(--danger); }
+.confirm-actions button:hover,
+.confirm-actions button:focus-visible {
+  outline: none;
+  text-decoration: underline;
 }
 .dialog-shell {
   display: grid;

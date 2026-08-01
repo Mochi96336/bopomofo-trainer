@@ -32,11 +32,13 @@ const backup: ProductBackup = {
 interface RecordedPorts extends BackupImportPorts {
   readonly calls: readonly string[];
   readonly parsed: readonly string[];
+  readonly described: readonly ProductBackup[];
 }
 
 function ports(overrides: Partial<BackupImportPorts> = {}): RecordedPorts {
   const calls: string[] = [];
   const parsed: string[] = [];
+  const described: ProductBackup[] = [];
   return {
     readSelectedFile() {
       calls.push("read");
@@ -47,12 +49,14 @@ function ports(overrides: Partial<BackupImportPorts> = {}): RecordedPorts {
       parsed.push(source);
       return overrides.parse === undefined ? backup : overrides.parse(source);
     },
-    confirmReplacement() {
+    confirmReplacement(candidate) {
       calls.push("confirm");
-      return overrides.confirmReplacement?.() ?? Promise.resolve(true);
+      described.push(candidate);
+      return overrides.confirmReplacement?.(candidate) ?? Promise.resolve(true);
     },
     calls,
     parsed,
+    described,
   };
 }
 
@@ -115,6 +119,15 @@ describe("backup import sequence", () => {
 
     expect(outcome).toEqual({ kind: "unreadable", reason: "backup-invalid" });
     expect(port.parsed).toEqual([""]);
+  });
+
+  // The confirmation shows what is arriving beside what is here, so it has to
+  // be handed the parsed generation rather than only the question.
+  it("hands the parsed backup to the confirmation", async () => {
+    const port = ports();
+    await runBackupImport(port);
+
+    expect(port.described).toEqual([backup]);
   });
 
   it("reads the file once and parses exactly what it read", async () => {
