@@ -100,6 +100,17 @@ import { weakBindingsMarkup, weakestBindings } from "./weak-bindings.js";
 const UNLOCK_NOTICE_MS = 6000;
 /** Short: the next round is already on screen behind it. */
 const PREVIOUS_RESULT_MS = 1400;
+/**
+ * Long enough to explain why the session started over, and no longer: what was
+ * unreadable has already been dealt with by the time it is shown, so it is news
+ * rather than a condition to keep reporting.
+ */
+const RECOVERY_NOTICE_MS = 6000;
+
+const PROGRESS_RECOVERY_NOTICE =
+  "舊版或無效的本機進度已刪除，已從新的進度世代重新開始。";
+const PILOT_RECOVERY_NOTICE =
+  "舊版或無效的 Pilot 歷史已刪除；目前世代可由有效完成摘要補齊。";
 
 type VisualState = "done" | "current" | "upcoming";
 
@@ -116,6 +127,15 @@ export interface AppDependencies {
   readonly capture: HTMLTextAreaElement;
   readonly storage: StorageLike;
   readonly newSeed: () => string;
+  /**
+   * Called once the round's markup is in the document, including the first one.
+   *
+   * The browser layer lays the utterance out across balanced lines, which it can
+   * only do after measuring the entries this put on the page. It used to find
+   * out by watching the stage with a `MutationObserver`, inferring a re-render
+   * from a childList change; being told is the same signal without the guess.
+   */
+  readonly onRoundMounted?: (stage: HTMLElement) => void;
 }
 
 export interface App {
@@ -137,7 +157,7 @@ export interface App {
  * many as it likes.
  */
 export function createApp(deps: AppDependencies): App {
-  const { root, capture, storage, newSeed } = deps;
+  const { root, capture, storage, newSeed, onRoundMounted } = deps;
 
   const catalogs = {
     practice: PRACTICE_CATALOG,
@@ -188,8 +208,6 @@ export function createApp(deps: AppDependencies): App {
   const initialProgress = boot.progress;
   const loadedExistingProgress = boot.loadedExistingProgress;
   let storageWarning = boot.storageWarning;
-  let recoveredFromInvalidState = boot.recoveredFromInvalidState;
-  let recoveredPilotHistory = boot.recoveredPilotHistory;
   let pilotHistory: PilotHistory = boot.pilotHistory;
   let progressHistory: ProgressHistory = boot.progressHistory;
 
@@ -217,6 +235,13 @@ export function createApp(deps: AppDependencies): App {
   // removes any ordering hazard if a top-level call is ever added above.
   const unlockNotice = createExpiringValue<string>(window, () => renderNotices());
   const previousResult = createExpiringValue<PilotRoundRecord>(window, () => updateTopbar());
+  // Retired on a timer like the unlock notice, rather than left standing for the
+  // session. This used to be the browser layer's job, which could only reach
+  // them by matching their text against its own copy of these two sentences.
+  const recoveryNotices = createExpiringValue<readonly string[]>(
+    window,
+    () => renderNotices(),
+  );
   // Outside `#app`, so replacing the shell's markup cannot take the dialog with
   // it, and alongside the analysis host rather than inside the panel it stacks
   // over.
@@ -417,12 +442,7 @@ export function createApp(deps: AppDependencies): App {
   function renderNotices(): void {
     const notices = [
       unlockNotice.value ?? "",
-      recoveredFromInvalidState
-        ? "舊版或無效的本機進度已刪除，已從新的進度世代重新開始。"
-        : "",
-      recoveredPilotHistory
-        ? "舊版或無效的 Pilot 歷史已刪除；目前世代可由有效完成摘要補齊。"
-        : "",
+      ...recoveryNotices.value ?? [],
       storageWarning,
     ].filter(Boolean);
     requireElement<HTMLElement>("#notice-region").innerHTML = notices.map((notice) =>
@@ -467,13 +487,18 @@ export function createApp(deps: AppDependencies): App {
       </div>`;
     updatePracticeState();
 
-    if (!animateRound) return;
-    stage.classList.remove("round-enter");
-    void stage.offsetWidth;
-    stage.classList.add("round-enter");
-    stage.addEventListener("animationend", () => {
+    if (animateRound) {
       stage.classList.remove("round-enter");
-    }, { once: true });
+      void stage.offsetWidth;
+      stage.classList.add("round-enter");
+      stage.addEventListener("animationend", () => {
+        stage.classList.remove("round-enter");
+      }, { once: true });
+    }
+
+    // Last, so what the callback measures is the finished round rather than one
+    // still being marked up.
+    onRoundMounted?.(stage);
   }
 
   function glyphVisualState(tokenStart: number, tokenEnd: number): VisualState {
@@ -1020,8 +1045,7 @@ export function createApp(deps: AppDependencies): App {
     product = createProductState(environment, backup.progress, performance.now());
     pilotHistory = backup.pilotHistory;
     progressHistory = backup.progressHistory;
-    recoveredFromInvalidState = false;
-    recoveredPilotHistory = false;
+    recoveryNotices.clear();
     inspectionAdvanceCount = 0;
     clearPreviousResult();
     try {
@@ -1073,8 +1097,7 @@ export function createApp(deps: AppDependencies): App {
     product = createProductState(environment, progress, performance.now());
     pilotHistory = pilotHistoryFromProgress(progress);
     progressHistory = createEmptyProgressHistory(progress.mode, progress.layoutId);
-    recoveredFromInvalidState = false;
-    recoveredPilotHistory = false;
+    recoveryNotices.clear();
     inspectionAdvanceCount = 0;
     clearPreviousResult();
     if (clearing.cleared) persistProgress();
@@ -1314,6 +1337,12 @@ export function createApp(deps: AppDependencies): App {
   window.addEventListener("focus", handleWindowFocus);
 
   mountShell();
+  // After the shell, because setting it renders the region it appears in.
+  const recovered = [
+    boot.recoveredFromInvalidState ? PROGRESS_RECOVERY_NOTICE : "",
+    boot.recoveredPilotHistory ? PILOT_RECOVERY_NOTICE : "",
+  ].filter(Boolean);
+  if (recovered.length > 0) recoveryNotices.set(recovered, RECOVERY_NOTICE_MS);
   renderNotices();
   mountPracticeRound();
   updateTopbar();
@@ -1326,6 +1355,7 @@ export function createApp(deps: AppDependencies): App {
       window.removeEventListener("focus", handleWindowFocus);
       unlockNotice.clear();
       previousResult.clear();
+      recoveryNotices.clear();
       confirmDialog.destroy();
     },
   };

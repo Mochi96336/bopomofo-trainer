@@ -50,3 +50,9 @@ Costs:
 - the largest state cluster, the practice session, has the widest blast radius and must be moved last, so the work gets harder rather than easier as it proceeds;
 - explicit state records are more verbose at the call site than module-level bindings;
 - line count is not the goal and should not be used to judge progress; the measure is how much of the shell a test can reach.
+
+## Progress
+
+The factory named in the second rule has landed. `src/app/main.ts` is gone: its body is `createApp` in `src/app/create-app.ts`, which receives its root, capture element, storage and seed source as arguments and returns a handle with `destroy`. `src/app/browser.ts` is now the only entry and composes the app itself, so the boundary and interrupted-write recovery it must install first are ordered by a statement rather than by a dynamic import.
+
+By the measure this ADR set, the shell went from reachable by nothing to driven directly: `tests/app/app-shell.test.ts` builds it over a jsdom document, types into it, opens the panel and asserts on what the learner would see. The source-reading assertions that stood in for those checks are deleted. The state records are still closure-scoped `let`s rather than an explicit record, so that part of the second rule remains open.

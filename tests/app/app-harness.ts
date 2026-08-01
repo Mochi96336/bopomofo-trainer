@@ -75,7 +75,12 @@ export interface MountedApp {
   destroy(): void;
 }
 
-export function mountApp(options: { storage?: StorageLike } = {}): MountedApp {
+export interface MountOptions {
+  readonly storage?: StorageLike;
+  readonly onRoundMounted?: (stage: HTMLElement) => void;
+}
+
+export function mountApp(options: MountOptions = {}): MountedApp {
   installDialogSupport();
   document.body.innerHTML = SHELL_MARKUP;
   const storage = options.storage ?? createMemoryStorage();
@@ -91,6 +96,12 @@ export function mountApp(options: { storage?: StorageLike } = {}): MountedApp {
     // Fixed rather than random: selection is deterministic by seed, so a stable
     // seed is what makes a round assertable.
     newSeed: () => `test-seed-${(seed += 1)}`,
+    // Spread rather than passed as `undefined`: the project builds with
+    // `exactOptionalPropertyTypes`, where an absent property and one set to
+    // `undefined` are not the same thing.
+    ...options.onRoundMounted === undefined
+      ? {}
+      : { onRoundMounted: options.onRoundMounted },
   });
 
   const find = <T extends Element>(selector: string): T => {

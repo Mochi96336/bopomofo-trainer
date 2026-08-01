@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { LOCAL_SELECTION_TUNING_KEY } from "../../src/app/selection-tuning.js";
-import type { StorageLike } from "../../src/app/persistence-transaction.js";
+import {
+  LOCAL_PROGRESS_KEY,
+  type StorageLike,
+} from "../../src/app/persistence-transaction.js";
 import {
   createMemoryStorage,
   createUnwritableStorage,
@@ -79,6 +82,55 @@ describe("practice shell mounting", () => {
     }));
     expect(document.querySelector<HTMLDialogElement>("#information-dialog")?.open)
       .not.toBe(true);
+  });
+});
+
+describe("recovery notices", () => {
+  // Invalid stored progress is dropped at boot, and the notice explaining why
+  // retires on its own. The browser layer used to do this by matching notice
+  // text against its own copy of these sentences; the shell owns both now.
+  it("shows a recovery notice and retires it without help", () => {
+    vi.useFakeTimers();
+    try {
+      const app = mount(createMemoryStorage({
+        [LOCAL_PROGRESS_KEY]: JSON.stringify({ generation: "from-an-older-build" }),
+      }));
+      const region = app.find("#notice-region");
+      expect(region.textContent).toContain("已刪除");
+
+      vi.advanceTimersByTime(6000);
+      expect(region.textContent).not.toContain("已刪除");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // The storage warning is the counter-case: a lasting condition, so no timer
+  // retires it.
+  it("does not retire the storage warning on the same timer", () => {
+    vi.useFakeTimers();
+    try {
+      const app = mount(createUnwritableStorage());
+      vi.advanceTimersByTime(30_000);
+      expect(app.find("#notice-region").textContent).toContain("localStorage");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("round mounting callback", () => {
+  // What replaced the browser layer's MutationObserver on the practice stage.
+  it("reports every mounted round, including the first", () => {
+    const stages: HTMLElement[] = [];
+    document.body.innerHTML = "";
+    const app = mountApp({ onRoundMounted: (stage) => void stages.push(stage) });
+    mounted = app;
+    expect(stages).toHaveLength(1);
+    expect(stages[0]?.id).toBe("practice-stage");
+    // The entries must be in the document by the time it is told, or there is
+    // nothing to measure.
+    expect(stages[0]?.querySelectorAll(".practice-entry").length).toBeGreaterThan(0);
   });
 });
 
