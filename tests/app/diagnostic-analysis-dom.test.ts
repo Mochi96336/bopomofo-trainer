@@ -143,7 +143,9 @@ describe("diagnostic analysis panel", () => {
       '[data-action="key-sort"][data-value="timing"]',
     );
     expect(rebuilt).not.toBe(sort);
-    expect(rebuilt?.getAttribute("aria-pressed")).toBe("true");
+    // Sorting is a radio group: one alternative is in effect at a time, and
+    // choosing one releases the other.
+    expect(rebuilt?.getAttribute("aria-checked")).toBe("true");
     expect(document.activeElement).toBe(rebuilt);
   });
 
