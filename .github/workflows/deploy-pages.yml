@@ -13,14 +13,24 @@ permissions:
   pages: write
   id-token: write
 
+# One group for the site, not one per commit. Keying on the SHA put every commit
+# in a group of its own, where `cancel-in-progress` could only ever cancel a
+# repeat of the same commit -- so an older run that finished late still landed
+# last and became the live site. A fixed group is what makes the newest push win.
 concurrency:
-  group: pages-${{ github.event.workflow_run.head_sha || github.sha }}
+  group: pages
   cancel-in-progress: true
 
 jobs:
   deploy:
+    # A manual run used to be allowed unconditionally, and it checks out whatever
+    # ref was chosen at dispatch -- so any branch, checked or not, could be put
+    # live by hand. It is held to `main` here, which is the branch `check` gates.
     if: >-
-      github.event_name == 'workflow_dispatch'
+      (
+        github.event_name == 'workflow_dispatch'
+        && github.ref == 'refs/heads/main'
+      )
       || (
         github.event.workflow_run.conclusion == 'success'
         && github.event.workflow_run.event == 'push'

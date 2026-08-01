@@ -4,6 +4,9 @@
   "private": true,
   "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=22.13"
+  },
   "scripts": {
     "pretypecheck": "npm run app:catalog",
     "typecheck": "tsc --noEmit",
