@@ -82,6 +82,14 @@ import {
   type FocusIdentity,
 } from "./focus-preservation.js";
 import { escapeHtml } from "./html.js";
+import {
+  actionApplied,
+  actionFailed,
+  NO_ACTION_STATUS,
+  panelActionStatusMarkup,
+  rarityProgressText,
+  type PanelActionStatus,
+} from "./information-panel-model.js";
 import { createExpiringValue } from "./expiring-value.js";
 import { loadAppState } from "./load-app-state.js";
 import { renderTrendSection } from "./practice-sparkline.js";
@@ -170,9 +178,14 @@ let compositionActive = false;
 let imeWarning = false;
 let showKeyboardSketch = false;
 let inspectionAdvanceCount = 0;
-let tuningNotice = "";
-let rarityNotice = "";
-let dataNotice = "";
+// What just happened in a panel section, as opposed to what that section
+// lastingly says. Cleared when the panel closes: each belongs to the visit that
+// produced it, and none of them describes a condition that outlives it. The
+// storage warning is not among them -- it is a lasting condition and lives in
+// the global notice region.
+let tuningStatus: PanelActionStatus = NO_ACTION_STATUS;
+let rarityStatus: PanelActionStatus = NO_ACTION_STATUS;
+let dataStatus: PanelActionStatus = NO_ACTION_STATUS;
 
 // Declared with the rest of the module state rather than beside the functions
 // that use them: both read a hoisted render function, so keeping them here
@@ -346,7 +359,10 @@ function mountShell(): void {
     event.preventDefault();
     dialog.close();
   });
-  dialog.addEventListener("close", () => focusCapture(true));
+  dialog.addEventListener("close", () => {
+    clearPanelActionStatus();
+    focusCapture(true);
+  });
   dialog.addEventListener("click", (event) => {
     if (event.target !== dialog) return;
     const bounds = dialog.getBoundingClientRect();
@@ -625,20 +641,6 @@ function renderCommonnessStatus(): void {
 }
 
 /**
- * Progress towards the next locked level, as practised keys over the keys it
- * asks for. A count, not a sentence: the level names are already on the marks
- * below it, and the pair of numbers is what changes round to round.
- */
-function rarityHintText(): string {
-  const next = nextCommonnessUnlock(product.progress.measurements);
-  if (next === null) return "全部已解鎖";
-  // Under the review override the count is still the honest one; saying so keeps
-  // the open marks from reading as earned.
-  const count = `${next.practisedKeys}/${next.requiredKeys}`;
-  return inspectionUnlockAll ? `檢視用開放 · ${count}` : count;
-}
-
-/**
  * One round mark per level, numbered in the same order as the level reading on
  * the practice stage. A locked mark says what it is waiting for rather than only
  * that it is closed, and the last lit mark cannot be switched off because a pool
@@ -665,12 +667,21 @@ function renderRaritySection(): string {
     >${tier}</button>`;
   }).join("");
   // Label, marks and count share one line: four marks and a pair of numbers do
-  // not fill a row each, and reading them together is the whole point.
+  // not fill a row each, and reading them together is the whole point. The reply
+  // to a press sits under the count rather than over it, so changing a level
+  // never costs the learner the progress they changed it against.
+  const progress = rarityProgressText(
+    nextCommonnessUnlock(product.progress.measurements),
+    inspectionUnlockAll,
+  );
   return `<section class="panel-section rarity-section">
     <div class="panel-heading rarity-line">
       <h3>稀有度</h3>
       <div class="rarity-toggles" role="group" aria-label="稀有度">${toggles}</div>
-      <output id="rarity-hint" class="panel-notice" role="status">${escapeHtml(rarityNotice || rarityHintText())}</output>
+      <div class="rarity-readout">
+        <span class="rarity-progress">${escapeHtml(progress)}</span>
+        ${panelActionStatusMarkup("rarity-action-status", rarityStatus)}
+      </div>
     </div>
   </section>`;
 }
@@ -687,9 +698,9 @@ function bindRarityControls(content: HTMLElement): void {
       syncPractisedLevels(product.progress);
       try {
         saveSelectionTuning(localStorage, selectionTuning);
-        rarityNotice = "下一題生效";
+        rarityStatus = actionApplied("下一題生效");
       } catch {
-        rarityNotice = "已套用，但無法保存";
+        rarityStatus = actionFailed("本次已套用，但無法保存。");
       }
       renderInformationPanel();
     });
@@ -707,18 +718,22 @@ function restoreInformationFocus(content: HTMLElement, identity: FocusIdentity |
   candidates[0]?.focus({ preventScroll: true });
 }
 
-function updateTuningNotice(): void {
-  const notice = document.querySelector<HTMLElement>("#tuning-notice");
-  if (notice === null) return;
-  notice.textContent = tuningNotice;
-  notice.hidden = tuningNotice === "";
+/**
+ * Writes a status into a region that is already on the page. The element is
+ * never added or removed, so the text change is what gets announced and the
+ * controls above it do not move when a reply arrives.
+ */
+function updateActionStatus(id: string, status: PanelActionStatus): void {
+  const element = document.querySelector<HTMLElement>(`#${id}`);
+  if (element === null) return;
+  element.textContent = status.message;
+  element.classList.toggle("failed", status.tone === "danger");
 }
 
-function updateDataNotice(): void {
-  const notice = document.querySelector<HTMLElement>("#data-notice");
-  if (notice === null) return;
-  notice.textContent = dataNotice;
-  notice.hidden = dataNotice === "";
+function clearPanelActionStatus(): void {
+  tuningStatus = NO_ACTION_STATUS;
+  rarityStatus = NO_ACTION_STATUS;
+  dataStatus = NO_ACTION_STATUS;
 }
 
 function renderInformationPanel(): void {
@@ -760,7 +775,7 @@ function renderInformationPanel(): void {
     <section class="panel-section">
       <div class="panel-heading panel-heading-inline">
         <h3>選題權重</h3>
-        <span id="tuning-notice" class="panel-notice" role="status"${tuningNotice ? "" : " hidden"}>${escapeHtml(tuningNotice)}</span>
+        ${panelActionStatusMarkup("tuning-notice", tuningStatus)}
       </div>
       <div class="tuning-controls">
         <label class="tuning-row" for="error-influence">
@@ -786,7 +801,7 @@ function renderInformationPanel(): void {
           <input id="import-backup" class="visually-hidden" type="file" accept="application/json,.json" />
         </div>
       </div>
-      <p id="data-notice" class="panel-notice data-notice" role="status"${dataNotice ? "" : " hidden"}>${escapeHtml(dataNotice)}</p>
+      ${panelActionStatusMarkup("data-notice", dataStatus)}
     </section>
 
     <section class="panel-section about-section">
@@ -835,9 +850,9 @@ function openInformationPanel(): void {
     clearUnlockNotice();
     renderNotices();
   }
-  // The level notice takes the count's place while it shows, so a fresh open
-  // gets the count back rather than a stale "next sentence" line.
-  rarityNotice = "";
+  // Nothing to blank on the way in. The count has its own element, so a status
+  // never took its place, and closing the panel already retired the statuses
+  // from the last visit.
   renderInformationPanel();
   dialog.showModal();
   requireElement<HTMLButtonElement>(".dialog-close").focus({ preventScroll: true });
@@ -889,11 +904,11 @@ function bindInfluenceControl(
     environment = practiceEnvironment();
     try {
       saveSelectionTuning(localStorage, selectionTuning);
-      tuningNotice = "權重已更新，下一題生效。";
+      tuningStatus = actionApplied("下一題生效");
     } catch {
-      tuningNotice = "權重已套用，但無法保存。";
+      tuningStatus = actionFailed("本次已套用，但無法保存。");
     }
-    updateTuningNotice();
+    updateActionStatus("tuning-notice", tuningStatus);
   });
 }
 
@@ -902,8 +917,8 @@ function downloadProductBackup(): void {
     `bopomofo-backup-${new Date().toISOString().slice(0, 10)}.json`,
     createProductBackup(product.progress, pilotHistory, progressHistory, selectionTuning),
   );
-  dataNotice = "存檔已匯出。";
-  updateDataNotice();
+  dataStatus = actionApplied("已匯出存檔");
+  updateActionStatus("data-notice", dataStatus);
 }
 
 /** What importing replaces, in the order the panel presents it. */
@@ -961,8 +976,8 @@ async function importProductBackup(input: HTMLInputElement): Promise<void> {
     // the file input on every change, so the same file can be chosen again.
     if (outcome.kind === "no-file" || outcome.kind === "cancelled") return;
     if (outcome.kind === "unreadable") {
-      dataNotice = "無法讀取這份存檔。";
-      updateDataNotice();
+      dataStatus = actionFailed("無法讀取這份存檔。");
+      updateActionStatus("data-notice", dataStatus);
       return;
     }
     applyImportedBackup(outcome.backup);
@@ -990,7 +1005,7 @@ function applyImportedBackup(backup: ProductBackup): void {
     // Progress persistence below provides the visible storage warning.
   }
   persistProgress();
-  dataNotice = "存檔已匯入。";
+  dataStatus = actionApplied("已匯入存檔");
   capture.value = "";
   mountPracticeRound(true);
   updateTopbar();

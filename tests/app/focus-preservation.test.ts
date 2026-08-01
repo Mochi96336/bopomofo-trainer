@@ -35,12 +35,15 @@ describe("semantic focus preservation", () => {
     }, identity)).toBe(false);
   });
 
+  // Rebuilding the panel from a slider's own change handler would replace the
+  // slider mid-drag, so the status is written into the region already on the
+  // page instead.
   it("keeps range-change handling local instead of rebuilding the information panel", () => {
     const source = readFileSync("src/app/main.ts", "utf8");
     const start = source.indexOf("function bindInfluenceControl(");
     const end = source.indexOf("function downloadProductBackup", start);
     const binding = source.slice(start, end);
-    expect(binding).toContain("updateTuningNotice()");
+    expect(binding).toContain('updateActionStatus("tuning-notice"');
     expect(binding).not.toContain("renderInformationPanel()");
   });
 
