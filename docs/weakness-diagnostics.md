@@ -368,7 +368,7 @@ The previously implemented drawer-expansion preference is retained only until th
 
 These are real, currently true shortcuts, not planned features:
 
-- `main.ts` still carries a private copy of the keyboard row geometry for the practice sketch instead of rendering it from `src/app/keyboard-geometry.ts`, so the two keyboards can drift;
+- `create-app.ts` still carries a private copy of the keyboard row geometry for the practice sketch instead of rendering it from `src/app/keyboard-geometry.ts`, so the two keyboards can drift;
 - the analysis shell is mounted as a browser enhancement layer that rebuilds its model from the mirrored localStorage progress rather than composing directly from live product state;
 - the relationship overlay reads the rendered inspector rows out of the DOM instead of taking a selector result directly;
 - the repository has no browser test harness, so interaction and visual behaviour are verified by hand rather than in CI.

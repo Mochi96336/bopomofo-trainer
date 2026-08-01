@@ -18,6 +18,7 @@ import {
   renderDiagnosticSummary,
   type DiagnosticAnalysisController,
 } from "./diagnostic-panel.js";
+import type { DiagnosticPreferenceStorage } from "./diagnostic-preferences.js";
 import { mountDiagnosticRelationshipEnhancement } from "./diagnostic-relationship-enhancement.js";
 import {
   currentSelectionTuning,
@@ -61,24 +62,55 @@ function currentDiagnosticModel() {
   });
 }
 
+/**
+ * What this layer needs from the shell it enhances.
+ *
+ * Each of these replaces a `document.querySelector` for an element the shell
+ * owns. Reaching for them by id worked, but it made the enhancement depend on
+ * the shell's markup rather than on anything the shell had agreed to provide,
+ * and nothing would have reported the coupling breaking.
+ */
+export interface DiagnosticEnhancementDependencies {
+  /** Closes the information panel if it is open. */
+  readonly closePanel: () => void;
+  /** Returns focus to the practice surface. */
+  readonly focusPractice: () => void;
+  readonly storage: DiagnosticPreferenceStorage;
+}
+
+export interface DiagnosticEnhancement {
+  /**
+   * Called with the panel's content host every time the shell rebuilds it.
+   *
+   * This used to be inferred from a `MutationObserver` on that host, watching
+   * childList and subtree for any change and re-deriving the whole summary from
+   * it. Being told is the same signal without the guess, and without the
+   * microtask guard the guess needed to avoid answering its own writes.
+   */
+  panelRendered(content: HTMLElement): void;
+  destroy(): void;
+}
+
 function findLegacyWeakSection(content: HTMLElement): HTMLElement | null {
   return content.querySelector<HTMLElement>('section[data-legacy-weak-section="true"]');
 }
 
-function openAnalysisFromPractice(analysis: DiagnosticAnalysisController): void {
+function openAnalysisFromPractice(
+  analysis: DiagnosticAnalysisController,
+  deps: DiagnosticEnhancementDependencies,
+): void {
   // Analysis replaces the information panel instead of nesting under it. Close
   // the source dialog and anchor focus on practice before the analysis controller
   // captures its return target, so Escape and the close button return home.
-  const sourceDialog = document.querySelector<HTMLDialogElement>("#information-dialog");
-  if (sourceDialog?.open) sourceDialog.close();
-  document.querySelector<HTMLTextAreaElement>("#keyboard-capture")
-    ?.focus({ preventScroll: true });
+  deps.closePanel();
+  deps.focusPractice();
   analysis.open();
 }
 
-function mountAnalysisTopLayer(): () => void {
-  const analysis = document.querySelector<HTMLElement>("#diagnostic-analysis");
-  if (analysis === null) return () => undefined;
+function mountAnalysisTopLayer(
+  analysis: HTMLElement,
+  focusPractice: () => void,
+): () => void {
   const modal = document.createElement("dialog");
   modal.className = "diagnostic-analysis-modal";
   modal.setAttribute("aria-labelledby", "diagnostic-analysis-title");
@@ -92,13 +124,13 @@ function mountAnalysisTopLayer(): () => void {
     if (!analysis.hidden && !modal.open) modal.showModal();
     if (analysis.hidden && modal.open) modal.close();
   };
+  // Different in kind from the observer this module used to keep on the panel:
+  // that one inferred a re-render from any change to markup owned by someone
+  // else, while this watches one attribute on the element wrapped right here.
   const observer = new MutationObserver(sync);
   observer.observe(analysis, { attributes: true, attributeFilter: ["hidden"] });
   modal.addEventListener("cancel", (event) => event.preventDefault());
-  modal.addEventListener("close", () => {
-    document.querySelector<HTMLTextAreaElement>("#keyboard-capture")
-      ?.focus({ preventScroll: true });
-  });
+  modal.addEventListener("close", focusPractice);
   sync();
 
   return () => {
@@ -108,39 +140,30 @@ function mountAnalysisTopLayer(): () => void {
   };
 }
 
-export function mountDiagnosticEnhancement(): () => void {
-  const content = document.querySelector<HTMLElement>("#information-content");
-  if (content === null) return () => undefined;
+export function mountDiagnosticEnhancement(
+  deps: DiagnosticEnhancementDependencies,
+): DiagnosticEnhancement {
   const analysis = createDiagnosticAnalysis({
     getModel: currentDiagnosticModel,
-    storage: localStorage,
+    storage: deps.storage,
   });
-  const releaseTopLayer = mountAnalysisTopLayer();
+  const releaseTopLayer = mountAnalysisTopLayer(analysis.host, deps.focusPractice);
   const releaseRelationships = mountDiagnosticRelationshipEnhancement(currentDiagnosticModel);
-  let scheduled = false;
 
-  const enhance = (): void => {
-    scheduled = false;
-    const section = findLegacyWeakSection(content);
-    if (section === null) return;
-    renderDiagnosticSummary(
-      section,
-      currentDiagnosticModel(),
-      () => openAnalysisFromPractice(analysis),
-    );
-  };
-  const schedule = (): void => {
-    if (scheduled) return;
-    scheduled = true;
-    queueMicrotask(enhance);
-  };
-  const observer = new MutationObserver(schedule);
-  observer.observe(content, { childList: true, subtree: true });
-  schedule();
-  return () => {
-    observer.disconnect();
-    releaseRelationships();
-    releaseTopLayer();
-    analysis.destroy();
+  return {
+    panelRendered(content: HTMLElement): void {
+      const section = findLegacyWeakSection(content);
+      if (section === null) return;
+      renderDiagnosticSummary(
+        section,
+        currentDiagnosticModel(),
+        () => openAnalysisFromPractice(analysis, deps),
+      );
+    },
+    destroy(): void {
+      releaseRelationships();
+      releaseTopLayer();
+      analysis.destroy();
+    },
   };
 }

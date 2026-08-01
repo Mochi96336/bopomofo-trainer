@@ -74,9 +74,11 @@ describe("confirmation markup", () => {
     expect(confirmDialogMarkup(IMPORT)).not.toContain("confirm-note");
   });
 
+  // The other half -- that the element actually carries the matching
+  // `aria-labelledby` -- is asserted against a built dialog in
+  // `app-shell.test.ts`, where the attribute exists rather than being described.
   it("labels the dialog by the title it renders", () => {
     expect(confirmDialogMarkup(RESET)).toContain('id="confirm-dialog-title"');
-    expect(source).toContain('dialog.setAttribute("aria-labelledby", CONFIRM_TITLE_ID)');
   });
 
   it("escapes text rather than trusting it as markup", () => {
@@ -92,12 +94,20 @@ describe("confirmation markup", () => {
 });
 
 /*
- * The top layer is what makes a native dialog worth using and is also what
- * cannot be reproduced here: this project runs Vitest under Node with no DOM,
- * and a DOM shim would report a backdrop, focus containment and stacking it does
- * not actually implement -- tests that pass for the wrong reason. The two rules
- * that would be silently lost in a rewrite are pinned to the source instead, and
- * everything they stand in for is in the manual protocol.
+ * The top layer is what makes a native dialog worth using and is also what a
+ * shim cannot reproduce: a backdrop, inertness behind it, and focus containment
+ * are the platform's, and a shim that reported them would only produce tests
+ * that pass for the wrong reason. That reasoning is unchanged. What has changed
+ * is that the half of the Escape rule which is application code -- the capture
+ * listener that keeps the event away from the shell's own handler -- is now
+ * driven against a running shell in `app-shell.test.ts`, and that test was
+ * checked to go red when the interception is removed.
+ *
+ * What stays here is the rule that no behaviour can demonstrate: containment is
+ * delegated rather than hand-rolled. Absence of a focus trap is not observable
+ * by testing -- a correct trap and a delegated one behave identically under a
+ * shim that implements neither -- so it is pinned to the source, and the rest is
+ * in the manual protocol.
  */
 describe("confirmation containment", () => {
   it("leaves modal containment to the platform", () => {
@@ -106,15 +116,10 @@ describe("confirmation containment", () => {
     expect(code).not.toContain("inert");
   });
 
-  // Stopping propagation without preventing the default is the whole rule:
-  // the browser closes the top dialog, and the shell's document-level handler
-  // never sees the event, so the panel underneath stays open.
-  it("stops Escape from reaching the panel it is stacked over", () => {
+  // Preventing the default would keep the browser from closing the top dialog,
+  // which is the one part of the rule the platform performs.
+  it("stops propagation without cancelling the browser's own close", () => {
     const start = code.indexOf("const interceptEscape");
-    const intercept = code.slice(start, code.indexOf("};", start));
-
-    expect(intercept).toContain("event.stopImmediatePropagation()");
-    expect(intercept).not.toContain("preventDefault");
-    expect(code).toContain('window.addEventListener("keydown", interceptEscape, { capture: true })');
+    expect(code.slice(start, code.indexOf("};", start))).not.toContain("preventDefault");
   });
 });

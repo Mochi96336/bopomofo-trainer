@@ -24,25 +24,30 @@ describe("browser launch boundaries", () => {
     expect(binding).not.toContain("event.preventDefault()");
   });
 
-  it("loads global styles before the async product mount", () => {
-    const source = readFileSync("src/app/browser.ts", "utf8");
-    const styleImport = source.indexOf('import "./style.css"');
-    const mainImport = source.indexOf('await import("./main.js")');
-
-    expect(styleImport).toBeGreaterThanOrEqual(0);
-    expect(mainImport).toBeGreaterThan(styleImport);
-  });
-
-  it("installs recovery and the production boundary before main mounts", () => {
+  // These two do read the source, and unlike the checks that used to stand in
+  // for the shell's behaviour, that is the right thing to read: the invariant is
+  // the order of three top-level statements in one module, and top-level order
+  // has no separate runtime to observe it from. What made this assertable at all
+  // is that mounting is now a call -- `createApp` -- rather than the act of
+  // importing a module, so the order is written here instead of being a property
+  // of the import graph.
+  it("installs recovery and the production boundary before the app is built", () => {
     const source = readFileSync("src/app/browser.ts", "utf8");
     const boundary = source.indexOf("bindProductionInspectionBoundary(");
     const recovery = source.indexOf("recoverLocalPersistenceTransaction(localStorage)");
-    const mainImport = source.indexOf('await import("./main.js")');
+    const build = source.indexOf("createApp({");
 
-    expect(source).not.toContain('import "./main.js"');
     expect(boundary).toBeGreaterThanOrEqual(0);
     expect(recovery).toBeGreaterThan(boundary);
-    expect(mainImport).toBeGreaterThan(recovery);
+    expect(build).toBeGreaterThan(recovery);
+  });
+
+  it("loads global styles before it builds the app", () => {
+    const source = readFileSync("src/app/browser.ts", "utf8");
+    const styleImport = source.indexOf('import "./style.css"');
+
+    expect(styleImport).toBeGreaterThanOrEqual(0);
+    expect(source.indexOf("createApp({")).toBeGreaterThan(styleImport);
   });
 
   it("clears only the product backup file picker", () => {
