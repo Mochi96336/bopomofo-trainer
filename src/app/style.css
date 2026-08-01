@@ -790,10 +790,16 @@ button { touch-action: manipulation; }
   gap: 14px;
   margin-bottom: 0;
 }
-.rarity-line .panel-notice {
-  margin: 0;
+.rarity-readout {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+}
+.rarity-progress {
+  color: var(--ink-muted);
+  font-size: 9px;
   font-variant-numeric: tabular-nums;
-  text-align: right;
+  line-height: 1.5;
 }
 .rarity-toggles {
   display: flex;
@@ -838,22 +844,38 @@ button { touch-action: manipulation; }
   outline: 2px solid color-mix(in srgb, var(--accent) 38%, transparent);
   outline-offset: 2px;
 }
-.panel-note,
-.panel-notice {
+.panel-note {
   margin: 13px 0 0;
   color: var(--ink-muted);
   font-size: 9px;
   line-height: 1.5;
 }
-.panel-heading-inline .panel-notice {
+/*
+ * Reserves its line whether or not it has one to say, so the controls that
+ * produce a status never move when one arrives -- and so the region is already
+ * present when its text changes, which is what a live region needs in order to
+ * announce the change at all.
+ *
+ * Colour carries no meaning on its own here: a failure says so in words, and
+ * `--danger` only makes the sentence easier to find.
+ */
+.panel-action-status {
+  display: block;
+  min-height: 1.5em;
   margin: 0;
   color: var(--ink-muted);
+  font-size: 9px;
   font-weight: 500;
   letter-spacing: 0;
+  line-height: 1.5;
   text-align: right;
   text-transform: none;
 }
-.data-notice { margin: -6px 0 0; }
+.panel-action-status.failed { color: var(--danger); }
+#data-notice.panel-action-status {
+  margin-top: 8px;
+  text-align: left;
+}
 .data-actions {
   display: flex;
   align-items: center;
