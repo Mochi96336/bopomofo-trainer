@@ -136,9 +136,29 @@ export interface AppDependencies {
    * from a childList change; being told is the same signal without the guess.
    */
   readonly onRoundMounted?: (stage: HTMLElement) => void;
+  /**
+   * Called with the information panel's content host each time it is rebuilt.
+   *
+   * The diagnostics layer replaces one section of that panel with a richer
+   * summary, and has to do it again after every rebuild. It used to watch the
+   * host with a `MutationObserver` over childList and subtree, which meant
+   * inferring a re-render from any change -- including the ones it made itself,
+   * which is what the microtask guard on the other side was for.
+   */
+  readonly onPanelRendered?: (content: HTMLElement) => void;
 }
 
 export interface App {
+  /** Closes the information panel if it is open, and does nothing if not. */
+  closePanel(): void;
+  /**
+   * Puts focus back on the practice surface, wherever it currently is.
+   *
+   * Offered because a layer that opens a surface of its own has to anchor focus
+   * on practice before it does, so closing that surface returns home. Reaching
+   * into the document for the capture element is how that used to be done.
+   */
+  focusPractice(): void;
   /**
    * Removes the listeners and timers this instance owns, so a second instance
    * can be built over the same document without the first still answering.
@@ -157,7 +177,7 @@ export interface App {
  * many as it likes.
  */
 export function createApp(deps: AppDependencies): App {
-  const { root, capture, storage, newSeed, onRoundMounted } = deps;
+  const { root, capture, storage, newSeed, onRoundMounted, onPanelRendered } = deps;
 
   const catalogs = {
     practice: PRACTICE_CATALOG,
@@ -890,6 +910,10 @@ export function createApp(deps: AppDependencies): App {
     backupInput?.addEventListener("change", () => void importProductBackup(backupInput));
     content.querySelector<HTMLButtonElement>("#reset-progress")?.addEventListener("click", () => void resetProgress());
     restoreInformationFocus(content, focusIdentity);
+    // After the focus restore, which is where the observer's microtask used to
+    // land: the enhancement rewrites a section, and doing that before the
+    // restore would take the element being restored to out from under it.
+    onPanelRendered?.(content);
   }
 
   function openInformationPanel(): void {
@@ -1350,6 +1374,13 @@ export function createApp(deps: AppDependencies): App {
   focusCapture();
 
   return {
+    closePanel(): void {
+      const dialog = requireElement<HTMLDialogElement>("#information-dialog");
+      if (dialog.open) dialog.close();
+    },
+    focusPractice(): void {
+      focusCapture(true);
+    },
     destroy(): void {
       document.removeEventListener("keydown", handleGlobalKeydown, { capture: true });
       window.removeEventListener("focus", handleWindowFocus);

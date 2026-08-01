@@ -3,7 +3,7 @@ import {
   bindBackupFileInputReset,
   bindProductionInspectionBoundary,
 } from "./browser-boundaries.js";
-import { createApp } from "./create-app.js";
+import { createApp, type App } from "./create-app.js";
 import { mountDiagnosticEnhancement } from "./diagnostic-enhancement.js";
 import {
   recoverLocalPersistenceTransaction,
@@ -116,12 +116,25 @@ function connectPracticeCenter(stage: HTMLElement): void {
   centerResizeObserver.observe(center);
 }
 
-const app = createApp({
+// The enhancement needs handles the app only has once it exists, and the app
+// needs somewhere to report panel renders to. The indirection is one variable
+// wide: nothing calls through it until the panel is first rendered, which
+// cannot happen before `createApp` has returned.
+let app: App | null = null;
+
+const enhancement = mountDiagnosticEnhancement({
+  closePanel: () => app?.closePanel(),
+  focusPractice: () => app?.focusPractice(),
+  storage: localStorage,
+});
+
+app = createApp({
   root: requireElement<HTMLDivElement>("#app"),
   capture: requireElement<HTMLTextAreaElement>("#keyboard-capture"),
   storage: localStorage,
   newSeed,
   onRoundMounted: connectPracticeCenter,
+  onPanelRendered: (content) => enhancement.panelRendered(content),
 });
 
 // Fonts change the measurements the line plan was built from, so the first
@@ -131,13 +144,12 @@ void document.fonts.ready.then(() => {
   if (stage !== null) layoutPracticeRunway(stage);
 });
 
-const unmountDiagnostics = mountDiagnosticEnhancement();
 const unmountBackupInputReset = bindBackupFileInputReset(document);
 
 window.addEventListener("beforeunload", () => {
-  app.destroy();
+  app?.destroy();
   centerResizeObserver?.disconnect();
-  unmountDiagnostics();
+  enhancement.destroy();
   unmountBackupInputReset();
   unmountInspectionBoundary();
   if (layoutFrame !== null) window.cancelAnimationFrame(layoutFrame);

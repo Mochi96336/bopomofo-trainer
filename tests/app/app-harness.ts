@@ -1,4 +1,5 @@
 import { createApp, type App } from "../../src/app/create-app.js";
+import { mountDiagnosticEnhancement } from "../../src/app/diagnostic-enhancement.js";
 import type { StorageLike } from "../../src/app/persistence-transaction.js";
 
 /**
@@ -14,19 +15,6 @@ const SHELL_MARKUP = `
   <textarea id="keyboard-capture" class="keyboard-capture"></textarea>
   <div id="app"></div>`;
 
-/**
- * jsdom 30 reflects a dialog's `open` attribute but ships none of its methods,
- * so the shell's panel cannot be opened without this.
- *
- * What is reproduced is the bookkeeping a dialog does and the application can
- * observe: open state, the return value a submit button writes, and the `close`
- * event. What is deliberately NOT reproduced is everything that makes a modal
- * modal -- the top layer, the backdrop, inertness of the content behind it, and
- * focus containment. Those are the platform's, a shim can only pretend to have
- * them, and a test that asserted them here would pass for the wrong reason. Any
- * rule about them stays pinned to the source or to the manual protocol; see the
- * containment block in `confirm-dialog.test.ts`.
- */
 /**
  * jsdom ships no `matchMedia`, and code that asks it whether motion should be
  * reduced throws rather than getting an answer. The stub reports "no preference
@@ -47,6 +35,19 @@ export function installMatchMedia(matches = false): void {
   });
 }
 
+/**
+ * jsdom 30 reflects a dialog's `open` attribute but ships none of its methods,
+ * so the shell's panel cannot be opened without this.
+ *
+ * What is reproduced is the bookkeeping a dialog does and the application can
+ * observe: open state, the return value a submit button writes, and the `close`
+ * event. What is deliberately NOT reproduced is everything that makes a modal
+ * modal -- the top layer, the backdrop, inertness of the content behind it, and
+ * focus containment. Those are the platform's, a shim can only pretend to have
+ * them, and a test that asserted them here would pass for the wrong reason. Any
+ * rule about them stays pinned to the source or to the manual protocol; see the
+ * containment block in `confirm-dialog.test.ts`.
+ */
 let dialogSupportInstalled = false;
 
 function installDialogSupport(): void {
@@ -134,6 +135,14 @@ export interface MountedApp {
 export interface MountOptions {
   readonly storage?: StorageLike;
   readonly onRoundMounted?: (stage: HTMLElement) => void;
+  /**
+   * Composes the diagnostics layer over the shell exactly as `browser.ts` does.
+   *
+   * The two only meet through the handles they exchange, so wiring them the
+   * same way here is what makes that meeting assertable rather than something
+   * only the real page performs.
+   */
+  readonly diagnostics?: boolean;
 }
 
 export function mountApp(options: MountOptions = {}): MountedApp {
@@ -146,7 +155,16 @@ export function mountApp(options: MountOptions = {}): MountedApp {
   if (root === null || capture === null) throw new Error("test shell did not mount");
 
   let seed = 0;
-  const app = createApp({
+  let app: App | null = null;
+  const enhancement = options.diagnostics === true
+    ? mountDiagnosticEnhancement({
+      closePanel: () => app?.closePanel(),
+      focusPractice: () => app?.focusPractice(),
+      storage: createMemoryStorage(),
+    })
+    : null;
+
+  app = createApp({
     root,
     capture,
     storage,
@@ -159,7 +177,11 @@ export function mountApp(options: MountOptions = {}): MountedApp {
     ...options.onRoundMounted === undefined
       ? {}
       : { onRoundMounted: options.onRoundMounted },
+    ...enhancement === null
+      ? {}
+      : { onPanelRendered: (content: HTMLElement) => enhancement.panelRendered(content) },
   });
+  const mountedApp = app;
 
   const find = <T extends Element>(selector: string): T => {
     const element = document.querySelector<T>(selector);
@@ -168,7 +190,7 @@ export function mountApp(options: MountOptions = {}): MountedApp {
   };
 
   return {
-    app,
+    app: mountedApp,
     root,
     capture,
     storage,
@@ -192,7 +214,8 @@ export function mountApp(options: MountOptions = {}): MountedApp {
       await Promise.resolve();
     },
     destroy(): void {
-      app.destroy();
+      enhancement?.destroy();
+      mountedApp.destroy();
       document.body.innerHTML = "";
     },
   };

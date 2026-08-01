@@ -385,6 +385,70 @@ describe("clearing local progress", () => {
   });
 });
 
+describe("opening analysis from the panel", () => {
+  function mountWithDiagnostics(): MountedApp {
+    mounted = mountApp({ diagnostics: true });
+    return mounted;
+  }
+
+  // The diagnostics layer reaches the shell only through the handles the two
+  // exchange, so this is the composition `browser.ts` performs, driven.
+  it("replaces the weak-keys section with the richer summary", () => {
+    const app = mountWithDiagnostics();
+    app.openPanel();
+    // The enhancement claims the section by rewriting it and dropping the marker
+    // the shell left for it, so the marker's absence is the evidence it ran.
+    expect(document.querySelector('[data-legacy-weak-section="true"]')).toBeNull();
+    const section = app.find<HTMLElement>(".diagnostic-summary-section");
+    expect(section.textContent).toContain("弱點診斷");
+    expect(section.querySelector(".diagnostic-open-analysis")).not.toBeNull();
+  });
+
+  /**
+   * Analysis replaces the information panel rather than nesting under it, so
+   * the panel has to be closed and focus anchored on practice before the
+   * analysis controller captures where to return to. Getting that order wrong
+   * leaves the return target pointing at a control inside a panel that is no
+   * longer open.
+   */
+  it("closes the panel and anchors focus on practice before opening", () => {
+    const app = mountWithDiagnostics();
+    app.openPanel();
+    expect(app.dialog.open).toBe(true);
+
+    app.find<HTMLButtonElement>(".diagnostic-open-analysis").click();
+
+    expect(app.dialog.open).toBe(false);
+    expect(app.find<HTMLElement>("#diagnostic-analysis").hidden).toBe(false);
+    expect(document.activeElement).toBe(app.capture);
+  });
+
+  /**
+   * The consequence of the order, and what makes the check above more than a
+   * restatement of it. The analysis remembers where it was opened from and
+   * hands control back there: opened from practice it returns to practice, but
+   * had it been opened while the panel was still up it would have recorded the
+   * panel instead and put it back on screen on the way out.
+   */
+  it("returns to practice on close rather than reopening the panel", () => {
+    vi.useFakeTimers();
+    try {
+      const app = mountWithDiagnostics();
+      app.openPanel();
+      app.find<HTMLButtonElement>(".diagnostic-open-analysis").click();
+
+      app.find<HTMLButtonElement>('#diagnostic-analysis [data-action="close-analysis"]').click();
+      vi.advanceTimersByTime(1000);
+
+      expect(app.dialog.open).toBe(false);
+      expect(app.find<HTMLElement>("#diagnostic-analysis").hidden).toBe(true);
+      expect(document.activeElement).toBe(app.capture);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("selection tuning controls", () => {
   // Rebuilding the panel from the slider's own handler would replace the slider
   // mid-drag, so the status is written into the region already on the page.

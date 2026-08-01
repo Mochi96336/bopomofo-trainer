@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   focusIdentityFor,
@@ -46,19 +45,8 @@ describe("semantic focus preservation", () => {
   // exactly when the identity is not carried across -- which was verified by
   // removing the restore and watching focus fall to the body.
 
-  it("closes the information panel and anchors focus before opening analysis", () => {
-    const source = readFileSync("src/app/diagnostic-enhancement.ts", "utf8");
-    const start = source.indexOf("function openAnalysisFromPractice(");
-    const end = source.indexOf("function mountAnalysisTopLayer", start);
-    const opening = source.slice(start, end);
-    const close = opening.indexOf("sourceDialog.close()");
-    const focus = opening.indexOf("#keyboard-capture");
-    const open = opening.indexOf("analysis.open()");
-
-    expect(opening).toContain("sourceDialog?.open");
-    expect(close).toBeGreaterThanOrEqual(0);
-    expect(focus).toBeGreaterThan(close);
-    expect(open).toBeGreaterThan(focus);
-    expect(opening).toContain("return home");
-  });
+  // Closing the panel and anchoring focus before analysis opens is asserted
+  // against the composed shell in `app-shell.test.ts`, which mounts the
+  // diagnostics layer over the app the way `browser.ts` does and presses the
+  // control a learner presses.
 });

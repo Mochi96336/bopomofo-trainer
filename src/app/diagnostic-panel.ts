@@ -92,6 +92,11 @@ function animateKeyboardRise(board: HTMLElement): void {
 }
 
 export interface DiagnosticAnalysisController {
+  /**
+   * The element this controller created and owns. Handed over so a caller that
+   * needs to wrap or observe it does not have to find it again by id.
+   */
+  readonly host: HTMLElement;
   open(initialTab?: DiagnosticTab): void;
   close(): void;
   destroy(): void;
@@ -491,6 +496,7 @@ export function createDiagnosticAnalysis(
   window.addEventListener("keydown", interceptEscape, { capture: true });
 
   return {
+    host,
     open,
     close,
     destroy(): void {
