@@ -21,22 +21,7 @@ describe("practice keyboard accessibility", () => {
     expect(html).toContain('aria-describedby="practice-input-instructions practice-current-target"');
   });
 
-  it("returns from Tab before dialog handling, input conversion, and preventDefault", () => {
-    const source = readFileSync("src/app/main.ts", "utf8");
-    const handler = source.slice(
-      source.indexOf('capture.addEventListener("keydown"'),
-      source.indexOf('document.addEventListener("keydown"'),
-    );
-    const tabGuard = handler.indexOf('if (event.key === "Tab") return;');
-    expect(tabGuard).toBeGreaterThan(-1);
-    expect(tabGuard).toBeLessThan(handler.indexOf("#information-dialog"));
-    expect(tabGuard).toBeLessThan(handler.indexOf("keyboardEventToInput"));
-    expect(handler).not.toContain('event.code === "Tab"');
-  });
-
-  it("does not use an unconditional window-focus capture handler", () => {
-    const source = readFileSync("src/app/main.ts", "utf8");
-    expect(source).not.toContain('window.addEventListener("focus", focusCapture)');
-    expect(source).toContain('window.addEventListener("focus", () => focusCapture())');
-  });
+  // Tab handling and the window-focus handler are asserted against a running
+  // shell in `app-shell.test.ts`, which can watch what they do rather than
+  // check that the source still reads a particular way.
 });

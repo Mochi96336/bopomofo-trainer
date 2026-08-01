@@ -35,17 +35,9 @@ describe("semantic focus preservation", () => {
     }, identity)).toBe(false);
   });
 
-  // Rebuilding the panel from a slider's own change handler would replace the
-  // slider mid-drag, so the status is written into the region already on the
-  // page instead.
-  it("keeps range-change handling local instead of rebuilding the information panel", () => {
-    const source = readFileSync("src/app/main.ts", "utf8");
-    const start = source.indexOf("function bindInfluenceControl(");
-    const end = source.indexOf("function downloadProductBackup", start);
-    const binding = source.slice(start, end);
-    expect(binding).toContain('updateActionStatus("tuning-notice"');
-    expect(binding).not.toContain("renderInformationPanel()");
-  });
+  // The slider's own change handler must not replace the slider mid-drag. That
+  // is asserted against a running shell in `app-shell.test.ts`, where the
+  // surviving element and the focus it holds are both observable.
 
   it("captures and restores semantic focus around diagnostic renders", () => {
     const source = readFileSync("src/app/diagnostic-panel.ts", "utf8");

@@ -34,7 +34,7 @@ Short repeatable guided-mode sessions recording task completion, wrong-key recov
 
 **First session run 2026-07-31, by the developer.** No blocking friction was reported: the default flow was completed without intervention, and none of the manual protocol steps produced a failure the operator noticed.
 
-Instrumented checks alongside that session covered what a person reading the screen cannot verify. The page loads with no runtime console error — worth checking directly, because no test imports `src/app/main.ts` and a failure there would not show up in a green suite. The next utterance was reproduced identically across two reloads, and `Escape` opened and closed the information panel with focus returning to the capture target.
+Instrumented checks alongside that session covered what a person reading the screen cannot verify. The page loads with no runtime console error — worth checking directly, because at the time no test could import the shell at all and a failure there would not show up in a green suite. (That gap is closed: the shell is now built by `createApp` in `src/app/create-app.ts` and is driven directly in `tests/app/app-shell.test.ts`.) The next utterance was reproduced identically across two reloads, and `Escape` opened and closed the information panel with focus returning to the capture target.
 
 Those checks also found one defect the manual pass did not: at a 320px viewport that scrolls vertically, only 305px of content width remains, so the 320px floor on `html` and `body` produced 15px of horizontal scrolling against interface rule 12. The floor is now 300px, which is what the layout actually needs.
 

@@ -59,57 +59,10 @@ describe("rarity progress", () => {
   });
 });
 
-const main = readFileSync("src/app/main.ts", "utf8");
-const code = main
-  .replace(/\/\*[\s\S]*?\*\//g, "")
-  .replace(/^[ \t]*\/\/.*$/gm, "");
-const rarityLine = code.slice(
-  code.indexOf('<div class="panel-heading rarity-line">'),
-  code.indexOf("</section>`;", code.indexOf("rarity-line")),
-);
-
-describe("panel progress and status are separate places", () => {
-  // The defect this replaces: `rarityNotice || rarityHintText()` put a reply to
-  // a press where the unlock count lived, so changing a level cost the learner
-  // the progress they changed it against.
-  it("renders the unlock count and the action status as two elements", () => {
-    expect(rarityLine).toContain('class="rarity-progress"');
-    expect(rarityLine).toContain('panelActionStatusMarkup("rarity-action-status"');
-    expect(code).not.toContain("rarityNotice");
-  });
-
-  it("no longer blanks a status on the way in to restore the count", () => {
-    const open = code.slice(code.indexOf("function openInformationPanel"));
-    expect(open.slice(0, open.indexOf("}"))).not.toMatch(/rarity\w* = /);
-  });
-
-  // Every section reports through the same region, and none of them is the
-  // storage warning: that describes a lasting condition and stays in the global
-  // notice region, where no panel visit retires it.
-  it("keeps the panel statuses apart from the storage warning", () => {
-    expect(code).toContain('panelActionStatusMarkup("tuning-notice"');
-    expect(code).toContain('panelActionStatusMarkup("data-notice"');
-    const clear = code.slice(code.indexOf("function clearPanelActionStatus"));
-    expect(clear.slice(0, clear.indexOf("\n}"))).not.toContain("storageWarning");
-  });
-
-  it("retires the statuses with the visit that produced them", () => {
-    expect(code).toContain("clearPanelActionStatus();");
-    expect(code).toMatch(/dialog\.addEventListener\("close"[\s\S]{0,120}clearPanelActionStatus/);
-  });
-
-  // Unchanged, and worth holding still: dragging a slider must not write to
-  // storage on every intermediate value.
-  it("still applies and saves tuning on change, not on input", () => {
-    const bind = code.slice(code.indexOf("function bindInfluenceControl"));
-    const onInput = bind.slice(bind.indexOf('addEventListener("input"'), bind.indexOf('addEventListener("change"'));
-    expect(onInput).not.toContain("saveSelectionTuning");
-    expect(onInput).toContain("syncRangeFill");
-    const onChange = bind.slice(bind.indexOf('addEventListener("change"'));
-    expect(onChange).toContain("saveSelectionTuning");
-    expect(onChange).toContain('updateActionStatus("tuning-notice"');
-  });
-});
+// Where the unlock count and the action status end up, whether a status
+// survives the visit that produced it, and whether the storage warning stands
+// apart from both, are all asserted against a running shell in
+// `app-shell.test.ts`.
 
 const css = readFileSync("src/app/style.css", "utf8");
 
