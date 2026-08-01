@@ -33,18 +33,26 @@ afterEach(() => {
   mounted = null;
 });
 
-/** Counts writes per key, so "saved on change, not on input" is observable. */
-function createRecordingStorage(): StorageLike & { readonly writes: string[] } {
+/** Records traffic per key, so what was saved and cleared is observable. */
+function createRecordingStorage(): StorageLike & {
+  readonly writes: string[];
+  readonly removals: string[];
+} {
   const backing = createMemoryStorage();
   const writes: string[] = [];
+  const removals: string[] = [];
   return {
     writes,
+    removals,
     getItem: (key) => backing.getItem(key),
     setItem: (key, value) => {
       writes.push(key);
       backing.setItem(key, value);
     },
-    removeItem: (key) => backing.removeItem(key),
+    removeItem: (key) => {
+      removals.push(key);
+      backing.removeItem(key);
+    },
   };
 }
 
@@ -264,6 +272,116 @@ describe("information panel status regions", () => {
 
     app.dialog.close();
     expect(app.find("#notice-region").textContent).toContain("localStorage");
+  });
+});
+
+describe("clearing local progress", () => {
+  /**
+   * Types exactly one sentence correctly, so there is progress worth losing.
+   *
+   * The keyboard hint is turned on because the key each token wants is marked
+   * there; completion is read off the topbar, which starts reporting a previous
+   * sentence the moment one is finished.
+   */
+  function practiseOneRound(app: MountedApp): void {
+    app.openPanel();
+    app.find<HTMLInputElement>("#toggle-keyboard-sketch").click();
+    app.dialog.close();
+    for (let guard = 0; guard < 200; guard += 1) {
+      if (app.find("#round-status").textContent?.includes("上一句") === true) return;
+      const code = document.querySelector<HTMLElement>(".keyboard-sketch-key.current")
+        ?.dataset.code;
+      if (code === undefined) break;
+      pressKey(app.capture, { code });
+    }
+    throw new Error("no round completed");
+  }
+
+  it("asks before clearing, and names what goes", () => {
+    const app = mount();
+    app.openPanel();
+    app.find<HTMLButtonElement>("#reset-progress").click();
+
+    const confirm = app.confirmDialog;
+    expect(confirm.open).toBe(true);
+    expect(confirm.getAttribute("aria-labelledby")).toBe("confirm-dialog-title");
+    expect(confirm.querySelector("#confirm-dialog-title")?.textContent)
+      .toBe("清除所有本機進度？");
+    expect(confirm.textContent).toContain("清除所有本機進度？");
+    expect(confirm.textContent).toContain("練習進度");
+    // The one reassurance worth the line.
+    expect(confirm.textContent).toContain("已下載的存檔檔案不受影響。");
+  });
+
+  it("keeps the progress when the learner declines", async () => {
+    const app = mount();
+    practiseOneRound(app);
+    const rounds = app.find("#round-status").textContent;
+
+    app.openPanel();
+    app.find<HTMLButtonElement>("#reset-progress").click();
+    await app.answerConfirm("cancel");
+
+    expect(app.confirmDialog.open).toBe(false);
+    // Still open, because declining is not an outcome worth closing the panel for.
+    expect(app.dialog.open).toBe(true);
+    expect(app.find("#round-status").textContent).toBe(rounds);
+  });
+
+  it("clears the progress and the stored records when the learner accepts", async () => {
+    const storage = createRecordingStorage();
+    const app = mount(storage);
+    practiseOneRound(app);
+    expect(storage.getItem(LOCAL_PROGRESS_KEY)).not.toBeNull();
+
+    app.openPanel();
+    app.find<HTMLButtonElement>("#reset-progress").click();
+    await app.answerConfirm("accept");
+
+    // Back to a first run: round one, and the panel closed behind the action.
+    expect(app.dialog.open).toBe(false);
+    expect(app.find("#round-status").textContent).toContain("1");
+    expect(app.find("#progress-count").textContent).toMatch(/^0 \//);
+    expect(storage.removals).toContain(LOCAL_PROGRESS_KEY);
+  });
+
+  /**
+   * Escape belongs to the topmost surface and no other. Closing the top dialog
+   * is the platform's job and is not reproduced here; what is asserted is the
+   * half that is application code -- the confirmation's window-level capture
+   * listener stops the event before the shell's document-level handler can take
+   * the information panel down with it.
+   */
+  it("keeps Escape from reaching the panel the confirmation stacks over", () => {
+    const app = mount();
+    app.openPanel();
+    app.find<HTMLButtonElement>("#reset-progress").click();
+    expect(app.confirmDialog.open).toBe(true);
+
+    app.find<HTMLButtonElement>("#confirm-dialog .confirm-cancel").dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "Escape",
+        code: "Escape",
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+
+    expect(app.dialog.open).toBe(true);
+  });
+
+  // The confirmation is the only thing standing between a click and the
+  // learner's history, so a refusal to answer must not be read as an answer.
+  it("does not clear anything while the confirmation is unanswered", () => {
+    const storage = createRecordingStorage();
+    const app = mount(storage);
+    practiseOneRound(app);
+
+    app.openPanel();
+    app.find<HTMLButtonElement>("#reset-progress").click();
+
+    expect(storage.removals).not.toContain(LOCAL_PROGRESS_KEY);
+    expect(app.find("#progress-count").textContent).not.toMatch(/^0 \/ 0$/);
   });
 });
 

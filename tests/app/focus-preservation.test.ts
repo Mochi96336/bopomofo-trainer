@@ -39,15 +39,12 @@ describe("semantic focus preservation", () => {
   // is asserted against a running shell in `app-shell.test.ts`, where the
   // surviving element and the focus it holds are both observable.
 
-  it("captures and restores semantic focus around diagnostic renders", () => {
-    const source = readFileSync("src/app/diagnostic-panel.ts", "utf8");
-    const start = source.indexOf("const render = (): void =>");
-    const end = source.indexOf("const finishClose", start);
-    const render = source.slice(start, end);
-    expect(render).toContain("captureFocusIdentity(host)");
-    expect(render.indexOf("captureFocusIdentity(host)")).toBeLessThan(render.indexOf("host.innerHTML"));
-    expect(render).toContain("restoreFocusIdentity(host, focusIdentity");
-  });
+  // Capture and restore around an analysis render is asserted against a built
+  // panel in `diagnostic-analysis-dom.test.ts`: a sort control is pressed, the
+  // markup it lives in is rebuilt under it, and focus is expected on the
+  // replacement. Nothing focuses that control afterwards, so the check fails
+  // exactly when the identity is not carried across -- which was verified by
+  // removing the restore and watching focus fall to the body.
 
   it("closes the information panel and anchors focus before opening analysis", () => {
     const source = readFileSync("src/app/diagnostic-enhancement.ts", "utf8");

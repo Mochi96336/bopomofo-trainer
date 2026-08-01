@@ -16,14 +16,44 @@ const SHELL_MARKUP = `
 
 /**
  * jsdom 30 reflects a dialog's `open` attribute but ships none of its methods,
- * so the shell's panel cannot be opened without this. Only the observable
- * contract is reproduced -- open state, a return value, and the `close` event
- * the shell listens on -- not the top layer or the backdrop, neither of which
- * anything here asserts.
+ * so the shell's panel cannot be opened without this.
+ *
+ * What is reproduced is the bookkeeping a dialog does and the application can
+ * observe: open state, the return value a submit button writes, and the `close`
+ * event. What is deliberately NOT reproduced is everything that makes a modal
+ * modal -- the top layer, the backdrop, inertness of the content behind it, and
+ * focus containment. Those are the platform's, a shim can only pretend to have
+ * them, and a test that asserted them here would pass for the wrong reason. Any
+ * rule about them stays pinned to the source or to the manual protocol; see the
+ * containment block in `confirm-dialog.test.ts`.
  */
+/**
+ * jsdom ships no `matchMedia`, and code that asks it whether motion should be
+ * reduced throws rather than getting an answer. The stub reports "no preference
+ * expressed", which is the same answer a default browser gives, so animated
+ * paths run here exactly as they do for most learners.
+ */
+export function installMatchMedia(matches = false): void {
+  if (typeof window.matchMedia === "function") return;
+  window.matchMedia = (query: string): MediaQueryList => ({
+    matches,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  });
+}
+
+let dialogSupportInstalled = false;
+
 function installDialogSupport(): void {
+  if (dialogSupportInstalled) return;
+  dialogSupportInstalled = true;
+
   const proto = window.HTMLDialogElement.prototype;
-  if (typeof proto.showModal === "function") return;
   Object.defineProperty(proto, "returnValue", {
     value: "",
     writable: true,
@@ -35,11 +65,28 @@ function installDialogSupport(): void {
   proto.show = open;
   proto.showModal = open;
   proto.close = function (this: HTMLDialogElement, returnValue?: string): void {
-    if (returnValue !== undefined) this.returnValue = returnValue;
     if (!this.open) return;
+    if (returnValue !== undefined) this.returnValue = returnValue;
     this.open = false;
     this.dispatchEvent(new Event("close"));
   };
+
+  // A submit button in `<form method="dialog">` closes the dialog with its own
+  // value as the return value. That is how both confirmations deliver their
+  // answer, and it is application-visible bookkeeping rather than modality, so
+  // reproducing it does not fake anything the platform alone provides. Buttons
+  // that opt out with `type="button"` -- the panel's own close control -- submit
+  // nothing, exactly as in a browser.
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof window.HTMLButtonElement) || target.type !== "submit") return;
+    const form = target.closest("form");
+    if (form?.getAttribute("method") !== "dialog") return;
+    // A dialog form never navigates, so the submission jsdom would otherwise
+    // attempt -- and log as unimplemented -- is not a thing a browser does here.
+    event.preventDefault();
+    form.closest("dialog")?.close(target.value);
+  });
 }
 
 export function createMemoryStorage(seed: Record<string, string> = {}): StorageLike {
@@ -71,7 +118,16 @@ export interface MountedApp {
   /** Fails loudly rather than returning null: every caller needs the element. */
   find<T extends Element>(selector: string): T;
   readonly dialog: HTMLDialogElement;
+  /** The stacked confirmation, present from the moment an action asks. */
+  readonly confirmDialog: HTMLDialogElement;
   openPanel(): void;
+  /**
+   * Answers the open confirmation and settles the action it was blocking.
+   *
+   * The answer travels back through a promise, so the caller has to be awaited
+   * before the effect of accepting is on the page.
+   */
+  answerConfirm(choice: "accept" | "cancel"): Promise<void>;
   destroy(): void;
 }
 
@@ -82,6 +138,7 @@ export interface MountOptions {
 
 export function mountApp(options: MountOptions = {}): MountedApp {
   installDialogSupport();
+  installMatchMedia();
   document.body.innerHTML = SHELL_MARKUP;
   const storage = options.storage ?? createMemoryStorage();
   const root = document.querySelector<HTMLElement>("#app");
@@ -119,8 +176,20 @@ export function mountApp(options: MountOptions = {}): MountedApp {
     get dialog(): HTMLDialogElement {
       return find<HTMLDialogElement>("#information-dialog");
     },
+    get confirmDialog(): HTMLDialogElement {
+      return find<HTMLDialogElement>("#confirm-dialog");
+    },
     openPanel(): void {
       find<HTMLButtonElement>("#open-information").click();
+    },
+    async answerConfirm(choice: "accept" | "cancel"): Promise<void> {
+      const dialog = find<HTMLDialogElement>("#confirm-dialog");
+      if (!dialog.open) throw new Error("no confirmation is open to answer");
+      find<HTMLButtonElement>(`#confirm-dialog .confirm-${choice}`).click();
+      // Two turns: one for the `confirm` promise to resolve, one for the action
+      // that was awaiting it to run to completion.
+      await Promise.resolve();
+      await Promise.resolve();
     },
     destroy(): void {
       app.destroy();
