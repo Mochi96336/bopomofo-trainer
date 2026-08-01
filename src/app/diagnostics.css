@@ -443,7 +443,7 @@ button.diagnostic-keyboard-key:focus-visible {
   border-right: 0;
 }
 
-.diagnostic-segments button[aria-pressed="true"] {
+.diagnostic-segments button[aria-checked="true"] {
   background: var(--ink);
   color: var(--panel);
 }
