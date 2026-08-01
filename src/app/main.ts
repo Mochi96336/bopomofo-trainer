@@ -19,7 +19,12 @@ import type { TokenId } from "../core/model.js";
 import { physicalKeyLabel, tokenLabel } from "../diagnostics/labels.js";
 import { createProductBackup, parseProductBackup, type ProductBackup } from "./backup.js";
 import { runBackupImport } from "./backup-import.js";
+import { backupSummaryLabel, summariseBackup } from "./backup-summary.js";
 import { clearLocalRecords } from "./clear-local-records.js";
+import {
+  createConfirmDialog,
+  type ConfirmDialogOptions,
+} from "./confirm-dialog.js";
 import {
   appendPilotRoundRecord,
   createPilotRoundRecord,
@@ -174,6 +179,10 @@ let dataNotice = "";
 // removes any ordering hazard if a top-level call is ever added above.
 const unlockNotice = createExpiringValue<string>(window, () => renderNotices());
 const previousResult = createExpiringValue<PilotRoundRecord>(window, () => updateTopbar());
+// Outside `#app`, so replacing the shell's markup cannot take the dialog with
+// it, and alongside the analysis host rather than inside the panel it stacks
+// over.
+const confirmDialog = createConfirmDialog(document.body);
 
 /**
  * Recomputes which levels are unlocked and which are practised, rebuilding the
@@ -294,7 +303,8 @@ function accuracyLabel(attempts: number, errors: number): string {
 
 function focusCapture(force = false): void {
   const dialog = document.querySelector<HTMLDialogElement>("#information-dialog");
-  if (dialog?.open || imeWarning) return;
+  const confirming = document.querySelector<HTMLDialogElement>("#confirm-dialog")?.open === true;
+  if (dialog?.open || confirming || imeWarning) return;
   const active = document.activeElement;
   if (!force && active !== null && active !== document.body && active !== capture) return;
   capture.focus({ preventScroll: true });
@@ -813,7 +823,7 @@ function renderInformationPanel(): void {
   const backupInput = content.querySelector<HTMLInputElement>("#import-backup");
   content.querySelector<HTMLButtonElement>("#choose-backup")?.addEventListener("click", () => backupInput?.click());
   backupInput?.addEventListener("change", () => void importProductBackup(backupInput));
-  content.querySelector<HTMLButtonElement>("#reset-progress")?.addEventListener("click", resetProgress);
+  content.querySelector<HTMLButtonElement>("#reset-progress")?.addEventListener("click", () => void resetProgress());
   restoreInformationFocus(content, focusIdentity);
 }
 
@@ -896,33 +906,69 @@ function downloadProductBackup(): void {
   updateDataNotice();
 }
 
-async function importProductBackup(input: HTMLInputElement): Promise<void> {
-  const outcome = await runBackupImport({
-    readSelectedFile: () => {
-      const file = input.files?.[0];
-      return file === undefined ? Promise.resolve(null) : file.text();
-    },
-    parse: (source) => parseProductBackup(
-      source,
-      storageEnvironment,
-      "guided",
-      STANDARD_BOPOMOFO_LAYOUT.id,
-    ),
-    confirmReplacement: () =>
-      Promise.resolve(window.confirm("匯入會取代目前進度，確定繼續嗎？")),
-  });
+/** What importing replaces, in the order the panel presents it. */
+const IMPORT_REPLACES = [
+  "練習進度",
+  "最近紀錄",
+  "弱點量測",
+  "進步趨勢",
+  "選題權重",
+] as const;
 
-  if (outcome.kind === "no-file") return;
-  if (outcome.kind === "cancelled") {
-    input.value = "";
-    return;
+function importConfirmation(incoming: ProductBackup): ConfirmDialogOptions {
+  const current = summariseBackup({ progress: product.progress, pilotHistory, progressHistory });
+  return {
+    title: "匯入這份存檔？",
+    sections: [
+      { heading: "目前資料", items: [backupSummaryLabel(current)] },
+      { heading: "匯入資料", items: [backupSummaryLabel(summariseBackup(incoming))] },
+      { heading: "會被取代", items: IMPORT_REPLACES },
+    ],
+    note: "",
+    confirmLabel: "匯入並取代",
+    // Replacing is not deleting: the learner chose a file to arrive, and the
+    // sentence on the button already says what happens to what is here.
+    tone: "normal",
+  };
+}
+
+/**
+ * One import at a time. The confirmation is asynchronous now, so a second file
+ * picked while the first is still being read would leave two applications of two
+ * different generations racing into the same state.
+ */
+let importInFlight = false;
+
+async function importProductBackup(input: HTMLInputElement): Promise<void> {
+  if (importInFlight) return;
+  importInFlight = true;
+  try {
+    const outcome = await runBackupImport({
+      readSelectedFile: () => {
+        const file = input.files?.[0];
+        return file === undefined ? Promise.resolve(null) : file.text();
+      },
+      parse: (source) => parseProductBackup(
+        source,
+        storageEnvironment,
+        "guided",
+        STANDARD_BOPOMOFO_LAYOUT.id,
+      ),
+      confirmReplacement: (backup) => confirmDialog.confirm(importConfirmation(backup)),
+    });
+
+    // Declining leaves the picker reusable without help here: the shell clears
+    // the file input on every change, so the same file can be chosen again.
+    if (outcome.kind === "no-file" || outcome.kind === "cancelled") return;
+    if (outcome.kind === "unreadable") {
+      dataNotice = "無法讀取這份存檔。";
+      updateDataNotice();
+      return;
+    }
+    applyImportedBackup(outcome.backup);
+  } finally {
+    importInFlight = false;
   }
-  if (outcome.kind === "unreadable") {
-    dataNotice = "無法讀取這份存檔。";
-    updateDataNotice();
-    return;
-  }
-  applyImportedBackup(outcome.backup);
 }
 
 function applyImportedBackup(backup: ProductBackup): void {
@@ -952,13 +998,24 @@ function applyImportedBackup(backup: ProductBackup): void {
   requireElement<HTMLButtonElement>("#choose-backup").focus({ preventScroll: true });
 }
 
-function resetProgress(): void {
-  const confirmed = window.confirm(
+const RESET_CONFIRMATION: ConfirmDialogOptions = {
+  title: "清除所有本機進度？",
+  sections: [{
+    heading: "將清除",
     // Automatic evaluation rounds were removed, so this no longer mentions
-    // them; it does now clear the progress-trend history as well.
-    "這會清除這台瀏覽器中的所有練習紀錄、進步趨勢與 Pilot 歷史，確定繼續嗎？",
-  );
-  if (!confirmed) return;
+    // them; it does name the progress trend and the levels that were unlocked,
+    // both of which go with the measurements they were earned from.
+    items: ["練習進度", "最近紀錄", "弱點量測", "進步趨勢", "稀有度解鎖"],
+  }],
+  // The one thing a learner can still fall back on, and the only reassurance
+  // worth the line. What the site itself keeps is not a plausible worry.
+  note: "已下載的存檔檔案不受影響。",
+  confirmLabel: "清除全部資料",
+  tone: "danger",
+};
+
+async function resetProgress(): Promise<void> {
+  if (!await confirmDialog.confirm(RESET_CONFIRMATION)) return;
 
   const clearing = clearLocalRecords(localStorage);
   storageWarning = clearing.storageWarning;
