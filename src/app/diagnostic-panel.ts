@@ -33,6 +33,7 @@ import {
   type DiagnosticPreferences,
   type DiagnosticTab,
 } from "./diagnostic-preferences.js";
+import type { KeyDiagnosticSort } from "../diagnostics/selectors.js";
 import {
   confusionEmptyMessage,
   confusionListRowMarkup,
@@ -207,25 +208,62 @@ function metricExplanation(preferences: DiagnosticPreferences): string {
     : "應按的鍵被誤按成哪一鍵；反向另計。";
 }
 
+/**
+ * A row of mutually exclusive choices.
+ *
+ * Radios rather than toggle buttons, because that is what these are: exactly one
+ * is ever in effect, and choosing one releases the other. `aria-pressed`
+ * described each as independently switchable, which is a different control --
+ * one where both or neither could be on -- and it set an expectation about what
+ * pressing one does to the rest that the list does not honour.
+ *
+ * The group holds a single tab stop and the arrow keys move within it, which is
+ * what `tabindex` is doing here: reaching a set of alternatives should not cost
+ * one Tab press per alternative.
+ */
 function segmentedRowMarkup(
   label: string,
   action: string,
   options: readonly (readonly [string, string])[],
   active: string,
 ): string {
+  const option = ([value, text]: readonly [string, string]): string => {
+    const checked = active === value;
+    return `<button type="button" role="radio" data-action="${action}" data-value="${escapeHtml(value)}" aria-checked="${checked}" tabindex="${checked ? "0" : "-1"}">${escapeHtml(text)}</button>`;
+  };
   return `<div class="diagnostic-toolbar-row">
     <span class="diagnostic-toolbar-label">${escapeHtml(label)}</span>
-    <div class="diagnostic-segments" aria-label="${escapeHtml(label)}">
-      ${options.map(([value, text]) => `<button type="button" data-action="${action}" data-value="${escapeHtml(value)}" aria-pressed="${active === value}">${escapeHtml(text)}</button>`).join("")}
+    <div class="diagnostic-segments" role="radiogroup" aria-label="${escapeHtml(label)}">
+      ${options.map(option).join("")}
     </div>
   </div>`;
+}
+
+/**
+ * The option a navigation key moves to, or null when the key is not one.
+ *
+ * Both ends wrap, which with two options means either arrow reaches the other.
+ * Split out only as far as it needed to be to become assertable: the handler
+ * around it needs a DOM and an open analysis, and this needs neither.
+ */
+export function nextSegmentIndex(
+  key: string,
+  currentIndex: number,
+  count: number,
+): number | null {
+  if (count === 0 || currentIndex < 0) return null;
+  if (key === "ArrowRight" || key === "ArrowDown") return (currentIndex + 1) % count;
+  if (key === "ArrowLeft" || key === "ArrowUp") return (currentIndex - 1 + count) % count;
+  if (key === "Home") return 0;
+  if (key === "End") return count - 1;
+  return null;
 }
 
 // Direction, sample-count, and top-5/all filters all turned out to be noise
 // nobody used; every list now always shows everything it has. Only the
 // controls that change what the data itself means (sort basis, whether tone
 // relations count) remain.
-function inspectorToolbarMarkup(preferences: DiagnosticPreferences): string {
+export function inspectorToolbarMarkup(preferences: DiagnosticPreferences): string {
   if (preferences.activeTab === "key") {
     return `<div class="diagnostic-inspector-toolbar">
       ${segmentedRowMarkup("排序", "key-sort", [["error-ratio", "錯誤比例"], ["timing", "鍵間時間"]], preferences.keySort)}
@@ -350,6 +388,20 @@ export function createDiagnosticAnalysis(
     }
   };
 
+  /**
+   * Focus follows selection, as it must in a group that holds one tab stop: the
+   * render that just replaced the toolbar took the element focus was on with it,
+   * and leaving focus on the option that was released would strand the only way
+   * back into the group.
+   */
+  const selectKeySort = (value: KeyDiagnosticSort): void => {
+    preferences = { ...preferences, keySort: value };
+    persist();
+    render();
+    host.querySelector<HTMLButtonElement>('[data-action="key-sort"][aria-checked="true"]')
+      ?.focus();
+  };
+
   const activateTab = (tab: DiagnosticTab): void => {
     applyAnalysisState(selectDiagnosticAnalysisTab({
       preferences,
@@ -457,9 +509,7 @@ export function createDiagnosticAnalysis(
     if (action === "key-sort") {
       const value = target.dataset.value;
       if (value !== "error-ratio" && value !== "timing") return;
-      preferences = { ...preferences, keySort: value };
-      persist();
-      render();
+      selectKeySort(value);
       return;
     }
     if (action === "toggle-network") {
@@ -473,7 +523,29 @@ export function createDiagnosticAnalysis(
   };
 
   host.onkeydown = (event) => {
-    if (!(event.target instanceof HTMLButtonElement) || event.target.getAttribute("role") !== "tab") return;
+    if (!(event.target instanceof HTMLButtonElement)) return;
+    const role = event.target.getAttribute("role");
+    if (role === "radio") {
+      const group = event.target.closest(".diagnostic-segments");
+      if (group === null) return;
+      const radios = [...group.querySelectorAll<HTMLButtonElement>('[role="radio"]')];
+      const nextIndex = nextSegmentIndex(
+        event.key,
+        radios.indexOf(event.target),
+        radios.length,
+      );
+      if (nextIndex === null) return;
+      const value = radios[nextIndex]?.dataset.value;
+      if (value !== "error-ratio" && value !== "timing") return;
+      // Selection follows focus here, which is the radio pattern: an arrow key
+      // chooses rather than merely previewing, so the list re-sorts at once.
+      event.preventDefault();
+      selectKeySort(value);
+      return;
+    }
+    // Enter and Space need no branch: a button already emits a click, which the
+    // delegation above answers.
+    if (role !== "tab") return;
     const tab = event.target.dataset.tab;
     if (!isDiagnosticTab(tab)) return;
     const currentIndex = DIAGNOSTIC_TABS.indexOf(tab);
