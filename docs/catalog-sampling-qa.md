@@ -37,11 +37,19 @@ request, and one drawn afresh each run cannot be compared with the last.
 npm run qa:catalog-sample -- --seed 2026-q3 --base 300 --per-level 40
 ```
 
-`--base` draws proportionally, so the headline describes the catalog as shipped.
+The sheet holds two kinds of row, and the `selection` column says which is
+which. They are not interchangeable.
+
+`--base` draws a plain uniform sample of the catalog. These are the `base` rows,
+and the catalog rate is computed from them and from nothing else.
+
 `--per-level` then guarantees a floor for every level of every stratum, because
-the levels that carry the risk are exactly the ones a proportional sample would
-barely touch. The two sets are merged and de-duplicated, so the sheet is smaller
-than their sum.
+the levels that carry the risk are exactly the ones a uniform sample would barely
+touch. These are the `floor` rows. They exist to locate problems, never to
+measure the catalog — see below for why they cannot do the second job.
+
+The two sets are merged and de-duplicated, so the sheet is smaller than their
+sum.
 
 ## The strata
 
@@ -78,19 +86,42 @@ easy ones biases the denominator.
 npm run qa:catalog-score -- data/qa/catalog-sample.csv
 ```
 
+Scoring refuses to run unless the sheet still matches the `.meta.json` drawn with
+it. The digest covers every column except the verdicts and notes, so pairing a
+sheet with the wrong metadata, or sorting the rows in a spreadsheet and saving,
+is reported rather than silently scored against rows that are no longer the ones
+that were drawn.
+
 Reading and grammar role are reported apart and are never combined. They fail
 for different reasons and are fixed in different places, and a single number
 covering both would hide whichever is healthier behind whichever is not.
 
-Two figures per stratum:
+Two things come out, and only one of them is a measurement.
 
-- the **rate within each level**, which is what tells you where the problem is;
-- a **catalog estimate**, which reweights those rates by how much of the catalog
-  each level actually covers.
+**The catalog rate** is counted over the `base` rows alone, with a 95% interval
+beside it. Those rows are a uniform sample, so the count needs no weighting and
+carries no selection bias. This is the number to quote.
 
-Quote the catalog estimate, never the raw `overall` row. The sample over-draws
-small strata on purpose, so its unweighted rate is a property of the sheet rather
-than of the catalog.
+**The per-stratum rates** use every row, base and floor together. They say where
+a problem sits, not how big it is, and the output labels them that way.
+
+### Why the floor rows cannot be reweighted into an estimate
+
+It is tempting to take each level's rate and weight it by that level's share of
+the catalog. That does not work here, and an earlier version of this tool did it
+anyway.
+
+Whether a floor row was drawn depends on **all six strata at once**. So inside
+any one level, the floor rows over-represent whatever is rare on the other five
+dimensions — and if error tracks rarity, which is the entire hypothesis, their
+rate is inflated. Weighting by one dimension's catalog shares cannot undo a bias
+the other five introduced.
+
+Measured against a uniform reference sample under an error model correlated
+across dimensions, that reweighting overstated a true 21.3% rate as anywhere from
+22.3% to 29.5% depending on which dimension it weighted by — six mutually
+inconsistent answers, with nothing to say which was the real one. Counting the
+base rows gave 23.0%, inside its own confidence interval.
 
 ## Recording a result
 
@@ -102,7 +133,9 @@ cannot be compared with anything.
 
 When a new baseline is drawn — after an expansion, or with a new seed — copy the
 finished sheet and its metadata aside under a dated name before overwriting them,
-so the comparison has something to compare against.
+so the comparison has something to compare against. Drawing over a sheet that
+already holds verdicts is refused unless `--force` is passed, so forgetting this
+costs a message rather than the review.
 
 ## What this is not
 
