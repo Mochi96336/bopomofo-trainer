@@ -2,6 +2,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { format } from "node:util";
 import { parseCsv } from "../src/catalog/csv.js";
 import {
+  catalogQaHeaderError,
   guardStratumOutput,
   metadataIntegrityDigest,
   verdictProgress,
@@ -75,7 +76,17 @@ if (!scoreMode) {
   verifyMetadata(metaPath, metadata);
 
   const sheet = await readFile(repositoryFile(input), "utf8");
-  const records = parseCsv(sheet.replace(/^﻿/u, "")).records.map((record) => record.values);
+  const parsed = parseCsv(sheet.replace(/^﻿/u, ""));
+  const headerError = catalogQaHeaderError(parsed.headers);
+  if (headerError !== null) {
+    fail(
+      `${input} has an invalid catalog QA header.`
+      + `\n${headerError}`
+      + "\nRefusing to score because moved or relabelled verdict columns change"
+      + " what the review answers mean without changing any row value.",
+    );
+  }
+  const records = parsed.records.map((record) => record.values);
   const columns: readonly VerdictColumn[] = ["reading_verdict", "role_verdict"];
   const progress = Object.fromEntries(
     columns.map((column) => [column, verdictProgress(records, column)]),
