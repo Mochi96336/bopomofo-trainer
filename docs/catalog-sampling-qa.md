@@ -144,6 +144,12 @@ sheet with the wrong metadata, or sorting the rows in a spreadsheet and saving,
 is reported rather than silently scored against rows that are no longer the ones
 that were drawn.
 
+The header row is checked separately, before anything is counted. That digest
+looks its cells up by column name, so relabelling the header leaves it agreeing
+while changing what the answers mean: swap the `reading_verdict` and
+`role_verdict` labels and every judgement is reported as the other one, with no
+covered value altered. The column sequence must therefore match exactly.
+
 The inner manifest digest binds the seed, requested sample sizes, sheet digest
 and `recordedSourceDigests`. A second `integrityDigest` covers the complete
 metadata object, including the actual sample and catalog counts, every stratum
@@ -192,11 +198,18 @@ do", and the only thing that closes it is answering them.
 the base rows plus the rows *that stratum's own floor* reached for, with a sample
 size and an interval.
 
-They are reported only after every sampled row in that verdict column is `ok` or
-`wrong`. The catalog headline may become reportable earlier because it depends
-only on the complete base sample; localisation cannot. Showing a level rate while
-some floor rows are blank or `unsure` would silently remove the cases the reviewer
-found hardest from that level's denominator and reintroduce complete-case bias.
+Each level answers for itself, under the same three-state rule as the headline
+and over the rows that level is actually counted over: blanks mean no rate,
+`unsure` means a range, fully answered means a point estimate. The denominator is
+always the level's whole eligible set, so the rows a reviewer found hardest
+cannot drop out of it.
+
+Per level rather than per sheet, because a blank row somewhere else has nothing
+to say about this one. An earlier version withheld the entire table whenever any
+row anywhere was unresolved, which meant a single `unsure` out of 259 suppressed
+all six strata — including levels that were completely answered — in a protocol
+whose own instructions tell the reviewer to use `unsure` freely. Suppression that
+broad stops being a safeguard and just makes the diagnostic never appear.
 
 Rows drawn only by a different stratum's floor are left out of that count. They
 are on the sheet for being rare somewhere else, and rarity is assumed to travel

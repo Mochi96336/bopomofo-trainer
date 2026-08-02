@@ -17,17 +17,17 @@ import {
   type CatalogSyntaxLegalityArtifact,
 } from "../src/syntax/catalog-legality.js";
 import {
-  catalogEstimate,
+  catalogQaHeaderError,
   csvLine,
   drawStratifiedSample,
   formatAssignedProfiles,
   grammarEvidenceLevel,
   manifestDigest,
-  rateOver,
-  rowsForStratum,
+  metadataIntegrityDigest,
   sheetDigest,
   type AssignedProfile,
 } from "./catalog-qa-core.js";
+import { buildColumnReport, renderColumnReport } from "./catalog-qa-report.js";
 import { loadResolvedCatalogSource } from "./load-resolved-catalog-source.js";
 
 /**
@@ -443,7 +443,9 @@ async function draw(options: Options): Promise<void> {
   };
   await writeFile(
     new URL(`../${options.out.replace(/\.csv$/, "")}.meta.json`, import.meta.url),
-    `${JSON.stringify(meta, null, 2)}\n`,
+    // Sealed as it is written, so the descriptive fields are bound from the
+    // start rather than by a separate step somebody has to remember to run.
+    `${JSON.stringify({ ...meta, integrityDigest: metadataIntegrityDigest(meta) }, null, 2)}\n`,
     "utf8",
   );
 
@@ -493,6 +495,7 @@ interface SampleMeta {
   readonly perLevel?: number;
   readonly sheetDigest?: string;
   readonly manifestDigest?: string;
+  readonly integrityDigest?: string;
   readonly recordedSourceDigests?: Readonly<Record<string, string>>;
 }
 
@@ -500,6 +503,19 @@ async function score(options: Options): Promise<void> {
   const source = await readFile(new URL(`../${options.input}`, import.meta.url), "utf8");
   const parsed = parseCsv(source.replace(/^﻿/, ""));
   const records: readonly Readonly<Record<string, string>>[] = parsed.records.map((record) => record.values);
+
+  // Before anything is counted. The row digest below looks its cells up by
+  // column name, so relabelling the header row leaves it agreeing while every
+  // answer reports as the other judgement.
+  const headerError = catalogQaHeaderError(parsed.headers);
+  if (headerError !== null) {
+    return fail(
+      `${options.input} has an invalid catalog QA header.`
+      + `\n${headerError}`
+      + "\nRefusing to score, because moved or relabelled verdict columns change what"
+      + " the review answers mean without changing any row value.",
+    );
+  }
 
   // Required, and verified. It used to be optional and swallowed on any error,
   // which meant a mistyped path, a mismatched pair or a sheet whose rows had been
@@ -556,6 +572,20 @@ async function score(options: Options): Promise<void> {
       + " since the draw. Refusing to score.",
     );
   }
+  // And the descriptive half of the file: catalog and sample counts, the stratum
+  // counts, the draw time. The manifest above leaves those unbound, so without
+  // this they were free text the report reprinted while saying the metadata
+  // agreed.
+  const expectedIntegrity = metadataIntegrityDigest(meta as unknown as Record<string, unknown>);
+  if (expectedIntegrity !== meta.integrityDigest) {
+    return fail(
+      `${metaPath} does not match its complete metadata digest.`
+      + `\n  expected ${meta.integrityDigest ?? "(none)"}`
+      + `\n  actual   ${expectedIntegrity}`
+      + "\nThe catalog counts, sampled counts, strata or draw time have been edited"
+      + " since the draw. Refusing to score.",
+    );
+  }
   console.log(`sheet and metadata agree (${metaPath})`);
   // Deliberately not called verified. These are the digests copied down at draw
   // time, bound against later editing; nothing here recomputes them from the
@@ -583,100 +613,16 @@ async function score(options: Options): Promise<void> {
   // Reading and role are reported apart and never combined. They fail for
   // different reasons and are fixed in different places, and one number covering
   // both would hide whichever is healthier behind whichever is not.
-  for (const [label, column] of [["reading", "reading_verdict"], ["grammar role", "role_verdict"]] as const) {
-    console.log(`\n## ${label}`);
-
-    // The catalog rate comes from the base rows and from nothing else. They are
-    // a uniform sample of the catalog, so counting them needs no weighting and
-    // carries no selection bias.
-    //
-    // The floor rows cannot join in. Whether one was drawn depends on all six
-    // strata at once, so inside any single level the floor rows over-represent
-    // whatever is rare on the other five -- and if error tracks rarity, which is
-    // the whole hypothesis, their rate is biased upward. Reweighting by one
-    // level's catalog share does not undo a bias the other five introduced, and
-    // the six dimensions would each yield a different "estimate" with nothing to
-    // say which was the real one.
-    //
-    // Denominators are the whole base sample, never the answered part of it. A
-    // reviewer answers the easy words first and leaves the doubtful ones blank
-    // or marks them `unsure`, so complete-case counting drops exactly the rows
-    // most likely to be wrong -- and prints the result in the same shape as a
-    // finished measurement. Only a fully answered sample gets a point estimate.
-    const estimate = catalogEstimate(records, column);
-    const { tally } = estimate;
-    if (tally.total === 0) {
-      console.log("  catalog rate: this sheet holds no base rows");
-    } else if (estimate.kind === "incomplete") {
-      console.log(
-        `  catalog rate: not reportable -- ${tally.blank} of ${tally.total} base rows are blank`,
-      );
-      console.log(
-        `    so far ${tally.wrong} wrong, ${tally.ok} ok, ${tally.unsure} unsure.`
-        + " Progress, not an estimate: the unanswered rows are the ones review found"
-        + " hardest, so a rate over the rest would flatter the catalog.",
-      );
-    } else if (estimate.kind === "bounded") {
-      const [low, high] = estimate.interval;
-      console.log(
-        `  catalog rate  ${(estimate.low * 100).toFixed(1)}–${(estimate.high * 100).toFixed(1)}%`
-        + `  (${tally.wrong} wrong, ${tally.unsure} unsure, of ${tally.total} uniform-sample rows,`
-        + ` 95% CI ${(low * 100).toFixed(1)}–${(high * 100).toFixed(1)}%)`,
-      );
-      console.log(
-        `    a range because the ${tally.unsure} unsure rows could go either way.`
-        + " Resolve them to get a point estimate; dropping them would take the"
-        + " hardest rows out of the denominator.",
-      );
-    } else {
-      const [low, high] = estimate.interval;
-      console.log(
-        `  catalog rate  ${(estimate.rate * 100).toFixed(1)}%`
-        + `  (${tally.wrong}/${tally.total} uniform-sample rows,`
-        + ` 95% CI ${(low * 100).toFixed(1)}–${(high * 100).toFixed(1)}%)`,
-      );
-    }
-
-    // Per level, counted over the rows that are a fair sample *of that level*:
-    // the base rows, plus the ones this stratum's own floor reached for. Both
-    // are decided by shuffle rank alone, so their union is still uniform within
-    // the level.
-    //
-    // Rows drawn only by another stratum's floor are left out. They are on the
-    // sheet for being rare somewhere else, and counting them here would push up
-    // whichever level of this stratum they happen to sit in -- which is how a
-    // problem living in one stratum comes to look like a problem in its
-    // neighbour, and would send the fix at the wrong data source.
-    console.log(
-      estimate.kind === "point"
-        ? "  by stratum (uniform within each level):"
-        : "  by stratum (uniform within each level; provisional -- these count answered rows only):",
-    );
-    for (const name of STRATUM_NAMES) {
-      const eligible = rowsForStratum(records, name);
-      const levels = [...new Set(eligible.map((row) => row[name] ?? "?"))].sort();
-      const reported = levels
-        .map((level) => ({
-          level,
-          estimate: rateOver(eligible.filter((row) => (row[name] ?? "?") === level), column),
-        }))
-        .filter(({ estimate }) => estimate.judged + estimate.unsure > 0);
-      if (reported.length === 0) continue;
-      console.log(`    ${name}`);
-      for (const { level, estimate } of reported) {
-        if (estimate.rate === null) {
-          console.log(`      ${level.padEnd(22)} no judged rows  (unsure ${estimate.unsure})`);
-          continue;
-        }
-        const [low, high] = estimate.interval;
-        console.log(
-          `      ${level.padEnd(22)} ${(estimate.rate * 100).toFixed(1).padStart(5)}%`
-          + `  (${estimate.wrong}/${estimate.judged},`
-          + ` CI ${(low * 100).toFixed(0)}–${(high * 100).toFixed(0)}%)`
-          + (estimate.unsure > 0 ? `  [unsure ${estimate.unsure}]` : ""),
-        );
-      }
-    }
+  //
+  // What may be reported is decided in `catalog-qa-report.ts` and returned as a
+  // value; this only prints it. The rule is the interesting part, and a rule
+  // expressed as a sequence of console.log calls can only be tested by matching
+  // strings against those calls.
+  for (const [label, column] of [
+    ["reading", "reading_verdict"],
+    ["grammar role", "role_verdict"],
+  ] as const) {
+    console.log(renderColumnReport(buildColumnReport(records, label, column, STRATUM_NAMES)));
   }
 }
 

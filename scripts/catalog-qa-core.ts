@@ -317,33 +317,34 @@ export type CatalogEstimate =
     readonly interval: readonly [number, number];
   };
 
-export function baseTally(
+export function tallyOver(
   rows: readonly Readonly<Record<string, string>>[],
   verdictColumn: string,
 ): BaseTally {
-  const base = rows.filter((row) => (row["selection"] ?? "") === "base");
-  const counted = rateOver(base, verdictColumn);
+  const counted = rateOver(rows, verdictColumn);
   return {
-    total: base.length,
+    total: rows.length,
     wrong: counted.wrong,
     ok: counted.judged - counted.wrong,
     unsure: counted.unsure,
-    blank: base.length - counted.judged - counted.unsure,
+    blank: rows.length - counted.judged - counted.unsure,
   };
 }
 
 /**
- * The headline, or an explanation of why there is not one yet.
+ * The three-state rule, over exactly the rows given.
  *
- * Denominators are the whole base sample rather than the answered part of it,
- * so an unfinished or selectively answered review cannot present itself as a
- * measurement. See `CatalogEstimate`.
+ * One rule for the headline and for every level, because the hazard is the same
+ * in both places: a denominator that quietly shrinks to the rows somebody was
+ * willing to answer. Whether the rows handed in are a fair sample of anything is
+ * the caller's problem -- `catalogEstimate` and `rowsForStratum` are the two
+ * answers to that.
  */
-export function catalogEstimate(
+export function estimateOver(
   rows: readonly Readonly<Record<string, string>>[],
   verdictColumn: string,
 ): CatalogEstimate {
-  const tally = baseTally(rows, verdictColumn);
+  const tally = tallyOver(rows, verdictColumn);
   if (tally.total === 0 || tally.blank > 0) return { kind: "incomplete", tally };
   if (tally.unsure > 0) {
     return {
@@ -365,6 +366,18 @@ export function catalogEstimate(
     rate: tally.wrong / tally.total,
     interval: wilsonInterval(tally.wrong, tally.total),
   };
+}
+
+/**
+ * The headline, or an explanation of why there is not one yet.
+ *
+ * Base rows only: see `catalogRate` for why the floor cannot join in.
+ */
+export function catalogEstimate(
+  rows: readonly Readonly<Record<string, string>>[],
+  verdictColumn: string,
+): CatalogEstimate {
+  return estimateOver(rows.filter((row) => (row["selection"] ?? "") === "base"), verdictColumn);
 }
 
 export function csvField(value: string): string {
@@ -407,6 +420,71 @@ export function sheetDigest(fixedRows: readonly (readonly string[])[]): string {
  * record that cannot be quietly rewritten is the commit history. What it does
  * remove is the appearance of verification where there was none.
  */
+/**
+ * The exact column sequence a drawn sheet has, verdict columns included.
+ *
+ * The row digest covers every fixed cell, but it looks those cells up by column
+ * name -- so a spreadsheet can relabel the header row without changing a single
+ * value it covers. Swapping the `reading_verdict` and `role_verdict` labels is
+ * enough to make every answer report as the other judgement, with the digest
+ * still agreeing. Scoring therefore requires this sequence exactly.
+ *
+ * `tests/catalog/catalog-qa-core.test.ts` checks this against the committed
+ * sheet, so the list cannot drift away from what the draw actually writes.
+ */
+export const CATALOG_QA_HEADERS = [
+  "entry_id",
+  "text",
+  "reading",
+  "selection",
+  "floor_for",
+  "assigned_profiles",
+  "profile_count",
+  "readingSupport",
+  "heteronym",
+  "cedict",
+  "commonness",
+  "grammarEvidence",
+  "predicate",
+  "reading_verdict",
+  "role_verdict",
+  "notes",
+] as const;
+
+/** Explains why a parsed sheet header cannot be scored, or returns null. */
+export function catalogQaHeaderError(headers: readonly string[]): string | null {
+  const duplicate = headers.find((header, index) => headers.indexOf(header) !== index);
+  if (duplicate !== undefined) {
+    return `column "${duplicate}" appears more than once. Column names must be unique.`;
+  }
+  if (
+    headers.length !== CATALOG_QA_HEADERS.length
+    || headers.some((header, index) => header !== CATALOG_QA_HEADERS[index])
+  ) {
+    return "expected columns in this exact order:"
+      + `\n  ${CATALOG_QA_HEADERS.join(",")}`
+      + "\nactual:"
+      + `\n  ${headers.join(",") || "(none)"}`;
+  }
+  return null;
+}
+
+/**
+ * Covers the whole metadata object apart from the digest field itself.
+ *
+ * `manifestDigest` binds the draw parameters and the recorded source digests.
+ * This binds everything else the file records -- the catalog and sample counts,
+ * every stratum count, `drawnAt` -- so a descriptive field cannot be edited while
+ * the scorer still reports that the metadata agrees.
+ */
+export function metadataIntegrityDigest(metadata: Readonly<Record<string, unknown>>): string {
+  const covered: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(metadata)) {
+    if (key !== "integrityDigest") covered[key] = value;
+  }
+  return manifestDigest(covered);
+}
+
 export function manifestDigest(fields: Readonly<Record<string, unknown>>): string {
   const canonical = Object.keys(fields)
     .sort()
