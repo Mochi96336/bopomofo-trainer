@@ -48,8 +48,8 @@
     "check:research": "npm test && npm run catalog:relations && npm run integration:research && npm run strategy:matrix && npm run experiment:relational && npm run analysis:relational && npm run confirmation:relational",
     "check": "npm run check:pr",
     "test:browser": "npm run build && playwright test",
-    "qa:catalog-sample": "tsx scripts/sample-catalog-qa.ts",
-    "qa:catalog-score": "tsx scripts/sample-catalog-qa.ts --score",
+    "qa:catalog-sample": "tsx scripts/catalog-qa-command.ts",
+    "qa:catalog-score": "tsx scripts/catalog-qa-command.ts --score",
     "size:check": "tsx scripts/check-bundle-size.ts"
   },
   "devDependencies": {
