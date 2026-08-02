@@ -2,6 +2,52 @@ import { manifestDigest } from "./catalog-qa-core.js";
 
 export type VerdictColumn = "reading_verdict" | "role_verdict";
 
+/**
+ * The complete review-sheet schema, including the verdict columns whose names
+ * give the filled cells their meaning.
+ *
+ * The row digest covers every fixed cell, but a spreadsheet can also relabel or
+ * reorder columns without changing any of those cells. In particular, swapping
+ * `reading_verdict` and `role_verdict` would make a valid sheet report each
+ * judgement as the other one. Scoring therefore requires this exact sequence.
+ */
+export const CATALOG_QA_HEADERS = [
+  "entry_id",
+  "text",
+  "reading",
+  "selection",
+  "floor_for",
+  "assigned_profiles",
+  "profile_count",
+  "readingSupport",
+  "heteronym",
+  "cedict",
+  "commonness",
+  "grammarEvidence",
+  "predicate",
+  "reading_verdict",
+  "role_verdict",
+  "notes",
+] as const;
+
+/** Explains why a parsed sheet header cannot be scored, or returns null. */
+export function catalogQaHeaderError(headers: readonly string[]): string | null {
+  const duplicate = headers.find((header, index) => headers.indexOf(header) !== index);
+  if (duplicate !== undefined) {
+    return `column "${duplicate}" appears more than once. Column names must be unique.`;
+  }
+  if (
+    headers.length !== CATALOG_QA_HEADERS.length
+    || headers.some((header, index) => header !== CATALOG_QA_HEADERS[index])
+  ) {
+    return "expected columns in this exact order:"
+      + `\n  ${CATALOG_QA_HEADERS.join(",")}`
+      + "\nactual:"
+      + `\n  ${headers.join(",") || "(none)"}`;
+  }
+  return null;
+}
+
 export interface VerdictProgress {
   readonly total: number;
   readonly blank: number;
