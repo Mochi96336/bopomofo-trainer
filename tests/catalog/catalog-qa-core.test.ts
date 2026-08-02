@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   catalogRate,
   drawStratifiedSample,
+  rateOver,
+  rowsForStratum,
   sheetDigest,
   wilsonInterval,
 } from "../../scripts/catalog-qa-core.js";
@@ -65,7 +67,12 @@ function buildPopulation(size: number): readonly Item[] {
   return items;
 }
 
-function drawSheet(population: readonly Item[], base: number, perLevel: number) {
+/** Rows shaped as the scorer sees them: a flat record of string columns. */
+function drawSheet(
+  population: readonly Item[],
+  base: number,
+  perLevel: number,
+): readonly Record<string, string>[] {
   const sample = drawStratifiedSample(population, {
     idOf: (item) => item.id,
     strataOf: (item) => item.strata,
@@ -78,6 +85,7 @@ function drawSheet(population: readonly Item[], base: number, perLevel: number) 
   return sample.rows.map((item) => ({
     entry_id: item.id,
     selection: sample.selectionOf.get(item.id) ?? "floor",
+    floor_for: (sample.floorForOf.get(item.id) ?? []).join("|"),
     ...item.strata,
     verdict: byId.get(item.id)?.wrong === true ? "wrong" : "ok",
   }));
@@ -215,5 +223,86 @@ describe("wilson interval", () => {
     const [smallLow, smallHigh] = wilsonInterval(10, 100);
     const [largeLow, largeHigh] = wilsonInterval(100, 1000);
     expect(largeHigh - largeLow).toBeLessThan(smallHigh - smallLow);
+  });
+});
+
+/**
+ * Where a problem is, as opposed to how big it is.
+ *
+ * The per-level rates had the same flaw as the headline once did, in a form that
+ * is harder to notice: a row drawn by one stratum's floor was counted in every
+ * other stratum's levels too. Since a floor reaches for what is rare, and rarity
+ * is assumed to travel with error, a fault living in one stratum showed up as a
+ * fault in its neighbours -- and a diagnostic that points at the wrong data
+ * source is worse than none.
+ */
+describe("per-level localisation", () => {
+  const STRATA = ["support", "rarity", "evidence"] as const;
+
+  /** Error confined to `evidence=weak`. Every other stratum is innocent. */
+  function buildConfinedPopulation(size: number): readonly Item[] {
+    return Array.from({ length: size }, (_unused, index) => {
+      const rareSupport = index % 47 === 0;
+      const rareRarity = index % 53 === 0;
+      const weak = index % 59 === 0;
+      return {
+        id: `item-${String(index).padStart(5, "0")}`,
+        strata: {
+          support: rareSupport ? "unsupported" : "supported",
+          rarity: rareRarity ? "rare" : "common",
+          evidence: weak ? "weak" : "strong",
+        },
+        wrong: weak && index % 5 !== 0,
+      };
+    });
+  }
+
+  const population = buildConfinedPopulation(6000);
+  const rows = drawSheet(population, 400, 30);
+
+  function trueRateFor(stratum: string, level: string): number {
+    const inLevel = population.filter((item) => item.strata[stratum] === level);
+    return inLevel.filter((item) => item.wrong).length / inLevel.length;
+  }
+
+  it("keeps every level's interval around that level's true rate", () => {
+    for (const stratum of STRATA) {
+      const eligible = rowsForStratum(rows, stratum);
+      for (const level of new Set(population.map((item) => item.strata[stratum] ?? ""))) {
+        const estimate = rateOver(
+          eligible.filter((row) => row[stratum] === level),
+          "verdict",
+        );
+        if (estimate.judged === 0) continue;
+        const truth = trueRateFor(stratum, level);
+        expect(truth).toBeGreaterThanOrEqual(estimate.interval[0]);
+        expect(truth).toBeLessThanOrEqual(estimate.interval[1]);
+      }
+    }
+  });
+
+  // The regression: counting every sampled row lights up strata that are fine.
+  it("would blame an innocent stratum if rows from other floors were counted", () => {
+    const truth = trueRateFor("support", "supported");
+    const naive = rateOver(rows.filter((row) => row["support"] === "supported"), "verdict");
+    const fair = rateOver(
+      rowsForStratum(rows, "support").filter((row) => row["support"] === "supported"),
+      "verdict",
+    );
+
+    expect(naive.rate ?? 0).toBeGreaterThan(fair.rate ?? 0);
+    // Far enough out to be read as a finding rather than as noise.
+    expect(naive.rate ?? 0).toBeGreaterThan(fair.interval[1]);
+    expect(Math.abs((fair.rate ?? 0) - truth)).toBeLessThan(Math.abs((naive.rate ?? 0) - truth));
+  });
+
+  it("admits base rows and this stratum's own floor, and nothing else", () => {
+    const eligible = rowsForStratum(rows, "support");
+    expect(eligible.every((row) =>
+      row["selection"] === "base" || (row["floor_for"] ?? "").split("|").includes("support")
+    )).toBe(true);
+    const excluded = rows.filter((row) => !eligible.includes(row));
+    expect(excluded.length).toBeGreaterThan(0);
+    expect(excluded.every((row) => row["selection"] === "floor")).toBe(true);
   });
 });

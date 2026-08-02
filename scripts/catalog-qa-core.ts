@@ -15,6 +15,16 @@ export type Selection = "base" | "floor";
 export interface StratifiedSample<T> {
   readonly rows: readonly T[];
   readonly selectionOf: ReadonlyMap<string, Selection>;
+  /**
+   * Which strata's floors reached for each row.
+   *
+   * Recorded because it decides what the row may be counted in. A row drawn by
+   * the `cedict` floor is a uniform pick from its own cedict level, and says
+   * nothing unbiased about its `commonness` level -- it is there for being rare
+   * in cedict, and rarity travels with error. Reading rates per level needs to
+   * know which floor put each row on the sheet, so this has to reach the scorer.
+   */
+  readonly floorForOf: ReadonlyMap<string, readonly string[]>;
 }
 
 /**
@@ -65,6 +75,7 @@ export function drawStratifiedSample<T>(
     .map(({ item }) => item);
 
   const selectionOf = new Map<string, Selection>();
+  const floorForOf = new Map<string, string[]>();
   const chosen = new Map<string, T>();
   for (const item of shuffled.slice(0, options.base)) {
     chosen.set(options.idOf(item), item);
@@ -84,6 +95,9 @@ export function drawStratifiedSample<T>(
         const id = options.idOf(item);
         chosen.set(id, item);
         if (!selectionOf.has(id)) selectionOf.set(id, "floor");
+        const drawnBy = floorForOf.get(id);
+        if (drawnBy === undefined) floorForOf.set(id, [name]);
+        else drawnBy.push(name);
       }
     }
   }
@@ -91,7 +105,33 @@ export function drawStratifiedSample<T>(
   return {
     rows: [...chosen.values()],
     selectionOf,
+    floorForOf,
   };
+}
+
+/**
+ * The rows that may be counted for one level of one stratum.
+ *
+ * A row qualifies if it is a base row, or if this stratum's own floor is what
+ * reached for it. Both are uniform picks within the level: base membership and
+ * within-level floor membership are decided by shuffle rank alone, which is
+ * independent of anything the review will find. Their union is therefore still
+ * an unbiased sample of the level.
+ *
+ * A row drawn only by some other stratum's floor does not qualify. It is on the
+ * sheet because it was rare on that other dimension, and if error tracks rarity
+ * -- the premise of the whole scheme -- counting it here inflates whichever
+ * level of this stratum it happens to fall in. That is how a problem sitting in
+ * one stratum shows up as a problem in a neighbouring one.
+ */
+export function rowsForStratum(
+  rows: readonly Readonly<Record<string, string>>[],
+  stratum: string,
+): readonly Readonly<Record<string, string>>[] {
+  return rows.filter((row) => {
+    if ((row["selection"] ?? "") === "base") return true;
+    return (row["floor_for"] ?? "").split("|").includes(stratum);
+  });
 }
 
 /**
@@ -138,11 +178,24 @@ export function catalogRate(
   rows: readonly Readonly<Record<string, string>>[],
   verdictColumn: string,
 ): RateEstimate {
+  return rateOver(rows.filter((row) => (row["selection"] ?? "") === "base"), verdictColumn);
+}
+
+/**
+ * Counts verdicts over exactly the rows given, with an interval.
+ *
+ * Whether those rows are a fair sample of anything is the caller's problem --
+ * `catalogRate` and `rowsForStratum` are the two answers to that question, and
+ * nothing else should be passing a row set in here.
+ */
+export function rateOver(
+  rows: readonly Readonly<Record<string, string>>[],
+  verdictColumn: string,
+): RateEstimate {
   let wrong = 0;
   let ok = 0;
   let unsure = 0;
   for (const row of rows) {
-    if ((row["selection"] ?? "") !== "base") continue;
     const verdict = (row[verdictColumn] ?? "").trim();
     if (verdict === "wrong") wrong += 1;
     else if (verdict === "ok") ok += 1;

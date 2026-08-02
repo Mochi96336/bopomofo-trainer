@@ -71,7 +71,35 @@ is an override, and those are not the same risk.
 Fill in two columns per row, each `ok`, `wrong` or `unsure`:
 
 - `reading_verdict` — is this the reading this word has, in this written form?
-- `role_verdict` — is the grammatical role the entry was given the role it has?
+- `role_verdict` — see below; it needs a precise statement.
+
+### What `role_verdict` is judging
+
+The sheet shows what the entry was actually assigned, because a reviewer cannot
+judge a role they were never told:
+
+| Column | Meaning |
+| --- | --- |
+| `assigned_upos` | Every distinct UPOS tag assigned to this entry, `\|`-separated |
+| `assigned_frames` | Every distinct valency frame assigned to it |
+| `profile_count` | How many runtime syntax profiles it has |
+
+Most entries have one profile, but 1,983 of them carry more than one distinct
+UPOS and a few carry six. So the question has to be asked at the level of the
+entry rather than of a profile:
+
+> **`role_verdict` is `wrong` if any assigned UPOS or frame is one this word does
+> not have.** It is `ok` only when every assignment listed is defensible.
+
+That is the product-relevant question rather than the convenient one. The runtime
+composes utterances from these profiles, so a single wrong assignment on an entry
+is enough to put that word in a slot it does not belong in — whether or not its
+other assignments are right.
+
+The consequence is that the reported rate is "share of entries carrying at least
+one wrong role assignment", not "share of assignments that are wrong". An entry
+with six profiles has more chance to fail than one with a single profile;
+`profile_count` is on the sheet so that can be looked at rather than guessed.
 
 `unsure` is a real answer and should be used. A reviewer forced to guess produces
 a number that reads as measurement and is not one. `notes` is free text; use it
@@ -102,8 +130,21 @@ Two things come out, and only one of them is a measurement.
 beside it. Those rows are a uniform sample, so the count needs no weighting and
 carries no selection bias. This is the number to quote.
 
-**The per-stratum rates** use every row, base and floor together. They say where
-a problem sits, not how big it is, and the output labels them that way.
+**The per-stratum rates** answer where a problem sits. Each level is counted over
+the base rows plus the rows *that stratum's own floor* reached for, with a sample
+size and an interval.
+
+Rows drawn only by a different stratum's floor are left out of that count. They
+are on the sheet for being rare somewhere else, and rarity is assumed to travel
+with error, so counting them here would raise whichever level of this stratum
+they happen to sit in. Against a population where the fault was confined to one
+stratum, counting every row put two innocent strata at 6.1% when their true rate
+was around 1.3% — outside the interval the correct count gives. A diagnostic that
+points at the wrong data source is worse than none.
+
+Base membership and within-level floor membership are both decided by shuffle
+rank alone, which is independent of anything a review will find, so their union
+is still a uniform sample of the level.
 
 ### Why the floor rows cannot be reweighted into an estimate
 
