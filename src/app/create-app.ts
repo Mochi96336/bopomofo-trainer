@@ -92,6 +92,10 @@ import {
 } from "./information-panel-model.js";
 import type { DiagnosticSnapshot } from "./diagnostic-snapshot.js";
 import { createExpiringValue } from "./expiring-value.js";
+import {
+  KEYBOARD_GEOMETRY_ROWS,
+  keyboardColumnSpan,
+} from "./keyboard-geometry.js";
 import { loadAppState } from "./load-app-state.js";
 import type { StorageLike } from "./persistence-transaction.js";
 import { renderTrendSection } from "./practice-sparkline.js";
@@ -325,48 +329,16 @@ export function createApp(deps: AppDependencies): App {
     reverseBindings.set(tokenId, code);
   }
 
-  interface KeyboardSketchKey {
-    readonly code: string;
-    readonly units?: number;
-  }
-
-  const KEYBOARD_SKETCH_ROWS: readonly (readonly KeyboardSketchKey[])[] = [
-    [
-      { code: "Backquote" }, { code: "Digit1" }, { code: "Digit2" },
-      { code: "Digit3" }, { code: "Digit4" }, { code: "Digit5" },
-      { code: "Digit6" }, { code: "Digit7" }, { code: "Digit8" },
-      { code: "Digit9" }, { code: "Digit0" }, { code: "Minus" },
-      { code: "Equal" }, { code: "Backspace", units: 2 },
-    ],
-    [
-      { code: "Tab", units: 1.5 }, { code: "KeyQ" }, { code: "KeyW" },
-      { code: "KeyE" }, { code: "KeyR" }, { code: "KeyT" }, { code: "KeyY" },
-      { code: "KeyU" }, { code: "KeyI" }, { code: "KeyO" }, { code: "KeyP" },
-      { code: "BracketLeft" }, { code: "BracketRight" }, { code: "Backslash", units: 1.5 },
-    ],
-    [
-      { code: "CapsLock", units: 1.75 }, { code: "KeyA" }, { code: "KeyS" },
-      { code: "KeyD" }, { code: "KeyF" }, { code: "KeyG" }, { code: "KeyH" },
-      { code: "KeyJ" }, { code: "KeyK" }, { code: "KeyL" },
-      { code: "Semicolon" }, { code: "Quote" }, { code: "Enter", units: 2.25 },
-    ],
-    [
-      { code: "ShiftLeft", units: 2.25 }, { code: "KeyZ" }, { code: "KeyX" },
-      { code: "KeyC" }, { code: "KeyV" }, { code: "KeyB" }, { code: "KeyN" },
-      { code: "KeyM" }, { code: "Comma" }, { code: "Period" }, { code: "Slash" },
-      { code: "ShiftRight", units: 2.75 },
-    ],
-    [
-      { code: "ControlLeft", units: 1.5 }, { code: "MetaLeft", units: 1.25 },
-      { code: "AltLeft", units: 1.25 }, { code: "Space", units: 7 },
-      { code: "AltRight", units: 1.25 }, { code: "MetaRight", units: 1.25 },
-      { code: "ControlRight", units: 1.5 },
-    ],
-  ];
-
+  /**
+   * The practice hint and the diagnostic keyboard draw the same physical board,
+   * so they read it from the same place. This used to carry its own copy of the
+   * rows and its own column-span arithmetic; the two were identical, and nothing
+   * would have reported them drifting apart -- on the surface the learner uses to
+   * find a key.
+   */
   function keyboardSketchMarkup(): string {
-    return KEYBOARD_SKETCH_ROWS.map((row) => `<div class="keyboard-sketch-row">
-      ${row.map((key) => `<span class="keyboard-sketch-key${key.units === undefined ? "" : " wide"}" data-code="${key.code}" style="--key-columns:${Math.round((key.units ?? 1) * 4)}"></span>`).join("")}
+    return KEYBOARD_GEOMETRY_ROWS.map((row) => `<div class="keyboard-sketch-row">
+      ${row.map((key) => `<span class="keyboard-sketch-key${key.units === undefined ? "" : " wide"}" data-code="${key.code}" style="--key-columns:${keyboardColumnSpan(key)}"></span>`).join("")}
     </div>`).join("");
   }
 
