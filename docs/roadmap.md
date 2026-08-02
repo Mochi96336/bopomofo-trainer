@@ -28,7 +28,7 @@ The active catalog is the automated-only NAER lexicon: 13,897 syntax-legal pract
 
 Review rigor deliberately changed partway through this work. Early waves reviewed every candidate by hand. Later waves traded manual grammar review for growth speed: grammar roles are assigned directly from stable UD evidence, and CC-CEDICT heteronyms are activated with every distinct reading as its own entry rather than picking one. Both carry an accepted, unmeasured error rate. Ordinary identity and reading resolution still fails closed on ambiguity; only grammar classification and explicit heteronym inclusion are looser.
 
-Measuring that rate is what [catalog sampling QA](./catalog-sampling-qa.md) is for. The baseline is drawn before the next expansion rather than after it, so a later measurement can say what the new batch contributed instead of only what the whole catalog looks like afterwards. Two exposures it already quantifies without any review having happened: 22.1% of entries ship a reading no committed MOE projection covers, and 65.1% of grammar roles rest on one or two observed dependencies.
+Measuring that rate is what [catalog sampling QA](./catalog-sampling-qa.md) is for. The baseline is drawn before the next expansion rather than after it, so a later measurement can say what the new batch contributed instead of only what the whole catalog looks like afterwards. Two exposures it already quantifies without any review having happened: 22.1% of entries ship a reading no committed MOE projection covers, and 73.9% of entries carry at least one grammar role resting on only one or two observed dependencies.
 
 ### Local human pilot
 
