@@ -144,10 +144,11 @@ sheet with the wrong metadata, or sorting the rows in a spreadsheet and saving,
 is reported rather than silently scored against rows that are no longer the ones
 that were drawn.
 
-A second digest covers the metadata itself — the seed, the sample sizes, and the
-`recordedSourceDigests` naming the catalog state the draw was made against. Those
-used to be free text that the scorer reprinted, which read as though checking the
-sheet had also checked them.
+The inner manifest digest binds the seed, requested sample sizes, sheet digest
+and `recordedSourceDigests`. A second `integrityDigest` covers the complete
+metadata object, including the actual sample and catalog counts, every stratum
+count and `drawnAt`. Editing one of those descriptive fields can therefore no
+longer leave the scorer saying that the metadata agrees.
 
 Two things are worth being exact about here. These source digests are **recorded,
 not verified**: nothing recomputes them from the sources, and nothing could
@@ -190,6 +191,12 @@ do", and the only thing that closes it is answering them.
 **The per-stratum rates** answer where a problem sits. Each level is counted over
 the base rows plus the rows *that stratum's own floor* reached for, with a sample
 size and an interval.
+
+They are reported only after every sampled row in that verdict column is `ok` or
+`wrong`. The catalog headline may become reportable earlier because it depends
+only on the complete base sample; localisation cannot. Showing a level rate while
+some floor rows are blank or `unsure` would silently remove the cases the reviewer
+found hardest from that level's denominator and reintroduce complete-case bias.
 
 Rows drawn only by a different stratum's floor are left out of that count. They
 are on the sheet for being rare somewhere else, and rarity is assumed to travel
