@@ -118,7 +118,7 @@ The keyboard canvas reuses the standard physical layout and the existing sketch 
 
 ### Shared geometry
 
-`src/app/keyboard-geometry.ts` owns the full keyboard row geometry, physical codes, and key-unit spans. Both the practice sketch and analysis keyboard must consume this module after the geometry extraction is complete.
+`src/app/keyboard-geometry.ts` owns the full keyboard row geometry, physical codes, and key-unit spans. Both the practice sketch and the analysis keyboard consume it. `tests/app/keyboard-geometry-agreement.test.ts` renders both and compares what they drew, so a second source cannot be reintroduced silently.
 
 The analysis keyboard displays only Bopomofo or tone symbols. Physical English labels remain available to assistive technology and in the exact inspector, but do not compete with the central keyboard reading.
 
@@ -368,10 +368,9 @@ The previously implemented drawer-expansion preference is retained only until th
 
 These are real, currently true shortcuts, not planned features:
 
-- `create-app.ts` still carries a private copy of the keyboard row geometry for the practice sketch instead of rendering it from `src/app/keyboard-geometry.ts`, so the two keyboards can drift;
 - the browser suite is a smoke test rather than coverage: it holds the platform behaviour jsdom cannot produce, and the rest of the manual protocol is still manual.
 
-Closed since this list was written: the analysis composes its model from the running shell's `getDiagnosticSnapshot()` instead of from mirrored localStorage; the relationship overlay is given the visible rows rather than reading them back out of the DOM; and a Chromium smoke suite runs in CI.
+Closed since this list was written: the analysis composes its model from the running shell's `getDiagnosticSnapshot()` instead of from mirrored localStorage; the relationship overlay is given the visible rows rather than reading them back out of the DOM; the practice sketch renders from the shared keyboard geometry; and a Chromium smoke suite runs in CI.
 
 ## Validation
 
