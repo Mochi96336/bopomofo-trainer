@@ -80,9 +80,15 @@ judge a role they were never told:
 
 | Column | Meaning |
 | --- | --- |
-| `assigned_upos` | Every distinct UPOS tag assigned to this entry, `\|`-separated |
-| `assigned_frames` | Every distinct valency frame assigned to it |
-| `profile_count` | How many runtime syntax profiles it has |
+| `assigned_profiles` | Every runtime syntax profile, as `UPOS[frame,frame]`, `\|`-separated |
+| `profile_count` | How many of them there are |
+
+Profiles are shown whole, not as two flattened sets. An earlier sheet carried
+every distinct UPOS in one column and every distinct frame in another, which
+cannot say which tag licensed which frame. `ADJ[intransitive] ADV[avalent]` and
+`ADJ[avalent] ADV[intransitive]` produced identical columns, so a reviewer had no
+way to see the second one was wrong — and the runtime composes from whole
+profiles, so it is wrong in a way that reaches the learner.
 
 Most entries have one profile, but 1,983 of them carry more than one distinct
 UPOS and a few carry six. So the question has to be asked at the level of the
@@ -106,7 +112,9 @@ a number that reads as measurement and is not one. `notes` is free text; use it
 whenever `wrong` needs an explanation to be actionable.
 
 Review both columns for every row, even when one is obviously fine. Skipping the
-easy ones biases the denominator.
+easy ones biases the denominator — and so does skipping the hard ones, which is
+the likelier habit; the scorer will not report a rate until the base sample is
+finished.
 
 ## Scoring
 
@@ -128,7 +136,27 @@ Two things come out, and only one of them is a measurement.
 
 **The catalog rate** is counted over the `base` rows alone, with a 95% interval
 beside it. Those rows are a uniform sample, so the count needs no weighting and
-carries no selection bias. This is the number to quote.
+carries no selection bias. This is the number to quote — when there is one.
+
+There are three things the scorer will say, and only the last is a measurement:
+
+| State of the base sample | What is reported |
+| --- | --- |
+| Any row still blank | Progress and running counts, explicitly not a rate |
+| All answered, some `unsure` | A range: `wrong / total` to `(wrong + unsure) / total` |
+| All answered `ok` or `wrong` | The rate, with its interval |
+
+The denominator is always the whole base sample, never the part of it that got
+answered. Dropping the rest is what a complete-case rate does, and the rows it
+drops are not missing at random: a reviewer works through the obvious words first
+and leaves the doubtful ones blank or marks them `unsure`, so the survivors are
+the rows least likely to be wrong. The result would be a number shaped exactly
+like the real one — a percentage with a confidence interval — describing only the
+rows that happened to get answered.
+
+The `unsure` range is not a confidence interval and cannot be narrowed by drawing
+more rows. It is the span between "every unsure turns out fine" and "none of them
+do", and the only thing that closes it is answering them.
 
 **The per-stratum rates** answer where a problem sits. Each level is counted over
 the base rows plus the rows *that stratum's own floor* reached for, with a sample

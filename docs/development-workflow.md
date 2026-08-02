@@ -30,10 +30,17 @@ This command runs:
 The compiled catalog is almost the whole JavaScript bundle — around 450 kB of the
 460 kB a visitor downloads — so the download grows with every entry added, and
 the plan is to keep adding entries. `bundle-budget.json` holds the gzipped limit
-per asset kind. Going over is not a bug and the failure does not read as one: it
-asks for the increase to be a decision, taken and recorded in the same change,
-rather than absorbed quietly. Raise the limit deliberately and say in the commit
-what grew.
+per asset kind, plus a limit on the total. Going over is not a bug and the
+failure does not read as one: it asks for the increase to be a decision, taken
+and recorded in the same change, rather than absorbed quietly. Raise the limit
+deliberately and say in the commit what grew.
+
+An asset kind the build emits with no limit against it fails the check too. A
+gate that only guards the kinds it already knows about would hold right up until
+the build started emitting a font, a `.wasm` or a data file — which is the point
+at which it was needed. Give the new kind a limit, or waive it in `unbudgeted`
+with the reason. The total is the sum of the per-kind limits, so a new kind
+cannot be paid for out of another kind's headroom either.
 
 The one excluded file runs all five relational partition strategies over the complete active catalog and takes roughly five minutes on its own, which is why it is not a routine gate. Run it directly when a change touches relational partitioning:
 

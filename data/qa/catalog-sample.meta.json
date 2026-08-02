@@ -1,10 +1,10 @@
 {
-  "schema": "catalog-qa-sample-v3",
+  "schema": "catalog-qa-sample-v4",
   "seed": "catalog-qa-1",
   "base": 200,
   "perLevel": 25,
   "baseSampleSize": 200,
-  "sheetDigest": "9f09ca5a7974a360c0b9077a01760c5a44c7038ab3960cef5b07471c1aa1f509",
+  "sheetDigest": "ab0c1c6a7cde24bdc954f4d2ec4e4245678a78514e0cbfea986c03e42162f29d",
   "catalogEntryCount": 13897,
   "sampleSize": 249,
   "strata": {
@@ -87,5 +87,5 @@
     "commonness": "ad2f339f12c41c42be6f530cff4d46f42fc7294ae0f6355e3c5dd5a8a9909084",
     "grammarEvidence": "19a91751c75bb74bf0eda46617962f436f2cdb65c68207a4d501d438e2433122"
   },
-  "drawnAt": "2026-08-02T17:54:35.605Z"
+  "drawnAt": "2026-08-02T18:22:49.905Z"
 }

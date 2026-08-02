@@ -13,12 +13,23 @@ import { readdir, readFile } from "node:fs/promises";
  *
  * Gzip is what a browser actually transfers, so that is what is budgeted. Raw
  * bytes are reported too, because that is what has to be parsed once it lands.
+ *
+ * Three gates, because a per-kind limit alone is not one. An asset kind with no
+ * budget used to print "no budget" and pass, so the first `.json`, `.wasm` or
+ * `.woff2` the build emitted could weigh megabytes and stay green -- the gate
+ * would hold precisely until something new arrived, which is the only time it
+ * was needed. So: every kind must be budgeted or explicitly waived, and the
+ * total is budgeted too, which catches growth spread thinly across kinds that
+ * are each individually within their limit.
  */
 
 const BUDGET_PATH = "bundle-budget.json";
 
 interface Budget {
   readonly gzipBytes: Readonly<Record<string, number>>;
+  readonly totalGzipBytes: number;
+  /** Kinds knowingly left unbudgeted, each with the reason. */
+  readonly unbudgeted?: Readonly<Record<string, string>>;
   readonly note?: string;
 }
 
@@ -55,18 +66,40 @@ for (const name of names.sort()) {
 }
 
 const failures: string[] = [];
+let totalGzip = 0;
+let totalRaw = 0;
 console.log("bundle size (gzip / raw)");
 for (const [kind, total] of [...totals].sort()) {
+  totalGzip += total.gzip;
+  totalRaw += total.raw;
   const limit = budget.gzipBytes[kind];
-  const headroom = limit === undefined
-    ? "no budget"
-    : `${((total.gzip / limit) * 100).toFixed(1)}% of ${kilobytes(limit)}`;
+  const waiver = budget.unbudgeted?.[kind];
+  const headroom = limit !== undefined
+    ? `${((total.gzip / limit) * 100).toFixed(1)}% of ${kilobytes(limit)}`
+    : waiver !== undefined
+      ? `unbudgeted: ${waiver}`
+      : "UNBUDGETED";
   console.log(`  ${kind.padEnd(5)} ${kilobytes(total.gzip).padStart(10)} / ${kilobytes(total.raw).padStart(10)}   ${headroom}`);
   if (limit !== undefined && total.gzip > limit) {
     failures.push(
       `${kind} is ${kilobytes(total.gzip)} gzipped, over its ${kilobytes(limit)} budget by ${kilobytes(total.gzip - limit)}`,
     );
   }
+  if (limit === undefined && waiver === undefined) {
+    failures.push(
+      `${kind} is in the build at ${kilobytes(total.gzip)} gzipped with no budget.`
+      + ` Give it a limit in ${BUDGET_PATH}, or waive it there with a reason.`,
+    );
+  }
+}
+
+console.log(`  ${"total".padEnd(5)} ${kilobytes(totalGzip).padStart(10)} / ${kilobytes(totalRaw).padStart(10)}`
+  + `   ${((totalGzip / budget.totalGzipBytes) * 100).toFixed(1)}% of ${kilobytes(budget.totalGzipBytes)}`);
+if (totalGzip > budget.totalGzipBytes) {
+  failures.push(
+    `the whole bundle is ${kilobytes(totalGzip)} gzipped, over its`
+    + ` ${kilobytes(budget.totalGzipBytes)} budget by ${kilobytes(totalGzip - budget.totalGzipBytes)}`,
+  );
 }
 
 for (const kind of Object.keys(budget.gzipBytes)) {
@@ -75,7 +108,8 @@ for (const kind of Object.keys(budget.gzipBytes)) {
 
 if (failures.length > 0) {
   console.error("");
-  for (const failure of failures) console.error(`over budget: ${failure}`);
+  console.error("bundle size gate failed:");
+  for (const failure of failures) console.error(`  ${failure}`);
   // Deliberately not phrased as a bug. Growing the catalog is the plan, and
   // paying for it is a decision -- this asks for the decision to be made and
   // recorded rather than made silently.

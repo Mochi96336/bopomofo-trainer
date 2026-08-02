@@ -173,6 +173,10 @@ export interface RateEstimate {
  * sheet rather than the catalog. Reweighting them by one stratum's catalog share
  * does not fix that, because their selection depended on every other stratum
  * too -- which is how this was wrong before.
+ *
+ * This is the complete-case count, over answered rows only, and is not what the
+ * report quotes: `catalogEstimate` wraps it with what the blank and `unsure`
+ * rows do to the claim.
  */
 export function catalogRate(
   rows: readonly Readonly<Record<string, string>>[],
@@ -208,6 +212,127 @@ export function rateOver(
     unsure,
     rate: judged === 0 ? null : wrong / judged,
     interval: wilsonInterval(wrong, judged),
+  };
+}
+
+/** One runtime syntax profile: a UPOS tag together with the frames it licenses. */
+export interface AssignedProfile {
+  readonly upos: string;
+  readonly frames: readonly string[];
+}
+
+/**
+ * The assigned profiles as a reviewer has to see them: pairing intact.
+ *
+ * The sheet used to carry two flattened sets -- every distinct UPOS in one
+ * column, every distinct frame in another. That cannot express which tag
+ * licensed which frame, so a swap between two profiles of the same entry is
+ * invisible: `ADJ[intransitive] ADV[avalent]` and `ADJ[avalent]
+ * ADV[intransitive]` produce identical columns, and a reviewer reading them
+ * marks a genuinely wrong entry `ok`. The runtime composes from whole profiles,
+ * not from two independent sets, so the sheet has to show whole profiles.
+ *
+ * Canonicalised by sorting, at both levels, because this string is covered by
+ * the sheet digest and profile order carries no meaning.
+ */
+export function formatAssignedProfiles(profiles: readonly AssignedProfile[]): string {
+  return profiles
+    .map((profile) => `${profile.upos}[${[...profile.frames].sort().join(",")}]`)
+    .sort()
+    .join(" | ");
+}
+
+/** Every base row accounted for, including the ones nobody answered. */
+export interface BaseTally {
+  readonly total: number;
+  readonly wrong: number;
+  readonly ok: number;
+  readonly unsure: number;
+  readonly blank: number;
+}
+
+/**
+ * What may honestly be said about the catalog given how far the review has got.
+ *
+ * `point` is the only quotable one. The others exist because the complete-case
+ * rate -- `wrong / (wrong + ok)` -- silently drops the rows nobody answered, and
+ * those rows are not missing at random. A reviewer works through the easy words
+ * first and leaves the doubtful ones blank, or marks them `unsure`; both habits
+ * strip exactly the rows most likely to be wrong out of the denominator. The
+ * survivors are then no longer a uniform sample of anything, and an interval
+ * computed over them describes the rows that happened to get answered rather
+ * than the catalog.
+ */
+export type CatalogEstimate =
+  /** Rows are still blank. There is no estimate yet, only progress. */
+  | { readonly kind: "incomplete"; readonly tally: BaseTally }
+  /**
+   * Every row answered, some as `unsure`. The rate is known to lie between
+   * "every unsure is fine" and "every unsure is wrong" and cannot be narrowed
+   * without answering them, so both ends are reported.
+   */
+  | {
+    readonly kind: "bounded";
+    readonly tally: BaseTally;
+    readonly low: number;
+    readonly high: number;
+    readonly interval: readonly [number, number];
+  }
+  /** Every row answered `ok` or `wrong`. This is the number to quote. */
+  | {
+    readonly kind: "point";
+    readonly tally: BaseTally;
+    readonly rate: number;
+    readonly interval: readonly [number, number];
+  };
+
+export function baseTally(
+  rows: readonly Readonly<Record<string, string>>[],
+  verdictColumn: string,
+): BaseTally {
+  const base = rows.filter((row) => (row["selection"] ?? "") === "base");
+  const counted = rateOver(base, verdictColumn);
+  return {
+    total: base.length,
+    wrong: counted.wrong,
+    ok: counted.judged - counted.wrong,
+    unsure: counted.unsure,
+    blank: base.length - counted.judged - counted.unsure,
+  };
+}
+
+/**
+ * The headline, or an explanation of why there is not one yet.
+ *
+ * Denominators are the whole base sample rather than the answered part of it,
+ * so an unfinished or selectively answered review cannot present itself as a
+ * measurement. See `CatalogEstimate`.
+ */
+export function catalogEstimate(
+  rows: readonly Readonly<Record<string, string>>[],
+  verdictColumn: string,
+): CatalogEstimate {
+  const tally = baseTally(rows, verdictColumn);
+  if (tally.total === 0 || tally.blank > 0) return { kind: "incomplete", tally };
+  if (tally.unsure > 0) {
+    return {
+      kind: "bounded",
+      tally,
+      low: tally.wrong / tally.total,
+      high: (tally.wrong + tally.unsure) / tally.total,
+      // Sampling error on top of the unresolved rows: the lowest the rate could
+      // be if every unsure turns out fine, to the highest if none of them do.
+      interval: [
+        wilsonInterval(tally.wrong, tally.total)[0],
+        wilsonInterval(tally.wrong + tally.unsure, tally.total)[1],
+      ],
+    };
+  }
+  return {
+    kind: "point",
+    tally,
+    rate: tally.wrong / tally.total,
+    interval: wilsonInterval(tally.wrong, tally.total),
   };
 }
 

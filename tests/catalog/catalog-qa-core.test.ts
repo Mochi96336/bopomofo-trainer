@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  catalogEstimate,
   catalogRate,
   drawStratifiedSample,
+  formatAssignedProfiles,
   rateOver,
   rowsForStratum,
   sheetDigest,
@@ -223,6 +225,135 @@ describe("wilson interval", () => {
     const [smallLow, smallHigh] = wilsonInterval(10, 100);
     const [largeLow, largeHigh] = wilsonInterval(100, 1000);
     expect(largeHigh - largeLow).toBeLessThan(smallHigh - smallLow);
+  });
+});
+
+/**
+ * What the reviewer is shown, which decides what they are able to catch.
+ *
+ * The sheet used to carry `assigned_upos` and `assigned_frames` as two
+ * separately de-duplicated sets. An entry with several profiles then appeared as
+ * "these tags occur, and these frames occur", which is not the claim the runtime
+ * makes -- it composes from whole profiles.
+ */
+describe("assigned profiles on the sheet", () => {
+  const correct = [
+    { upos: "ADJ", frames: ["intransitive"] },
+    { upos: "ADV", frames: ["avalent"] },
+  ];
+  /** Same tags, same frames, wrong pairing. */
+  const swapped = [
+    { upos: "ADJ", frames: ["avalent"] },
+    { upos: "ADV", frames: ["intransitive"] },
+  ];
+
+  /** The two columns the sheet used to carry. */
+  function flattened(profiles: readonly { upos: string; frames: readonly string[] }[]) {
+    return [
+      [...new Set(profiles.map((profile) => profile.upos))].sort().join("|"),
+      [...new Set(profiles.flatMap((profile) => profile.frames))].sort().join("|"),
+    ];
+  }
+
+  // The regression. A reviewer looking at the old columns sees nothing wrong
+  // with `swapped`, because the old columns cannot express what is wrong with
+  // it -- so they mark it `ok` and the measurement misses a whole class of
+  // error it claims to count.
+  it("distinguishes a mispaired entry that the flattened columns could not", () => {
+    expect(flattened(swapped)).toEqual(flattened(correct));
+    expect(formatAssignedProfiles(swapped)).not.toBe(formatAssignedProfiles(correct));
+  });
+
+  it("reads as one bracketed group per profile", () => {
+    expect(formatAssignedProfiles(correct)).toBe("ADJ[intransitive] | ADV[avalent]");
+    expect(formatAssignedProfiles([{ upos: "NOUN", frames: [] }])).toBe("NOUN[]");
+    expect(formatAssignedProfiles([])).toBe("");
+  });
+
+  // The column is covered by the sheet digest, so an ordering that depends on
+  // how the profile file happened to be written would report as tampering.
+  it("is canonical, so profile and frame order cannot move the digest", () => {
+    expect(formatAssignedProfiles([
+      { upos: "VERB", frames: ["transitive", "avalent"] },
+      { upos: "ADJ", frames: ["intransitive"] },
+    ])).toBe(formatAssignedProfiles([
+      { upos: "ADJ", frames: ["intransitive"] },
+      { upos: "VERB", frames: ["avalent", "transitive"] },
+    ]));
+  });
+});
+
+/**
+ * An unfinished review must not be able to look like a finished measurement.
+ *
+ * `wrong / (wrong + ok)` drops the blank and `unsure` rows, and those are not
+ * missing at random: a reviewer answers the obvious words first and leaves the
+ * doubtful ones, so the rows that survive into the denominator are the ones
+ * least likely to be wrong. The number that comes out is shaped exactly like the
+ * real one -- a percentage with a confidence interval beside it.
+ */
+describe("catalog estimate completeness", () => {
+  function baseRows(verdicts: readonly string[]): readonly Record<string, string>[] {
+    return verdicts.map((verdict, index) => ({
+      entry_id: `item-${index}`,
+      selection: "base",
+      floor_for: "",
+      verdict,
+    }));
+  }
+
+  it("gives a point estimate once every base row is answered", () => {
+    const estimate = catalogEstimate(baseRows(["wrong", "ok", "ok", "ok"]), "verdict");
+    expect(estimate.kind).toBe("point");
+    expect(estimate.kind === "point" && estimate.rate).toBe(0.25);
+  });
+
+  // The regression: the worst possible case, where every wrong row is one the
+  // reviewer could not face. Complete-case counting calls this catalog perfect.
+  it("refuses a rate while rows are blank, even where the answered ones give a clean one", () => {
+    const rows = baseRows(["ok", "ok", "ok", "ok", "", "", "", ""]);
+    expect(catalogRate(rows, "verdict").rate).toBe(0);
+
+    const estimate = catalogEstimate(rows, "verdict");
+    expect(estimate.kind).toBe("incomplete");
+    expect(estimate.tally).toMatchObject({ total: 8, blank: 4, ok: 4, wrong: 0 });
+  });
+
+  it("bounds the rate instead of dropping unsure rows", () => {
+    const rows = baseRows(["wrong", "unsure", "unsure", ...Array<string>(17).fill("ok")]);
+    const estimate = catalogEstimate(rows, "verdict");
+    expect(estimate.kind).toBe("bounded");
+    if (estimate.kind !== "bounded") return;
+    // 1/20 if both unsure rows are fine, 3/20 if neither is.
+    expect(estimate.low).toBeCloseTo(0.05, 10);
+    expect(estimate.high).toBeCloseTo(0.15, 10);
+    // Complete-case would have said 1/18, inside the bounds and narrower than
+    // the evidence supports.
+    expect(catalogRate(rows, "verdict").rate).toBeGreaterThan(estimate.low);
+    expect(estimate.interval[0]).toBeLessThanOrEqual(estimate.low);
+    expect(estimate.interval[1]).toBeGreaterThanOrEqual(estimate.high);
+  });
+
+  it("counts every base row in the denominator, answered or not", () => {
+    const estimate = catalogEstimate(baseRows(["wrong", "unsure", "ok"]), "verdict");
+    expect(estimate.tally.total).toBe(3);
+    expect(estimate.kind === "bounded" && estimate.low).toBeCloseTo(1 / 3, 10);
+  });
+
+  // Floor rows are not part of the estimate, so leaving one blank cannot hold
+  // the headline hostage.
+  it("ignores floor rows when deciding whether the sample is complete", () => {
+    const rows = [
+      ...baseRows(["wrong", "ok", "ok", "ok"]),
+      { entry_id: "floor-1", selection: "floor", floor_for: "support", verdict: "" },
+    ];
+    expect(catalogEstimate(rows, "verdict").kind).toBe("point");
+  });
+
+  it("says so when there is nothing to count", () => {
+    const estimate = catalogEstimate([], "verdict");
+    expect(estimate.kind).toBe("incomplete");
+    expect(estimate.tally.total).toBe(0);
   });
 });
 
