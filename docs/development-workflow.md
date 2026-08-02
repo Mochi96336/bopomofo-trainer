@@ -24,7 +24,16 @@ This command runs:
 2. every Vitest test except `tests/relations/partition/real-catalog-policy.test.ts` (`test:fast` then `test:simulation`);
 3. the Python source-adapter tests;
 4. catalog validation;
-5. the production build.
+5. the production build;
+6. the bundle size budget.
+
+The compiled catalog is almost the whole JavaScript bundle — around 450 kB of the
+460 kB a visitor downloads — so the download grows with every entry added, and
+the plan is to keep adding entries. `bundle-budget.json` holds the gzipped limit
+per asset kind. Going over is not a bug and the failure does not read as one: it
+asks for the increase to be a decision, taken and recorded in the same change,
+rather than absorbed quietly. Raise the limit deliberately and say in the commit
+what grew.
 
 The one excluded file runs all five relational partition strategies over the complete active catalog and takes roughly five minutes on its own, which is why it is not a routine gate. Run it directly when a change touches relational partitioning:
 

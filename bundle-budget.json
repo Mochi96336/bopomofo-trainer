@@ -1,0 +1,7 @@
+{
+  "note": "Gzipped bytes per asset kind, checked by scripts/check-bundle-size.ts. The JS figure is almost entirely the compiled catalog, so it grows with every entry added. Raising a limit is a deliberate change: say in the commit what grew and why the download cost is worth it.",
+  "gzipBytes": {
+    "js": 500000,
+    "css": 12000
+  }
+}
