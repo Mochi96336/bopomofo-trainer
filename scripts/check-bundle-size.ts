@@ -18,9 +18,15 @@ import { readdir, readFile } from "node:fs/promises";
  * budget used to print "no budget" and pass, so the first `.json`, `.wasm` or
  * `.woff2` the build emitted could weigh megabytes and stay green -- the gate
  * would hold precisely until something new arrived, which is the only time it
- * was needed. So: every kind must be budgeted or explicitly waived, and the
- * total is budgeted too, which catches growth spread thinly across kinds that
- * are each individually within their limit.
+ * was needed. So every kind must be budgeted or explicitly waived, and the total
+ * is budgeted as well, which is what bounds the waived ones: a waiver excuses a
+ * kind from having its own limit, not from counting towards the download.
+ *
+ * The whole of `dist` is measured, not `dist/assets`. What a visitor downloads
+ * includes `index.html`, and anything Vite copies from `public/` lands at the
+ * root beside it -- a favicon, a manifest, a service worker. Scanning one
+ * subdirectory would have left the root a place where an unbudgeted file of any
+ * size could arrive without the unknown-kind gate ever seeing it.
  */
 
 const BUDGET_PATH = "bundle-budget.json";
@@ -46,19 +52,38 @@ const budget = JSON.parse(
   await readFile(new URL(`../${BUDGET_PATH}`, import.meta.url), "utf8"),
 ) as Budget;
 
-const assetsUrl = new URL("../dist/assets/", import.meta.url);
-let names: string[];
+/** Source maps are not served to visitors, so they are not part of the download. */
+const NOT_DOWNLOADED = new Set(["map"]);
+
+const distUrl = new URL("../dist/", import.meta.url);
+
+/** Every file under `dist`, at any depth. */
+async function collect(directory: URL, prefix = ""): Promise<readonly string[]> {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const found: string[] = [];
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    if (entry.isDirectory()) {
+      found.push(...await collect(new URL(`${entry.name}/`, directory), `${prefix}${entry.name}/`));
+    } else {
+      found.push(`${prefix}${entry.name}`);
+    }
+  }
+  return found;
+}
+
+let names: readonly string[];
 try {
-  names = await readdir(assetsUrl);
+  names = await collect(distUrl);
 } catch {
-  console.error("no dist/assets: run `npm run build` before checking the bundle size.");
+  console.error("no dist: run `npm run build` before checking the bundle size.");
   process.exit(1);
 }
 
 const totals = new Map<string, { raw: number; gzip: number }>();
-for (const name of names.sort()) {
-  const contents = await readFile(new URL(name, assetsUrl));
+for (const name of names) {
   const kind = extensionOf(name);
+  if (NOT_DOWNLOADED.has(kind)) continue;
+  const contents = await readFile(new URL(name, distUrl));
   const total = totals.get(kind) ?? { raw: 0, gzip: 0 };
   total.raw += contents.byteLength;
   total.gzip += gzipSync(contents).byteLength;

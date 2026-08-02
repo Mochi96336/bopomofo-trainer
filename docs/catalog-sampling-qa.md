@@ -59,12 +59,23 @@ sum.
 | `heteronym` | `single-reading`, `multi-reading` | Whether the catalog ships more than one reading for the text |
 | `cedict` | `unique-record`, `ambiguous-records`, `absent` | What CC-CEDICT says about the text's identity |
 | `commonness` | `tier-1` … `tier-4` | The frequency band the learner meets it in |
-| `grammarEvidence` | `none`, `weak-1-2`, `moderate-3-9`, `strong-10-plus` | How many observed dependencies stand behind the role |
+| `grammarEvidence` | `none`, `weak-1-2`, `moderate-3-9`, `strong-10-plus` | How many observed dependencies stand behind the *least* supported role |
 | `predicate` | `predicate`, `non-predicate`, `no-frame` | Whether the entry can head a clause |
 
 `projection-disagrees` and `no-projection` are deliberately separate. A word no
 committed source covers is a gap; a word a committed source covers *differently*
 is an override, and those are not the same risk.
+
+`grammarEvidence` grades an entry on its weakest role rather than on its total.
+Summing across profiles let a well-evidenced role vouch for a thin one sitting
+beside it: an entry with NOUN on twelve observed dependencies and PART on two
+came out `strong-10-plus`, so the stratum treated it as a safe case while the
+role actually at risk went unexamined. 1,494 entries were graded above their
+weakest role that way, 427 of them as `strong-10-plus`. The minimum is also what
+matches the question the reviewer is asked, since `role_verdict` is `wrong` if
+*any* assignment is wrong — an entry is only well-evidenced when all of its roles
+are. `predicate` stays an entry-level question: whether a word can head a clause
+is true of the word if it is true of any profile it has.
 
 ## Reviewing
 
@@ -80,8 +91,13 @@ judge a role they were never told:
 
 | Column | Meaning |
 | --- | --- |
-| `assigned_profiles` | Every runtime syntax profile, as `UPOS[frame,frame]`, `\|`-separated |
+| `assigned_profiles` | Every runtime syntax profile, as `UPOS=evidence[frame,frame]`, `\|`-separated |
 | `profile_count` | How many of them there are |
+
+The number after each tag is that profile's own dependency count. It is there
+because `grammarEvidence` reports only the weakest of them, and a reviewer
+looking at a `weak-1-2` entry with three profiles needs to see which one is the
+weak one.
 
 Profiles are shown whole, not as two flattened sets. An earlier sheet carried
 every distinct UPOS in one column and every distinct frame in another, which
@@ -127,6 +143,19 @@ it. The digest covers every column except the verdicts and notes, so pairing a
 sheet with the wrong metadata, or sorting the rows in a spreadsheet and saving,
 is reported rather than silently scored against rows that are no longer the ones
 that were drawn.
+
+A second digest covers the metadata itself — the seed, the sample sizes, and the
+`recordedSourceDigests` naming the catalog state the draw was made against. Those
+used to be free text that the scorer reprinted, which read as though checking the
+sheet had also checked them.
+
+Two things are worth being exact about here. These source digests are **recorded,
+not verified**: nothing recomputes them from the sources, and nothing could
+usefully, because a sample may have been drawn against an older commit and
+disagreement with the working tree is then expected rather than wrong. And a
+digest stored beside the data it covers is evidence against an accident or a
+mismatched pair, not against someone who means it — they can recompute it too.
+The record that cannot be quietly rewritten is the commit history.
 
 Reading and grammar role are reported apart and are never combined. They fail
 for different reasons and are fixed in different places, and a single number

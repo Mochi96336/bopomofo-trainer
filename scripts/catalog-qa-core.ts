@@ -219,6 +219,33 @@ export function rateOver(
 export interface AssignedProfile {
   readonly upos: string;
   readonly frames: readonly string[];
+  /** Observed dependencies standing behind this profile, not behind the entry. */
+  readonly evidence: number;
+}
+
+/**
+ * How much evidence stands behind the *least* supported role on an entry.
+ *
+ * Summing across profiles was wrong in the direction that matters. An entry
+ * assigned NOUN on twelve observed dependencies and PART on two came out as
+ * `strong-10-plus`, so the stratum reached for it as a safe case while the role
+ * actually at risk sat inside it unexamined -- 1,494 entries are graded above
+ * their weakest role that way, 427 of them as `strong-10-plus`.
+ *
+ * The minimum is the reading that matches what the reviewer is asked: a
+ * `role_verdict` is `wrong` if *any* assignment is wrong, so the level has to
+ * describe the assignment most likely to be it. An entry is only well-evidenced
+ * when all of its roles are.
+ */
+export function grammarEvidenceLevel(profiles: readonly AssignedProfile[]): string {
+  if (profiles.length === 0) return "no-profile";
+  const weakest = Math.min(...profiles.map((profile) => profile.evidence));
+  if (weakest === 0) return "none";
+  // Split where the roadmap's risk lives: a role assigned from one or two
+  // observed dependencies is a very different claim from one assigned from many.
+  if (weakest <= 2) return "weak-1-2";
+  if (weakest <= 9) return "moderate-3-9";
+  return "strong-10-plus";
 }
 
 /**
@@ -232,12 +259,16 @@ export interface AssignedProfile {
  * marks a genuinely wrong entry `ok`. The runtime composes from whole profiles,
  * not from two independent sets, so the sheet has to show whole profiles.
  *
+ * Each profile carries its own evidence count, because the stratum reports only
+ * the weakest one and a reviewer looking at a `weak-1-2` entry needs to see
+ * which role is the weak one.
+ *
  * Canonicalised by sorting, at both levels, because this string is covered by
  * the sheet digest and profile order carries no meaning.
  */
 export function formatAssignedProfiles(profiles: readonly AssignedProfile[]): string {
   return profiles
-    .map((profile) => `${profile.upos}[${[...profile.frames].sort().join(",")}]`)
+    .map((profile) => `${profile.upos}=${profile.evidence}[${[...profile.frames].sort().join(",")}]`)
     .sort()
     .join(" | ");
 }
@@ -358,5 +389,28 @@ export function csvLine(fields: readonly string[]): string {
  */
 export function sheetDigest(fixedRows: readonly (readonly string[])[]): string {
   const canonical = fixedRows.map((row) => row.map(csvField).join(",")).join("\n");
+  return createHash("sha256").update(canonical, "utf8").digest("hex");
+}
+
+/**
+ * Ties the metadata to the sheet it was drawn with.
+ *
+ * `sheetDigest` covers the CSV and nothing else, so everything recorded beside
+ * it -- the seed, the sample sizes, and the source digests naming the catalog
+ * state the sample was drawn from -- could be edited freely while the sheet
+ * still verified. The scorer then reprinted those values as though checking them
+ * had meant something.
+ *
+ * What this buys is limited and worth stating plainly: a digest stored next to
+ * the data it covers detects an accidental edit or a mismatched pair, not a
+ * determined one, since whoever edits the file can recompute this too. The
+ * record that cannot be quietly rewritten is the commit history. What it does
+ * remove is the appearance of verification where there was none.
+ */
+export function manifestDigest(fields: Readonly<Record<string, unknown>>): string {
+  const canonical = Object.keys(fields)
+    .sort()
+    .map((key) => `${key}=${JSON.stringify(fields[key])}`)
+    .join("\n");
   return createHash("sha256").update(canonical, "utf8").digest("hex");
 }

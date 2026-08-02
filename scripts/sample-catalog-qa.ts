@@ -21,6 +21,8 @@ import {
   csvLine,
   drawStratifiedSample,
   formatAssignedProfiles,
+  grammarEvidenceLevel,
+  manifestDigest,
   rateOver,
   rowsForStratum,
   sheetDigest,
@@ -168,18 +170,10 @@ function readingKey(text: string, reading: string): string {
   return `${text} ${reading}`;
 }
 
-function grammarEvidenceLevel(profiles: readonly GrammarProfile[]): string {
-  if (profiles.length === 0) return "no-profile";
-  const total = profiles.reduce((sum, profile) => {
-    const counts = profile.dependencyEvidence?.dependencyRelationCounts ?? {};
-    return sum + Object.values(counts).reduce((inner, value) => inner + value, 0);
-  }, 0);
-  if (total === 0) return "none";
-  // Split where the roadmap's risk lives: a role assigned from one or two
-  // observed dependencies is a very different claim from one assigned from many.
-  if (total <= 2) return "weak-1-2";
-  if (total <= 9) return "moderate-3-9";
-  return "strong-10-plus";
+/** Observed dependencies behind one profile, which is the unit the level uses. */
+function profileEvidence(profile: GrammarProfile): number {
+  const counts = profile.dependencyEvidence?.dependencyRelationCounts ?? {};
+  return Object.values(counts).reduce((total, value) => total + value, 0);
 }
 
 function predicateLevel(profiles: readonly GrammarProfile[]): string {
@@ -313,6 +307,7 @@ async function loadCatalog(): Promise<{
       profiles: profiles.map((profile) => ({
         upos: profile.upos,
         frames: profile.valencyFrames ?? [],
+        evidence: profileEvidence(profile),
       })),
     });
   }
@@ -340,7 +335,10 @@ async function loadCatalog(): Promise<{
       heteronym: (readingCounts.get(text) ?? 1) > 1 ? "multi-reading" : "single-reading",
       cedict: cedictStatus.get(text) ?? "absent",
       commonness: `tier-${catalogEntryCommonnessTier(entry, thresholds) ?? "none"}`,
-      grammarEvidence: grammarEvidenceLevel(profilesByEntry.get(entry.id) ?? []),
+      // Graded on the weakest role, not on the entry's total. `predicate` stays
+      // an entry-level question -- whether this word can head a clause is true
+      // of the word if it is true of any of its profiles.
+      grammarEvidence: grammarEvidenceLevel(roles.get(entry.id)?.profiles ?? []),
       predicate: predicateLevel(profilesByEntry.get(entry.id) ?? []),
     });
   }
@@ -414,22 +412,33 @@ async function draw(options: Options): Promise<void> {
   // reviewer's verdicts.
   await writeFile(outUrl, `﻿${lines.join("\n")}\n`, "utf8");
 
-  const meta = {
-    schema: "catalog-qa-sample-v4",
+  // Everything the scorer will refuse to run without. `sheetDigest` ties the
+  // metadata to that sheet; `manifest` ties the rest of the metadata to both, so
+  // the draw parameters and the recorded source digests cannot be edited while
+  // the sheet still verifies.
+  const bound = {
+    schema: "catalog-qa-sample-v5",
     seed: options.seed,
     base: options.base,
     perLevel: options.perLevel,
-    baseSampleSize: fixedRows.filter((row) => row[3] === "base").length,
-    // Ties this metadata to that sheet. Without it a scorer will happily read
-    // one sample's catalog counts beside another sample's verdicts.
     sheetDigest: sheetDigest(fixedRows),
+    // Named for what they are. These are the source digests as they stood when
+    // the sample was drawn, copied down and bound against edits -- not digests
+    // this tool recomputes and checks, which it cannot do: the sample may have
+    // been drawn from an older commit, so disagreement with the working tree is
+    // expected rather than an error.
+    recordedSourceDigests: digests,
+  };
+  const meta = {
+    ...bound,
+    manifestDigest: manifestDigest(bound),
+    baseSampleSize: fixedRows.filter((row) => row[3] === "base").length,
     catalogEntryCount: entries.length,
     sampleSize: rows.length,
     strata: Object.fromEntries(STRATUM_NAMES.map((name) => [name, {
       sampled: Object.fromEntries(countLevels(rows, strata, name)),
       catalog: Object.fromEntries(countLevels(entries, strata, name)),
     }])),
-    digests,
     drawnAt: new Date().toISOString(),
   };
   await writeFile(
@@ -479,8 +488,12 @@ function isVerdict(value: string): value is Verdict {
 
 interface SampleMeta {
   readonly schema?: string;
+  readonly seed?: string;
+  readonly base?: number;
+  readonly perLevel?: number;
   readonly sheetDigest?: string;
-  readonly digests?: Readonly<Record<string, string>>;
+  readonly manifestDigest?: string;
+  readonly recordedSourceDigests?: Readonly<Record<string, string>>;
 }
 
 async function score(options: Options): Promise<void> {
@@ -503,7 +516,7 @@ async function score(options: Options): Promise<void> {
       + "\nScoring needs the metadata drawn with the sheet. Pass --meta if it lives elsewhere.",
     );
   }
-  if (meta.schema !== "catalog-qa-sample-v4") {
+  if (meta.schema !== "catalog-qa-sample-v5") {
     return fail(
       `${metaPath} is schema "${meta.schema ?? "(none)"}", which this scorer cannot read.`
       + " Redraw the sample with the current tool.",
@@ -523,8 +536,34 @@ async function score(options: Options): Promise<void> {
       + " rows that are no longer the ones that were drawn.",
     );
   }
-  console.log(`sheet verified against ${metaPath}`);
-  console.log(`catalog digest ${meta.digests?.["catalog"] ?? "(unrecorded)"}`);
+  // The metadata has to hold together too. Without this the seed, the sample
+  // sizes and the recorded source digests were free text that the report
+  // reprinted under a heading implying they had been checked.
+  const expectedManifest = manifestDigest({
+    schema: meta.schema,
+    seed: meta.seed,
+    base: meta.base,
+    perLevel: meta.perLevel,
+    sheetDigest: meta.sheetDigest,
+    recordedSourceDigests: meta.recordedSourceDigests,
+  });
+  if (expectedManifest !== meta.manifestDigest) {
+    return fail(
+      `${metaPath} does not match its own manifest digest.`
+      + `\n  expected ${meta.manifestDigest ?? "(none)"}`
+      + `\n  actual   ${expectedManifest}`
+      + "\nThe seed, the sample sizes or the recorded source digests have been edited"
+      + " since the draw. Refusing to score.",
+    );
+  }
+  console.log(`sheet and metadata agree (${metaPath})`);
+  // Deliberately not called verified. These are the digests copied down at draw
+  // time, bound against later editing; nothing here recomputes them from the
+  // sources, because the sample may have been drawn from an older commit.
+  console.log(
+    `recorded at draw time: seed ${meta.seed ?? "?"},`
+    + ` catalog ${meta.recordedSourceDigests?.["catalog"] ?? "(unrecorded)"}`,
+  );
 
   const unfilled: string[] = [];
   for (const record of records) {

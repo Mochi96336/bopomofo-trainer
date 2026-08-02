@@ -4,6 +4,8 @@ import {
   catalogRate,
   drawStratifiedSample,
   formatAssignedProfiles,
+  grammarEvidenceLevel,
+  manifestDigest,
   rateOver,
   rowsForStratum,
   sheetDigest,
@@ -238,13 +240,13 @@ describe("wilson interval", () => {
  */
 describe("assigned profiles on the sheet", () => {
   const correct = [
-    { upos: "ADJ", frames: ["intransitive"] },
-    { upos: "ADV", frames: ["avalent"] },
+    { upos: "ADJ", frames: ["intransitive"], evidence: 4 },
+    { upos: "ADV", frames: ["avalent"], evidence: 4 },
   ];
-  /** Same tags, same frames, wrong pairing. */
+  /** Same tags, same frames, same counts, wrong pairing. */
   const swapped = [
-    { upos: "ADJ", frames: ["avalent"] },
-    { upos: "ADV", frames: ["intransitive"] },
+    { upos: "ADJ", frames: ["avalent"], evidence: 4 },
+    { upos: "ADV", frames: ["intransitive"], evidence: 4 },
   ];
 
   /** The two columns the sheet used to carry. */
@@ -265,8 +267,8 @@ describe("assigned profiles on the sheet", () => {
   });
 
   it("reads as one bracketed group per profile", () => {
-    expect(formatAssignedProfiles(correct)).toBe("ADJ[intransitive] | ADV[avalent]");
-    expect(formatAssignedProfiles([{ upos: "NOUN", frames: [] }])).toBe("NOUN[]");
+    expect(formatAssignedProfiles(correct)).toBe("ADJ=4[intransitive] | ADV=4[avalent]");
+    expect(formatAssignedProfiles([{ upos: "NOUN", frames: [], evidence: 0 }])).toBe("NOUN=0[]");
     expect(formatAssignedProfiles([])).toBe("");
   });
 
@@ -274,12 +276,94 @@ describe("assigned profiles on the sheet", () => {
   // how the profile file happened to be written would report as tampering.
   it("is canonical, so profile and frame order cannot move the digest", () => {
     expect(formatAssignedProfiles([
-      { upos: "VERB", frames: ["transitive", "avalent"] },
-      { upos: "ADJ", frames: ["intransitive"] },
+      { upos: "VERB", frames: ["transitive", "avalent"], evidence: 7 },
+      { upos: "ADJ", frames: ["intransitive"], evidence: 3 },
     ])).toBe(formatAssignedProfiles([
-      { upos: "ADJ", frames: ["intransitive"] },
-      { upos: "VERB", frames: ["avalent", "transitive"] },
+      { upos: "ADJ", frames: ["intransitive"], evidence: 3 },
+      { upos: "VERB", frames: ["avalent", "transitive"], evidence: 7 },
     ]));
+  });
+});
+
+/**
+ * The stratum that decides which entries get looked at hardest.
+ *
+ * It used to add every profile's dependency count together, so an entry could be
+ * graded on evidence that belonged to a different role than the weak one. That
+ * is backwards for a stratum whose whole job is to reach for the doubtful cases,
+ * and it lines up badly with `role_verdict`, which asks whether *any* assignment
+ * is wrong.
+ */
+describe("grammar evidence level", () => {
+  const profile = (upos: string, evidence: number) => ({ upos, frames: ["intransitive"], evidence });
+
+  // The regression, in the reviewer's shape: strong evidence on one role must
+  // not vouch for a role that has none.
+  it("grades an entry on its weakest role, not on the total", () => {
+    expect(grammarEvidenceLevel([profile("NOUN", 12), profile("PART", 0)])).toBe("none");
+    // Summing gives 12 and calls this the best-evidenced band there is.
+    expect(grammarEvidenceLevel([profile("NOUN", 12), profile("PART", 2)])).toBe("weak-1-2");
+  });
+
+  // Two thinly-evidenced roles do not add up to one well-evidenced entry.
+  it("does not let small counts accumulate into a stronger band", () => {
+    expect(grammarEvidenceLevel([profile("ADJ", 2), profile("ADV", 2)])).toBe("weak-1-2");
+    expect(grammarEvidenceLevel([profile("ADJ", 5), profile("ADV", 6)])).toBe("moderate-3-9");
+  });
+
+  it("still grades a single-profile entry by its own count", () => {
+    expect(grammarEvidenceLevel([profile("VERB", 0)])).toBe("none");
+    expect(grammarEvidenceLevel([profile("VERB", 2)])).toBe("weak-1-2");
+    expect(grammarEvidenceLevel([profile("VERB", 9)])).toBe("moderate-3-9");
+    expect(grammarEvidenceLevel([profile("VERB", 10)])).toBe("strong-10-plus");
+  });
+
+  it("says when there is no profile at all", () => {
+    expect(grammarEvidenceLevel([])).toBe("no-profile");
+  });
+
+  // Which role is the weak one has to be visible, or `weak-1-2` on a
+  // multi-profile entry tells the reviewer nothing about where to look.
+  it("shows each profile's own count on the sheet", () => {
+    expect(formatAssignedProfiles([profile("NOUN", 12), profile("PART", 0)]))
+      .toBe("NOUN=12[intransitive] | PART=0[intransitive]");
+  });
+});
+
+/**
+ * The metadata beside the sheet, bound so it cannot be edited quietly.
+ */
+describe("manifest digest", () => {
+  const bound = {
+    schema: "catalog-qa-sample-v5",
+    seed: "catalog-qa-1",
+    base: 200,
+    perLevel: 25,
+    sheetDigest: "abc123",
+    recordedSourceDigests: { catalog: "deadbeef" },
+  };
+
+  it("is stable and independent of key order", () => {
+    expect(manifestDigest(bound)).toBe(manifestDigest({
+      recordedSourceDigests: { catalog: "deadbeef" },
+      sheetDigest: "abc123",
+      perLevel: 25,
+      base: 200,
+      seed: "catalog-qa-1",
+      schema: "catalog-qa-sample-v5",
+    }));
+  });
+
+  // The regression: a recorded source digest used to be free text that the
+  // report reprinted as though it had been checked.
+  it("changes when a recorded source digest is edited", () => {
+    expect(manifestDigest({ ...bound, recordedSourceDigests: { catalog: "0000" } }))
+      .not.toBe(manifestDigest(bound));
+  });
+
+  it("changes when the seed or the sheet digest is edited", () => {
+    expect(manifestDigest({ ...bound, seed: "other" })).not.toBe(manifestDigest(bound));
+    expect(manifestDigest({ ...bound, sheetDigest: "other" })).not.toBe(manifestDigest(bound));
   });
 });
 
