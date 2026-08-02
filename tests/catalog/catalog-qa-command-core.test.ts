@@ -14,7 +14,7 @@ describe("catalog QA sheet header", () => {
   });
 
   it("rejects swapping the reading and role verdict meanings", () => {
-    const swapped = [...CATALOG_QA_HEADERS];
+    const swapped: string[] = [...CATALOG_QA_HEADERS];
     const reading = swapped.indexOf("reading_verdict");
     const role = swapped.indexOf("role_verdict");
     [swapped[reading], swapped[role]] = [swapped[role] ?? "", swapped[reading] ?? ""];
@@ -26,7 +26,7 @@ describe("catalog QA sheet header", () => {
   });
 
   it("rejects duplicate and missing column names", () => {
-    const duplicated = [...CATALOG_QA_HEADERS];
+    const duplicated: string[] = [...CATALOG_QA_HEADERS];
     duplicated[duplicated.indexOf("role_verdict")] = "reading_verdict";
     expect(catalogQaHeaderError(duplicated)).toContain(
       'column "reading_verdict" appears more than once',
