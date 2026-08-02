@@ -1,10 +1,41 @@
 import { describe, expect, it } from "vitest";
 import {
+  CATALOG_QA_HEADERS,
+  catalogQaHeaderError,
   guardStratumOutput,
   metadataIntegrityDigest,
   verdictProgress,
   type VerdictProgress,
 } from "../../scripts/catalog-qa-command-core.js";
+
+describe("catalog QA sheet header", () => {
+  it("accepts the exact drawn column sequence", () => {
+    expect(catalogQaHeaderError(CATALOG_QA_HEADERS)).toBeNull();
+  });
+
+  it("rejects swapping the reading and role verdict meanings", () => {
+    const swapped = [...CATALOG_QA_HEADERS];
+    const reading = swapped.indexOf("reading_verdict");
+    const role = swapped.indexOf("role_verdict");
+    [swapped[reading], swapped[role]] = [swapped[role] ?? "", swapped[reading] ?? ""];
+
+    const error = catalogQaHeaderError(swapped);
+    expect(error).toContain("expected columns in this exact order");
+    expect(error).toContain("reading_verdict,role_verdict,notes");
+    expect(error).toContain("role_verdict,reading_verdict,notes");
+  });
+
+  it("rejects duplicate and missing column names", () => {
+    const duplicated = [...CATALOG_QA_HEADERS];
+    duplicated[duplicated.indexOf("role_verdict")] = "reading_verdict";
+    expect(catalogQaHeaderError(duplicated)).toContain(
+      'column "reading_verdict" appears more than once',
+    );
+
+    expect(catalogQaHeaderError(CATALOG_QA_HEADERS.slice(0, -1)))
+      .toContain("expected columns in this exact order");
+  });
+});
 
 describe("catalog QA metadata integrity", () => {
   const metadata = {
