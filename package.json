@@ -47,7 +47,9 @@
     "check:pr": "npm run typecheck && npm run test:fast && npm run test:simulation && npm run test:source-adapters && npm run catalog:validate && npm run build",
     "check:research": "npm test && npm run catalog:relations && npm run integration:research && npm run strategy:matrix && npm run experiment:relational && npm run analysis:relational && npm run confirmation:relational",
     "check": "npm run check:pr",
-    "test:browser": "npm run build && playwright test"
+    "test:browser": "npm run build && playwright test",
+    "qa:catalog-sample": "tsx scripts/sample-catalog-qa.ts",
+    "qa:catalog-score": "tsx scripts/sample-catalog-qa.ts --score"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

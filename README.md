@@ -98,6 +98,7 @@ docs/             架構、政策、證據與歷史研究文件
 - [領域模型](docs/domain-model.md)
 - [測量政策](docs/measurement-policy.md)
 - [弱點診斷](docs/weakness-diagnostics.md)
+- [Catalog 抽樣 QA](docs/catalog-sampling-qa.md)
 - [進步趨勢歷史](docs/diagnostic-progress-history.md)
 - [Roadmap](docs/roadmap.md)
 - [架構決策](docs/decisions/)

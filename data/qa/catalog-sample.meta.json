@@ -1,0 +1,88 @@
+{
+  "seed": "catalog-qa-1",
+  "base": 200,
+  "perLevel": 25,
+  "catalogEntryCount": 13897,
+  "sampleSize": 249,
+  "strata": {
+    "readingSupport": {
+      "sampled": {
+        "moe-concised": 133,
+        "manual-override": 25,
+        "no-projection": 63,
+        "moe-revised-fallback": 28
+      },
+      "catalog": {
+        "moe-concised": 9120,
+        "no-projection": 3077,
+        "moe-revised-fallback": 1668,
+        "manual-override": 32
+      }
+    },
+    "heteronym": {
+      "sampled": {
+        "single-reading": 202,
+        "multi-reading": 47
+      },
+      "catalog": {
+        "single-reading": 13454,
+        "multi-reading": 443
+      }
+    },
+    "cedict": {
+      "sampled": {
+        "absent": 173,
+        "ambiguous-records": 51,
+        "unique-record": 25
+      },
+      "catalog": {
+        "absent": 11721,
+        "unique-record": 1676,
+        "ambiguous-records": 500
+      }
+    },
+    "commonness": {
+      "sampled": {
+        "tier-1": 55,
+        "tier-4": 103,
+        "tier-3": 56,
+        "tier-2": 35
+      },
+      "catalog": {
+        "tier-1": 1392,
+        "tier-2": 2084,
+        "tier-3": 3473,
+        "tier-4": 6948
+      }
+    },
+    "grammarEvidence": {
+      "sampled": {
+        "strong-10-plus": 55,
+        "weak-1-2": 135,
+        "moderate-3-9": 59
+      },
+      "catalog": {
+        "strong-10-plus": 1583,
+        "moderate-3-9": 3268,
+        "weak-1-2": 9046
+      }
+    },
+    "predicate": {
+      "sampled": {
+        "predicate": 103,
+        "non-predicate": 146
+      },
+      "catalog": {
+        "predicate": 5084,
+        "non-predicate": 8813
+      }
+    }
+  },
+  "digests": {
+    "catalog": "cc97fbd1abe78e48d309b09e42c04a3b6bd5cc46d0fe906c7633c0b9c996aac6",
+    "readingResolution": "7471290287fb3de51533718ce3f45a15bf58e1cac529ff9ae61715fc01590367",
+    "commonness": "ad2f339f12c41c42be6f530cff4d46f42fc7294ae0f6355e3c5dd5a8a9909084",
+    "grammarEvidence": "19a91751c75bb74bf0eda46617962f436f2cdb65c68207a4d501d438e2433122"
+  },
+  "drawnAt": "2026-08-02T15:18:02.354Z"
+}
