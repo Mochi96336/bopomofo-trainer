@@ -1,0 +1,9 @@
+{
+  "note": "Gzipped bytes for everything under dist/ except source maps, checked by scripts/check-bundle-size.ts. The JS figure is almost entirely the compiled catalog, so it grows with every entry added. Raising a limit is a deliberate change: say in the commit what grew and why the download cost is worth it. Every asset kind the build emits must appear in gzipBytes or in unbudgeted (a kind name mapped to the reason it is waived); anything else fails the check rather than passing unnoticed. totalGzipBytes is the sum of the per-kind limits and is what bounds the waived kinds, which have no limit of their own and can only fit in whatever headroom the budgeted kinds are not using.",
+  "totalGzipBytes": 515000,
+  "gzipBytes": {
+    "js": 500000,
+    "css": 12000,
+    "html": 3000
+  }
+}

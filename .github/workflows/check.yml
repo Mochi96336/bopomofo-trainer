@@ -78,6 +78,11 @@ jobs:
         run: npm run catalog:validate
       - name: Production build
         run: npm run build
+      # Listed separately here because this job runs the individual scripts
+      # rather than `check:pr`, so adding a step to that composite does not add
+      # it to CI.
+      - name: Bundle size budget
+        run: npm run size:check
 
   # Runs alongside `check` rather than after it, and belongs to this workflow
   # rather than one of its own so that the deploy gate -- which waits on this

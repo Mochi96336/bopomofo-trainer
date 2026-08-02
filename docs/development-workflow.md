@@ -24,7 +24,29 @@ This command runs:
 2. every Vitest test except `tests/relations/partition/real-catalog-policy.test.ts` (`test:fast` then `test:simulation`);
 3. the Python source-adapter tests;
 4. catalog validation;
-5. the production build.
+5. the production build;
+6. the bundle size budget.
+
+The compiled catalog is almost the whole JavaScript bundle — around 450 kB of the
+460 kB a visitor downloads — so the download grows with every entry added, and
+the plan is to keep adding entries. `bundle-budget.json` holds the gzipped limit
+per asset kind, plus a limit on the total. Going over is not a bug and the
+failure does not read as one: it asks for the increase to be a decision, taken
+and recorded in the same change, rather than absorbed quietly. Raise the limit
+deliberately and say in the commit what grew.
+
+An asset kind the build emits with no limit against it fails the check too. A
+gate that only guards the kinds it already knows about would hold right up until
+the build started emitting a font, a `.wasm` or a data file — which is the point
+at which it was needed. Give the new kind a limit, or waive it in `unbudgeted`
+with the reason. The total is the sum of the per-kind limits, and it is what
+bounds the waived kinds: a waiver excuses a kind from having a limit of its own,
+not from counting towards the download.
+
+Everything under `dist` is measured, source maps aside — `index.html` included,
+and anything Vite copies from `public/` to the root beside it. Measuring only
+`dist/assets` would have left the root a place where a file of any kind and any
+size could arrive without the unknown-kind gate ever seeing it.
 
 The one excluded file runs all five relational partition strategies over the complete active catalog and takes roughly five minutes on its own, which is why it is not a routine gate. Run it directly when a change touches relational partitioning:
 
