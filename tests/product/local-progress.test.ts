@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   clearLocalProductProgress,
-  currentLocalProductProgress,
   loadLocalProductProgress,
   LOCAL_PROGRESS_KEY,
   saveLocalProductProgress,
@@ -32,14 +31,11 @@ describe("local progress adapter", () => {
       "standard",
     );
     saveLocalProductProgress(storage, progress);
-    expect(currentLocalProductProgress()).toBe(progress);
     expect(loadLocalProductProgress(storage, environment, "guided", "standard")).toEqual({
       progress,
       recoveredFromInvalidState: false,
     });
-    expect(currentLocalProductProgress()).toEqual(progress);
     clearLocalProductProgress(storage);
-    expect(currentLocalProductProgress()).toBeNull();
     expect(storage.getItem(LOCAL_PROGRESS_KEY)).toBeNull();
   });
 
@@ -59,7 +55,6 @@ describe("local progress adapter", () => {
       progress: null,
       recoveredFromInvalidState: true,
     });
-    expect(currentLocalProductProgress()).toBeNull();
   });
 
   it("rejects summaries that reference unknown entries", () => {
@@ -91,7 +86,6 @@ describe("local progress adapter", () => {
       progress: null,
       recoveredFromInvalidState: true,
     });
-    expect(currentLocalProductProgress()).toBeNull();
   });
 
   it("reports invalid stored state without partially loading it", () => {
@@ -101,6 +95,5 @@ describe("local progress adapter", () => {
       progress: null,
       recoveredFromInvalidState: true,
     });
-    expect(currentLocalProductProgress()).toBeNull();
   });
 });

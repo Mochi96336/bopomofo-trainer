@@ -1,32 +1,50 @@
 name: Deploy Pages
 
+# Only ever from a `check` run on `main`. Without the branch filter this workflow
+# starts for every `check` completion in the repository, pull requests included,
+# and a run that starts is a run that competes for the concurrency group below --
+# even though its `deploy` job then decides not to deploy anything.
 on:
   workflow_run:
     workflows:
       - check
     types:
       - completed
-  workflow_dispatch:
+    branches:
+      - main
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
-concurrency:
-  group: pages-${{ github.event.workflow_run.head_sha || github.sha }}
-  cancel-in-progress: true
-
 jobs:
   deploy:
+    # Deploys the commit `check` actually passed, whether that run was started by
+    # a push or by hand. There is deliberately no `workflow_dispatch` on this
+    # workflow: dispatching it could only pin a branch, never the fact that the
+    # branch's current commit had passed anything, so a commit whose check was
+    # still running -- or had failed -- could be put live from the Actions tab. A
+    # manual deployment is a manual `check` run on `main`; success brings it here.
     if: >-
-      github.event_name == 'workflow_dispatch'
-      || (
-        github.event.workflow_run.conclusion == 'success'
-        && github.event.workflow_run.event == 'push'
-        && github.event.workflow_run.head_branch == 'main'
-        && github.event.workflow_run.head_repository.full_name == github.repository
+      github.event.workflow_run.conclusion == 'success'
+      && (
+        github.event.workflow_run.event == 'push'
+        || github.event.workflow_run.event == 'workflow_dispatch'
       )
+      && github.event.workflow_run.head_branch == 'main'
+      && github.event.workflow_run.head_repository.full_name == github.repository
+    # On the job, not the workflow. One group for the site is what makes the
+    # newest push win -- keying it on the SHA gave every commit a group of its
+    # own, where `cancel-in-progress` could only cancel a repeat of the same
+    # commit, so an older run finishing late still landed last. But a group held
+    # at workflow level is entered by every run that starts, including the ones
+    # whose `if` above is about to skip them: a failed check on `main` would then
+    # cancel a live deployment and deploy nothing in its place. Only a job that
+    # is really going to deploy should be able to cancel one.
+    concurrency:
+      group: pages
+      cancel-in-progress: true
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -35,7 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.event.workflow_run.head_sha }}
       - uses: actions/setup-node@v6
         with:
           node-version: 22

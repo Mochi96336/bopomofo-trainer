@@ -15,14 +15,6 @@ export interface LocalProgressLoadResult {
   readonly recoveredFromInvalidState: boolean;
 }
 
-// Mirrors the last loaded/saved progress so diagnostics can read the value the
-// running product is actually using without re-parsing and re-validating storage.
-let liveProductProgress: ProductProgress | null = null;
-
-export function currentLocalProductProgress(): ProductProgress | null {
-  return liveProductProgress;
-}
-
 export function loadLocalProductProgress(
   storage: StorageLike,
   environment: ProductEnvironment,
@@ -30,10 +22,7 @@ export function loadLocalProductProgress(
   layoutId: string,
 ): LocalProgressLoadResult {
   const source = storage.getItem(LOCAL_PROGRESS_KEY);
-  if (source === null) {
-    liveProductProgress = null;
-    return { progress: null, recoveredFromInvalidState: false };
-  }
+  if (source === null) return { progress: null, recoveredFromInvalidState: false };
   const progress = parseProductProgress(
     source,
     environment.practiceSupport,
@@ -46,7 +35,6 @@ export function loadLocalProductProgress(
   const validProgress = progress !== null && productProgressReferencesAreKnown(progress, environment)
     ? progress
     : null;
-  liveProductProgress = validProgress;
   return {
     progress: validProgress,
     recoveredFromInvalidState: validProgress === null,
@@ -59,11 +47,9 @@ export function saveLocalProductProgress(
 ): void {
   beginLocalPersistenceTransaction(storage);
   storage.setItem(LOCAL_PROGRESS_KEY, serializeProductProgress(progress));
-  liveProductProgress = progress;
 }
 
 export function clearLocalProductProgress(storage: StorageLike): void {
   beginLocalPersistenceTransaction(storage);
   storage.removeItem(LOCAL_PROGRESS_KEY);
-  liveProductProgress = null;
 }

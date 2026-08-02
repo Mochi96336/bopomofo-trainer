@@ -40,13 +40,28 @@ npm run check:research
 
 The research command is intentionally expensive. It is not a routine product merge gate.
 
+## Browser tests
+
+`check:pr` runs in jsdom, which reproduces a dialog's bookkeeping and none of its modality. The rules that depend on the platform itself — the top layer a native `<dialog>` opens into, which surface Escape belongs to when two are stacked, where focus lands afterwards, whether the page overflows at 320px — are checked in Chromium instead:
+
+```bash
+npx playwright install chromium   # once
+npm run test:browser
+```
+
+It builds first and runs against the production build, since that is the artifact Pages deploys. The suite is deliberately small and stays that way: it holds what jsdom cannot answer, not a second home for assertions the unit tests already make better. Browser specs are named `*.browser.ts` so Vitest, which claims `*.test.ts` and `*.spec.ts` across the whole tree, never tries to run one in jsdom.
+
 ## GitHub Actions policy
 
-- Pull requests run only the fast `check` job.
-- Pushes to `main` run only the fast `check` job.
+- Pull requests run the fast `check` job and the `browser` job.
+- Pushes to `main` run the same two jobs.
+- Both belong to the `check` workflow, so the deploy gate — which waits on that workflow concluding successfully — covers the browser suite too.
 - The `research` job runs only through `workflow_dispatch` with `run_research=true`.
 - Concurrency is grouped by pull request or ref, and a newer run cancels the older run.
-- The fast job has a 20-minute timeout; the manually requested research job has a 60-minute timeout.
+- Pages deployment is triggered only by a successful `check` run on `main`, and always deploys the commit that run checked.
+- Its concurrency group is fixed (`pages`) so the newest deployment wins rather than whichever build happens to finish last, and it is declared on the deploy job rather than on the workflow — a group held at workflow level is entered by every run that starts, so a pull request's `check` completion, or a failed `check` on `main`, would cancel a live deployment and put nothing in its place.
+- `Deploy Pages` has no `workflow_dispatch` of its own. Dispatching it could only pin a branch, never the fact that the branch's current commit had passed anything. **To deploy by hand, run the `check` workflow manually on `main`**; success carries it through to deployment.
+- The fast jobs have a 20-minute timeout; the manually requested research job has a 60-minute timeout.
 - While hosted Actions quota is unavailable, a pull request may be reviewed and merged from recorded local verification plus diff review. Do not push repeatedly to probe CI.
 
 ## Commit and pull-request discipline

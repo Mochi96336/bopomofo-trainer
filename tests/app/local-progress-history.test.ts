@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   clearLocalProgressHistory,
-  currentLocalProgressHistory,
   loadLocalProgressHistory,
   LOCAL_PROGRESS_HISTORY_KEY,
   saveLocalProgressHistory,
@@ -57,20 +56,18 @@ function storedHistory(lastCompletedRound: number): string {
 }
 
 describe("local progress history adapter", () => {
-  it("saves, restores, exposes, and clears history", () => {
+  it("saves, restores, and clears history", () => {
     const storage = new MemoryStorage();
     const progress = freshProgress();
     const history = createEmptyProgressHistory("guided", "standard");
 
     saveLocalProgressHistory(storage, history);
-    expect(currentLocalProgressHistory()).toBe(history);
     expect(loadLocalProgressHistory(storage, progress, environment)).toEqual({
       history,
       recoveredFromInvalidState: false,
     });
 
     clearLocalProgressHistory(storage);
-    expect(currentLocalProgressHistory()).toBeNull();
     expect(storage.getItem(LOCAL_PROGRESS_HISTORY_KEY)).toBeNull();
   });
 

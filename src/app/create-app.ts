@@ -90,6 +90,7 @@ import {
   rarityProgressText,
   type PanelActionStatus,
 } from "./information-panel-model.js";
+import type { DiagnosticSnapshot } from "./diagnostic-snapshot.js";
 import { createExpiringValue } from "./expiring-value.js";
 import { loadAppState } from "./load-app-state.js";
 import type { StorageLike } from "./persistence-transaction.js";
@@ -160,6 +161,14 @@ export interface App {
    */
   focusPractice(): void;
   /**
+   * The state this instance is practising against, as of right now.
+   *
+   * Read by the diagnostics layer at the moment it renders. It reports what the
+   * session is actually using, including when storage refused the last write and
+   * the session is continuing in memory alone.
+   */
+  getDiagnosticSnapshot(): DiagnosticSnapshot;
+  /**
    * Removes the listeners and timers this instance owns, so a second instance
    * can be built over the same document without the first still answering.
    */
@@ -178,6 +187,19 @@ export interface App {
  */
 export function createApp(deps: AppDependencies): App {
   const { root, capture, storage, newSeed, onRoundMounted, onPanelRendered } = deps;
+
+  /**
+   * Scopes every listener this instance puts on a target that outlives it.
+   *
+   * Three targets do: the document, the window, and the capture textarea, which
+   * sits outside `#app` precisely so that re-rendering the shell cannot take it
+   * away. A listener on any of them has to be released by hand, and releasing an
+   * anonymous one by hand is not possible at all -- so they are all handed this
+   * signal instead, and `destroy()` drops the whole set in one act. Listeners on
+   * elements inside `#app` need nothing: re-rendering replaces those elements,
+   * and their listeners go with them.
+   */
+  const eventScope = new AbortController();
 
   const catalogs = {
     practice: PRACTICE_CATALOG,
@@ -1250,7 +1272,7 @@ export function createApp(deps: AppDependencies): App {
     compositionActive = true;
     imeWarning = true;
     updatePracticeState();
-  });
+  }, { signal: eventScope.signal });
 
   capture.addEventListener("compositionend", () => {
     compositionActive = false;
@@ -1258,11 +1280,11 @@ export function createApp(deps: AppDependencies): App {
     capture.value = "";
     updatePracticeState();
     focusCapture(true);
-  });
+  }, { signal: eventScope.signal });
 
   capture.addEventListener("input", (event) => {
     if (!(event instanceof InputEvent) || !event.isComposing) capture.value = "";
-  });
+  }, { signal: eventScope.signal });
 
   capture.addEventListener("keydown", (event) => {
     if (event.key === "Tab") return;
@@ -1308,7 +1330,7 @@ export function createApp(deps: AppDependencies): App {
     }
     updatePracticeState();
     updateTopbar();
-  });
+  }, { signal: eventScope.signal });
 
   const handleGlobalKeydown = (event: KeyboardEvent): void => {
     const inspectionAction = event.code === "F8"
@@ -1357,8 +1379,11 @@ export function createApp(deps: AppDependencies): App {
     focusCapture();
   };
 
-  document.addEventListener("keydown", handleGlobalKeydown, { capture: true });
-  window.addEventListener("focus", handleWindowFocus);
+  document.addEventListener("keydown", handleGlobalKeydown, {
+    capture: true,
+    signal: eventScope.signal,
+  });
+  window.addEventListener("focus", handleWindowFocus, { signal: eventScope.signal });
 
   mountShell();
   // After the shell, because setting it renders the region it appears in.
@@ -1381,9 +1406,14 @@ export function createApp(deps: AppDependencies): App {
     focusPractice(): void {
       focusCapture(true);
     },
+    getDiagnosticSnapshot(): DiagnosticSnapshot {
+      return { progress: product.progress, progressHistory, selectionTuning };
+    },
     destroy(): void {
-      document.removeEventListener("keydown", handleGlobalKeydown, { capture: true });
-      window.removeEventListener("focus", handleWindowFocus);
+      // Everything on the document, the window and the capture textarea goes at
+      // once, including the four anonymous handlers on capture that no
+      // `removeEventListener` call could have named.
+      eventScope.abort();
       unlockNotice.clear();
       previousResult.clear();
       recoveryNotices.clear();

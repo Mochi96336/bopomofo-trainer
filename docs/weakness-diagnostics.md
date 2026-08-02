@@ -181,7 +181,7 @@ Relationship paths use:
 - explicit arrow direction;
 - separate higher, dashed routing for tone relations.
 
-Per-tab paths (network overlay off) additionally use stable sample-count width tiers, neutral ink styling, and hover/click/keyboard-focus/list synchronization. The current browser adapter builds them from the exact visible inspector rows after the selectors have applied the key selection and the fixed sample gate. Composing them directly from the model instead is listed under known gaps below.
+Per-tab paths (network overlay off) additionally use stable sample-count width tiers, neutral ink styling, and hover/click/keyboard-focus/list synchronization. They are built from the exact rows the inspector listed, after the selectors have applied the key selection and the fixed sample gate — the panel hands those rows, the selection and the mesh's visibility to the overlay as it renders, rather than the overlay recovering them from the rendered markup. The list buttons are still located in the DOM, but only to wire hover and activation between each path and its row.
 
 ## Inspector rail
 
@@ -369,9 +369,9 @@ The previously implemented drawer-expansion preference is retained only until th
 These are real, currently true shortcuts, not planned features:
 
 - `create-app.ts` still carries a private copy of the keyboard row geometry for the practice sketch instead of rendering it from `src/app/keyboard-geometry.ts`, so the two keyboards can drift;
-- the analysis shell is mounted as a browser enhancement layer that rebuilds its model from the mirrored localStorage progress rather than composing directly from live product state;
-- the relationship overlay reads the rendered inspector rows out of the DOM instead of taking a selector result directly;
-- the repository has no browser test harness, so interaction and visual behaviour are verified by hand rather than in CI.
+- the browser suite is a smoke test rather than coverage: it holds the platform behaviour jsdom cannot produce, and the rest of the manual protocol is still manual.
+
+Closed since this list was written: the analysis composes its model from the running shell's `getDiagnosticSnapshot()` instead of from mirrored localStorage; the relationship overlay is given the visible rows rather than reading them back out of the DOM; and a Chromium smoke suite runs in CI.
 
 ## Validation
 

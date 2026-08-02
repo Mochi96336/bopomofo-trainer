@@ -56,6 +56,21 @@ function createRecordingStorage(): StorageLike & {
   };
 }
 
+/**
+ * The physical key the current token wants, read the way the shell marks it.
+ *
+ * The keyboard hint is off by default, and turning it on is the only honest way
+ * for a test to find that key rather than reimplement the layout.
+ */
+function revealWantedKey(app: MountedApp): string {
+  app.openPanel();
+  app.find<HTMLInputElement>("#toggle-keyboard-sketch").click();
+  app.dialog.close();
+  const code = app.find<HTMLElement>(".keyboard-sketch-key.current").dataset.code;
+  if (code === undefined) throw new Error("expected a marked key for the current token");
+  return code;
+}
+
 function setRange(input: HTMLInputElement, value: string, event: "input" | "change"): void {
   input.value = value;
   input.dispatchEvent(new Event(event, { bubbles: true }));
@@ -90,6 +105,68 @@ describe("practice shell mounting", () => {
     }));
     expect(document.querySelector<HTMLDialogElement>("#information-dialog")?.open)
       .not.toBe(true);
+  });
+
+  // The global listener above is only half of what an instance holds. The rest
+  // sits on the capture textarea, which lives outside `#app` and therefore
+  // survives everything a remount replaces. Tearing the document down after
+  // `destroy()` would take those listeners with it whether they were released or
+  // not, so this keeps the document standing and asks the element itself.
+  it("stops answering keys on the capture it was built over once destroyed", () => {
+    const app = mount();
+    const code = revealWantedKey(app);
+    const position = app.find("#progress-count").textContent;
+    const stage = app.find("#practice-stage").innerHTML;
+    const stored = app.storage.getItem(LOCAL_PROGRESS_KEY);
+
+    app.destroy({ keepDocument: true });
+    pressKey(app.capture, { code });
+
+    expect(app.find("#progress-count").textContent).toBe(position);
+    expect(app.find("#practice-stage").innerHTML).toBe(stage);
+    expect(app.storage.getItem(LOCAL_PROGRESS_KEY)).toBe(stored);
+  });
+
+  // The other direction: releasing the capture must not leave it unusable for
+  // the instance that comes next. This one meets the very elements the first was
+  // built over, which a remount that lays down fresh markup never does.
+  it("hands the same capture to a second instance built over it", () => {
+    const storage = createMemoryStorage();
+    const first = mountApp({ storage });
+    first.destroy({ keepDocument: true });
+
+    const second = mountApp({ storage, reuseDocument: true });
+    mounted = second;
+    expect(second.capture).toBe(first.capture);
+
+    const code = revealWantedKey(second);
+    const total = second.find("#progress-count").textContent?.split(" / ").at(-1);
+    pressKey(second.capture, { code });
+
+    expect(second.find("#progress-count").textContent).toBe(`1 / ${total}`);
+  });
+});
+
+describe("diagnostics over a degraded session", () => {
+  // Diagnostics used to read module-level mirrors of what had last reached
+  // storage. With every write refused nothing was ever mirrored, so the panel
+  // described an empty session while practice carried on in memory -- two
+  // answers about one session, from a product that promises the session
+  // continues. It is handed the shell's live state now.
+  it("describes the running session when storage refuses every write", () => {
+    const app = mountApp({ storage: createUnwritableStorage(), diagnostics: true });
+    mounted = app;
+    // Finishes a round, so there are real measurements that no write preserved.
+    document.dispatchEvent(new KeyboardEvent("keydown", {
+      code: "F10",
+      bubbles: true,
+      cancelable: true,
+    }));
+    app.openPanel();
+
+    const meta = app.find(".diagnostic-summary-signals div small").textContent;
+    expect(meta).not.toBe("尚無按鍵資料");
+    expect(meta).toMatch(/\d+ 次$/);
   });
 });
 

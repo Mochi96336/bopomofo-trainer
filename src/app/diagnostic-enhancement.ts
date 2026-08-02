@@ -11,17 +11,16 @@ import {
   PRACTICE_CATALOG,
   SYNTAX_PROFILES,
 } from "./generated/catalog.js";
-import { currentLocalProductProgress } from "./local-progress.js";
-import { currentLocalProgressHistory } from "./local-progress-history.js";
 import {
   createDiagnosticAnalysis,
   renderDiagnosticSummary,
   type DiagnosticAnalysisController,
 } from "./diagnostic-panel.js";
 import type { DiagnosticPreferenceStorage } from "./diagnostic-preferences.js";
-import { mountDiagnosticRelationshipEnhancement } from "./diagnostic-relationship-enhancement.js";
+import { renderDiagnosticRelationshipOverlay } from "./diagnostic-relationship-enhancement.js";
+import type { DiagnosticSnapshot } from "./diagnostic-snapshot.js";
 import {
-  currentSelectionTuning,
+  DEFAULT_SELECTION_TUNING,
   policyForSelectionTuning,
   type SelectionTuning,
 } from "./selection-tuning.js";
@@ -44,9 +43,19 @@ function environmentForTuning(tuning: SelectionTuning): ProductEnvironment {
   return cachedEnvironment;
 }
 
-function currentDiagnosticModel() {
-  const environment = environmentForTuning(currentSelectionTuning());
-  const progress = currentLocalProductProgress() ?? createFreshProgressForEnvironment(
+/**
+ * Builds the model from the shell's live state.
+ *
+ * The empty fallback covers the one moment there is nothing to describe: the
+ * page composes this layer before it builds the shell, because the shell needs
+ * somewhere to report panel renders to. Nothing renders in that window, so the
+ * fallback is a type-level answer rather than a state a learner ever sees.
+ */
+function diagnosticModelFrom(snapshot: DiagnosticSnapshot | null) {
+  const environment = environmentForTuning(
+    snapshot?.selectionTuning ?? DEFAULT_SELECTION_TUNING,
+  );
+  const progress = snapshot?.progress ?? createFreshProgressForEnvironment(
     environment,
     "diagnostic-empty",
     "guided",
@@ -58,7 +67,7 @@ function currentDiagnosticModel() {
     support: environment.practiceSupport,
     layout: STANDARD_BOPOMOFO_LAYOUT,
     selectionPolicy: environment.utterancePolicy,
-    progressHistory: currentLocalProgressHistory(),
+    progressHistory: snapshot?.progressHistory ?? null,
   });
 }
 
@@ -75,6 +84,14 @@ export interface DiagnosticEnhancementDependencies {
   readonly closePanel: () => void;
   /** Returns focus to the practice surface. */
   readonly focusPractice: () => void;
+  /**
+   * The shell's live state, asked for at each render.
+   *
+   * Null only while the shell is still being built, which is before anything
+   * here can render. Everything this layer shows is derived from the answer, so
+   * there is no second copy of the session to fall behind the first.
+   */
+  readonly getSnapshot: () => DiagnosticSnapshot | null;
   readonly storage: DiagnosticPreferenceStorage;
 }
 
@@ -143,12 +160,15 @@ function mountAnalysisTopLayer(
 export function mountDiagnosticEnhancement(
   deps: DiagnosticEnhancementDependencies,
 ): DiagnosticEnhancement {
+  const currentDiagnosticModel = () => diagnosticModelFrom(deps.getSnapshot());
   const analysis = createDiagnosticAnalysis({
     getModel: currentDiagnosticModel,
     storage: deps.storage,
+    // Safe to name `analysis` here: the callback only ever runs from a render,
+    // which cannot happen before this call has returned.
+    onRendered: (view) => renderDiagnosticRelationshipOverlay(analysis.host, view),
   });
   const releaseTopLayer = mountAnalysisTopLayer(analysis.host, deps.focusPractice);
-  const releaseRelationships = mountDiagnosticRelationshipEnhancement(currentDiagnosticModel);
 
   return {
     panelRendered(content: HTMLElement): void {
@@ -161,7 +181,6 @@ export function mountDiagnosticEnhancement(
       );
     },
     destroy(): void {
-      releaseRelationships();
       releaseTopLayer();
       analysis.destroy();
     },

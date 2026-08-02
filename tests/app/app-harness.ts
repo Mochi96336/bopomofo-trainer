@@ -129,7 +129,16 @@ export interface MountedApp {
    * before the effect of accepting is on the page.
    */
   answerConfirm(choice: "accept" | "cancel"): Promise<void>;
-  destroy(): void;
+  /**
+   * Tears the instance down, and by default clears the document after it.
+   *
+   * `keepDocument` leaves the markup -- and with it the same capture textarea --
+   * standing, which is the only way a test can ask whether a destroyed instance
+   * really let go of the element it was listening on. Wiping the body is
+   * otherwise indistinguishable from a correct teardown, because the listeners
+   * go with the element whether they were removed or not.
+   */
+  destroy(options?: { readonly keepDocument?: boolean }): void;
 }
 
 export interface MountOptions {
@@ -143,12 +152,20 @@ export interface MountOptions {
    * only the real page performs.
    */
   readonly diagnostics?: boolean;
+  /**
+   * Builds over the markup already in the document instead of laying down fresh
+   * markup, so a second instance meets the very elements the first one did.
+   *
+   * Pairs with `destroy({ keepDocument: true })`. Only a remount on the same
+   * capture textarea can show that two instances are not both answering it.
+   */
+  readonly reuseDocument?: boolean;
 }
 
 export function mountApp(options: MountOptions = {}): MountedApp {
   installDialogSupport();
   installMatchMedia();
-  document.body.innerHTML = SHELL_MARKUP;
+  if (options.reuseDocument !== true) document.body.innerHTML = SHELL_MARKUP;
   const storage = options.storage ?? createMemoryStorage();
   const root = document.querySelector<HTMLElement>("#app");
   const capture = document.querySelector<HTMLTextAreaElement>("#keyboard-capture");
@@ -160,6 +177,7 @@ export function mountApp(options: MountOptions = {}): MountedApp {
     ? mountDiagnosticEnhancement({
       closePanel: () => app?.closePanel(),
       focusPractice: () => app?.focusPractice(),
+      getSnapshot: () => app?.getDiagnosticSnapshot() ?? null,
       storage: createMemoryStorage(),
     })
     : null;
@@ -213,10 +231,10 @@ export function mountApp(options: MountOptions = {}): MountedApp {
       await Promise.resolve();
       await Promise.resolve();
     },
-    destroy(): void {
+    destroy(options: { readonly keepDocument?: boolean } = {}): void {
       enhancement?.destroy();
       mountedApp.destroy();
-      document.body.innerHTML = "";
+      if (options.keepDocument !== true) document.body.innerHTML = "";
     },
   };
 }

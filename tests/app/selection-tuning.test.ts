@@ -1,7 +1,6 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { StorageLike } from "../../src/app/local-progress.js";
 import {
-  currentSelectionTuning,
   DEFAULT_SELECTION_TUNING,
   loadSelectionTuning,
   LOCAL_SELECTION_TUNING_KEY,
@@ -16,15 +15,13 @@ class MemoryStorage implements StorageLike {
   removeItem(key: string): void { this.values.delete(key); }
 }
 
-afterEach(() => {
-  saveSelectionTuning(new MemoryStorage(), DEFAULT_SELECTION_TUNING);
-});
-
-describe("selection tuning live source", () => {
-  it("tracks loaded and saved tuning in memory", () => {
+// This module used to keep a module-level copy of the last loaded or saved
+// tuning for the diagnostics layer to read. Diagnostics is handed the running
+// shell's own value now, so all that is left here is the storage round trip.
+describe("selection tuning storage", () => {
+  it("returns the default when nothing is stored, and reads back what was saved", () => {
     const storage = new MemoryStorage();
     expect(loadSelectionTuning(storage)).toEqual(DEFAULT_SELECTION_TUNING);
-    expect(currentSelectionTuning()).toBe(DEFAULT_SELECTION_TUNING);
 
     const tuning = {
       errorInfluence: 1.5,
@@ -32,24 +29,18 @@ describe("selection tuning live source", () => {
       rarityTiers: [1, 2],
     } as const;
     saveSelectionTuning(storage, tuning);
-    expect(currentSelectionTuning()).toBe(tuning);
     expect(storage.getItem(LOCAL_SELECTION_TUNING_KEY)).toBe(JSON.stringify(tuning));
     expect(loadSelectionTuning(storage)).toEqual(tuning);
   });
 
-  it("updates the live value even when persistence is blocked", () => {
-    const tuning = {
-      errorInfluence: 2,
-      timingInfluence: 0.75,
-      rarityTiers: [1, 3, 4],
-    } as const;
+  it("reports a blocked write rather than swallowing it", () => {
     const blockedStorage: StorageLike = {
       getItem: () => null,
       setItem: () => { throw new Error("blocked"); },
       removeItem: () => undefined,
     };
-    expect(() => saveSelectionTuning(blockedStorage, tuning)).toThrow(/blocked/);
-    expect(currentSelectionTuning()).toBe(tuning);
+    expect(() => saveSelectionTuning(blockedStorage, DEFAULT_SELECTION_TUNING))
+      .toThrow(/blocked/);
   });
 });
 
