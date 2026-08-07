@@ -118,4 +118,34 @@ describe("interaction session", () => {
       "composition",
     ]);
   });
+
+  it("accepts a zero-interval correct burst without dropping targets", () => {
+    const burst = [
+      ["Digit5", "zhuyin:ㄓ"],
+      ["Space", "tone:1"],
+      ["KeyJ", "zhuyin:ㄨ"],
+      ["KeyP", "zhuyin:ㄣ"],
+      ["Digit6", "tone:2"],
+      ["KeyE", "zhuyin:ㄍ"],
+      ["KeyJ", "zhuyin:ㄨ"],
+      ["Slash", "zhuyin:ㄥ"],
+      ["Space", "tone:1"],
+    ] as const;
+    let state = createInteractionSession(exercise, 100);
+
+    for (const [physicalCode, actualToken] of burst) {
+      state = applyInteractionInput(state, input(101, physicalCode, actualToken));
+    }
+
+    expect(state.completed).toBe(true);
+    expect(state.position).toBe(state.targets.length);
+    expect(state.traces).toHaveLength(state.targets.length);
+    expect(state.traces.map((trace) => trace.sequence)).toEqual(
+      state.targets.map((_, index) => index + 1),
+    );
+    expect(state.traces.every((trace) => trace.outcome === "correct")).toBe(true);
+    expect(state.traces.map((trace) => trace.elapsedSinceAdvanceMs)).toEqual([
+      1, 0, 0, 0, 0, 0, 0, 0, 0,
+    ]);
+  });
 });
