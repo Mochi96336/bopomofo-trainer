@@ -40,30 +40,6 @@ function mergeValencyFrames(
   return intersection.length > 0 ? intersection : null;
 }
 
-function inheritedFeatures(
-  constituent: ProductionConstituent,
-  parent: SyntaxRequirements,
-): SyntaxFeatureSet {
-  const names = new Set<string>(constituent.inheritFeatures ?? []);
-  return Object.fromEntries(
-    Object.entries(parent.requiredFeatures)
-      .filter(([name]) => names.has(name)),
-  );
-}
-
-function mergeFeatures(
-  local: SyntaxFeatureSet,
-  inherited: SyntaxFeatureSet,
-): SyntaxFeatureSet | null {
-  const merged: Record<string, string | number | boolean> = { ...local };
-  for (const [name, value] of Object.entries(inherited)) {
-    const current = merged[name];
-    if (current !== undefined && current !== value) return null;
-    if (value !== undefined) merged[name] = value;
-  }
-  return merged as SyntaxFeatureSet;
-}
-
 export function requirementsForConstituent(
   constituent: ProductionConstituent,
   parent: SyntaxRequirements,
@@ -77,10 +53,9 @@ export function requirementsForConstituent(
     constituent.inheritValencyFrames ? parent.requiredValencyFrames : [],
   );
   if (requiredValencyFrames === null) return null;
-  const requiredFeatures = mergeFeatures(
-    constituent.requiredFeatures,
-    inheritedFeatures(constituent, parent),
-  );
-  if (requiredFeatures === null) return null;
-  return { requiredFunctions, requiredValencyFrames, requiredFeatures };
+  return {
+    requiredFunctions,
+    requiredValencyFrames,
+    requiredFeatures: constituent.requiredFeatures,
+  };
 }

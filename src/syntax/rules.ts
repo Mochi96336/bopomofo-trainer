@@ -7,7 +7,6 @@ import type {
   ProductionRule,
   SyntacticFunction,
   SyntaxCategory,
-  SyntaxFeatureName,
   SyntaxFeatureSet,
   Upos,
   ValencyFrame,
@@ -32,7 +31,6 @@ interface ConstituentOptions {
   readonly requiredFeatures?: SyntaxFeatureSet;
   readonly inheritFunctions?: boolean;
   readonly inheritValencyFrames?: boolean;
-  readonly inheritFeatures?: readonly SyntaxFeatureName[];
 }
 
 function constituent(
@@ -52,7 +50,6 @@ function constituent(
     requiredFeatures: options.requiredFeatures ?? {},
     ...(options.inheritFunctions ? { inheritFunctions: true } : {}),
     ...(options.inheritValencyFrames ? { inheritValencyFrames: true } : {}),
-    ...(options.inheritFeatures === undefined ? {} : { inheritFeatures: options.inheritFeatures }),
   };
 }
 

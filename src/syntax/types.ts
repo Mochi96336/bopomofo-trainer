@@ -159,8 +159,6 @@ export interface ProductionConstituent {
   readonly inheritFunctions?: boolean;
   /** Propagate the enclosing category's valency requirements through this edge. */
   readonly inheritValencyFrames?: boolean;
-  /** Propagate only these enclosing feature requirements through this edge. */
-  readonly inheritFeatures?: readonly SyntaxFeatureName[];
 }
 
 export interface SurfaceOrder {

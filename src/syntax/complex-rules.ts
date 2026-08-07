@@ -4,7 +4,6 @@ import type {
   ProductionFixture,
   ProductionRule,
   SyntaxCategory,
-  SyntaxFeatureName,
   SyntaxFeatureSet,
   Upos,
 } from "./types.js";
@@ -16,7 +15,6 @@ interface Options {
   readonly requiredFeatures?: SyntaxFeatureSet;
   readonly inheritFunctions?: boolean;
   readonly inheritValencyFrames?: boolean;
-  readonly inheritFeatures?: readonly SyntaxFeatureName[];
 }
 
 function constituent(
@@ -36,7 +34,6 @@ function constituent(
     requiredFeatures: options.requiredFeatures ?? {},
     ...(options.inheritFunctions ? { inheritFunctions: true } : {}),
     ...(options.inheritValencyFrames ? { inheritValencyFrames: true } : {}),
-    ...(options.inheritFeatures === undefined ? {} : { inheritFeatures: options.inheritFeatures }),
   };
 }
 
