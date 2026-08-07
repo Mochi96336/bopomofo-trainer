@@ -5,6 +5,7 @@ import type {
   ProductionRule,
   SyntacticFunction,
   SyntaxCategory,
+  SyntaxFeatureName,
   SyntaxFeatureSet,
   Upos,
   ValencyFrame,
@@ -17,6 +18,9 @@ interface Options {
   readonly requiredFunctions?: readonly SyntacticFunction[];
   readonly requiredValencyFrames?: readonly ValencyFrame[];
   readonly requiredFeatures?: SyntaxFeatureSet;
+  readonly inheritFunctions?: boolean;
+  readonly inheritValencyFrames?: boolean;
+  readonly inheritFeatures?: readonly SyntaxFeatureName[];
 }
 
 function constituent(
@@ -34,6 +38,9 @@ function constituent(
     requiredFunctions: options.requiredFunctions ?? [],
     requiredValencyFrames: options.requiredValencyFrames ?? [],
     requiredFeatures: options.requiredFeatures ?? {},
+    ...(options.inheritFunctions ? { inheritFunctions: true } : {}),
+    ...(options.inheritValencyFrames ? { inheritValencyFrames: true } : {}),
+    ...(options.inheritFeatures === undefined ? {} : { inheritFeatures: options.inheritFeatures }),
   };
 }
 
@@ -195,7 +202,7 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
       recursive: true,
       requiredFunctions: ["modifier"],
     }),
-    constituent("head", "NominalHead"),
+    constituent("head", "NominalHead", { inheritFunctions: true }),
   ]),
   production("phrase.noun.de-nominalization", "NounPhrase", [
     constituent("clause", "Clause", {

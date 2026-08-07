@@ -34,6 +34,26 @@ function rule(
   };
 }
 
+const propagatedRules: readonly ProductionRule[] = [
+  {
+    ...rule("sentence", "Sentence", "VerbPhrase"),
+    constituents: [{
+      ...rule("sentence", "Sentence", "VerbPhrase").constituents[0]!,
+      requiredFunctions: ["predicate"],
+      requiredValencyFrames: ["transitive", "ambitransitive"],
+    }],
+  },
+  {
+    ...rule("verb", "VerbPhrase", "Lexeme"),
+    constituents: [{
+      ...rule("verb", "VerbPhrase", "Lexeme").constituents[0]!,
+      allowedUpos: ["VERB"],
+      inheritFunctions: true,
+      inheritValencyFrames: true,
+    }],
+  },
+];
+
 describe("bounded structural derivation", () => {
   it("enumerates deterministically without lexical Cartesian expansion", () => {
     const rules = [
@@ -45,6 +65,27 @@ describe("bounded structural derivation", () => {
     expect(first.map((item) => item.id)).toEqual(second.map((item) => item.id));
     expect(first).toHaveLength(1);
     expect(first[0]?.lexicalSlotCount).toBe(1);
+  });
+
+  it("uses the same requirement propagation as random sampling", () => {
+    const [shape] = [...enumerateStructuralDerivations({
+      rootCategory: "Sentence",
+      rules: propagatedRules,
+    })];
+    expect(shape?.lexicalSlots[0]).toMatchObject({
+      allowedUpos: ["VERB"],
+      requiredFunctions: ["predicate"],
+      requiredValencyFrames: ["ambitransitive", "transitive"],
+    });
+  });
+
+  it("can prune unreachable lexical leaves during enumeration", () => {
+    const shapes = [...enumerateStructuralDerivations({
+      rootCategory: "Sentence",
+      rules: propagatedRules,
+      isLexicalSlotReachable: (slot) => !slot.requiredValencyFrames.includes("transitive"),
+    })];
+    expect(shapes).toEqual([]);
   });
 
   it("terminates recursive phrase closure at the configured depth", () => {

@@ -7,6 +7,11 @@ import type {
   StructuralLexicalSlot,
   StructuralSyntaxNode,
 } from "./derive.js";
+import {
+  EMPTY_SYNTAX_REQUIREMENTS,
+  requirementsForConstituent,
+  type SyntaxRequirements,
+} from "./requirements.js";
 import type {
   DerivationBounds,
   ProductionConstituent,
@@ -21,6 +26,7 @@ export interface StructuralSamplingOptions {
   readonly random: RandomSource;
   readonly bounds?: DerivationBounds;
   readonly maximumAttempts?: number;
+  readonly isLexicalSlotReachable?: (slot: StructuralLexicalSlot) => boolean;
 }
 
 interface State {
@@ -74,6 +80,7 @@ function decrement(state: State, constituent: ProductionConstituent): State | nu
 
 function makeSlot(
   constituent: ProductionConstituent,
+  requirements: SyntaxRequirements,
   occurrenceIndex: number,
   path: readonly string[],
 ): StructuralLexicalSlot {
@@ -82,9 +89,9 @@ function makeSlot(
     key: constituent.key,
     occurrenceIndex,
     allowedUpos: constituent.allowedUpos,
-    requiredFunctions: constituent.requiredFunctions,
-    requiredValencyFrames: constituent.requiredValencyFrames,
-    requiredFeatures: constituent.requiredFeatures,
+    requiredFunctions: requirements.requiredFunctions,
+    requiredValencyFrames: requirements.requiredValencyFrames,
+    requiredFeatures: requirements.requiredFeatures,
   };
   return {
     kind: "lexical-slot",
@@ -92,19 +99,21 @@ function makeSlot(
     constituentKey: constituent.key,
     occurrenceIndex,
     allowedUpos: constituent.allowedUpos,
-    requiredFunctions: constituent.requiredFunctions,
-    requiredValencyFrames: constituent.requiredValencyFrames,
-    requiredFeatures: constituent.requiredFeatures,
+    requiredFunctions: requirements.requiredFunctions,
+    requiredValencyFrames: requirements.requiredValencyFrames,
+    requiredFeatures: requirements.requiredFeatures,
   };
 }
 
 function sampleCategory(
   category: SyntaxCategory,
+  requirements: SyntaxRequirements,
   rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
   random: RandomSource,
   bounds: DerivationBounds,
   inputState: State,
   path: readonly string[],
+  isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
 ): Sampled | null {
   let state = inputState;
   if (category === "Clause") {
@@ -133,13 +142,27 @@ function sampleCategory(
           failed = true;
           break;
         }
+        const childRequirements = requirementsForConstituent(constituent, requirements);
+        if (childRequirements === null) {
+          failed = true;
+          break;
+        }
         workingState = afterDepth;
         if (constituent.category === "Lexeme") {
           if (workingState.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) {
             failed = true;
             break;
           }
-          const slot = makeSlot(constituent, occurrenceIndex, [...path, rule.id, constituent.key]);
+          const slot = makeSlot(
+            constituent,
+            childRequirements,
+            occurrenceIndex,
+            [...path, rule.id, constituent.key],
+          );
+          if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) {
+            failed = true;
+            break;
+          }
           children.push(slot);
           slots.push(slot);
           workingState = { ...workingState, lexicalCount: workingState.lexicalCount + 1 };
@@ -147,11 +170,13 @@ function sampleCategory(
         }
         const child = sampleCategory(
           constituent.category,
+          childRequirements,
           rulesByOutput,
           random,
           bounds,
           workingState,
           [...path, rule.id, `${constituent.key}[${occurrenceIndex}]`],
+          isLexicalSlotReachable,
         );
         if (child === null) {
           failed = true;
@@ -200,6 +225,7 @@ export function sampleStructuralDerivation(
   for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
     const sampled = sampleCategory(
       options.rootCategory,
+      EMPTY_SYNTAX_REQUIREMENTS,
       rulesByOutput,
       options.random,
       bounds,
@@ -210,6 +236,7 @@ export function sampleStructuralDerivation(
         lexicalCount: 0,
       },
       [options.rootCategory],
+      options.isLexicalSlotReachable,
     );
     if (sampled === null || sampled.element.kind !== "syntax-node") continue;
     const identity = {
