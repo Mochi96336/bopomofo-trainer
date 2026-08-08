@@ -62,7 +62,7 @@ Body-size buckets are `2`, `3`, and `4+`. Hand shape is `left-only`, `right-only
 
 ### Immediate hand transition
 
-Looks only at consecutive accepted physical events. Aggregate identity is one of four assigned-hand paths:
+Observes consecutive accepted physical events. Aggregate identity is one of four assigned-hand paths:
 
 ```text
 L → L
@@ -71,11 +71,11 @@ R → L
 R → R
 ```
 
-It does not use canonical token adjacency.
+It does not use canonical token adjacency. Boundary-crossing hand events are still retained as observations, but only clean **within-syllable** paths may update the timing estimate. A syllable or entry boundary can include reading and target-location latency and therefore cannot be interpreted as hand-transition speed.
 
 ### Same-hand revisit
 
-For each accepted event, the system may look back to the previous accepted event assigned to the same hand, even across syllable or entry boundaries. The measurement is a **revisit interval**, not a claim that the two keys were consecutive or that the entire interval was finger travel time.
+For each accepted event, the system may look back to the previous accepted event assigned to the same hand, even across syllable or entry boundaries. That lookback remains useful observation metadata, but only clean **within-syllable** revisits may update the timing estimate. Boundary-crossing intervals are retained as observations rather than treated as pure motor time.
 
 Aggregate identity is intentionally limited to:
 
@@ -108,7 +108,7 @@ Production aggregate cardinality is intentionally bounded:
 
 Exact token-pair, physical-key-pair, finger, distance, and boundary-cross-product motor aggregates are not part of this policy.
 
-The current timing smoother remains an exponential moving average with alpha `0.25`; the first clean sample initializes the estimate. Best clean timing is retained separately.
+The current timing smoother remains an exponential moving average with alpha `0.25`; the first clean eligible sample initializes the estimate. Best clean timing is retained separately.
 
 ## Structural adjacency is not motor evidence
 
@@ -142,7 +142,7 @@ Existing selection and legacy semantic diagnostics receive a compatibility view 
 
 Product progress schema 7 uses measurement epoch `coordination-v1`.
 
-Schema 6 progress may retain compatible identity and history state during migration, but legacy measurement evidence is reset. Old strict-order errors, confusions, and transitions cannot safely be reinterpreted under unordered syllable semantics.
+Schema 6 progress may retain compatible identity, completed-round count, curriculum recency, and selection continuity during migration, but **measurement-derived evidence does not cross the epoch boundary**. Cumulative measurements and recent round measurement summaries are reset. Persisted Pilot history and per-key progress history use new schema generations, so strict-order history cannot silently reappear after the progress aggregate has been reset. A schema 6 backup is migrated with the same rule: progress identity is retained while its old Pilot/trend measurement histories are replaced with fresh V2 histories.
 
 Persisted V2 aggregates are validated independently, including key/scope consistency and bounded motor identities.
 
@@ -160,14 +160,15 @@ The current model can state:
 - a confusion pair when intended target attribution is unambiguous;
 - how long a syllable body took to coordinate;
 - which assigned-hand path occurred between consecutive accepted events;
+- clean within-syllable hand-path timing when enough eligible samples exist;
 - when the same hand was used again and whether the other hand intervened;
 - tone-commit timing;
-- why an observation was excluded from clean timing.
+- from raw observations, why a candidate timing interval was ineligible for the clean aggregate.
 
 It does **not** claim:
 
 - that canonical token order is required typing order;
 - that an ambiguous wrong key reveals which remaining token the learner intended;
-- that same-hand revisit duration equals pure finger movement time;
+- that a boundary-crossing interval equals pure hand or finger movement time;
 - that one exact token pair is weak from only a few samples;
 - that motor aggregates should already drive curriculum selection.
