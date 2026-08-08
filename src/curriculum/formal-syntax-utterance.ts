@@ -25,7 +25,7 @@ import type {
   ProductionRule,
   RuntimeSyntaxProfile,
 } from "../syntax/types.js";
-import { createFormalSyntaxFamilyRuleOrderer } from "./formal-syntax-sampling-policy.js";
+import { createFormalSyntaxFamilySamplingSession } from "./formal-syntax-sampling-policy.js";
 
 export interface FormalSyntaxUtteranceInput {
   readonly eligibleEntries: readonly CatalogEntry[];
@@ -153,11 +153,12 @@ export function composeFormalSyntaxUtterances(
   const index = buildLexicalProfileIndex(input.eligibleEntries, eligibleProfiles);
   const entriesById = new Map(input.eligibleEntries.map((entry) => [entry.id, entry]));
   const rules = input.rules ?? FORMAL_SYNTAX_RULES;
+  const familySamplingSession = input.ruleOrderer === undefined && input.rules === undefined
+    ? createFormalSyntaxFamilySamplingSession()
+    : null;
   const ruleOrderer = input.ruleOrderer === null
     ? undefined
-    : input.ruleOrderer ?? (input.rules === undefined
-      ? createFormalSyntaxFamilyRuleOrderer()
-      : undefined);
+    : input.ruleOrderer ?? familySamplingSession?.ruleOrderer;
   const candidates = new Map<string, GrammarUtteranceCandidate>();
   const fallbackReasons = new Set<string>();
 
@@ -269,6 +270,7 @@ export function composeFormalSyntaxUtterances(
       syntaxDerivationId: realization.derivationId,
       syntaxProfileIds: realization.syntaxProfileIds,
     });
+    familySamplingSession?.resetRootChoice();
   }
 
   if (candidates.size === 0) fallbackReasons.add("formal-syntax-no-candidate");
