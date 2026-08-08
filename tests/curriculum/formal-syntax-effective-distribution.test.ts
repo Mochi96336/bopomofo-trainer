@@ -62,7 +62,7 @@ describe("formal syntax effective product distribution", () => {
     expect(questionShare, diagnostic).toBeLessThan(0.40);
   });
 
-  it("does not disable product policy when the complete grammar is passed explicitly", () => {
+  it("does not disable product policy when the canonical grammar is passed explicitly", () => {
     const omitted = composeFormalSyntaxUtterances({
       eligibleEntries: PRACTICE_CATALOG,
       profiles: SYNTAX_PROFILES,
@@ -90,6 +90,41 @@ describe("formal syntax effective product distribution", () => {
       text: omitted.candidates[0]!.text,
       syntaxRootRuleId: omitted.candidates[0]!.syntaxRootRuleId,
     });
+  });
+
+  it("treats same-ID but structurally modified grammar as custom instead of canonical", () => {
+    const targetIndex = FORMAL_SYNTAX_RULES.findIndex((rule) => rule.id === "sentence.declarative");
+    if (targetIndex < 0) throw new Error("fixture requires sentence.declarative");
+    const target = FORMAL_SYNTAX_RULES[targetIndex]!;
+    const modifiedRules = [...FORMAL_SYNTAX_RULES];
+    modifiedRules[targetIndex] = {
+      ...target,
+      constituents: [...target.constituents].reverse(),
+    };
+
+    expect(() => composeFormalSyntaxUtterances({
+      eligibleEntries: PRACTICE_CATALOG,
+      profiles: SYNTAX_PROFILES,
+      random: createSeededRandom("formal-family-modified-grammar-inferred-raw"),
+      rules: modifiedRules,
+      ruleOrderer: ({ candidates }) => candidates,
+      minimumLexicalEntries: 1,
+      maximumCandidates: 1,
+      maximumAttempts: 1,
+      bounds: PRODUCT_BOUNDS,
+    })).not.toThrow();
+
+    expect(() => composeFormalSyntaxUtterances({
+      eligibleEntries: PRACTICE_CATALOG,
+      profiles: SYNTAX_PROFILES,
+      random: createSeededRandom("formal-family-modified-grammar-explicit-product"),
+      rules: modifiedRules,
+      samplingMode: "product-family",
+      minimumLexicalEntries: 1,
+      maximumCandidates: 1,
+      maximumAttempts: 64,
+      bounds: PRODUCT_BOUNDS,
+    })).toThrow(/canonical complete formal syntax rule set/u);
   });
 
   it("returns a fallback instead of throwing when a fresh family plan cannot fit the budget", () => {
@@ -124,6 +159,6 @@ describe("formal syntax effective product distribution", () => {
       maximumCandidates: 1,
       maximumAttempts: 64,
       bounds: PRODUCT_BOUNDS,
-    })).toThrow(/requires the complete formal syntax rule set/u);
+    })).toThrow(/canonical complete formal syntax rule set/u);
   });
 });
