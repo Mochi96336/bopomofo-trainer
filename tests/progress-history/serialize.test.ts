@@ -65,9 +65,10 @@ describe("progress history persistence", () => {
     expect(parse(serializeProgressHistory(original))).toEqual(original);
   });
 
-  it("rejects unparsable source and an unsupported schema generation", () => {
+  it("rejects unparsable source and unsupported schema generations", () => {
     expect(parse("{")).toBeNull();
-    expect(parse(mutate((draft) => { draft.schemaVersion = 2; }))).toBeNull();
+    expect(parse(mutate((draft) => { draft.schemaVersion = 1; }))).toBeNull();
+    expect(parse(mutate((draft) => { draft.schemaVersion = 99; }))).toBeNull();
   });
 
   it("rejects a history recorded under a different mode or layout", () => {
