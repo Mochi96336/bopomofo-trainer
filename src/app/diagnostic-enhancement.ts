@@ -1,5 +1,6 @@
 import "./diagnostic-modal.css";
 import { buildDiagnosticModel } from "../diagnostics/build-model.js";
+import { createEmptyMeasurementSummaryV2 } from "../measurement-v2/aggregate.js";
 import { legacySelectionMeasurementView } from "../measurement-v2/legacy-selection-view.js";
 import {
   createFreshProgressForEnvironment,
@@ -20,6 +21,7 @@ import {
 import type { DiagnosticPreferenceStorage } from "./diagnostic-preferences.js";
 import { renderDiagnosticRelationshipOverlay } from "./diagnostic-relationship-enhancement.js";
 import type { DiagnosticSnapshot } from "./diagnostic-snapshot.js";
+import { renderMotorDiagnosticSummary } from "./motor-diagnostic-summary.js";
 import {
   DEFAULT_SELECTION_TUNING,
   policyForSelectionTuning,
@@ -138,6 +140,10 @@ export function mountDiagnosticEnhancement(
         section,
         currentDiagnosticModel(),
         () => openAnalysisFromPractice(analysis, deps),
+      );
+      renderMotorDiagnosticSummary(
+        content,
+        deps.getSnapshot()?.progress.measurements ?? createEmptyMeasurementSummaryV2(),
       );
     },
     destroy(): void {
