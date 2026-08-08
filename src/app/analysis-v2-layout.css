@@ -170,7 +170,6 @@
   outline-color: transparent;
 }
 
-.analysis-v2-speed-scroll,
 .analysis-v2-table-scroll {
   scrollbar-gutter: stable;
   overscroll-behavior-inline: contain;
