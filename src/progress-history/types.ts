@@ -1,6 +1,9 @@
 import type { PracticeMode, TokenId } from "../core/model.js";
 
-export const PROGRESS_HISTORY_SCHEMA_VERSION = 1 as const;
+// Schema 2 is the first trend history generated from unordered input-order V2.
+// Schema 1 may contain strict-order errors and timing and is intentionally not
+// migrated across the measurement epoch boundary.
+export const PROGRESS_HISTORY_SCHEMA_VERSION = 2 as const;
 
 /**
  * One completed slice of correctness observations for a single expected token.

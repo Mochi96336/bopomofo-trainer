@@ -115,6 +115,46 @@ describe("product backup with progress history", () => {
     expect(parsed!.progress).toEqual(progress);
   });
 
+  it("migrates a schema 6 backup but discards its strict-order measurement histories", () => {
+    const draft = JSON.parse(createProductBackup(
+      progress,
+      pilotHistory,
+      progressHistory,
+      DEFAULT_SELECTION_TUNING,
+    )) as Record<string, any>;
+    draft.progress.schemaVersion = 6;
+    delete draft.progress.measurementEpoch;
+    draft.progress.measurements = { policyVersion: "phase-3-v2", legacy: true };
+    draft.progress.recentSummaries = [{
+      kind: "practice",
+      exerciseId: "legacy-round",
+      completedAt: "2026-07-25T00:00:00.000Z",
+      entryIds: [entryId],
+      utteranceId: "legacy-round",
+      templateId: null,
+      focusTokenId: null,
+      focusEvidence: null,
+      attempts: 7,
+      errors: 2,
+      timingSamples: 5,
+    }];
+    draft.pilotHistory = { schemaVersion: 3, records: [{ legacy: true }] };
+    draft.progressHistory = {
+      schemaVersion: 1,
+      mode: "guided",
+      layoutId: "standard",
+      lastCompletedRound: 2,
+      keys: { legacy: { anything: true } },
+    };
+
+    const migrated = parse(JSON.stringify(draft));
+    expect(migrated).not.toBeNull();
+    expect(migrated!.progress.practiceRoundsCompleted).toBe(2);
+    expect(migrated!.progress.recentSummaries).toEqual([]);
+    expect(migrated!.pilotHistory.records).toEqual([]);
+    expect(migrated!.progressHistory).toEqual(createEmptyProgressHistory("guided", "standard"));
+  });
+
   it("rejects a backup with no progress history section", () => {
     const source = createProductBackup(
       progress,

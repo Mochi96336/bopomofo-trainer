@@ -51,10 +51,25 @@ describe("product progress codec", () => {
     });
   });
 
-  it("migrates schema 6 identity/history but starts a fresh measurement epoch", () => {
-    const current = JSON.parse(serializeProductProgress(createProgress())) as Record<string, unknown>;
+  it("migrates schema 6 identity/selection but starts a complete fresh measurement epoch", () => {
+    const current = JSON.parse(serializeProductProgress(createProgress())) as Record<string, any>;
     current.schemaVersion = 6;
     delete current.measurementEpoch;
+    current.practiceRoundsCompleted = 1;
+    current.curriculum.round = 1;
+    current.recentSummaries = [{
+      kind: "practice",
+      exerciseId: "legacy-round",
+      completedAt: "2026-08-01T00:00:00.000Z",
+      entryIds: [PRACTICE[0]!.id],
+      utteranceId: "legacy-round",
+      templateId: null,
+      focusTokenId: null,
+      focusEvidence: null,
+      attempts: 9,
+      errors: 2,
+      timingSamples: 6,
+    }];
     current.measurements = {
       policyVersion: "phase-3-v2",
       traceCount: 99,
@@ -71,6 +86,8 @@ describe("product progress codec", () => {
     expect(migrated!.schemaVersion).toBe(PRODUCT_PROGRESS_SCHEMA_VERSION);
     expect(migrated!.measurementEpoch).toBe(PRODUCT_MEASUREMENT_EPOCH);
     expect(migrated!.measurements).toEqual(createEmptyMeasurementSummaryV2());
+    expect(migrated!.recentSummaries).toEqual([]);
+    expect(migrated!.practiceRoundsCompleted).toBe(1);
     expect(migrated!.seed).toBe("seed");
   });
 

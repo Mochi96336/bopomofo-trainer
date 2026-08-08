@@ -1,5 +1,6 @@
 import "./diagnostic-modal.css";
 import { buildDiagnosticModel } from "../diagnostics/build-model.js";
+import { createEmptyMeasurementSummaryV2 } from "../measurement-v2/aggregate.js";
 import { legacySelectionMeasurementView } from "../measurement-v2/legacy-selection-view.js";
 import {
   createFreshProgressForEnvironment,
@@ -20,6 +21,12 @@ import {
 import type { DiagnosticPreferenceStorage } from "./diagnostic-preferences.js";
 import { renderDiagnosticRelationshipOverlay } from "./diagnostic-relationship-enhancement.js";
 import type { DiagnosticSnapshot } from "./diagnostic-snapshot.js";
+import {
+  productionDiagnosticPreferenceStorage,
+  retireLegacyTransitionAnalysis,
+  retireLegacyTransitionSummary,
+} from "./legacy-transition-retirement.js";
+import { renderMotorDiagnosticSummary } from "./motor-diagnostic-summary.js";
 import {
   DEFAULT_SELECTION_TUNING,
   policyForSelectionTuning,
@@ -60,6 +67,7 @@ function diagnosticModelFrom(snapshot: DiagnosticSnapshot | null) {
     support: environment.practiceSupport,
     layout: STANDARD_BOPOMOFO_LAYOUT,
     selectionPolicy: environment.utterancePolicy,
+    timingExclusionsAvailable: false,
     progressHistory: snapshot?.progressHistory ?? null,
   });
 }
@@ -125,8 +133,11 @@ export function mountDiagnosticEnhancement(
   const currentDiagnosticModel = () => diagnosticModelFrom(deps.getSnapshot());
   const analysis = createDiagnosticAnalysis({
     getModel: currentDiagnosticModel,
-    storage: deps.storage,
-    onRendered: (view) => renderDiagnosticRelationshipOverlay(analysis.host, view),
+    storage: productionDiagnosticPreferenceStorage(deps.storage),
+    onRendered: (view) => {
+      retireLegacyTransitionAnalysis(analysis.host);
+      renderDiagnosticRelationshipOverlay(analysis.host, view);
+    },
   });
   const releaseTopLayer = mountAnalysisTopLayer(analysis.host, deps.focusPractice);
 
@@ -134,10 +145,16 @@ export function mountDiagnosticEnhancement(
     panelRendered(content: HTMLElement): void {
       const section = findLegacyWeakSection(content);
       if (section === null) return;
+      const model = currentDiagnosticModel();
       renderDiagnosticSummary(
         section,
-        currentDiagnosticModel(),
+        model,
         () => openAnalysisFromPractice(analysis, deps),
+      );
+      retireLegacyTransitionSummary(section, model);
+      renderMotorDiagnosticSummary(
+        content,
+        deps.getSnapshot()?.progress.measurements ?? createEmptyMeasurementSummaryV2(),
       );
     },
     destroy(): void {

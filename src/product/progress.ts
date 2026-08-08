@@ -266,10 +266,12 @@ export function parseProductProgress(
   if (selection === null) return null;
 
   // Schema 6 evidence was gathered under strict canonical input order. Carrying
-  // it into the unordered model would preserve false errors/confusions and fake
-  // motor transitions, so the migration intentionally starts a new measurement
-  // epoch while retaining identity, round/history and selection continuity.
-  const measurements = version === LEGACY_PRODUCT_PROGRESS_SCHEMA_VERSION
+  // any measurement-derived record into the unordered model would preserve false
+  // errors/confusions and fake timing. The migration therefore starts a complete
+  // measurement epoch while retaining identity, round count, curriculum recency,
+  // and selection continuity only.
+  const migratedFromLegacy = version === LEGACY_PRODUCT_PROGRESS_SCHEMA_VERSION;
+  const measurements = migratedFromLegacy
     ? createEmptyMeasurementSummaryV2()
     : parsed.measurementEpoch === PRODUCT_MEASUREMENT_EPOCH
       ? parseMeasurementSummaryV2(
@@ -307,7 +309,9 @@ export function parseProductProgress(
     curriculum,
     selection,
     practiceRoundsCompleted: envelope.completedRounds,
-    recentSummaries: (summaries as ProductRoundSummary[]).slice(-RECENT_SUMMARY_LIMIT),
+    recentSummaries: migratedFromLegacy
+      ? []
+      : (summaries as ProductRoundSummary[]).slice(-RECENT_SUMMARY_LIMIT),
   };
 }
 

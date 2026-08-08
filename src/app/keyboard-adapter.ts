@@ -21,6 +21,8 @@ export interface KeyboardLikeEvent {
   readonly ctrlKey: boolean;
   readonly metaKey: boolean;
   readonly shiftKey: boolean;
+  /** Browser event time, preferred over handler-arrival time when available. */
+  readonly timeStamp?: number;
 }
 
 function isBareFunctionKey(event: KeyboardLikeEvent, code: string): boolean {
@@ -48,11 +50,14 @@ export function isInspectionCompleteShortcut(event: KeyboardLikeEvent): boolean 
 export function keyboardEventToInput(
   event: KeyboardLikeEvent,
   layout: InputLayout,
-  timestampMs: number,
+  fallbackTimestampMs: number,
   compositionActive: boolean,
 ): PracticeInput {
   const composing = compositionActive || event.isComposing || event.key === "Process";
   const shortcutModified = event.altKey || event.ctrlKey || event.metaKey;
+  const timestampMs = typeof event.timeStamp === "number" && Number.isFinite(event.timeStamp)
+    ? event.timeStamp
+    : fallbackTimestampMs;
 
   return {
     timestampMs,
