@@ -11,6 +11,8 @@ import { buildAnalysisV2Model } from "./analysis-v2-model.js";
 import { buildAnalysisV2SemanticModel } from "./analysis-v2-semantic-model.js";
 import type { AnalysisV2Snapshot } from "./analysis-v2-snapshot.js";
 
+const KEYBOARD_TILT = "perspective(520px) rotateX(19deg)";
+
 function analysisModelFrom(snapshot: AnalysisV2Snapshot) {
   const semantic = buildAnalysisV2SemanticModel({
     measurements: snapshot.progress.measurements,
@@ -49,13 +51,60 @@ function findAnalysisSummarySlot(content: HTMLElement): HTMLElement | null {
   );
 }
 
+function keyboardFlipOrigin(): DOMRect | null {
+  const sketch = document.querySelector<HTMLElement>("#keyboard-sketch");
+  if (sketch !== null && !sketch.hidden) {
+    const rect = sketch.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) return rect;
+  }
+  const stage = document.querySelector<HTMLElement>("#practice-stage");
+  const stageRect = stage?.getBoundingClientRect();
+  if (stageRect === undefined || stageRect.width === 0) return null;
+  return new DOMRect(
+    stageRect.left,
+    stageRect.bottom - stageRect.height * 0.18,
+    stageRect.width,
+    stageRect.height * 0.18,
+  );
+}
+
+function visibleAnalysisKeyboardBoard(analysis: HTMLElement): HTMLElement | null {
+  return analysis.querySelector<HTMLElement>(".analysis-v2-speed-board")
+    ?? analysis.querySelector<HTMLElement>(".analysis-v2-keyboard");
+}
+
+function animateKeyboardRise(board: HTMLElement): void {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const origin = keyboardFlipOrigin();
+  if (origin === null) return;
+  const target = board.getBoundingClientRect();
+  if (target.width === 0 || target.height === 0) return;
+  const dx = (origin.left + origin.width / 2) - (target.left + target.width / 2);
+  const dy = (origin.top + origin.height / 2) - (target.top + target.height / 2);
+  const scaleX = origin.width / target.width;
+  const scaleY = origin.height / target.height;
+  board.animate([
+    {
+      transform: `translate(${dx}px, ${dy}px) scale(${scaleX}, ${scaleY}) ${KEYBOARD_TILT}`,
+      opacity: 0.25,
+    },
+    { transform: KEYBOARD_TILT, opacity: 1 },
+  ], { duration: 320, easing: "cubic-bezier(.2, .75, .25, 1)" });
+}
+
 function openAnalysisFromPractice(
   analysis: AnalysisV2Controller,
   deps: AnalysisV2IntegrationDependencies,
 ): void {
   deps.closePanel();
   deps.focusPractice();
+  document.body.classList.add("analysis-v2-open");
   analysis.open();
+  window.requestAnimationFrame(() => {
+    if (analysis.host.hidden) return;
+    const board = visibleAnalysisKeyboardBoard(analysis.host);
+    if (board !== null) animateKeyboardRise(board);
+  });
 }
 
 function mountAnalysisTopLayer(analysis: HTMLElement): AnalysisV2TopLayer {
@@ -102,6 +151,7 @@ export function mountAnalysisV2Integration(
     getModel: currentAnalysisModel,
     storage: deps.storage,
     onClose: () => {
+      document.body.classList.remove("analysis-v2-open");
       // Close the browser top layer before focusing practice. A still-open modal
       // owns focus containment and would otherwise reclaim focus.
       topLayer?.close();
@@ -121,6 +171,7 @@ export function mountAnalysisV2Integration(
       );
     },
     destroy(): void {
+      document.body.classList.remove("analysis-v2-open");
       topLayer?.destroy();
       analysis.destroy();
     },
