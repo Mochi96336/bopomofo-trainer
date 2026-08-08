@@ -150,7 +150,16 @@ test("uses ink for the dense flyline field and reserves accent for three slow/fo
   expect(palette.slowOpacity).toBeGreaterThan(0.7);
 
   const chosen = analysis.locator(".analysis-v2-speed-path").first();
-  await chosen.click();
+  const hitPoint = await chosen.evaluate((path) => {
+    const rect = path.getBoundingClientRect();
+    for (let y = rect.top; y <= rect.bottom; y += 0.5) {
+      for (let x = rect.left; x <= rect.right; x += 0.5) {
+        if (document.elementFromPoint(x, y) === path) return { x, y };
+      }
+    }
+    throw new Error("rendered flyline exposes no real pointer-hit point");
+  });
+  await page.mouse.click(hitPoint.x, hitPoint.y);
   await expect(analysis.locator(".analysis-v2-speed-stage")).toHaveClass(/has-selection/);
   await expect(analysis.locator(".analysis-v2-speed-inspector")).toHaveCount(1);
   await expect(analysis.locator(".analysis-v2-speed-inspector")).toContainText("ms");
