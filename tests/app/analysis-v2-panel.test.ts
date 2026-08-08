@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   createAnalysisV2,
   type AnalysisV2PreferenceStorage,
@@ -102,6 +102,7 @@ function open() {
 afterEach(() => {
   controller?.destroy();
   controller = null;
+  vi.restoreAllMocks();
   document.body.innerHTML = "";
 });
 
@@ -135,5 +136,31 @@ describe("Analysis V2 panel", () => {
     expect(host.textContent).toContain("canonical 位置只是注音結構的參考座標");
     expect(host.textContent).toContain("4 個位置觀察");
     expect(host.textContent).toContain("100%");
+  });
+
+  it("cannot finish a stale open frame after the analysis has already closed", () => {
+    let scheduled: FrameRequestCallback | null = null;
+    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
+      scheduled = callback;
+      return 17;
+    });
+    const cancel = vi.spyOn(window, "cancelAnimationFrame");
+    const returnTarget = document.createElement("button");
+    document.body.append(returnTarget);
+
+    controller = createAnalysisV2({
+      getModel: () => MODEL,
+      storage: memoryStorage(),
+      onClose: () => returnTarget.focus(),
+    });
+    controller.open();
+    controller.close();
+
+    expect(cancel).toHaveBeenCalledWith(17);
+    expect(document.activeElement).toBe(returnTarget);
+    scheduled?.(0);
+    expect(controller.host.hidden).toBe(true);
+    expect(controller.host.classList.contains("open")).toBe(false);
+    expect(document.activeElement).toBe(returnTarget);
   });
 });
