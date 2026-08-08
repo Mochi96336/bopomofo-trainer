@@ -14,19 +14,13 @@ import {
   SYNTAX_PROFILES,
 } from "./generated/catalog.js";
 import {
-  createDiagnosticAnalysis,
-  renderDiagnosticSummary,
-  type DiagnosticAnalysisController,
-} from "./diagnostic-panel.js";
+  createAnalysisV2,
+  renderAnalysisV2Summary,
+  type AnalysisV2Controller,
+} from "./analysis-v2-panel.js";
+import { buildAnalysisV2Model } from "./analysis-v2-model.js";
 import type { DiagnosticPreferenceStorage } from "./diagnostic-preferences.js";
-import { renderDiagnosticRelationshipOverlay } from "./diagnostic-relationship-enhancement.js";
 import type { DiagnosticSnapshot } from "./diagnostic-snapshot.js";
-import {
-  productionDiagnosticPreferenceStorage,
-  retireLegacyTransitionAnalysis,
-  retireLegacyTransitionSummary,
-} from "./legacy-transition-retirement.js";
-import { renderMotorDiagnosticSummary } from "./motor-diagnostic-summary.js";
 import {
   DEFAULT_SELECTION_TUNING,
   policyForSelectionTuning,
@@ -51,7 +45,7 @@ function environmentForTuning(tuning: SelectionTuning): ProductEnvironment {
   return cachedEnvironment;
 }
 
-function diagnosticModelFrom(snapshot: DiagnosticSnapshot | null) {
+function semanticDiagnosticModelFrom(snapshot: DiagnosticSnapshot | null) {
   const environment = environmentForTuning(
     snapshot?.selectionTuning ?? DEFAULT_SELECTION_TUNING,
   );
@@ -62,6 +56,8 @@ function diagnosticModelFrom(snapshot: DiagnosticSnapshot | null) {
     STANDARD_BOPOMOFO_LAYOUT.id,
   );
   return buildDiagnosticModel({
+    // This compatibility projection is semantic-only in production: it carries
+    // V2 binding/confusion evidence and deliberately exposes no transition rows.
     measurements: legacySelectionMeasurementView(progress.measurements),
     curriculum: progress.curriculum,
     support: environment.practiceSupport,
@@ -70,6 +66,14 @@ function diagnosticModelFrom(snapshot: DiagnosticSnapshot | null) {
     timingExclusionsAvailable: false,
     progressHistory: snapshot?.progressHistory ?? null,
   });
+}
+
+function analysisV2ModelFrom(snapshot: DiagnosticSnapshot | null) {
+  return buildAnalysisV2Model(
+    semanticDiagnosticModelFrom(snapshot),
+    snapshot?.progress.measurements ?? createEmptyMeasurementSummaryV2(),
+    snapshot?.progressHistory ?? null,
+  );
 }
 
 export interface DiagnosticEnhancementDependencies {
@@ -89,7 +93,7 @@ function findLegacyWeakSection(content: HTMLElement): HTMLElement | null {
 }
 
 function openAnalysisFromPractice(
-  analysis: DiagnosticAnalysisController,
+  analysis: AnalysisV2Controller,
   deps: DiagnosticEnhancementDependencies,
 ): void {
   deps.closePanel();
@@ -130,14 +134,10 @@ function mountAnalysisTopLayer(
 export function mountDiagnosticEnhancement(
   deps: DiagnosticEnhancementDependencies,
 ): DiagnosticEnhancement {
-  const currentDiagnosticModel = () => diagnosticModelFrom(deps.getSnapshot());
-  const analysis = createDiagnosticAnalysis({
-    getModel: currentDiagnosticModel,
-    storage: productionDiagnosticPreferenceStorage(deps.storage),
-    onRendered: (view) => {
-      retireLegacyTransitionAnalysis(analysis.host);
-      renderDiagnosticRelationshipOverlay(analysis.host, view);
-    },
+  const currentAnalysisModel = () => analysisV2ModelFrom(deps.getSnapshot());
+  const analysis = createAnalysisV2({
+    getModel: currentAnalysisModel,
+    storage: deps.storage,
   });
   const releaseTopLayer = mountAnalysisTopLayer(analysis.host, deps.focusPractice);
 
@@ -145,17 +145,15 @@ export function mountDiagnosticEnhancement(
     panelRendered(content: HTMLElement): void {
       const section = findLegacyWeakSection(content);
       if (section === null) return;
-      const model = currentDiagnosticModel();
-      renderDiagnosticSummary(
+      renderAnalysisV2Summary(
         section,
-        model,
+        currentAnalysisModel(),
         () => openAnalysisFromPractice(analysis, deps),
       );
-      retireLegacyTransitionSummary(section, model);
-      renderMotorDiagnosticSummary(
-        content,
-        deps.getSnapshot()?.progress.measurements ?? createEmptyMeasurementSummaryV2(),
-      );
+      // A panel instance created by an older enhancement generation can leave
+      // this sibling behind while hot tests rebuild the content. V2 owns one
+      // integrated summary, so remove that obsolete duplicate if present.
+      content.querySelector(".motor-diagnostic-section")?.remove();
     },
     destroy(): void {
       releaseTopLayer();
