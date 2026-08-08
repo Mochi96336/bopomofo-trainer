@@ -36,7 +36,9 @@ The rule index uses fixed-point category reachability rather than enumerating th
 - reachable `Sentence` rules;
 - an explicit status.
 
-Statuses are `indexed`, `no-ud-evidence`, `no-compatible-rule-position`, or `no-reachable-sentence-rule`. Missing evidence never becomes a guessed POS. Lexical requirements not represented by UD evidence fail closed; structural construction features remain rule-level constraints instead of being mistaken for lexical facts.
+Statuses are `indexed`, `no-ud-evidence`, `no-compatible-rule-position`, or `no-reachable-sentence-rule`. Missing evidence never becomes a guessed POS. Ordinary lexical requirements not represented by profile evidence fail closed. Structural construction features remain rule-level constraints, while the small set of construction features that must be realized by a concrete closed-class lexeme are checked by a shared lexical construction matcher using exact written form plus compact UD relation evidence. This matcher is used by both rule indexing and browser realization so generation-time and runtime legality cannot diverge.
+
+The construction matcher is intentionally not a semantic layer. It licenses formal items such as negative/aspect markers, disposal/passive/comparative markers, question particles, complement markers, relative/nominalization markers, and bounded discourse connectors. It does not use definitions, semantic roles, plausibility, embeddings, or collocational meaning.
 
 Generation outputs are disposable and are not committed. They can be reproduced from the pinned inputs through the one-command pipeline, so no run's counts are recorded here — the committed allowlist below is the artifact that matters.
 
@@ -62,9 +64,12 @@ duplicated, stale, or digest-mismatched allowlist makes the build fail.
 Runtime profiles retain only UPOS, syntactic functions, valency,
 dependency-relation counts, and surface-position counts needed for lexical-slot
 compatibility. The complete UD evidence artifact stays outside the browser
-bundle. Product selection samples a bounded `Sentence` derivation and fills
-every lexical slot from these profiles; the old template and standalone
-fallback path is not reachable from `product/session.ts`.
+bundle. Closed-class construction matching derives its licenses from these
+compact fields together with the exact catalog text, so no second runtime
+profile schema or duplicated construction artifact is required. Product
+selection samples a bounded `Sentence` derivation and fills every lexical slot
+from these profiles; the old template and standalone fallback path is not
+reachable from `product/session.ts`.
 
 This allowlist is the only formal-syntax legality gate. Its digest checks inside
 `applyCatalogSyntaxLegalityArtifact` fail the build on any stale or incomplete

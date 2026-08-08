@@ -1,8 +1,12 @@
+import {
+  lexicalConstructionFeatureMatches,
+  supportsLexicalConstructionFeature,
+} from "./lexical-feature-match.js";
 import type {
   ProductionConstituent,
+  RuntimeSyntaxProfile,
   SyntaxFeatureName,
   SyntaxFeatureSet,
-  SyntaxProfile,
 } from "./types.js";
 
 const EVIDENCE_BACKED_FEATURES = new Set<SyntaxFeatureName>([
@@ -22,8 +26,33 @@ export function unsupportedProfileFeatureNames(
     .sort() as SyntaxFeatureName[];
 }
 
+export function unsupportedLexicalFeatureNames(
+  features: SyntaxFeatureSet,
+): readonly SyntaxFeatureName[] {
+  return Object.entries(features)
+    .filter(([rawFeature, value]) => {
+      const feature = rawFeature as SyntaxFeatureName;
+      return value === undefined
+        || (!EVIDENCE_BACKED_FEATURES.has(feature)
+          && !supportsLexicalConstructionFeature(feature, value));
+    })
+    .map(([feature]) => feature as SyntaxFeatureName)
+    .sort();
+}
+
+function dependencyDirectionMatches(
+  profile: RuntimeSyntaxProfile,
+  value: string,
+): boolean {
+  const evidence = profile.dependencyEvidence as RuntimeSyntaxProfile["dependencyEvidence"] & {
+    readonly headDirectionCounts?: Readonly<Record<string, number>>;
+  };
+  return (evidence.headDirectionCounts?.[value] ?? 0) > 0;
+}
+
 function featureMatches(
-  profile: SyntaxProfile,
+  profile: RuntimeSyntaxProfile,
+  text: string | undefined,
   feature: SyntaxFeatureName,
   value: string | number | boolean,
 ): boolean {
@@ -41,22 +70,20 @@ function featureMatches(
       return typeof value === "string"
         && (profile.dependencyEvidence.surfacePositionCounts[value] ?? 0) > 0;
     case "dependencyDirection":
-      return typeof value === "string"
-        && (profile.dependencyEvidence.headDirectionCounts[value] ?? 0) > 0;
+      return typeof value === "string" && dependencyDirectionMatches(profile, value);
     default:
-      // Polarity, aspect, discourse type, voice, and similar values are not
-      // present in the projected evidence schema.  Failing closed prevents a
-      // surface-form or dictionary-gloss guess from silently becoming syntax.
-      return false;
+      return text !== undefined
+        && lexicalConstructionFeatureMatches(text, profile, feature, value);
   }
 }
 
 export function syntaxProfileMatchesRequirements(
-  profile: SyntaxProfile,
+  profile: RuntimeSyntaxProfile,
   requirements: Pick<
     ProductionConstituent,
     "allowedUpos" | "requiredFunctions" | "requiredValencyFrames" | "requiredFeatures"
   >,
+  text?: string,
 ): boolean {
   return (requirements.allowedUpos.length === 0
       || requirements.allowedUpos.includes(profile.upos))
@@ -65,6 +92,6 @@ export function syntaxProfileMatchesRequirements(
       || requirements.requiredValencyFrames.some((value) => profile.valencyFrames.includes(value)))
     && Object.entries(requirements.requiredFeatures).every(([feature, value]) =>
       value !== undefined
-      && featureMatches(profile, feature as SyntaxFeatureName, value)
+      && featureMatches(profile, text, feature as SyntaxFeatureName, value)
     );
 }

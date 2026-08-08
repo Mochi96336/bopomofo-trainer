@@ -120,19 +120,17 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
   ]),
   production("complement.directional", "Complement", [
     lexical("direction", ["VERB"], {
-      requiredFunctions: ["complement"],
       requiredFeatures: { complementType: "directional" },
     }),
   ]),
   production("complement.potential", "Complement", [
     lexical("linker", ["PART"], { requiredFeatures: { complementType: "potential" } }),
-    lexical("result", ["VERB", "ADJ"], {
-      requiredFunctions: ["complement"],
-      requiredFeatures: { complementType: "potential" },
-    }),
+    lexical("result", ["VERB", "ADJ"]),
   ]),
   production("complement.degree", "Complement", [
-    lexical("marker", ["PART"], { requiredFunctions: ["marker"] }),
+    lexical("marker", ["PART"], {
+      requiredFeatures: { complementType: "degree" },
+    }),
     constituent("degree", "AdjectivePhrase", {
       recursive: true,
       requiredFunctions: ["complement"],
@@ -192,7 +190,9 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
       recursive: true,
       requiredFeatures: { clauseType: "relative" },
     }),
-    lexical("marker", ["PART"], { requiredFunctions: ["marker"] }),
+    lexical("marker", ["PART"], {
+      requiredFeatures: { clauseType: "relative" },
+    }),
   ]),
   production("phrase.noun.relative", "NounPhrase", [
     constituent("relative", "RelativeClause", {
@@ -206,7 +206,9 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
       recursive: true,
       requiredFeatures: { clauseType: "nominalized" },
     }),
-    lexical("marker", ["PART"], { requiredFunctions: ["marker"] }),
+    lexical("marker", ["PART"], {
+      requiredFeatures: { clauseType: "nominalized" },
+    }),
   ]),
   production("quoted.clause", "QuotedClause", [
     constituent("openPunctuation", "Punctuation", { minimum: 0, maximum: 1 }),

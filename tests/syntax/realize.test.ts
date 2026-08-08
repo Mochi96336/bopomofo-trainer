@@ -7,7 +7,7 @@ import {
   compatibleProfilesForSlot,
   realizeStructuralDerivation,
 } from "../../src/syntax/realize.js";
-import type { SyntaxProfile } from "../../src/syntax/types.js";
+import type { RuntimeSyntaxProfile, SyntaxProfile } from "../../src/syntax/types.js";
 
 function entry(id: string, text: string): CatalogEntry {
   return {
@@ -44,6 +44,26 @@ function profile(id: string, entryId: string): SyntaxProfile {
       anonymousDependencySkeletons: [],
       rootCount: 0,
     },
+  };
+}
+
+function runtimeProfile(
+  id: string,
+  entryId: string,
+  upos: RuntimeSyntaxProfile["upos"],
+  relation: string,
+): RuntimeSyntaxProfile {
+  return {
+    id,
+    entryId,
+    upos,
+    functions: ["discourse"],
+    valencyFrames: ["avalent"],
+    dependencyEvidence: {
+      dependencyRelationCounts: { [relation]: 1 },
+      surfacePositionCounts: { final: 1 },
+    },
+    provenanceIds: ["test"],
   };
 }
 
@@ -92,6 +112,24 @@ describe("lazy lexical realization", () => {
       profiles,
       profileOffsetsBySlotId: { [slot.id]: 1 },
     })?.entryIds).toEqual(["entry:b"]);
+  });
+
+  it("filters licensed construction features with entry text plus UD evidence", () => {
+    const entries = [entry("entry:ma", "嗎"), entry("entry:ne", "呢")];
+    const profiles = [
+      runtimeProfile("profile:ma", "entry:ma", "PART", "discourse:sp"),
+      runtimeProfile("profile:ne", "entry:ne", "PART", "discourse:sp"),
+    ];
+    const questionSlot = {
+      ...slot,
+      id: "slot:question",
+      allowedUpos: ["PART"] as const,
+      requiredFunctions: [],
+      requiredFeatures: { questionType: "polar" } as const,
+    };
+    const index = buildLexicalProfileIndex(entries, profiles);
+    expect(compatibleProfilesForSlot(questionSlot, index).map((item) => item.entryId))
+      .toEqual(["entry:ma"]);
   });
 
   it("is deterministic for the same seed", () => {
