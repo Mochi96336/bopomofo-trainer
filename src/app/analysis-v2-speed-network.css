@@ -52,7 +52,6 @@
   align-items: center;
   padding: 24px 0 34px;
   overscroll-behavior-inline: contain;
-  scrollbar-gutter: stable;
 }
 
 /* Match the original diagnostic keyboard structure: one transformed board owns
