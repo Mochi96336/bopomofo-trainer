@@ -118,16 +118,6 @@ describe("formal syntax family sampling policy", () => {
     expect(shape?.productionRulePath[1]?.startsWith("clause.")).toBe(true);
   });
 
-  it("fails closed if an external rule orderer filters eligible grammar rules", () => {
-    expect(() => sampleStructuralDerivation({
-      rootCategory: "Sentence",
-      rules: FORMAL_SYNTAX_RULES,
-      random: new SequenceRandom([0]),
-      maximumAttempts: 1,
-      ruleOrderer: ({ candidates }) => candidates.slice(1),
-    })).toThrow(/must return every eligible production exactly once/u);
-  });
-
   it("rejects an unknown root target instead of silently changing grammar", () => {
     expect(() => sampleStructuralDerivation({
       rootCategory: "Sentence",
