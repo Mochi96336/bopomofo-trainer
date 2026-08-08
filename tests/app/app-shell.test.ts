@@ -148,10 +148,13 @@ describe("practice shell mounting", () => {
 });
 
 describe("analysis over a degraded session", () => {
-  // Analysis V2 receives the live in-memory shell snapshot, so blocked storage
-  // cannot make the panel describe an older persisted session.
+  // Analysis used to read module-level mirrors of what had last reached
+  // storage. With every write refused nothing was ever mirrored, so the panel
+  // described an empty session while practice carried on in memory -- two
+  // answers about one session, from a product that promises the session
+  // continues. It is handed the shell's live state now.
   it("describes the running session when storage refuses every write", () => {
-    const app = mountApp({ storage: createUnwritableStorage(), diagnostics: true });
+    const app = mountApp({ storage: createUnwritableStorage(), analysisV2: true });
     mounted = app;
     // Finishes a round, so there are real measurements that no write preserved.
     document.dispatchEvent(new KeyboardEvent("keydown", {
@@ -243,6 +246,9 @@ describe("capture keyboard handling", () => {
     const app = mount();
     const total = app.find("#progress-count").textContent?.split(" / ").at(-1);
 
+    // The keyboard hint is off by default, and turning it on is how the shell
+    // marks which physical key the current token wants -- which is also the only
+    // honest way for a test to find that key rather than reimplement the layout.
     app.openPanel();
     app.find<HTMLInputElement>("#toggle-keyboard-sketch").click();
     app.dialog.close();
@@ -275,6 +281,9 @@ describe("capture keyboard handling", () => {
 });
 
 describe("window focus", () => {
+  // The handler must not be `focusCapture` itself: a focus listener is called
+  // with the event, the event would arrive as the `force` argument and read as
+  // true, and focus would be taken from whatever the learner was using.
   it("does not steal focus from another control", () => {
     const app = mount();
     const button = app.find<HTMLButtonElement>("#open-information");
@@ -295,8 +304,13 @@ describe("information panel status regions", () => {
     expect(status.textContent?.trim()).toBe("");
   });
 
+  // The defect this replaces: a reply to a press was written where the unlock
+  // count lived, so changing a level cost the learner the progress they changed
+  // it against.
   it("keeps the unlock count readable after a level is changed", () => {
     const app = mount();
+    // The review override opens every level, which is what makes more than one
+    // toggle pressable on a fresh generation.
     document.dispatchEvent(new KeyboardEvent("keydown", {
       code: "F9",
       key: "F9",
@@ -326,6 +340,8 @@ describe("information panel status regions", () => {
     expect(app.find<HTMLElement>("#tuning-notice").textContent?.trim()).toBe("");
   });
 
+  // The storage warning describes a lasting condition, so it lives in the global
+  // notice region where no panel visit retires it.
   it("leaves the storage warning standing when panel statuses are retired", () => {
     const app = mount(createUnwritableStorage());
     expect(app.find("#notice-region").textContent).toContain("localStorage");
@@ -340,6 +356,13 @@ describe("information panel status regions", () => {
 });
 
 describe("clearing local progress", () => {
+  /**
+   * Types exactly one sentence correctly, so there is progress worth losing.
+   *
+   * The keyboard hint is turned on because the key each token wants is marked
+   * there; completion is read off the topbar, which starts reporting a previous
+   * sentence the moment one is finished.
+   */
   function practiseOneRound(app: MountedApp): void {
     app.openPanel();
     app.find<HTMLInputElement>("#toggle-keyboard-sketch").click();
@@ -366,6 +389,7 @@ describe("clearing local progress", () => {
       .toBe("清除所有本機進度？");
     expect(confirm.textContent).toContain("清除所有本機進度？");
     expect(confirm.textContent).toContain("練習進度");
+    // The one reassurance worth the line.
     expect(confirm.textContent).toContain("已下載的存檔檔案不受影響。");
   });
 
@@ -379,6 +403,7 @@ describe("clearing local progress", () => {
     await app.answerConfirm("cancel");
 
     expect(app.confirmDialog.open).toBe(false);
+    // Still open, because declining is not an outcome worth closing the panel for.
     expect(app.dialog.open).toBe(true);
     expect(app.find("#round-status").textContent).toBe(rounds);
   });
@@ -393,12 +418,20 @@ describe("clearing local progress", () => {
     app.find<HTMLButtonElement>("#reset-progress").click();
     await app.answerConfirm("accept");
 
+    // Back to a first run: round one, and the panel closed behind the action.
     expect(app.dialog.open).toBe(false);
     expect(app.find("#round-status").textContent).toContain("1");
     expect(app.find("#progress-count").textContent).toMatch(/^0 \//);
     expect(storage.removals).toContain(LOCAL_PROGRESS_KEY);
   });
 
+  /**
+   * Escape belongs to the topmost surface and no other. Closing the top dialog
+   * is the platform's job and is not reproduced here; what is asserted is the
+   * half that is application code -- the confirmation's window-level capture
+   * listener stops the event before the shell's document-level handler can take
+   * the information panel down with it.
+   */
   it("keeps Escape from reaching the panel the confirmation stacks over", () => {
     const app = mount();
     app.openPanel();
@@ -417,6 +450,8 @@ describe("clearing local progress", () => {
     expect(app.dialog.open).toBe(true);
   });
 
+  // The confirmation is the only thing standing between a click and the
+  // learner's history, so a refusal to answer must not be read as an answer.
   it("does not clear anything while the confirmation is unanswered", () => {
     const storage = createRecordingStorage();
     const app = mount(storage);
@@ -432,14 +467,17 @@ describe("clearing local progress", () => {
 
 describe("opening Analysis V2 from the panel", () => {
   function mountWithAnalysisV2(): MountedApp {
-    mounted = mountApp({ diagnostics: true });
+    mounted = mountApp({ analysisV2: true });
     return mounted;
   }
 
+  // The Analysis V2 integration reaches the shell only through the handles the
+  // two exchange, so this is the composition `browser.ts` performs, driven.
   it("replaces the weak-keys slot with the richer summary", () => {
     const app = mountWithAnalysisV2();
     app.openPanel();
-    // The integration claims the slot by rewriting it and dropping the marker.
+    // The integration claims the section by rewriting it and dropping the marker
+    // the shell left for it, so the marker's absence is the evidence it ran.
     expect(document.querySelector('[data-analysis-v2-summary-slot="true"]')).toBeNull();
     const section = app.find<HTMLElement>(".analysis-v2-summary");
     expect(section.textContent).toContain("學習分析");
@@ -450,6 +488,13 @@ describe("opening Analysis V2 from the panel", () => {
     expect(section.querySelector(".analysis-v2-open")).not.toBeNull();
   });
 
+  /**
+   * Analysis replaces the information panel rather than nesting under it, so
+   * the panel has to be closed and focus anchored on practice before the
+   * analysis controller captures where to return to. Getting that order wrong
+   * leaves the return target pointing at a control inside a panel that is no
+   * longer open.
+   */
   it("closes the panel and anchors focus on practice before opening", () => {
     const app = mountWithAnalysisV2();
     app.openPanel();
@@ -462,6 +507,13 @@ describe("opening Analysis V2 from the panel", () => {
     expect(document.activeElement).toBe(app.capture);
   });
 
+  /**
+   * The consequence of the order, and what makes the check above more than a
+   * restatement of it. The analysis remembers where it was opened from and
+   * hands control back there: opened from practice it returns to practice, but
+   * had it been opened while the panel was still up it would have recorded the
+   * panel instead and put it back on screen on the way out.
+   */
   it("returns to practice on close rather than reopening the panel", () => {
     vi.useFakeTimers();
     try {
@@ -482,6 +534,8 @@ describe("opening Analysis V2 from the panel", () => {
 });
 
 describe("selection tuning controls", () => {
+  // Rebuilding the panel from the slider's own handler would replace the slider
+  // mid-drag, so the status is written into the region already on the page.
   it("does not replace the slider when it reports a change", () => {
     const app = mount();
     app.openPanel();
