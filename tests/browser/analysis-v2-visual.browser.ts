@@ -19,6 +19,7 @@ async function openAnalysis(page: Page): Promise<void> {
   await page.locator("#open-information").click();
   await page.locator(".analysis-v2-open").click();
   await expect(page.locator("#analysis-v2")).toBeVisible();
+  await page.waitForTimeout(340);
 }
 
 function seededSpeedProgress(): string {
@@ -63,6 +64,97 @@ async function installSpeedProgress(page: Page): Promise<void> {
     window.localStorage.setItem(key, source);
   }, { key: PROGRESS_KEY, source: progress });
 }
+
+test("restores the original Analysis entrance choreography", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.addInitScript(() => {
+    const originalAnimate = Element.prototype.animate;
+    Element.prototype.animate = function instrumentedAnimate(
+      keyframes: Keyframe[] | PropertyIndexedKeyframes | null,
+      options?: number | KeyframeAnimationOptions,
+    ): Animation {
+      if (this instanceof HTMLElement
+        && (this.classList.contains("analysis-v2-keyboard")
+          || this.classList.contains("analysis-v2-speed-board"))) {
+        const frames = Array.isArray(keyframes)
+          ? keyframes.map((frame) => ({
+            transform: typeof frame.transform === "string" ? frame.transform : "",
+            opacity: typeof frame.opacity === "number" ? frame.opacity : Number(frame.opacity),
+          }))
+          : [];
+        const timing = typeof options === "number"
+          ? { duration: options, easing: "" }
+          : { duration: Number(options?.duration ?? 0), easing: options?.easing ?? "" };
+        (window as typeof window & {
+          __analysisKeyboardRise?: {
+            frames: Array<{ transform: string; opacity: number }>;
+            duration: number;
+            easing: string;
+          };
+        }).__analysisKeyboardRise = { frames, ...timing };
+      }
+      return originalAnimate.call(this, keyframes, options);
+    };
+  });
+
+  await page.goto("/");
+  await page.locator("#open-information").click();
+  await page.locator(".analysis-v2-open").click();
+  await expect(page.locator("#analysis-v2")).toBeVisible();
+
+  const captured = await page.evaluate(() => (
+    window as typeof window & {
+      __analysisKeyboardRise?: {
+        frames: Array<{ transform: string; opacity: number }>;
+        duration: number;
+        easing: string;
+      };
+    }
+  ).__analysisKeyboardRise ?? null);
+  expect(captured).not.toBeNull();
+  expect(captured?.duration).toBe(320);
+  expect(captured?.easing).toBe("cubic-bezier(.2, .75, .25, 1)");
+  expect(captured?.frames).toHaveLength(2);
+  expect(captured?.frames[0]?.transform).toContain("translate(");
+  expect(captured?.frames[0]?.transform).toContain("scale(");
+  expect(captured?.frames[0]?.transform).toContain("perspective(520px) rotateX(19deg)");
+  expect(captured?.frames[0]?.opacity).toBe(0.25);
+  expect(captured?.frames[1]?.transform).toBe("perspective(520px) rotateX(19deg)");
+  expect(captured?.frames[1]?.opacity).toBe(1);
+
+  await page.waitForTimeout(200);
+  const stage = await page.evaluate(() => {
+    const practice = document.querySelector<HTMLElement>("#practice-stage")!;
+    const topbar = document.querySelector<HTMLElement>(".topbar")!;
+    const analysis = document.querySelector<HTMLElement>("#analysis-v2")!;
+    const practiceStyle = getComputedStyle(practice);
+    const topbarStyle = getComputedStyle(topbar);
+    const analysisStyle = getComputedStyle(analysis);
+    return {
+      bodyOpen: document.body.classList.contains("analysis-v2-open"),
+      practiceOpacity: Number(practiceStyle.opacity),
+      practiceTransform: practiceStyle.transform,
+      topbarOpacity: Number(topbarStyle.opacity),
+      topbarTransform: topbarStyle.transform,
+      analysisOpacity: Number(analysisStyle.opacity),
+      analysisTransitionProperty: analysisStyle.transitionProperty,
+      analysisTransitionDuration: analysisStyle.transitionDuration,
+    };
+  });
+  expect(stage.bodyOpen).toBe(true);
+  expect(stage.practiceOpacity).toBeCloseTo(0.26, 1);
+  expect(stage.practiceTransform).not.toBe("none");
+  expect(stage.topbarOpacity).toBeCloseTo(0.38, 1);
+  expect(stage.topbarTransform).not.toBe("none");
+  expect(stage.analysisOpacity).toBe(1);
+  expect(stage.analysisTransitionProperty).toContain("opacity");
+  expect(stage.analysisTransitionDuration).toContain("0.15s");
+
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#analysis-v2")).toBeHidden();
+  await expect.poll(() => page.evaluate(() => document.body.classList.contains("analysis-v2-open")))
+    .toBe(false);
+});
 
 test("keeps the original analysis keyboard visual contract", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
