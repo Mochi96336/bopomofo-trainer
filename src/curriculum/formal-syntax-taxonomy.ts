@@ -24,7 +24,8 @@ export type ClauseKind =
   | "core-predication"
   | "marked"
   | "complex-predicate"
-  | "information-structure";
+  | "information-structure"
+  | "embedded-content";
 
 export type ClauseConstructionFamily =
   | "core.nominal-predicate"
@@ -46,7 +47,11 @@ export type ClauseConstructionFamily =
   | "complex.serial-verb"
   | "information.topic-comment"
   | "information.subject-omission"
-  | "information.object-omission";
+  | "information.object-omission"
+  | "embedded.subject-content"
+  | "embedded.object-content"
+  | "embedded.complement-content"
+  | "embedded.quoted-content";
 
 export interface SentenceConstructionClassification {
   readonly kind: SentenceKind;
@@ -101,6 +106,11 @@ const CLAUSE_CLASSIFICATION_BY_RULE_ID: Readonly<Record<string, ClauseConstructi
     kind: "information-structure",
     family: "information.object-omission",
   },
+
+  "clause.subject-content": { kind: "embedded-content", family: "embedded.subject-content" },
+  "clause.object-content": { kind: "embedded-content", family: "embedded.object-content" },
+  "clause.complement-content": { kind: "embedded-content", family: "embedded.complement-content" },
+  "clause.quoted-content": { kind: "embedded-content", family: "embedded.quoted-content" },
 };
 
 export function sentenceConstructionClassification(
