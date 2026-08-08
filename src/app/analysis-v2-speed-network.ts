@@ -12,9 +12,8 @@ export interface AnalysisV2SpeedPath {
   readonly label: string;
   readonly width: number;
   readonly opacity: number;
-  /** Relative speed rank inside this homogeneous exact-transition family. */
+  /** Relative speed rank inside the visible homogeneous exact-transition family. */
   readonly slowness: number;
-  readonly ready: boolean;
   readonly includesTone: boolean;
 }
 
@@ -24,6 +23,8 @@ export const ANALYSIS_V2_SPEED_VIEWBOX = Object.freeze({
   width: 60,
   height: 5,
 });
+
+export const ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES = 36;
 
 interface KeyboardPoint {
   readonly x: number;
@@ -73,38 +74,52 @@ function pathFor(
   }
   const baseRise = includesTone ? 0.72 : 0.3 + Math.min(0.58, xDistance / 38);
   const laneRise = lane * (includesTone ? 0.1 : 0.08);
-  const controlY = Math.min(from.y, to.y) - baseRise - laneRise;
+  // Keep the curve inside the SVG viewport. The old negative control point was
+  // clipped by the board even though the SVG itself allowed visible overflow.
+  const controlY = Math.max(0.08, Math.min(from.y, to.y) - baseRise - laneRise);
   return `M ${from.x.toFixed(2)} ${from.y.toFixed(2)} C ${from.x.toFixed(2)} ${controlY.toFixed(2)}, ${to.x.toFixed(2)} ${controlY.toFixed(2)}, ${to.x.toFixed(2)} ${to.y.toFixed(2)}`;
 }
 
 function sampleWidth(samples: number): number {
-  if (samples >= 8) return 2;
-  if (samples >= 5) return 1.65;
-  if (samples >= 3) return 1.35;
-  return 1.1;
+  if (samples >= 12) return 2;
+  if (samples >= 8) return 1.7;
+  return 1.4;
+}
+
+function compareSupport(
+  left: AnalysisV2MotorCell<ImmediateTokenAggregateScope>,
+  right: AnalysisV2MotorCell<ImmediateTokenAggregateScope>,
+): number {
+  return right.timingSamples - left.timingSamples
+    || right.observations - left.observations
+    || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
 }
 
 /**
- * Builds only edges that have at least one clean within-syllable timing sample.
- * No potential/canonical edge is synthesized. Slowness is a within-family rank,
- * so one outlier cannot redefine a global millisecond threshold for every edge.
+ * Draws only exact accepted-token transitions with enough clean within-syllable
+ * timing support to be comparable. If the family grows dense, the graph keeps
+ * the highest-support edges rather than turning the keyboard into a complete
+ * mesh. No potential/canonical edge is synthesized.
  */
 export function buildAnalysisV2SpeedPaths(
   cells: readonly AnalysisV2MotorCell<ImmediateTokenAggregateScope>[],
+  maximumVisibleEdges = ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES,
 ): readonly AnalysisV2SpeedPath[] {
   const points = keyboardPoints();
-  const timed = cells
-    .filter((cell) => cell.timingSamples > 0 && cell.currentTimeToTypeMs !== null)
+  const visible = cells
+    .filter((cell) => cell.ready && cell.currentTimeToTypeMs !== null)
+    .sort(compareSupport)
+    .slice(0, Math.max(0, maximumVisibleEdges))
     .sort((left, right) => {
       const time = left.currentTimeToTypeMs! - right.currentTimeToTypeMs!;
       return time !== 0 ? time : left.id < right.id ? -1 : left.id > right.id ? 1 : 0;
     });
-  const maximumRank = Math.max(1, timed.length - 1);
-  return timed.flatMap((cell, index) => {
+  const maximumRank = Math.max(1, visible.length - 1);
+  return visible.flatMap((cell, index) => {
     const from = points.get(cell.scope.fromToken);
     const to = points.get(cell.scope.toToken);
     if (from === undefined || to === undefined || cell.currentTimeToTypeMs === null) return [];
-    const slowness = timed.length === 1 ? 0.5 : index / maximumRank;
+    const slowness = visible.length === 1 ? 0.5 : index / maximumRank;
     const includesTone = cell.scope.fromToken.startsWith("tone:")
       || cell.scope.toToken.startsWith("tone:");
     return [{
@@ -112,9 +127,8 @@ export function buildAnalysisV2SpeedPaths(
       path: pathFor(cell.id, from, to, includesTone),
       label: `${tokenLabel(cell.scope.fromToken)} 到 ${tokenLabel(cell.scope.toToken)}，${Math.round(cell.currentTimeToTypeMs)} 毫秒，${cell.timingSamples} 個乾淨樣本`,
       width: sampleWidth(cell.timingSamples),
-      opacity: cell.ready ? 0.34 + slowness * 0.46 : 0.18 + slowness * 0.2,
+      opacity: 0.48 + slowness * 0.34,
       slowness,
-      ready: cell.ready,
       includesTone,
     }];
   });
