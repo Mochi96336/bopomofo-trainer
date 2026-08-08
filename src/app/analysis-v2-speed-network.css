@@ -170,11 +170,6 @@
 }
 
 @media (max-width: 640px) {
-  .analysis-v2-speed-scroll {
-    margin-inline: -4px;
-    padding-inline: 4px;
-  }
-
   .analysis-v2-speed-legend {
     grid-template-columns: auto minmax(64px, 1fr) auto;
   }
