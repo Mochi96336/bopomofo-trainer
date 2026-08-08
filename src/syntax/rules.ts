@@ -222,12 +222,16 @@ export const PHRASE_PRODUCTION_RULES: readonly ProductionRule[] = [
     lexical("degree", ["ADV"], { requiredFunctions: ["modifier"] }),
     lexical("head", ["ADV"], { inheritFunctions: true }),
   ]),
+  // The head of an adposition phrase is the adposition, not its object, so the
+  // enclosing phrase's function is not inherited through this edge. Inheriting
+  // it would demand that the noun inside 在<NP> itself be an oblique dependent,
+  // when it is the object of the adposition and the phrase is the oblique.
   production("phrase.adposition.preposed", "AdpositionPhrase", [
     lexical("head", ["ADP"], { requiredFunctions: ["adposition"] }),
-    constituent("object", "NounPhrase", { inheritFunctions: true }),
+    constituent("object", "NounPhrase"),
   ]),
   production("phrase.adposition.postposed", "AdpositionPhrase", [
-    constituent("object", "NounPhrase", { inheritFunctions: true }),
+    constituent("object", "NounPhrase"),
     lexical("head", ["PART"], { requiredFunctions: ["adposition"] }),
   ]),
   production("phrase.particle.lexical", "ParticlePhrase", [lexical("head", ["PART"])]),
