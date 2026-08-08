@@ -13,7 +13,7 @@ test("shows observation-based motor diagnostics in the information panel", async
   await expect(section).toContainText("聲調完成");
 });
 
-test("retires the old canonical transition diagnostics from the product UI", async ({ page }) => {
+test("retires the old canonical transition diagnostics from every product navigation path", async ({ page }) => {
   await page.goto("/");
   await page.locator("#open-information").click();
 
@@ -22,7 +22,21 @@ test("retires the old canonical transition diagnostics from the product UI", asy
   await expect(semantic).not.toContainText("轉換");
 
   await semantic.locator(".diagnostic-open-analysis").click();
-  await expect(page.locator("#diagnostic-analysis-tab-key")).toBeVisible();
-  await expect(page.locator("#diagnostic-analysis-tab-confusion")).toBeVisible();
+  const analysis = page.locator("#diagnostic-analysis");
+  const keyTab = page.locator("#diagnostic-analysis-tab-key");
+  const confusionTab = page.locator("#diagnostic-analysis-tab-confusion");
+  await expect(keyTab).toBeVisible();
+  await expect(confusionTab).toBeVisible();
   await expect(page.locator("#diagnostic-analysis-tab-transition")).toHaveCount(0);
+  await expect(analysis).not.toContainText("未計入時間");
+
+  await keyTab.focus();
+  await keyTab.press("ArrowRight");
+  await expect(confusionTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#diagnostic-analysis-panel-transition")).toHaveCount(0);
+  await expect(page.locator("#diagnostic-analysis-tab-transition")).toHaveCount(0);
+
+  await confusionTab.press("ArrowLeft");
+  await expect(keyTab).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator("#diagnostic-analysis-panel-transition")).toHaveCount(0);
 });
