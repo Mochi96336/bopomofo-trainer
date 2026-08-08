@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { diagnosticKeyboardTokenLabel } from "../../src/app/diagnostic-keyboard.js";
+import { tokenLabel } from "../../src/diagnostics/labels.js";
+import { STANDARD_BOPOMOFO_LAYOUT } from "../../src/scheme/standard-layout.js";
 import {
   KEYBOARD_GEOMETRY_ROWS,
   keyboardColumnSpan,
@@ -46,11 +47,12 @@ describe("shared keyboard geometry", () => {
       .toBe(true);
   });
 
-  it("shows every standard number-row Bopomofo and tone label", () => {
-    expect([
+  it("maps every standard number-row Bopomofo and tone key from the layout itself", () => {
+    const codes = [
       "Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6",
       "Digit7", "Digit8", "Digit9", "Digit0", "Minus",
-    ].map(diagnosticKeyboardTokenLabel)).toEqual([
+    ] as const;
+    expect(codes.map((code) => tokenLabel(STANDARD_BOPOMOFO_LAYOUT.bindings[code]!))).toEqual([
       "ㄅ", "ㄉ", "ˇ", "ˋ", "ㄓ", "ˊ", "˙", "ㄚ", "ㄞ", "ㄢ", "ㄦ",
     ]);
   });
