@@ -372,17 +372,16 @@ test("keeps mobile horizontal overflow inside the flyline stage", async ({ page 
   await installSpeedProgress(page, 18);
   await openCoordination(page);
 
+  await expect(page.locator(".analysis-v2-speed-inspector")).toHaveCount(0);
   const visual = await page.locator("#analysis-v2").evaluate((analysis) => {
     const main = analysis.querySelector<HTMLElement>(".analysis-v2-main")!;
     const scroll = analysis.querySelector<HTMLElement>(".analysis-v2-speed-scroll")!;
     const board = analysis.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
-    const inspector = analysis.querySelector<HTMLElement>(".analysis-v2-speed-inspector")!;
     const regularKey = analysis.querySelector<HTMLElement>(".analysis-v2-speed-keyboard .analysis-v2-key[style*='--key-columns:4']")!;
     return {
       mainOverflow: main.scrollWidth - main.clientWidth,
       speedOverflow: scroll.scrollWidth - scroll.clientWidth,
       boardWidth: board.getBoundingClientRect().width,
-      inspectorWidth: inspector.getBoundingClientRect().width,
       mainWidth: main.getBoundingClientRect().width,
       keyHeight: Number.parseFloat(getComputedStyle(regularKey).height),
     };
@@ -391,9 +390,22 @@ test("keeps mobile horizontal overflow inside the flyline stage", async ({ page 
   expect(visual.mainOverflow).toBeLessThanOrEqual(1);
   expect(visual.speedOverflow).toBeGreaterThan(100);
   expect(visual.boardWidth).toBeGreaterThan(540);
-  expect(visual.inspectorWidth).toBeLessThanOrEqual(visual.mainWidth + 1);
   expect(visual.keyHeight).toBeGreaterThanOrEqual(22);
   expect(visual.keyHeight).toBeLessThanOrEqual(36);
+
+  await page.locator(".analysis-v2-speed-path").first().dispatchEvent("click");
+  await expect(page.locator(".analysis-v2-speed-inspector")).toHaveCount(1);
+  const selected = await page.locator("#analysis-v2").evaluate((analysis) => {
+    const main = analysis.querySelector<HTMLElement>(".analysis-v2-main")!;
+    const inspector = analysis.querySelector<HTMLElement>(".analysis-v2-speed-inspector")!;
+    return {
+      mainOverflow: main.scrollWidth - main.clientWidth,
+      inspectorWidth: inspector.getBoundingClientRect().width,
+      mainWidth: main.getBoundingClientRect().width,
+    };
+  });
+  expect(selected.mainOverflow).toBeLessThanOrEqual(1);
+  expect(selected.inspectorWidth).toBeLessThanOrEqual(selected.mainWidth + 1);
 });
 
 test("keeps semantic confusion and strategy centered on one visual object", async ({ page }) => {

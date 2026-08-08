@@ -76,6 +76,7 @@
 /* Analysis salience is not the practice keyboard's red "current key" state.
    Unmarked keys stay ghosted; only a bounded sufficient-data set is raised. */
 .analysis-v2 button.analysis-v2-key {
+  --analysis-strength: 0;
   background: transparent;
   color: var(--ink-faint);
 }
@@ -86,6 +87,7 @@
 }
 
 .analysis-v2 button.analysis-v2-key.is-salient {
+  --analysis-strength: 1;
   border-color: var(--ink-upcoming);
   background: color-mix(in srgb, var(--ink) 7%, transparent);
   box-shadow:
@@ -129,6 +131,11 @@
 
 .analysis-v2 .analysis-v2-speed-keyboard {
   opacity: 0.82;
+  pointer-events: none;
+}
+
+.analysis-v2 .analysis-v2-speed-keyboard * {
+  pointer-events: none;
 }
 
 /* Existing four-step ink system carries the field. Accent is deliberately rare. */
