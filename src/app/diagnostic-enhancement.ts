@@ -121,18 +121,29 @@ function mountAnalysisTopLayer(
     }
     if (analysis.hidden && modal.open) {
       modal.close();
-      // The top-layer adapter owns the return-focus boundary. Relying on a
-      // platform `close` event made focus timing differ between jsdom and real
-      // browsers even though the analysis state was already closed.
       focusPractice();
     }
   };
   const observer = new MutationObserver(sync);
   observer.observe(analysis, { attributes: true, attributeFilter: ["hidden"] });
   modal.addEventListener("cancel", (event) => event.preventDefault());
+
+  // The controller hides itself synchronously. MutationObserver delivery is a
+  // later microtask, so a caller that closes with the visible close control must
+  // not temporarily leave focus on a now-hidden button. This listener is
+  // registered after the controller's own host handler and therefore runs after
+  // `close()` in the same dispatch. Escape still falls back to the observer.
+  const returnFocusAfterCloseControl = (event: Event): void => {
+    const target = event.target instanceof Element
+      ? event.target.closest<HTMLElement>('[data-action="close-analysis"]')
+      : null;
+    if (target !== null && analysis.hidden) focusPractice();
+  };
+  analysis.addEventListener("click", returnFocusAfterCloseControl);
   sync();
 
   return () => {
+    analysis.removeEventListener("click", returnFocusAfterCloseControl);
     observer.disconnect();
     if (modal.open) modal.close();
     modal.remove();
@@ -158,9 +169,6 @@ export function mountDiagnosticEnhancement(
         currentAnalysisModel(),
         () => openAnalysisFromPractice(analysis, deps),
       );
-      // A panel instance created by an older enhancement generation can leave
-      // this sibling behind while hot tests rebuild the content. V2 owns one
-      // integrated summary, so remove that obsolete duplicate if present.
       content.querySelector(".motor-diagnostic-section")?.remove();
     },
     destroy(): void {
