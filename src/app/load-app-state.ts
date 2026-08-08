@@ -36,7 +36,7 @@ export interface AppBootState {
   readonly progress: ProductProgress;
   readonly pilotHistory: PilotHistory;
   readonly progressHistory: ProgressHistory;
-  /** False when nothing valid was stored, which is what makes the first save happen. */
+  /** True only when a current-schema progress record was already persisted. */
   readonly loadedExistingProgress: boolean;
   readonly progressLoadStatus: AppProgressLoadStatus;
   readonly recoveredPilotHistory: boolean;
@@ -104,7 +104,7 @@ export function loadAppState(options: LoadAppStateOptions): AppBootState {
     progress,
     pilotHistory,
     progressHistory,
-    loadedExistingProgress: loaded !== null,
+    loadedExistingProgress: progressLoadStatus === "loaded",
     progressLoadStatus,
     recoveredPilotHistory,
     storageWarning,
