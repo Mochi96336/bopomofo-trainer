@@ -1,4 +1,8 @@
-import { parseProductProgress, serializeProductProgress } from "../product/progress.js";
+import { serializeProductProgress } from "../product/progress.js";
+import {
+  parseProductProgressForLoad,
+  type ProductProgressParseStatus,
+} from "../product/progress-load.js";
 import type { ProductEnvironment, ProductProgress } from "../product/types.js";
 import { productProgressReferencesAreKnown } from "./product-progress-references.js";
 import {
@@ -10,9 +14,11 @@ import {
 export { LOCAL_PROGRESS_KEY };
 export type { StorageLike };
 
+export type LocalProgressLoadStatus = "empty" | ProductProgressParseStatus;
+
 export interface LocalProgressLoadResult {
   readonly progress: ProductProgress | null;
-  readonly recoveredFromInvalidState: boolean;
+  readonly status: LocalProgressLoadStatus;
 }
 
 export function loadLocalProductProgress(
@@ -22,8 +28,8 @@ export function loadLocalProductProgress(
   layoutId: string,
 ): LocalProgressLoadResult {
   const source = storage.getItem(LOCAL_PROGRESS_KEY);
-  if (source === null) return { progress: null, recoveredFromInvalidState: false };
-  const progress = parseProductProgress(
+  if (source === null) return { progress: null, status: "empty" };
+  const parsed = parseProductProgressForLoad(
     source,
     environment.practiceSupport,
     mode,
@@ -31,13 +37,11 @@ export function loadLocalProductProgress(
     environment.curriculumPolicy.version,
     environment.utterancePolicy,
   );
-  const validProgress = progress !== null && productProgressReferencesAreKnown(progress, environment)
-    ? progress
-    : null;
-  return {
-    progress: validProgress,
-    recoveredFromInvalidState: validProgress === null,
-  };
+  if (parsed.progress === null) return { progress: null, status: "invalid" };
+  if (!productProgressReferencesAreKnown(parsed.progress, environment)) {
+    return { progress: null, status: "invalid" };
+  }
+  return { progress: parsed.progress, status: parsed.status };
 }
 
 export function saveLocalProductProgress(

@@ -3,10 +3,12 @@ import { loadAppState } from "../../src/app/load-app-state.js";
 import type { StorageLike } from "../../src/app/local-progress.js";
 import { LOCAL_PROGRESS_KEY } from "../../src/app/persistence-transaction.js";
 import { saveLocalProductProgress } from "../../src/app/local-progress.js";
+import { serializeProductProgress } from "../../src/product/progress.js";
 import {
   createFreshProgressForEnvironment,
   createProductEnvironment,
 } from "../../src/product/session.js";
+import { PRODUCT_PROGRESS_SCHEMA_VERSION } from "../../src/product/types.js";
 import { PRODUCT_CATALOGS } from "../product/fixtures.js";
 
 class MemoryStorage implements StorageLike {
@@ -39,8 +41,8 @@ describe("app boot state", () => {
   it("starts a fresh generation when nothing is stored", () => {
     const boot = load(new MemoryStorage());
     expect(boot.loadedExistingProgress).toBe(false);
+    expect(boot.progressLoadStatus).toBe("empty");
     expect(boot.storageWarning).toBe("");
-    expect(boot.recoveredFromInvalidState).toBe(false);
     expect(boot.progress.practiceRoundsCompleted).toBe(0);
   });
 
@@ -49,7 +51,7 @@ describe("app boot state", () => {
     expect(load(new MemoryStorage(), "seed-b").progress.seed).toBe("seed-b");
   });
 
-  it("reads progress back and reports that it was not fresh", () => {
+  it("reads progress back and reports a normal load", () => {
     const storage = new MemoryStorage();
     saveLocalProductProgress(
       storage,
@@ -58,47 +60,57 @@ describe("app boot state", () => {
 
     const boot = load(storage);
     expect(boot.loadedExistingProgress).toBe(true);
+    expect(boot.progressLoadStatus).toBe("loaded");
     expect(boot.progress.seed).toBe("stored");
     expect(boot.storageWarning).toBe("");
   });
 
-  // Storage that can be read but holds something invalid is a different failure
-  // from storage that cannot be read at all, and the two must not be conflated:
-  // this one is recoverable, so it restarts from a fresh generation and says so
-  // rather than warning that saving may not work.
-  it("recovers from unreadable content without raising a storage warning", () => {
+  it("reports a successful legacy measurement-epoch migration as needing current-schema writeback", () => {
+    const storage = new MemoryStorage();
+    const current = createFreshProgressForEnvironment(environment, "legacy", "guided", "standard");
+    const stored = JSON.parse(serializeProductProgress(current)) as Record<string, unknown>;
+    stored.schemaVersion = PRODUCT_PROGRESS_SCHEMA_VERSION - 1;
+    delete stored.measurementEpoch;
+    stored.measurements = { policyVersion: "phase-3-v2", legacy: true };
+    storage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(stored));
+
+    const boot = load(storage);
+    expect(boot.progressLoadStatus).toBe("migrated");
+    expect(boot.loadedExistingProgress).toBe(false);
+    expect(boot.progress.seed).toBe("legacy");
+    expect(boot.progress.practiceRoundsCompleted).toBe(0);
+    expect(boot.storageWarning).toBe("");
+  });
+
+  it("labels unreadable content invalid without raising a storage warning", () => {
     const storage = new MemoryStorage();
     storage.setItem(LOCAL_PROGRESS_KEY, "{ not json");
 
     const boot = load(storage);
-    expect(boot.recoveredFromInvalidState).toBe(true);
+    expect(boot.progressLoadStatus).toBe("invalid");
     expect(boot.loadedExistingProgress).toBe(false);
     expect(boot.storageWarning).toBe("");
     expect(boot.progress.practiceRoundsCompleted).toBe(0);
   });
 
-  // Fails closed: progress whose counters disagree with the rest of the record
-  // is discarded rather than trusted, so a hand-edited store cannot inflate
-  // completed rounds.
   it("rejects progress that is internally inconsistent", () => {
     const storage = new MemoryStorage();
-    const forged = {
-      ...createFreshProgressForEnvironment(environment, "stored", "guided", "standard"),
-      practiceRoundsCompleted: 7,
-    };
+    const forged = JSON.parse(serializeProductProgress(
+      createFreshProgressForEnvironment(environment, "stored", "guided", "standard"),
+    )) as Record<string, unknown>;
+    forged.practiceRoundsCompleted = 7;
     storage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(forged));
 
     const boot = load(storage);
-    expect(boot.recoveredFromInvalidState).toBe(true);
+    expect(boot.progressLoadStatus).toBe("invalid");
     expect(boot.progress.practiceRoundsCompleted).toBe(0);
   });
 
-  // Practice has to start even when nothing can be read: an unusable session is
-  // a worse outcome than a lost one.
   it("still produces a usable session when storage is blocked outright", () => {
     const boot = load(new BlockedStorage());
     expect(boot.progress.practiceRoundsCompleted).toBe(0);
     expect(boot.loadedExistingProgress).toBe(false);
+    expect(boot.progressLoadStatus).toBe("unavailable");
     expect(boot.pilotHistory).toBeDefined();
     expect(boot.progressHistory).toBeDefined();
   });
@@ -124,7 +136,7 @@ describe("app boot state", () => {
 
   it("does not report a recovery when nothing needed recovering", () => {
     const boot = load(new MemoryStorage());
-    expect(boot.recoveredFromInvalidState).toBe(false);
+    expect(boot.progressLoadStatus).toBe("empty");
     expect(boot.recoveredPilotHistory).toBe(false);
   });
 
