@@ -8,7 +8,7 @@ The formal grammar and the product sampling policy are different layers.
 kind -> construction family -> production variant
 ```
 
-The product policy assigns probability above the raw production level. Production variants are executable implementations inside one construction family; adding or splitting a variant must not create additional family mass or additional root attempts.
+This PR applies product probability only to **Sentence-root construction families**. Production variants are executable implementations inside one root family; adding or splitting a variant must not create additional root family mass or additional root attempts.
 
 ## Why this exists
 
@@ -21,7 +21,7 @@ The raw structural sampler randomizes reachable productions. With the current gr
 
 `question.a-not-a` owns two raw tickets only because its intransitive and transitive forms are separate executable productions. That grammar representation detail must not become product frequency.
 
-## Product prior
+## Sentence-root product prior
 
 `PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY` is a training prior, not a claim about natural Mandarin corpus frequencies.
 
@@ -39,7 +39,7 @@ Question mass is divided by construction family:
 - A-not-A: 25%
 - alternative: 10%
 
-So the nominal A-not-A prior is:
+So the nominal A-not-A root prior is:
 
 ```text
 0.26 × 0.25 = 0.065 = 6.5%
@@ -47,19 +47,25 @@ So the nominal A-not-A prior is:
 
 Both A-not-A productions share that one family mass.
 
-Clause kinds start at 60% core predication, 20% marked, 8% complex-predicate, 7% information-structure, and 5% embedded-content. Every current Clause family has exactly one executable production. The lower-category adapter therefore samples Clause families safely today and fails closed if a Clause family gains multiple variants; nested variant-neutral family search must be implemented before such a grammar split can affect product sampling.
+The root fallback plan is a single weighted permutation over all Sentence families using the joint family weight:
 
-## Family-local search without variant-count bias
+```text
+P(family) = P(kind) × P(family | kind)
+```
 
-A second bias appeared after family weights were introduced. One structural attempt per family was not enough: a selected polar question or declarative could fail because one randomly chosen inner Clause expansion was unreachable, and the sampler would immediately fall through to another root family. Constructions that are short and easy to realize, including A-not-A, then absorbed that failed probability.
+It does **not** first choose a kind and then place every family from that kind contiguously. A question family therefore does not gain extra fallback positions merely because `question` contains more construction families than `request` or `exclamative`.
 
-The product separates **family choice** from **search inside that family**:
+## Family-local root search
 
-1. build one weighted root plan by kind and construction family;
-2. give each root family a bounded local search budget derived from the actual number of families and the caller's global attempt budget;
+One structural attempt per family was not enough: a selected polar question or declarative could fail because one randomly chosen descendant expansion was unreachable, and the sampler would immediately fall through to another root family. Short or easy-to-realize constructions could then absorb too much failed mass.
+
+The product separates root family choice from bounded search inside that family:
+
+1. build one joint-weighted Sentence-family fallback plan;
+2. give each root family a bounded local search budget derived from the actual family count and the caller's global attempt budget;
 3. on each local attempt, select exactly one executable root production variant from the current family;
-4. keep the complete descendant grammar available and redraw lower Clause/Phrase choices normally;
-5. only after the current family's local budget is exhausted advance to the next already-ranked family;
+4. keep the complete descendant grammar available and redraw descendant choices normally;
+5. only after the current family's local budget is exhausted advance to the next family in the joint-weighted plan;
 6. after one unique candidate is accepted, build a fresh root plan for the next candidate.
 
 The structural sampler therefore exposes a singular `rootProductionRuleId`. One local attempt cannot try every variant in a family sequentially. A family with two executable productions receives the same number of root attempts as a family with one executable production.
@@ -68,35 +74,49 @@ The local budget is not a magic constant tied to today's eight families. `rootFa
 
 Product-only rejection, such as the current minimum of two practice lexical entries, lexical uniqueness failure, or a duplicate realized candidate, counts against the same family-local budget instead of causing an immediate fresh family draw.
 
-## Sampling mode
+This does not imply that realized output frequencies exactly equal the nominal root prior. Reachability, descendant structural sampling, lexical realization, and eventual fallback can still change effective shares. The policy removes representation-count bias at the Sentence root and bounds one-shot failover; effective output remains something to measure rather than assert from the nominal prior.
+
+## Clause and lower categories
+
+Clause taxonomy remains useful for audit and future policy work, but #155 does **not** assign product Clause probabilities.
+
+Nested `Clause`, phrase, and lower-category choices continue to use the raw structural sampler. A proper Clause probability policy would require nested family-local sampling, not merely a weighted rule orderer, because even singleton Clause families can still exhibit success-rate/failover bias.
+
+That work is intentionally outside this PR.
+
+## Sampling mode and canonical grammar identity
 
 `composeFormalSyntaxUtterances()` has an explicit `samplingMode`:
 
-- `product-family`: apply the curriculum family policy;
+- `product-family`: apply the Sentence-root curriculum family policy;
 - `raw`: keep raw structural sampling semantics.
 
-For compatibility, the composer infers `product-family` when the supplied production IDs form the complete formal grammar with no duplicates and `raw` for custom grammars. Therefore explicitly passing `FORMAL_SYNTAX_RULES` does not silently disable product policy. Callers can still make the mode explicit, and custom rule orderers cannot be combined with product-family mode.
+The composer infers `product-family` only when the supplied rules match the canonical complete `FORMAL_SYNTAX_RULES`, including rule content, not merely the same IDs. Same-ID but structurally modified rules are custom grammar and infer `raw`; explicitly requesting `product-family` with such rules fails closed.
+
+Explicitly passing the canonical `FORMAL_SYNTAX_RULES` does not silently disable product policy. Custom rule orderers cannot be combined with product-family mode.
 
 ## Effective-distribution guard
 
 The regression calls the actual `composeFormalSyntaxUtterances()` path with the packaged practice catalog, runtime syntax profiles, real product derivation bounds, lexical selection/uniqueness, realization, and the minimum practice length. It does not reimplement a simplified family-search loop in the test.
 
-The deterministic guard has both lower and upper bounds for A-not-A and total questions. This catches both renewed over-representation and accidental disappearance. These are product-health bounds, not corpus-frequency claims.
+The deterministic guard has both lower and upper bounds for A-not-A and total questions. This catches renewed over-representation and accidental disappearance. These are product-health bounds, not evidence that realized output must numerically match the nominal prior.
 
 ## Contract
 
 1. Formal grammar remains the legality source of truth.
 2. Sampling taxonomy and probability live outside `src/syntax` grammar definitions.
 3. Adding or splitting a controlled production requires an explicit taxonomy update.
-4. Kind and family weights belong to versioned curriculum policy.
-5. Variant count must not create family probability or extra family-local attempts.
-6. One family-local attempt targets exactly one root production variant.
-7. Root-family budget is derived from the actual plan, not a hard-coded family count.
-8. Insufficient remaining candidate-search budget returns an explicit fallback instead of an exception.
-9. Root targeting never removes descendant grammar.
-10. Nested Clause families fail closed if they gain multiple variants until nested variant-neutral search exists.
-11. Effective-distribution tests exercise the actual product composer path.
-12. Learner adaptation and construction recency remain later policy layers; they do not legalize or invalidate grammar.
+4. #155 product probability applies to Sentence-root construction families only.
+5. Sentence fallback order uses joint family weight, not contiguous kind blocks.
+6. Root production variant count must not create family probability or extra family-local attempts.
+7. One family-local attempt targets exactly one root production variant.
+8. Root-family budget is derived from the actual plan, not a hard-coded family count.
+9. Insufficient remaining candidate-search budget returns an explicit fallback instead of an exception.
+10. Root targeting never removes descendant grammar.
+11. Clause and lower-category choices remain raw until nested family-local sampling is designed explicitly.
+12. Product-family mode requires the canonical complete formal grammar, not just matching rule IDs.
+13. Effective-distribution tests exercise the actual product composer path.
+14. Learner adaptation and construction recency remain later policy layers; they do not legalize or invalidate grammar.
 
 Run the diagnostic with:
 
@@ -104,4 +124,4 @@ Run the diagnostic with:
 npx tsx scripts/audit-formal-syntax-sampling.ts
 ```
 
-It reports the old equal-production ticket shares and the nominal product family priors. Realized frequencies are guarded separately rather than baked back into grammar.
+It reports the old equal-production ticket shares and the nominal Sentence-root family priors. Realized frequencies are guarded separately rather than baked back into grammar.
