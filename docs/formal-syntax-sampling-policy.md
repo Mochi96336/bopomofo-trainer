@@ -4,7 +4,13 @@ The formal grammar and the product sampling policy are different layers.
 
 `src/syntax` answers whether a derivation is legal. It must not assign product frequency to a construction. The production sampler currently tries reachable rules in randomized order, so splitting one linguistic construction into more `ProductionRule`s can accidentally give that construction more raw sampling tickets.
 
-The curriculum-side registry in `src/curriculum/formal-syntax-taxonomy.ts` makes that coupling explicit before the behavior is changed. It classifies every current `Sentence` and `Clause` production into stable product-facing families and fails closed when a new controlled production is added without a classification.
+The curriculum-side registry in `src/curriculum/formal-syntax-taxonomy.ts` makes that coupling explicit before the behavior is changed. It classifies current `Sentence` and `Clause` productions in a hierarchy:
+
+```text
+kind -> construction family -> production variant
+```
+
+This lets later curriculum policy assign mass above the raw production level. Adding or splitting a production must not silently change the mass of its construction family.
 
 ## Current equal-rule ticket audit
 
@@ -19,22 +25,25 @@ Within the root rules, `question.a-not-a` owns two tickets (20% of all root prod
 
 This is an audit of the current sampler mechanics, not an intended language or curriculum distribution. Realized shares can differ further because lexical reachability, derivation bounds, and realization failures cause retry/failover.
 
-The same risk exists below the root. Current `Clause` productions classify as:
+The same risk exists below the root. Current `Clause` rules group into these coarse kinds:
 
 - core predication: 8/20 = 40%
 - marked constructions: 6/20 = 30%
 - complex predicates: 3/20 = 15%
 - information structure/omission: 3/20 = 15%
 
-Again, these are implementation ticket counts, not desired product weights.
+Each current Clause production also has its own specific construction family (`core.transitive`, `marked.ba`, `marked.bei`, and so on). That extra level matters because a future split of one construction into several executable variants should not make that construction more common inside its coarse kind.
+
+Again, the percentages above are implementation ticket counts, not desired product weights.
 
 ## Contract
 
 1. Formal grammar remains the legality source of truth.
 2. Sampling taxonomy lives outside `src/syntax`.
-3. Adding or splitting a grammar production must require an explicit taxonomy update.
-4. A later curriculum policy will assign mass to construction families and normalize variants inside a family, so variant count cannot silently change family probability.
-5. Learner adaptation and recency penalties remain later policy layers; they do not legalize or invalidate grammar.
+3. Adding or splitting a controlled grammar production requires an explicit taxonomy update.
+4. Curriculum policy may assign mass to kinds and construction families, then normalize production variants inside a family.
+5. Variant count must not silently change family probability.
+6. Learner adaptation and recency penalties remain later policy layers; they do not legalize or invalidate grammar.
 
 Run the diagnostic directly with:
 
