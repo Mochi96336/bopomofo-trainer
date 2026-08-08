@@ -13,6 +13,10 @@ import { STANDARD_BOPOMOFO_LAYOUT } from "../scheme/standard-layout.js";
 import { KEYBOARD_GEOMETRY_ROWS, keyboardColumnSpan } from "./keyboard-geometry.js";
 import { escapeHtml } from "./html.js";
 import type { AnalysisV2Model, AnalysisV2MotorCell } from "./analysis-v2-model.js";
+import {
+  ANALYSIS_V2_SPEED_VIEWBOX,
+  buildAnalysisV2SpeedPaths,
+} from "./analysis-v2-speed-network.js";
 
 export type AnalysisV2Tab = "semantic" | "coordination" | "strategy";
 type SemanticView = "correctness" | "confusion";
@@ -160,6 +164,29 @@ function semanticMarkup(model: AnalysisV2Model, preferences: AnalysisV2Preferenc
   </section>`;
 }
 
+function speedKeyboardMarkup(): string {
+  return `<div class="analysis-v2-keyboard analysis-v2-speed-keyboard" aria-hidden="true">${KEYBOARD_GEOMETRY_ROWS.map((row) => `<div class="analysis-v2-keyboard-row">${row.map((key) => {
+    const columns = keyboardColumnSpan(key);
+    const tokenId = STANDARD_BOPOMOFO_LAYOUT.bindings[key.code];
+    if (tokenId === undefined) return `<span class="analysis-v2-key unmapped" style="--key-columns:${columns}"></span>`;
+    return `<span class="analysis-v2-key mapped" style="--key-columns:${columns}"><strong>${escapeHtml(tokenLabel(tokenId))}</strong></span>`;
+  }).join("")}</div>`).join("")}</div>`;
+}
+
+function speedNetworkMarkup(model: AnalysisV2Model): string {
+  const paths = buildAnalysisV2SpeedPaths(model.coordination.immediateTokens);
+  const samples = model.coordination.immediateTokens.reduce((sum, cell) => sum + cell.timingSamples, 0);
+  const viewBox = ANALYSIS_V2_SPEED_VIEWBOX;
+  return `<section class="analysis-v2-card analysis-v2-speed-card">
+    <div class="analysis-v2-card-title-line"><div><h4>實際鍵間速度</h4><p>只畫實際相鄰接受、同音節且乾淨的鍵間時間；不從 canonical 結構補線。</p></div><span>${paths.length} 條有速度資料 · ${samples} 個乾淨樣本</span></div>
+    <div class="analysis-v2-speed-board">
+      ${speedKeyboardMarkup()}
+      ${paths.length === 0 ? '<div class="analysis-v2-speed-empty">累積到乾淨的同音節相鄰輸入後，速度飛線會出現在這裡。</div>' : `<svg class="analysis-v2-speed-svg" viewBox="${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}" preserveAspectRatio="none" aria-label="實際鍵間速度圖">${paths.map((path) => `<path class="analysis-v2-speed-path${path.ready ? " ready" : " sampling"}${path.includesTone ? " tone" : ""}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity};--relation-slowness:${path.slowness}"><title>${escapeHtml(path.label)}</title></path>`).join("")}</svg>`}
+    </div>
+    <div class="analysis-v2-speed-legend"><span>相對較快</span><i aria-hidden="true"></i><span>相對較慢</span><small>線粗反映乾淨樣本量；少於 5 個樣本會較淡。此版先不加方向箭頭。</small></div>
+  </section>`;
+}
+
 function trendText<Scope>(cell: AnalysisV2MotorCell<Scope> | undefined): string {
   if (cell === undefined || cell.history.length === 0) return "尚無歷史點";
   return cell.history.slice(-5).map((point) => `${Math.round(point.representativeTimingMs)} ms`).join(" → ");
@@ -196,7 +223,7 @@ function toneCommitCards(model: AnalysisV2Model): string {
   return `<section class="analysis-v2-card"><h4>聲調完成</h4><p>最後一個 body 成分到聲調鍵的乾淨時間，各聲調分開估計。</p><div class="analysis-v2-tone-grid">${cells.length === 0 ? '<div class="analysis-v2-empty compact">尚無聲調完成資料。</div>' : cells.map((cell) => `<div class="analysis-v2-tone-cell"><b>${escapeHtml(tokenLabel(cell.scope.toneToken))}</b>${motorCellMarkup(cell)}</div>`).join("")}</div></section>`;
 }
 function coordinationMarkup(model: AnalysisV2Model): string {
-  return `<section class="analysis-v2-domain" aria-labelledby="analysis-v2-coordination-title"><div class="analysis-v2-domain-head"><div><h3 id="analysis-v2-coordination-title">動作協調</h3><p>${model.coordination.readyScopes} 類已有至少 5 個乾淨樣本 · ${model.coordination.cleanTimingSamples} 個乾淨時間樣本。不同動作類型不以絕對毫秒互相比弱。</p></div></div><div class="analysis-v2-card-grid">${immediateHandMatrix(model)}${revisitMatrix(model)}${coordinationFacet(model)}${toneCommitCards(model)}</div></section>`;
+  return `<section class="analysis-v2-domain" aria-labelledby="analysis-v2-coordination-title"><div class="analysis-v2-domain-head"><div><h3 id="analysis-v2-coordination-title">動作協調</h3><p>${model.coordination.readyTokenTransitions} 條實際鍵間轉換與 ${model.coordination.readyScopes} 類協調 scope 已有至少 5 個乾淨樣本。不同動作類型不以絕對毫秒互相比弱。</p></div></div>${speedNetworkMarkup(model)}<div class="analysis-v2-card-grid">${immediateHandMatrix(model)}${revisitMatrix(model)}${coordinationFacet(model)}${toneCommitCards(model)}</div></section>`;
 }
 
 function positionLabel(position: InputOrderPositionAggregateScope["canonicalPosition"]): string {
