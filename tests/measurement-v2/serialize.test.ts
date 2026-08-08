@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   createEmptyMeasurementSummaryV2,
   immediateHandAggregateKey,
+  immediateTokenAggregateKey,
   type MeasurementSummaryV2,
 } from "../../src/measurement-v2/aggregate.js";
 import { parseMeasurementSummaryV2 } from "../../src/measurement-v2/serialize.js";
 
-const TOKENS = new Set(["zhuyin:ㄒ", "tone:2"]);
+const TOKENS = new Set(["zhuyin:ㄒ", "zhuyin:ㄩ", "tone:2"]);
 
 function summaryWithImmediateHands(count: number): MeasurementSummaryV2 {
   const scopes = [
@@ -40,6 +41,57 @@ describe("measurement v2 persistence validation", () => {
   it("round-trips valid bounded motor aggregates", () => {
     const summary = summaryWithImmediateHands(4);
     expect(parseMeasurementSummaryV2(summary, "guided", "zhuyin-standard", TOKENS)).toEqual(summary);
+  });
+
+  it("round-trips exact observed token transition timing", () => {
+    const summary = createEmptyMeasurementSummaryV2();
+    const scope = { fromToken: "zhuyin:ㄩ", toToken: "zhuyin:ㄒ" };
+    const withEdge: MeasurementSummaryV2 = {
+      ...summary,
+      motor: {
+        ...summary.motor,
+        immediateTokens: {
+          [immediateTokenAggregateKey(scope)]: {
+            scope,
+            observations: 7,
+            timingSamples: 6,
+            currentTimeToTypeMs: 120,
+            bestTimeToTypeMs: 90,
+          },
+        },
+      },
+    };
+    expect(parseMeasurementSummaryV2(withEdge, "guided", "zhuyin-standard", TOKENS)).toEqual(withEdge);
+  });
+
+  it("loads an older V2 summary with no exact-token channel as an empty network", () => {
+    const summary = summaryWithImmediateHands(1);
+    const oldShape = structuredClone(summary) as unknown as Record<string, unknown>;
+    const motor = oldShape.motor as Record<string, unknown>;
+    delete motor.immediateTokens;
+    expect(parseMeasurementSummaryV2(oldShape, "guided", "zhuyin-standard", TOKENS)).toEqual({
+      ...summary,
+      motor: {
+        ...summary.motor,
+        immediateTokens: {},
+      },
+    });
+  });
+
+  it("rejects an exact-token edge whose scope contains a token outside the layout", () => {
+    const summary = createEmptyMeasurementSummaryV2();
+    const invalid = structuredClone(summary) as unknown as Record<string, unknown>;
+    const motor = invalid.motor as Record<string, unknown>;
+    motor.immediateTokens = {
+      '["immediate-token","zhuyin:ㄩ","zhuyin:不存在"]': {
+        scope: { fromToken: "zhuyin:ㄩ", toToken: "zhuyin:不存在" },
+        observations: 5,
+        timingSamples: 5,
+        currentTimeToTypeMs: 100,
+        bestTimeToTypeMs: 80,
+      },
+    };
+    expect(parseMeasurementSummaryV2(invalid, "guided", "zhuyin-standard", TOKENS)).toBeNull();
   });
 
   it("rejects a fifth immediate-hand aggregate even when the record is otherwise well formed", () => {

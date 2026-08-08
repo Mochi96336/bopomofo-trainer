@@ -46,16 +46,26 @@ When an error cannot be attributed to one intended token without guessing, it is
 
 ### Coordination
 
-Coordination analysis uses actual-order Measurement V2 motor aggregates. It currently exposes these native low-dimensional families:
+Coordination analysis uses actual-order Measurement V2 motor aggregates.
+
+Its exact transition-speed evidence is a sparse bounded map of:
+
+```text
+previous actually accepted token × current actually accepted token
+```
+
+An exact edge is created only from two consecutive accepted events. Its identity and direction are never reconstructed from canonical syllable structure. Dirty, cross-syllable, and entry-boundary observations may remain available as coverage, but only **clean within-syllable** observations become speed samples or visible speed lines.
+
+The same coordination domain also exposes these native low-dimensional families:
 
 - immediate standard-fingering side transition (`left/right × left/right`);
 - same-side revisit, separated by whether the opposite side intervened;
 - syllable-body coordination, separated by body-size bucket and hand-shape;
 - tone commit, separated by tone token.
 
-Only clean timing samples contribute to timing estimates. Cross-syllable and entry-boundary observations may exist for coverage/debugging but do not become within-syllable motor-speed evidence.
-
 Different motor families are not ranked against one another by absolute milliseconds. A 90 ms side transition and a 300 ms multi-component syllable span are different measurements, not candidates for one global fastest/slowest ordering.
+
+Exact accepted-token transitions are one homogeneous family, so the speed map may compare their current timing **within that family**. Current presentation uses relative slowness for line colour/opacity and clean sample support for line width. Fewer than five clean samples remain visibly preliminary.
 
 `left` and `right` describe the conventional touch-typing assignment of the physical key. The application does **not** detect which physical hand the learner actually used.
 
@@ -107,11 +117,24 @@ column = actual token
 
 `A → B` and `B → A` remain different records. The matrix does not infer an expected token when multiple intended targets are still plausible.
 
-There is no transition-network overlay in production Analysis V2.
+There is no semantic/canonical transition-network overlay in this view. The speed network belongs to coordination and consumes observed accepted-token motor evidence, not confusion or canonical adjacency.
 
 ## Coordination tab
 
-The coordination tab presents each motor family in its own matrix or facet. Every cell carries its own:
+The coordination tab starts with `實際鍵間速度`, a keyboard-wide flyline map of clean within-syllable accepted-token transitions.
+
+The flyline contract is:
+
+- a line exists only for an exact token pair with at least one accepted clean timing sample;
+- no grammatically possible or canonical `potential` line is synthesized;
+- slower exact transitions become visually stronger within the exact-transition family;
+- clean sample support controls line width;
+- preliminary lines remain lighter/dashed;
+- tone-related lines remain visually distinguishable;
+- hovering a line exposes its exact `A 到 B`, current milliseconds, and clean sample count;
+- the current version deliberately uses **no arrow markers**. Direction remains in the underlying evidence and accessible title, so arrows can be added later without changing measurement semantics.
+
+Below the speed map, each low-dimensional motor family keeps its own matrix or facet. Every cell carries its own:
 
 - observation count;
 - clean timing-sample count;
@@ -121,7 +144,7 @@ The coordination tab presents each motor family in its own matrix or facet. Ever
 
 A scope becomes ready for normal timing display after the Analysis V2 minimum clean-sample threshold. Insufficient data remains visibly a sampling state rather than being promoted into a pseudo-ranking.
 
-The four current sections are:
+The four low-dimensional sections are:
 
 - `標準指法手別轉換`;
 - `同側鍵位再出手`;
@@ -149,13 +172,21 @@ The strategy tab must never imply that the diagonal is automatically correct, th
 - quarter-unit span arithmetic;
 - standard number-row Bopomofo/tone bindings through the layout contract.
 
-Analysis code consumes this shared geometry directly rather than maintaining a diagnostic-only keyboard definition.
+Analysis code consumes this shared geometry directly rather than maintaining a diagnostic-only keyboard definition. `src/app/analysis-v2-speed-network.ts` uses the same geometry only to route observed motor edges; geometry never decides which edges exist.
+
+## Persistence boundary
+
+Exact accepted-token transition aggregates are cumulative sparse Measurement V2 data. Their identity space is bounded by the current valid layout token set squared. No raw keystroke log is persisted for the speed network.
+
+Older V2 records that predate this field load with an empty exact-transition map. They are **not** backfilled from canonical structure, binding timing, or hand-transition aggregates.
+
+Exact transition history is not persisted yet. The speed map therefore shows cumulative current timing and sample support, while the four low-dimensional motor families may also show their bounded progress-history points.
 
 ## Progress history
 
 Analysis V2 reads bounded progress history rather than reconstructing an unbounded event log.
 
-Semantic correctness/timing history and motor timing history remain separate series. Recent history supplements cumulative measurements; it does not replace them and is not used to predict future performance.
+Semantic correctness/timing history and low-dimensional motor timing history remain separate series. Recent history supplements cumulative measurements; it does not replace them and is not used to predict future performance.
 
 The persistence and bucket semantics are documented in [diagnostic progress history](./diagnostic-progress-history.md).
 
@@ -194,8 +225,9 @@ Analysis V2 follows these non-negotiable metric boundaries:
 2. canonical/catalog order never masquerades as observed physical order;
 3. ambiguous intent is not guessed;
 4. heterogeneous motor classes are not ranked by raw milliseconds;
-5. insufficient samples are shown as insufficient rather than silently treated as stable estimates;
-6. bounded aggregates are preferred over unbounded token-pair or raw-trace growth.
+5. exact accepted-token transitions may be compared only within their own homogeneous family;
+6. insufficient samples are shown as insufficient rather than silently treated as stable estimates;
+7. persistent identities are explicitly bounded; raw traces are not retained as long-term learner history.
 
 The semantic key correctness label is `錯誤觀察比例`:
 
@@ -207,6 +239,8 @@ A correct recovery input after an error is another mapped observation, so this i
 
 ## Retired interface
 
-The earlier production analysis interface used `按鍵 / 轉換 / 誤按`, an exact token-pair transition list, and a keyboard-wide transition network. That interface was built around strict/canonical-order assumptions that no longer match unordered valid body input.
+The earlier production analysis interface used `按鍵 / 轉換 / 誤按`, an exact token-pair transition list, and a keyboard-wide network whose transition identities and potential mesh were tied to strict/canonical compositional assumptions.
 
-It is retired from production and its controller, relationship overlay, legacy preferences, rendering helpers, standalone motor summary, CSS, and interface-owned tests are removed. Historical ADRs may still describe the design at the time they were written; they should be read as historical records, not the current product contract.
+That **legacy transition model and controller** remain retired. Analysis V2 does not restore its transition tab, `轉換總覽` toggle, canonical potential mesh, or diagnostic relationship modules.
+
+The flyline visual language is intentionally reused in a new independent module because it still answers a useful motor question once its evidence is corrected. The V2 speed network receives only actually observed accepted-token edges; it does not inherit the old canonical edge-generation semantics. Historical ADRs may still describe the earlier design and should be read as historical records, not the current product contract.

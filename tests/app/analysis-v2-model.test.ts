@@ -66,7 +66,7 @@ const semantic: DiagnosticModel = {
 };
 
 describe("Analysis V2 model", () => {
-  it("keeps semantic, coordination, and strategy as separate evidence channels", () => {
+  it("keeps semantic, exact transition, coordination, and strategy evidence separate", () => {
     const measurements = aggregateMeasurementObservationsV2({
       bindings: [],
       confusions: [],
@@ -75,6 +75,14 @@ describe("Analysis V2 model", () => {
         { syllableOrdinal: 0, bodySize: 3, canonicalBodyIndex: 1, acceptedBodyIndex: 1 },
       ],
       coordination: [],
+      immediateTokens: Array.from({ length: 5 }, (_, index) => ({
+        traceSequence: index,
+        fromToken: "zhuyin:ㄆ",
+        toToken: "zhuyin:ㄅ",
+        boundary: "within-syllable" as const,
+        timingMs: 70 + index,
+        clean: true,
+      })),
       immediateHands: Array.from({ length: 5 }, (_, index) => ({
         traceSequence: index,
         fromHand: "left" as const,
@@ -115,6 +123,12 @@ describe("Analysis V2 model", () => {
 
     expect(model.semantic.keysWithData).toBe(1);
     expect(model.semantic.repeatedConfusions).toBe(1);
+    expect(model.coordination.readyTokenTransitions).toBe(1);
+    expect(model.coordination.immediateTokens[0]?.scope).toEqual({
+      fromToken: "zhuyin:ㄆ",
+      toToken: "zhuyin:ㄅ",
+    });
+    expect(model.coordination.immediateTokens[0]?.history).toEqual([]);
     expect(model.coordination.readyScopes).toBe(1);
     expect(model.coordination.immediateHands[0]?.history[0]?.representativeTimingMs).toBe(42);
     expect(model.strategy.totalObservations).toBe(2);
@@ -127,6 +141,7 @@ describe("Analysis V2 model", () => {
       confusions: [],
       inputOrderPositions: [],
       coordination: [],
+      immediateTokens: [],
       immediateHands: [],
       sameHandRevisits: [],
       toneCommits: [],
@@ -136,6 +151,7 @@ describe("Analysis V2 model", () => {
     });
     const model = buildAnalysisV2Model(semantic, measurements, null);
     expect(Object.keys(model)).toEqual(["semantic", "coordination", "strategy"]);
+    expect(model.coordination.observedTokenTransitions).toBe(0);
     expect(model.coordination.observedScopes).toBe(0);
   });
 });

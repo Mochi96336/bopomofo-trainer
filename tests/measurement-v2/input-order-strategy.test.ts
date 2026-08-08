@@ -89,6 +89,7 @@ describe("input-order strategy persistence", () => {
         acceptedBodyIndex: 7 - (index % 8),
       })),
       coordination: [],
+      immediateTokens: [],
       immediateHands: [],
       sameHandRevisits: [],
       toneCommits: [],
