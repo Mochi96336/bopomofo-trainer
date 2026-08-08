@@ -134,18 +134,25 @@ function normalizedWeight(
   return total > 0 ? (weights[selected] ?? 0) / total : 0;
 }
 
-/** Nominal Sentence-root prior before reachability/failover effects. */
-export function sentenceConstructionFamilyPrior(
+function sentenceFamilyJointWeight(
   family: SentenceConstructionFamily,
-  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+  policy: FormalSyntaxSamplingPolicy,
 ): number {
-  validateFormalSyntaxSamplingPolicy(policy);
   const kind = SENTENCE_KINDS.find((candidate) =>
     SENTENCE_FAMILIES_BY_KIND[candidate].includes(family),
   );
   if (kind === undefined) throw new Error(`unknown sentence construction family: ${family}`);
   return normalizedWeight(SENTENCE_KINDS, policy.sentenceKindWeights, kind)
     * normalizedWeight(SENTENCE_FAMILIES_BY_KIND[kind], policy.sentenceFamilyWeights, family);
+}
+
+/** Nominal Sentence-root prior before reachability/failover effects. */
+export function sentenceConstructionFamilyPrior(
+  family: SentenceConstructionFamily,
+  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+): number {
+  validateFormalSyntaxSamplingPolicy(policy);
+  return sentenceFamilyJointWeight(family, policy);
 }
 
 export interface SentenceConstructionFamilyPlan {
@@ -190,7 +197,7 @@ export function createSentenceConstructionFamilyPlan(
   }
   return weightedPermutation(
     [...byFamily.values()],
-    (item) => sentenceConstructionFamilyPrior(item.family, policy),
+    (item) => sentenceFamilyJointWeight(item.family, policy),
     random,
   );
 }
