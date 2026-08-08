@@ -330,48 +330,48 @@ export function rootFamilyAttemptBudget(
   return Math.floor(maximumAttempts / familyCount);
 }
 
-function hierarchicalRuleOrder(
+function singletonVariantFamilyOrder(
   candidates: readonly ProductionRule[],
   classify: (ruleId: string) => HierarchicalClassification | null,
   kindWeights: Readonly<Record<string, number>>,
   familyWeights: Readonly<Record<string, number>>,
   random: RandomSource,
+  categoryLabel: string,
 ): readonly ProductionRule[] {
   const byId = new Map(candidates.map((rule) => [rule.id, rule]));
-  return hierarchicalFamilyPlan(
-    candidates,
-    classify,
-    kindWeights,
-    familyWeights,
-    random,
-  ).flatMap((item) => weightedPermutation(
-    item.productionRuleIds.map((ruleId) => byId.get(ruleId)!),
-    () => 1,
-    random,
-  ));
+  const plan = hierarchicalFamilyPlan(candidates, classify, kindWeights, familyWeights, random);
+  const unsupported = plan.filter((item) => item.productionRuleIds.length !== 1);
+  if (unsupported.length > 0) {
+    throw new Error(
+      `${categoryLabel} family rule ordering cannot safely handle multiple variants: ${unsupported
+        .map((item) => `${item.family}=[${item.productionRuleIds.join(",")}]`)
+        .join("; ")}`,
+    );
+  }
+  return plan.map((item) => byId.get(item.productionRuleIds[0]!)!);
 }
 
+/**
+ * Lower-category adapter used by the product composer. Sentence root sampling
+ * has a dedicated family planner because a plain rule-ordering hook cannot make
+ * multi-variant families probability-neutral. Clause families are currently
+ * singleton; fail closed if that invariant changes until nested family-local
+ * search is implemented.
+ */
 export function createFormalSyntaxFamilyRuleOrderer(
   policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
 ): StructuralRuleOrderer {
   validateFormalSyntaxSamplingPolicy(policy);
   return ({ category, candidates, random }) => {
-    if (category === "Sentence") {
-      return hierarchicalRuleOrder(
-        candidates,
-        sentenceConstructionClassification,
-        policy.sentenceKindWeights,
-        policy.sentenceFamilyWeights,
-        random,
-      );
-    }
+    if (category === "Sentence") return null;
     if (category === "Clause") {
-      return hierarchicalRuleOrder(
+      return singletonVariantFamilyOrder(
         candidates,
         clauseConstructionClassification,
         policy.clauseKindWeights,
         policy.clauseFamilyWeights,
         random,
+        "Clause",
       );
     }
     return null;
