@@ -1,0 +1,230 @@
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  createAnalysisV2,
+  type AnalysisV2PreferenceStorage,
+} from "../../src/app/analysis-v2-panel.js";
+import type { AnalysisV2Model, AnalysisV2MotorCell } from "../../src/app/analysis-v2-model.js";
+import type { ImmediateTokenAggregateScope } from "../../src/measurement-v2/aggregate.js";
+import type { ConfusionDiagnostic, KeyDiagnostic } from "../../src/diagnostics/types.js";
+import type { TokenId } from "../../src/core/model.js";
+
+function key(tokenId: TokenId, symbol: string): KeyDiagnostic {
+  return {
+    tokenId,
+    symbol,
+    physicalCode: "KeyA",
+    physicalKey: "A",
+    attempts: 10,
+    errors: 1,
+    displayedErrorRatio: 0.1,
+    errorDataState: "sufficient",
+    timingAvailability: "available",
+    timingMs: 120,
+    timingSamples: 5,
+    timingDataState: "sufficient",
+  };
+}
+
+function confusion(
+  id: string,
+  expectedTokenId: TokenId,
+  expectedSymbol: string,
+  actualTokenId: TokenId,
+  actualSymbol: string,
+  occurrences: number,
+  total: number,
+): ConfusionDiagnostic {
+  return {
+    id,
+    expectedTokenId,
+    actualTokenId,
+    expectedSymbol,
+    actualSymbol,
+    expectedPhysicalKey: "A",
+    actualPhysicalKey: "S",
+    occurrences,
+    expectedConfusionTotal: total,
+    expectedErrorShare: occurrences / total,
+    dataState: occurrences >= 5 ? "sufficient" : occurrences >= 3 ? "preliminary" : "insufficient",
+  };
+}
+
+function edge(
+  id: string,
+  fromToken: TokenId,
+  toToken: TokenId,
+  time: number,
+): AnalysisV2MotorCell<ImmediateTokenAggregateScope> {
+  return {
+    id,
+    scope: { fromToken, toToken },
+    observations: 7,
+    timingSamples: 6,
+    currentTimeToTypeMs: time,
+    bestTimeToTypeMs: time - 15,
+    ready: true,
+    history: [],
+    partialTimingSamples: 0,
+  };
+}
+
+function model(overrides: Partial<AnalysisV2Model> = {}): AnalysisV2Model {
+  const base: AnalysisV2Model = {
+    semantic: {
+      keys: [
+        key("zhuyin:ㄅ", "ㄅ"),
+        key("zhuyin:ㄆ", "ㄆ"),
+        key("zhuyin:ㄇ", "ㄇ"),
+        key("zhuyin:ㄈ", "ㄈ"),
+      ],
+      confusions: [],
+      keyProgress: {},
+      keysWithData: 4,
+      repeatedConfusions: 0,
+    },
+    coordination: {
+      immediateTokens: [
+        edge("e1", "zhuyin:ㄅ", "zhuyin:ㄆ", 100),
+        edge("e2", "zhuyin:ㄇ", "zhuyin:ㄈ", 180),
+      ],
+      coordination: [],
+      immediateHands: [],
+      sameHandRevisits: [],
+      toneCommits: [],
+      observedTokenTransitions: 2,
+      readyTokenTransitions: 2,
+      observedScopes: 2,
+      readyScopes: 2,
+      cleanTimingSamples: 12,
+    },
+    strategy: {
+      inputOrderPositions: [],
+      totalObservations: 0,
+      bodySizeBucketsWithData: 0,
+    },
+  };
+  return { ...base, ...overrides };
+}
+
+function memoryStorage(): AnalysisV2PreferenceStorage {
+  const values = new Map<string, string>();
+  return {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => void values.set(key, value),
+  };
+}
+
+let controller: ReturnType<typeof createAnalysisV2> | null = null;
+
+function open(source: AnalysisV2Model): HTMLElement {
+  controller = createAnalysisV2({ getModel: () => source, storage: memoryStorage() });
+  controller.open();
+  return controller.host;
+}
+
+afterEach(() => {
+  controller?.destroy();
+  controller = null;
+  document.body.innerHTML = "";
+});
+
+describe("Analysis V2 evidence honesty", () => {
+  it("ranks confusion lead keys by attributable error count, not destination concentration", () => {
+    const source = model({
+      semantic: {
+        keys: [
+          key("zhuyin:ㄅ", "ㄅ"),
+          key("zhuyin:ㄆ", "ㄆ"),
+          key("zhuyin:ㄇ", "ㄇ"),
+          key("zhuyin:ㄈ", "ㄈ"),
+        ],
+        confusions: [
+          // ㄅ has a perfectly concentrated destination, but only 5 attributable errors.
+          confusion("c1", "zhuyin:ㄅ", "ㄅ", "zhuyin:ㄇ", "ㄇ", 5, 5),
+          // ㄆ has many more attributable errors, split across destinations.
+          confusion("c2", "zhuyin:ㄆ", "ㄆ", "zhuyin:ㄇ", "ㄇ", 12, 20),
+          confusion("c3", "zhuyin:ㄆ", "ㄆ", "zhuyin:ㄈ", "ㄈ", 8, 20),
+        ],
+        keyProgress: {},
+        keysWithData: 4,
+        repeatedConfusions: 3,
+      },
+    });
+    const host = open(source);
+    host.querySelector<HTMLButtonElement>(
+      '[data-action="semantic-view"][data-value="confusion"]',
+    )?.click();
+
+    const lead = host.querySelector(".analysis-v2-semantic-symbols");
+    expect(lead?.textContent?.trim().startsWith("ㄆ")).toBe(true);
+    expect(host.querySelector(".analysis-v2-semantic-readout")?.textContent)
+      .toContain("可歸因誤按較多");
+    expect(host.querySelector('[data-token="zhuyin:ㄆ"]')?.classList.contains("is-salient"))
+      .toBe(true);
+  });
+
+  it("does not promote a one-observation strategy deviation to a 100% hero", () => {
+    const source = model({
+      strategy: {
+        inputOrderPositions: [
+          {
+            scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "first" },
+            observations: 1,
+          },
+        ],
+        totalObservations: 1,
+        bodySizeBucketsWithData: 1,
+      },
+    });
+    const host = open(source);
+    host.querySelector<HTMLButtonElement>(
+      '[data-action="select-tab"][data-tab="strategy"]',
+    )?.click();
+
+    const lead = host.querySelector(".analysis-v2-strategy-readout");
+    expect(lead?.textContent).toContain("仍在累積");
+    expect(lead?.textContent).not.toContain("100%");
+  });
+
+  it("promotes a strategy deviation only after its canonical row has enough support", () => {
+    const source = model({
+      strategy: {
+        inputOrderPositions: [
+          {
+            scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "last" },
+            observations: 6,
+          },
+          {
+            scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "first" },
+            observations: 4,
+          },
+        ],
+        totalObservations: 10,
+        bodySizeBucketsWithData: 1,
+      },
+    });
+    const host = open(source);
+    host.querySelector<HTMLButtonElement>(
+      '[data-action="select-tab"][data-tab="strategy"]',
+    )?.click();
+
+    const lead = host.querySelector(".analysis-v2-strategy-readout");
+    expect(lead?.textContent).toContain("後 → 前");
+    expect(lead?.textContent).toContain("40%");
+    expect(lead?.textContent).toContain("4 / 10");
+  });
+
+  it("states that the speed lead is visible-family relative and provides wider hit geometry", () => {
+    const host = open(model());
+    host.querySelector<HTMLButtonElement>(
+      '[data-action="select-tab"][data-tab="coordination"]',
+    )?.click();
+
+    expect(host.querySelector(".analysis-v2-speed-readout")?.textContent)
+      .toContain("目前畫面中較慢");
+    expect(host.querySelectorAll(".analysis-v2-speed-hit")).toHaveLength(2);
+    expect(host.querySelectorAll(".analysis-v2-speed-path")).toHaveLength(2);
+    expect(host.querySelector(".analysis-v2-speed-hit")?.getAttribute("aria-hidden")).toBe("true");
+  });
+});
