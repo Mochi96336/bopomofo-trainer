@@ -211,7 +211,6 @@
   z-index: 3;
 }
 
-/* One owner for this row. The base stylesheet deliberately does not redefine it. */
 .analysis-v2-card-title-line {
   display: flex;
   align-items: baseline;
@@ -364,15 +363,6 @@
     padding-block: 14px 18px;
   }
 
-  .analysis-v2-key {
-    height: 35px;
-  }
-
-  .analysis-v2-key small {
-    font-size: 0.47rem;
-  }
-
-  /* The count line must never squeeze the explanatory copy to a few characters. */
   .analysis-v2-card-title-line {
     align-items: flex-start;
     flex-direction: column;
