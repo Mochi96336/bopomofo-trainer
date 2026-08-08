@@ -3,8 +3,11 @@ import {
   bindBackupFileInputReset,
   bindProductionInspectionBoundary,
 } from "./browser-boundaries.js";
-import { createApp, type App } from "./create-app.js";
-import { mountAnalysisV2Integration } from "./analysis-v2-integration.js";
+import { createApp } from "./create-app.js";
+import {
+  mountAnalysisV2Integration,
+  type AnalysisV2Integration,
+} from "./analysis-v2-integration.js";
 import {
   recoverLocalPersistenceTransaction,
 } from "./persistence-transaction.js";
@@ -116,25 +119,25 @@ function connectPracticeCenter(stage: HTMLElement): void {
   centerResizeObserver.observe(center);
 }
 
-// Analysis V2 needs handles the app only has once it exists, and the app needs
-// somewhere to report information-panel renders. The indirection is one variable
-// wide: nothing calls through it before `createApp` has returned.
-let app: App | null = null;
+// createApp does not render the information panel during construction, so the
+// callback can be installed before Analysis exists and becomes live immediately
+// afterwards. This keeps the app as the owner of the state Analysis consumes.
+let analysisV2: AnalysisV2Integration | null = null;
 
-const analysisV2 = mountAnalysisV2Integration({
-  closePanel: () => app?.closePanel(),
-  focusPractice: () => app?.focusPractice(),
-  getSnapshot: () => app?.getAnalysisV2Snapshot() ?? null,
-  storage: localStorage,
-});
-
-app = createApp({
+const app = createApp({
   root: requireElement<HTMLDivElement>("#app"),
   capture: requireElement<HTMLTextAreaElement>("#keyboard-capture"),
   storage: localStorage,
   newSeed,
   onRoundMounted: connectPracticeCenter,
-  onPanelRendered: (content) => analysisV2.panelRendered(content),
+  onPanelRendered: (content) => analysisV2?.panelRendered(content),
+});
+
+analysisV2 = mountAnalysisV2Integration({
+  closePanel: () => app.closePanel(),
+  focusPractice: () => app.focusPractice(),
+  getSnapshot: () => app.getAnalysisV2Snapshot(),
+  storage: localStorage,
 });
 
 // Fonts change the measurements the line plan was built from, so the first
@@ -147,9 +150,9 @@ void document.fonts.ready.then(() => {
 const unmountBackupInputReset = bindBackupFileInputReset(document);
 
 window.addEventListener("beforeunload", () => {
-  app?.destroy();
+  app.destroy();
   centerResizeObserver?.disconnect();
-  analysisV2.destroy();
+  analysisV2?.destroy();
   unmountBackupInputReset();
   unmountInspectionBoundary();
   if (layoutFrame !== null) window.cancelAnimationFrame(layoutFrame);

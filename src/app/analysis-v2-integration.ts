@@ -1,15 +1,5 @@
 import "./analysis-v2-modal.css";
-import {
-  createFreshProgressForEnvironment,
-  createProductEnvironment,
-} from "../product/session.js";
-import type { ProductEnvironment } from "../product/types.js";
 import { STANDARD_BOPOMOFO_LAYOUT } from "../scheme/standard-layout.js";
-import {
-  EVALUATION_CATALOG,
-  PRACTICE_CATALOG,
-  SYNTAX_PROFILES,
-} from "./generated/catalog.js";
 import {
   createAnalysisV2,
   renderAnalysisV2Summary,
@@ -20,55 +10,26 @@ import "./analysis-v2-layout.css";
 import { buildAnalysisV2Model } from "./analysis-v2-model.js";
 import { buildAnalysisV2SemanticModel } from "./analysis-v2-semantic-model.js";
 import type { AnalysisV2Snapshot } from "./analysis-v2-snapshot.js";
-import {
-  DEFAULT_SELECTION_TUNING,
-  policyForSelectionTuning,
-  type SelectionTuning,
-} from "./selection-tuning.js";
 
-let cachedTuningKey = "";
-let cachedEnvironment: ProductEnvironment | null = null;
-
-function environmentForTuning(tuning: SelectionTuning): ProductEnvironment {
-  const key = `${tuning.errorInfluence}:${tuning.timingInfluence}`;
-  if (cachedEnvironment !== null && cachedTuningKey === key) return cachedEnvironment;
-  cachedTuningKey = key;
-  cachedEnvironment = createProductEnvironment(
-    {
-      practice: PRACTICE_CATALOG,
-      evaluation: EVALUATION_CATALOG,
-      syntaxProfiles: SYNTAX_PROFILES,
-    },
-    policyForSelectionTuning(tuning),
-  );
-  return cachedEnvironment;
-}
-
-function analysisModelFrom(snapshot: AnalysisV2Snapshot | null) {
-  const environment = environmentForTuning(
-    snapshot?.selectionTuning ?? DEFAULT_SELECTION_TUNING,
-  );
-  const progress = snapshot?.progress ?? createFreshProgressForEnvironment(
-    environment,
-    "analysis-v2-empty",
-    "guided",
-    STANDARD_BOPOMOFO_LAYOUT.id,
-  );
-  const history = snapshot?.progressHistory ?? null;
+function analysisModelFrom(snapshot: AnalysisV2Snapshot) {
   const semantic = buildAnalysisV2SemanticModel({
-    measurements: progress.measurements,
-    curriculum: progress.curriculum,
-    support: environment.practiceSupport,
+    measurements: snapshot.progress.measurements,
+    curriculum: snapshot.progress.curriculum,
+    support: snapshot.practiceSupport,
     layout: STANDARD_BOPOMOFO_LAYOUT,
-    progressHistory: history,
+    progressHistory: snapshot.progressHistory,
   });
-  return buildAnalysisV2Model(semantic, progress.measurements, history);
+  return buildAnalysisV2Model(
+    semantic,
+    snapshot.progress.measurements,
+    snapshot.progressHistory,
+  );
 }
 
 export interface AnalysisV2IntegrationDependencies {
   readonly closePanel: () => void;
   readonly focusPractice: () => void;
-  readonly getSnapshot: () => AnalysisV2Snapshot | null;
+  readonly getSnapshot: () => AnalysisV2Snapshot;
   readonly storage: AnalysisV2PreferenceStorage;
 }
 
