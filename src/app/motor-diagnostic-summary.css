@@ -1,0 +1,24 @@
+.motor-diagnostic-section {
+  display: grid;
+  gap: 14px;
+}
+
+.motor-diagnostic-signals {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.motor-diagnostic-signals > div:nth-child(4) {
+  border-left: 1px solid var(--hairline);
+}
+
+@media (max-width: 560px) {
+  .motor-diagnostic-signals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+
+  .motor-diagnostic-signals > div:nth-child(3) {
+    padding-left: 0;
+    border-left: 0;
+  }
+}
