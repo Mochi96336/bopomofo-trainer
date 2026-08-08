@@ -1,0 +1,274 @@
+/* Visual hierarchy layer.
+   Geometry of the original keyboard remains owned by analysis-v2.css. */
+.analysis-v2 .analysis-v2-domain {
+  width: min(1080px, 100%);
+  margin-inline: auto;
+}
+
+.analysis-v2 .analysis-v2-domain-head h3 {
+  font-size: 0.96rem;
+}
+
+.analysis-v2 .analysis-v2-domain-head p,
+.analysis-v2 .analysis-v2-method p,
+.analysis-v2 .analysis-v2-inspector-content p,
+.analysis-v2 .analysis-v2-evidence-body p,
+.analysis-v2 .analysis-v2-inspector-empty p {
+  font-size: 0.76rem;
+}
+
+.analysis-v2 .analysis-v2-tabs button,
+.analysis-v2 .analysis-v2-segments button {
+  font-size: 0.8rem;
+}
+
+.analysis-v2 .analysis-v2-hero-readout {
+  display: grid;
+  min-height: 96px;
+  align-content: end;
+  justify-items: center;
+  gap: 5px;
+  color: var(--ink);
+  text-align: center;
+}
+
+.analysis-v2 .analysis-v2-hero-readout > span,
+.analysis-v2 .analysis-v2-hero-readout > small {
+  color: var(--ink-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.analysis-v2 .analysis-v2-hero-readout > strong {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 18px;
+  font-size: clamp(1.7rem, 2.25vw, 2.15rem);
+  font-weight: 590;
+  letter-spacing: -0.015em;
+  line-height: 1.08;
+}
+
+.analysis-v2 .analysis-v2-hero-readout > strong b,
+.analysis-v2 .analysis-v2-hero-readout > strong em {
+  font: inherit;
+}
+
+.analysis-v2 .analysis-v2-hero-readout > strong em {
+  font-variant-numeric: tabular-nums;
+  font-weight: 690;
+}
+
+.analysis-v2 .analysis-v2-semantic-symbols {
+  letter-spacing: 0.12em;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage {
+  width: 100%;
+}
+
+.analysis-v2 .analysis-v2-visual-stage {
+  gap: 34px;
+  padding-right: 0;
+}
+
+/* Analysis salience is not the practice keyboard's red "current key" state.
+   Unmarked keys stay ghosted; only a bounded sufficient-data set is raised. */
+.analysis-v2 button.analysis-v2-key {
+  background: transparent;
+  color: var(--ink-faint);
+}
+
+.analysis-v2 button.analysis-v2-key.preliminary,
+.analysis-v2 button.analysis-v2-key.sufficient {
+  color: var(--ink-upcoming);
+}
+
+.analysis-v2 button.analysis-v2-key.is-salient {
+  border-color: var(--ink-upcoming);
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+  box-shadow:
+    inset 0 -1px 0 var(--ink-faint),
+    0 0 0 1px color-mix(in srgb, var(--ink) 3%, transparent);
+  color: var(--ink);
+}
+
+.analysis-v2 button.analysis-v2-key.selected {
+  border-color: color-mix(in srgb, var(--ink) 58%, var(--key-border));
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+  color: var(--ink);
+}
+
+.analysis-v2 .analysis-v2-speed-field {
+  width: 100%;
+  margin-inline: auto;
+  gap: 16px;
+}
+
+.analysis-v2 .analysis-v2-speed-meta span,
+.analysis-v2 .analysis-v2-speed-meta small {
+  font-size: 0.72rem;
+}
+
+.analysis-v2 .analysis-v2-speed-meta strong {
+  font-size: 0.82rem;
+}
+
+.analysis-v2 .analysis-v2-speed-stage {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.analysis-v2 .analysis-v2-speed-stage.has-selection {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 270px);
+}
+
+.analysis-v2 .analysis-v2-speed-scroll {
+  padding-block: 24px 34px;
+}
+
+.analysis-v2 .analysis-v2-speed-keyboard {
+  opacity: 0.82;
+}
+
+/* Existing four-step ink system carries the field. Accent is deliberately rare. */
+.analysis-v2 .analysis-v2-speed-path {
+  stroke: var(--ink-faint);
+  stroke-opacity: 1;
+}
+
+.analysis-v2 .analysis-v2-speed-path.salient {
+  stroke: var(--ink-upcoming);
+  stroke-opacity: 0.94;
+}
+
+.analysis-v2 .analysis-v2-speed-path.is-slow {
+  stroke: color-mix(in srgb, var(--accent) 78%, var(--ink) 22%);
+  stroke-opacity: 0.86;
+}
+
+.analysis-v2 .analysis-v2-speed-path:hover,
+.analysis-v2 .analysis-v2-speed-path:focus-visible,
+.analysis-v2 .analysis-v2-speed-path.is-focused,
+.analysis-v2 .analysis-v2-speed-path.selected {
+  stroke: var(--accent);
+  stroke-opacity: 1;
+}
+
+.analysis-v2 .analysis-v2-speed-path.is-muted {
+  stroke-opacity: 0.18;
+}
+
+.analysis-v2 .analysis-v2-speed-legend {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
+  color: var(--ink-muted);
+  font-size: 0.7rem;
+}
+
+.analysis-v2 .analysis-v2-speed-legend small {
+  color: var(--ink-muted);
+  font-size: 0.68rem;
+  text-align: right;
+}
+
+.analysis-v2 .analysis-v2-evidence-group summary {
+  position: relative;
+  list-style: none;
+  font-size: 0.76rem;
+}
+
+.analysis-v2 .analysis-v2-evidence-group summary::-webkit-details-marker {
+  display: none;
+}
+
+.analysis-v2 .analysis-v2-evidence-group summary small {
+  margin-left: auto;
+  font-size: 0.68rem;
+}
+
+.analysis-v2 .analysis-v2-evidence-group summary::after {
+  width: 1em;
+  flex: 0 0 1em;
+  color: var(--ink-upcoming);
+  content: "+";
+  font-size: 0.9rem;
+  font-weight: 500;
+  line-height: 1;
+  text-align: right;
+}
+
+.analysis-v2 .analysis-v2-evidence-group[open] summary::after {
+  color: var(--ink-muted);
+  content: "−";
+}
+
+.analysis-v2 .analysis-v2-strategy-stage {
+  width: 100%;
+  gap: 20px;
+}
+
+.analysis-v2 .analysis-v2-strategy-field {
+  width: min(560px, 100%);
+}
+
+.analysis-v2 .analysis-v2-strategy-axis,
+.analysis-v2 .analysis-v2-strategy-total {
+  font-size: 0.72rem;
+}
+
+.analysis-v2 .analysis-v2-method {
+  font-size: 0.72rem;
+}
+
+.analysis-v2 .analysis-v2-method summary {
+  color: var(--ink-muted);
+}
+
+@media (max-width: 900px) {
+  .analysis-v2 .analysis-v2-speed-stage,
+  .analysis-v2 .analysis-v2-speed-stage.has-selection {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analysis-v2 .analysis-v2-hero-readout {
+    min-height: 82px;
+  }
+}
+
+@media (max-width: 640px) {
+  .analysis-v2 .analysis-v2-domain-head p,
+  .analysis-v2 .analysis-v2-method p,
+  .analysis-v2 .analysis-v2-inspector-content p,
+  .analysis-v2 .analysis-v2-evidence-body p,
+  .analysis-v2 .analysis-v2-inspector-empty p {
+    font-size: 0.74rem;
+  }
+
+  .analysis-v2 .analysis-v2-hero-readout {
+    min-height: 72px;
+    align-content: center;
+  }
+
+  .analysis-v2 .analysis-v2-hero-readout > strong {
+    gap: 12px;
+    font-size: 1.55rem;
+  }
+
+  .analysis-v2 .analysis-v2-visual-stage {
+    gap: 22px;
+  }
+
+  .analysis-v2 .analysis-v2-speed-legend {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .analysis-v2 .analysis-v2-speed-legend small {
+    text-align: left;
+  }
+}
