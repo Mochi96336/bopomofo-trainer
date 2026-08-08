@@ -28,6 +28,7 @@
     "catalog:activate-cedict-heteronyms-generation": "python scripts/activate_cedict_heteronym_readings_generation.py",
     "grammar:ud-evidence-generation": "python scripts/project-ud-grammar-evidence-generation.py",
     "grammar:lexicon-syntax-generation": "tsx scripts/build-lexicon-syntax-generation.ts",
+    "compatibility:ud-evidence-generation": "python scripts/project-ud-lexical-compatibility-generation.py",
     "readings:moe-concised": "python scripts/project-moe-concised-readings.py",
     "readings:moe-revised": "python scripts/project-moe-revised-readings.py",
     "identity:cedict": "python scripts/project-cedict-identity-hints.py",

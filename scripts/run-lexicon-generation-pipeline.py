@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Run candidate -> reading -> UD evidence -> activation in one command.
+"""Run candidate -> reading -> UD syntax/compatibility evidence -> activation in one command.
 
 All outputs are disposable work products under an ignored generation
-directory.  They remain together because the reviewed apply step needs the
-CEDICT and UD evidence projections; source-control data directories contain
-only active catalog inputs and human decisions.
+directory. They remain together because reviewed apply/packaging steps need the
+evidence projections; source-control data directories contain only active
+catalog inputs and human decisions.
 """
 
 from __future__ import annotations
@@ -88,6 +88,7 @@ def main() -> None:
     cedict_output = output_dir / "cedict-hints.json"
     ud_evidence = output_dir / "ud-evidence.json"
     ud_coverage = output_dir / "ud-coverage.json"
+    lexical_compatibility = output_dir / "lexical-compatibility.json"
     syntax_profiles = output_dir / "syntax-profiles.json"
     syntax_rule_index = output_dir / "syntax-rule-index.json"
     activation_report = output_dir / "activation-report.json"
@@ -125,6 +126,13 @@ def main() -> None:
         "--coverage-output", str(ud_coverage),
     )
     run(
+        sys.executable, "scripts/project-ud-lexical-compatibility-generation.py",
+        "--candidates", str(candidates),
+        "--candidate-manifest", str(manifest),
+        "--source-dir", str(arguments.ud_source_dir),
+        "--output", str(lexical_compatibility),
+    )
+    run(
         "npm.cmd" if os.name == "nt" else "npm",
         "run", "grammar:lexicon-syntax-generation", "--",
         "--candidates", str(candidates),
@@ -148,10 +156,11 @@ def main() -> None:
         "--csv-output", str(activation_csv),
     )
 
-    print(f"\ngeneration workspace: {output_dir.relative_to(ROOT)}")
-    print(f"human review:         {activation_csv.relative_to(ROOT)}")
-    print(f"syntax profiles:      {syntax_profiles.relative_to(ROOT)}")
-    print(f"syntax rule index:    {syntax_rule_index.relative_to(ROOT)}")
+    print(f"\ngeneration workspace:      {output_dir.relative_to(ROOT)}")
+    print(f"human review:              {activation_csv.relative_to(ROOT)}")
+    print(f"syntax profiles:           {syntax_profiles.relative_to(ROOT)}")
+    print(f"syntax rule index:         {syntax_rule_index.relative_to(ROOT)}")
+    print(f"lexical compatibility:     {lexical_compatibility.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":
