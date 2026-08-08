@@ -1,7 +1,6 @@
 import type { TokenId } from "../core/model.js";
-import { deriveMeasurementDecisions } from "../measurement/derive-observations.js";
-import type { MeasurementPolicy } from "../measurement/types.js";
-import type { InteractionTrace } from "../practice/interaction-session.js";
+import { deriveMeasurementObservationsV2 } from "../measurement-v2/derive-observations.js";
+import type { InteractionTraceV2 } from "../practice/interaction-session-v2.js";
 import type {
   ProductEnvironment,
   ProductProgress,
@@ -72,8 +71,7 @@ export function createPilotRoundRecord(
   roundNumber: number,
   round: ProductRound,
   summary: ProductRoundSummary,
-  traces: readonly InteractionTrace[],
-  policy: MeasurementPolicy,
+  traces: readonly InteractionTraceV2[],
 ): PilotRoundRecord {
   if (!Number.isInteger(roundNumber) || roundNumber <= 0) {
     throw new RangeError("roundNumber must be a positive integer");
@@ -81,15 +79,9 @@ export function createPilotRoundRecord(
   if (round.exercise.id !== summary.exerciseId || round.kind !== summary.kind) {
     throw new Error("round and summary do not describe the same completed exercise");
   }
-  const cleanLatencies = deriveMeasurementDecisions(
-    round.exercise,
-    traces,
-    policy,
-  ).flatMap((decision) => {
-    if (!decision.binding.included) return [];
-    const timing = decision.binding.observation.timingMs;
-    return timing === null ? [] : [timing];
-  });
+  const observations = deriveMeasurementObservationsV2(round.exercise, traces);
+  const cleanLatencies = observations.bindings.flatMap((observation) =>
+    observation.timingMs === null ? [] : [observation.timingMs]);
   if (cleanLatencies.length !== summary.timingSamples) {
     throw new Error("pilot latency sample count does not match the round summary");
   }
@@ -99,13 +91,6 @@ export function createPilotRoundRecord(
   };
 }
 
-/**
- * Rebuilds what history it can from the summaries progress already carries.
- *
- * Progress and pilot history are separate storage keys, so one can be lost or
- * rejected while the other survives. The summaries are the only record that
- * outlives that, which makes them the fallback -- not a version migration.
- */
 export function pilotHistoryFromProgress(progress: ProductProgress): PilotHistory {
   const totalCompleted = progress.practiceRoundsCompleted;
   const records = progress.recentSummaries.map((summary, index) =>
@@ -192,9 +177,7 @@ function parsePilotRoundRecord(
     return null;
   }
   if (kind === "evaluation") {
-    if (value.focusTokenId !== null || focusEvidence !== null) {
-      return null;
-    }
+    if (value.focusTokenId !== null || focusEvidence !== null) return null;
   } else {
     if ((value.focusTokenId === null) !== (focusEvidence === null)) return null;
     if (
