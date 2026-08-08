@@ -1,7 +1,4 @@
 import "./analysis-v2-modal.css";
-import { buildDiagnosticModel } from "../diagnostics/build-model.js";
-import { createEmptyMeasurementSummaryV2 } from "../measurement-v2/aggregate.js";
-import { legacySelectionMeasurementView } from "../measurement-v2/legacy-selection-view.js";
 import {
   createFreshProgressForEnvironment,
   createProductEnvironment,
@@ -21,6 +18,7 @@ import {
 } from "./analysis-v2-panel.js";
 import "./analysis-v2-layout.css";
 import { buildAnalysisV2Model } from "./analysis-v2-model.js";
+import { buildAnalysisV2SemanticModel } from "./analysis-v2-semantic-model.js";
 import type { AnalysisV2Snapshot } from "./analysis-v2-snapshot.js";
 import {
   DEFAULT_SELECTION_TUNING,
@@ -46,7 +44,7 @@ function environmentForTuning(tuning: SelectionTuning): ProductEnvironment {
   return cachedEnvironment;
 }
 
-function semanticModelFrom(snapshot: AnalysisV2Snapshot | null) {
+function analysisModelFrom(snapshot: AnalysisV2Snapshot | null) {
   const environment = environmentForTuning(
     snapshot?.selectionTuning ?? DEFAULT_SELECTION_TUNING,
   );
@@ -56,25 +54,16 @@ function semanticModelFrom(snapshot: AnalysisV2Snapshot | null) {
     "guided",
     STANDARD_BOPOMOFO_LAYOUT.id,
   );
-  return buildDiagnosticModel({
-    // Temporary semantic compatibility projection only. It carries V2
-    // binding/confusion evidence and deliberately exposes no transition rows.
-    measurements: legacySelectionMeasurementView(progress.measurements),
+  const history = snapshot?.progressHistory ?? null;
+  const semantic = buildAnalysisV2SemanticModel({
+    measurements: progress.measurements,
     curriculum: progress.curriculum,
     support: environment.practiceSupport,
     layout: STANDARD_BOPOMOFO_LAYOUT,
     selectionPolicy: environment.utterancePolicy,
-    timingExclusionsAvailable: false,
-    progressHistory: snapshot?.progressHistory ?? null,
+    progressHistory: history,
   });
-}
-
-function analysisModelFrom(snapshot: AnalysisV2Snapshot | null) {
-  return buildAnalysisV2Model(
-    semanticModelFrom(snapshot),
-    snapshot?.progress.measurements ?? createEmptyMeasurementSummaryV2(),
-    snapshot?.progressHistory ?? null,
-  );
+  return buildAnalysisV2Model(semantic, progress.measurements, history);
 }
 
 export interface AnalysisV2IntegrationDependencies {

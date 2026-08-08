@@ -1,16 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   buildAnalysisV2Model,
+  type AnalysisV2SemanticModel,
 } from "../../src/app/analysis-v2-model.js";
-import type { DiagnosticModel } from "../../src/diagnostics/types.js";
 import {
   aggregateMeasurementObservationsV2,
   immediateHandAggregateKey,
 } from "../../src/measurement-v2/aggregate.js";
 import { createEmptyProgressHistory } from "../../src/progress-history/update.js";
 
-const semantic: DiagnosticModel = {
-  summary: { keysWithData: 99, repeatedConfusions: 99, slowerTransitions: 99 },
+const semantic: AnalysisV2SemanticModel = {
   keys: [{
     tokenId: "zhuyin:ㄅ",
     symbol: "ㄅ",
@@ -35,20 +34,6 @@ const semantic: DiagnosticModel = {
       expectedTokenBoost: 1,
     },
   }],
-  transitions: [{
-    id: "legacy-transition",
-    fromTokenId: "zhuyin:ㄅ",
-    toTokenId: "zhuyin:ㄆ",
-    fromSymbol: "ㄅ",
-    toSymbol: "ㄆ",
-    fromPhysicalKey: "1",
-    toPhysicalKey: "q",
-    timingMs: 900,
-    bestTimingMs: 600,
-    timingSamples: 10,
-    dataState: "sufficient",
-    includesTone: false,
-  }],
   confusions: [{
     id: "confusion",
     expectedTokenId: "zhuyin:ㄅ",
@@ -63,6 +48,8 @@ const semantic: DiagnosticModel = {
     dataState: "sufficient",
   }],
   keyProgress: {},
+  keysWithData: 1,
+  repeatedConfusions: 1,
 };
 
 describe("Analysis V2 model", () => {
@@ -121,6 +108,7 @@ describe("Analysis V2 model", () => {
 
     const model = buildAnalysisV2Model(semantic, measurements, history);
 
+    expect(model.semantic).toBe(semantic);
     expect(model.semantic.keysWithData).toBe(1);
     expect(model.semantic.repeatedConfusions).toBe(1);
     expect(model.coordination.readyTokenTransitions).toBe(1);
@@ -135,7 +123,7 @@ describe("Analysis V2 model", () => {
     expect(model.strategy.bodySizeBucketsWithData).toBe(1);
   });
 
-  it("does not expose legacy transition rows as an Analysis V2 domain", () => {
+  it("has no legacy transition domain to expose", () => {
     const measurements = aggregateMeasurementObservationsV2({
       bindings: [],
       confusions: [],
