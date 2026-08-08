@@ -9,7 +9,6 @@ import {
   sentenceConstructionFamilyPrior,
   validateFormalSyntaxSamplingPolicy,
 } from "../../src/curriculum/formal-syntax-sampling-policy.js";
-import { sentenceConstructionClassification } from "../../src/curriculum/formal-syntax-taxonomy.js";
 import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
 import { sampleStructuralDerivation } from "../../src/syntax/sample.js";
 
@@ -102,17 +101,33 @@ describe("formal syntax family sampling policy", () => {
     })).toThrow(/question\.a-not-a must be finite and positive/u);
   });
 
-  it("still exposes a pure rule-ordering adapter for non-product callers", () => {
+  it("keeps Sentence root planning out of the generic rule-ordering adapter", () => {
     const candidates = FORMAL_SYNTAX_RULES.filter((rule) => rule.output === "Sentence");
     const orderer = createFormalSyntaxFamilyRuleOrderer();
-    const ordered = orderer({
+    expect(orderer({
       category: "Sentence",
       candidates,
-      random: new SequenceRandom([0.80, 0, 0, 0, 0.40, 0, 0, 0, 0, 0]),
+      random: new SequenceRandom([0.5]),
+    })).toBeNull();
+  });
+
+  it("orders singleton Clause families and fails closed if a nested family gains variants", () => {
+    const candidates = FORMAL_SYNTAX_RULES.filter((rule) => rule.output === "Clause");
+    const orderer = createFormalSyntaxFamilyRuleOrderer();
+    const ordered = orderer({
+      category: "Clause",
+      candidates,
+      random: new SequenceRandom([0.5]),
     });
     expect(ordered).not.toBeNull();
     expect(new Set(ordered!.map((rule) => rule.id))).toEqual(new Set(candidates.map((rule) => rule.id)));
-    expect(ordered!.map((rule) => sentenceConstructionClassification(rule.id)?.family))
-      .toHaveLength(candidates.length);
+
+    const ba = candidates.find((rule) => rule.id === "clause.ba");
+    if (ba === undefined) throw new Error("fixture requires clause.ba");
+    expect(() => orderer({
+      category: "Clause",
+      candidates: [ba, ba],
+      random: new SequenceRandom([0.5]),
+    })).toThrow(/cannot safely handle multiple variants/u);
   });
 });
