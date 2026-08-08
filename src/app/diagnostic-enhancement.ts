@@ -67,6 +67,7 @@ function diagnosticModelFrom(snapshot: DiagnosticSnapshot | null) {
     support: environment.practiceSupport,
     layout: STANDARD_BOPOMOFO_LAYOUT,
     selectionPolicy: environment.utterancePolicy,
+    timingExclusionsAvailable: false,
     progressHistory: snapshot?.progressHistory ?? null,
   });
 }
