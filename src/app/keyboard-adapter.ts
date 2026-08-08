@@ -1,5 +1,5 @@
 import type { InputLayout } from "../core/model.js";
-import type { InteractionInput } from "../practice/interaction-session.js";
+import type { PracticeInput } from "../practice/interaction-input.js";
 
 const MODIFIER_CODES = new Set([
   "AltLeft",
@@ -33,21 +33,14 @@ function isBareFunctionKey(event: KeyboardLikeEvent, code: string): boolean {
     && !event.shiftKey;
 }
 
-/** Hidden local-review shortcut; intentionally absent from the visible UI. */
 export function isInspectionAdvanceShortcut(event: KeyboardLikeEvent): boolean {
   return isBareFunctionKey(event, "F8");
 }
 
-/**
- * Hidden local-review shortcut that opens every commonness level for the
- * current page only, so rarer vocabulary can be inspected without practising
- * up to it. It writes nothing, so it cannot be mistaken for earned progress.
- */
 export function isInspectionUnlockShortcut(event: KeyboardLikeEvent): boolean {
   return isBareFunctionKey(event, "F9");
 }
 
-/** Hidden local-review shortcut that finishes the current sentence. */
 export function isInspectionCompleteShortcut(event: KeyboardLikeEvent): boolean {
   return isBareFunctionKey(event, "F10");
 }
@@ -57,7 +50,7 @@ export function keyboardEventToInput(
   layout: InputLayout,
   timestampMs: number,
   compositionActive: boolean,
-): InteractionInput {
+): PracticeInput {
   const composing = compositionActive || event.isComposing || event.key === "Process";
   const shortcutModified = event.altKey || event.ctrlKey || event.metaKey;
 
