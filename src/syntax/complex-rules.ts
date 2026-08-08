@@ -1,5 +1,6 @@
 import { FORMAL_GRAMMAR_VERSION } from "./features.js";
 import type {
+  ConstituentCardinalityBound,
   ProductionConstituent,
   ProductionFixture,
   ProductionRule,
@@ -15,6 +16,7 @@ interface Options {
   readonly requiredFeatures?: SyntaxFeatureSet;
   readonly inheritFunctions?: boolean;
   readonly inheritValencyFrames?: boolean;
+  readonly cardinalityBound?: ConstituentCardinalityBound;
 }
 
 function constituent(
@@ -34,6 +36,7 @@ function constituent(
     requiredFeatures: options.requiredFeatures ?? {},
     ...(options.inheritFunctions ? { inheritFunctions: true } : {}),
     ...(options.inheritValencyFrames ? { inheritValencyFrames: true } : {}),
+    ...(options.cardinalityBound === undefined ? {} : { cardinalityBound: options.cardinalityBound }),
   };
 }
 
@@ -42,10 +45,7 @@ function lexical(
   allowedUpos: readonly Upos[],
   requiredFeatures: SyntaxFeatureSet,
 ): ProductionConstituent {
-  return {
-    ...constituent(key, "Lexeme", { requiredFeatures }),
-    allowedUpos,
-  };
+  return { ...constituent(key, "Lexeme", { requiredFeatures }), allowedUpos };
 }
 
 function production(
@@ -61,9 +61,7 @@ function production(
     constituents,
     surfaceOrders: [{ id: "canonical", constituentKeys: constituents.map((item) => item.key) }],
     constraints: [],
-    positiveFixtureIds: variable
-      ? [`${id}:minimum`, `${id}:maximum`]
-      : [`${id}:minimum`],
+    positiveFixtureIds: variable ? [`${id}:minimum`, `${id}:maximum`] : [`${id}:minimum`],
     negativeFixtureIds: [`${id}:overflow`],
   };
 }
@@ -108,15 +106,9 @@ function paired(
   markerUpos: readonly Upos[] = ["ADV", "CCONJ", "SCONJ", "PART"],
 ): ProductionRule {
   return production(id, "ClauseSequence", [
-    constituent("firstClause", "Clause", {
-      recursive: true,
-      requiredFeatures: { coordinationType },
-    }),
+    constituent("firstClause", "Clause", { recursive: true }),
     lexical("connector", markerUpos, { coordinationType }),
-    constituent("secondClause", "Clause", {
-      recursive: true,
-      requiredFeatures: { coordinationType },
-    }),
+    constituent("secondClause", "Clause", { recursive: true }),
   ]);
 }
 
@@ -132,18 +124,10 @@ export const COMPLEX_PRODUCTION_RULES: readonly ProductionRule[] = [
   paired("complex.purpose", "purpose", ["ADV", "SCONJ", "ADP", "PART"]),
   paired("complex.temporal-sequence", "temporal-sequence"),
   production("complex.bounded-clause-sequence", "ClauseSequence", [
-    constituent("clause", "Clause", {
-      minimum: 2,
-      maximum: 4,
-      recursive: true,
-      requiredFeatures: { clauseType: "sequence" },
-    }),
+    constituent("clause", "Clause", { minimum: 2, maximum: 4, recursive: true }),
   ]),
   production("sentence.complex", "Sentence", [
-    constituent("sequence", "ClauseSequence", {
-      recursive: true,
-      requiredFeatures: { clauseType: "complex" },
-    }),
+    constituent("sequence", "ClauseSequence", { recursive: true }),
     constituent("punctuation", "Punctuation", { minimum: 0, maximum: 1 }),
   ]),
   production("phrase.noun.multi-relative", "NounPhrase", [
@@ -151,7 +135,7 @@ export const COMPLEX_PRODUCTION_RULES: readonly ProductionRule[] = [
       minimum: 1,
       maximum: 3,
       recursive: true,
-      requiredFeatures: { clauseType: "relative" },
+      cardinalityBound: "consecutive-modifiers",
     }),
     constituent("head", "NominalHead", { inheritFunctions: true }),
   ]),

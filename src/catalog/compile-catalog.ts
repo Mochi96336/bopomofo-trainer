@@ -1,3 +1,4 @@
+import { catalogEntryId } from "../core/catalog-entry-id.js";
 import type { CatalogEntry } from "../core/model.js";
 import { parseReading } from "../scheme/parse-reading.js";
 import type {
@@ -174,7 +175,7 @@ function compileRow(row: CatalogSourceRow):
   return {
     ok: true,
     entry: {
-      id: `word:${row.text}:${row.reading.replace(/\s+/gu, "-")}`,
+      id: catalogEntryId(row.text, row.reading),
       prompt: { text: row.text, locale: "zh-TW" },
       syllables: parsed.syllables,
       tags: row.tags,

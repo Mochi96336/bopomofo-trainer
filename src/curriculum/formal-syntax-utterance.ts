@@ -4,6 +4,7 @@ import type {
   GrammarCompositionResult,
   GrammarUtteranceCandidate,
 } from "../grammar/types.js";
+import type { StructuralLexicalSlot } from "../syntax/derive.js";
 import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";
 import {
   buildLexicalProfileIndex,
@@ -22,6 +23,7 @@ export interface FormalSyntaxUtteranceInput {
   readonly profiles: readonly RuntimeSyntaxProfile[];
   readonly random: RandomSource;
   readonly entryWeightsById?: Readonly<Record<string, number>>;
+  readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
   readonly maximumAttempts: number;
   readonly rules?: readonly ProductionRule[];
@@ -57,16 +59,22 @@ function weightedIndex(
   return weights.length - 1;
 }
 
+function isPracticeLexicalSlot(slot: StructuralLexicalSlot): boolean {
+  return slot.formalLiteral === undefined
+    && !(slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT");
+}
+
 function selectCompatibleProfile(
   compatible: readonly RuntimeSyntaxProfile[],
   usedEntryIds: ReadonlySet<string>,
+  reusableEntryId: string | undefined,
   entriesById: ReadonlyMap<string, CatalogEntry>,
   entryWeightsById: Readonly<Record<string, number>> | undefined,
   random: RandomSource,
 ): RuntimeSyntaxProfile | null {
   const profilesByEntryId = new Map<string, RuntimeSyntaxProfile[]>();
   for (const profile of compatible) {
-    if (usedEntryIds.has(profile.entryId)) continue;
+    if (usedEntryIds.has(profile.entryId) && profile.entryId !== reusableEntryId) continue;
     const profiles = profilesByEntryId.get(profile.entryId) ?? [];
     profiles.push(profile);
     profilesByEntryId.set(profile.entryId, profiles);
@@ -103,6 +111,10 @@ export function composeFormalSyntaxUtterances(
   if (!Number.isInteger(input.maximumAttempts) || input.maximumAttempts <= 0) {
     throw new Error("maximumAttempts must be a positive integer");
   }
+  const minimumLexicalEntries = input.minimumLexicalEntries ?? 1;
+  if (!Number.isInteger(minimumLexicalEntries) || minimumLexicalEntries <= 0) {
+    throw new Error("minimumLexicalEntries must be a positive integer");
+  }
   const eligibleEntryIds = new Set(input.eligibleEntries.map((entry) => entry.id));
   const eligibleProfiles = input.profiles.filter((profile) => eligibleEntryIds.has(profile.entryId));
   const index = buildLexicalProfileIndex(input.eligibleEntries, eligibleProfiles);
@@ -129,15 +141,27 @@ export function composeFormalSyntaxUtterances(
       fallbackReasons.add("formal-syntax-structural-sampling-exhausted");
       continue;
     }
+    if (shape.lexicalSlots.filter(isPracticeLexicalSlot).length < minimumLexicalEntries) {
+      fallbackReasons.add("formal-syntax-under-minimum-lexical-entries");
+      continue;
+    }
     const offsets: Record<string, number> = {};
     const usedEntryIds = new Set<string>();
+    const entryIdByBinding = new Map<string, string>();
     let unrealizable = false;
     for (const slot of shape.lexicalSlots) {
       if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") continue;
-      const compatible = compatibleProfilesForSlot(slot, index);
+      const allCompatible = compatibleProfilesForSlot(slot, index);
+      const boundEntryId = slot.entryBindingId === undefined
+        ? undefined
+        : entryIdByBinding.get(slot.entryBindingId);
+      const compatible = boundEntryId === undefined
+        ? allCompatible
+        : allCompatible.filter((profile) => profile.entryId === boundEntryId);
       const selectedProfile = selectCompatibleProfile(
         compatible,
         usedEntryIds,
+        boundEntryId,
         entriesById,
         input.entryWeightsById,
         input.random,
@@ -146,8 +170,15 @@ export function composeFormalSyntaxUtterances(
         unrealizable = true;
         break;
       }
-      const selectedIndex = compatible.findIndex((profile) => profile.id === selectedProfile.id);
+      const selectedIndex = allCompatible.findIndex((profile) => profile.id === selectedProfile.id);
       if (selectedIndex < 0) throw new Error("formal syntax compatible profile selection failed");
+      if (slot.entryBindingId !== undefined) {
+        const existing = entryIdByBinding.get(slot.entryBindingId);
+        if (existing !== undefined && existing !== selectedProfile.entryId) {
+          throw new Error("formal syntax lexical binding drift");
+        }
+        entryIdByBinding.set(slot.entryBindingId, selectedProfile.entryId);
+      }
       offsets[slot.id] = selectedIndex;
       usedEntryIds.add(selectedProfile.entryId);
     }

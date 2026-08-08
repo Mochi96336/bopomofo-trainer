@@ -44,6 +44,7 @@ export function compatibleProfilesForSlot(
   slot: StructuralLexicalSlot,
   index: LexicalProfileIndex,
 ): readonly RuntimeSyntaxProfile[] {
+  if (slot.formalLiteral !== undefined) return [];
   const candidates = slot.allowedUpos.length === 0
     ? Object.values(index.profilesByUpos).flat()
     : slot.allowedUpos.flatMap((upos) => index.profilesByUpos[upos] ?? []);
@@ -75,6 +76,15 @@ export function realizeStructuralDerivation(
   const entryIds: string[] = [];
   const syntaxProfileIds: string[] = [];
   for (const slot of shape.lexicalSlots) {
+    if (slot.formalLiteral !== undefined) {
+      tokens.push({
+        kind: "punctuation",
+        value: slot.formalLiteral,
+        entryId: null,
+        syntaxProfileId: null,
+      });
+      continue;
+    }
     const punctuationOnly = slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT";
     const compatible = compatibleProfilesForSlot(slot, index);
     if (compatible.length === 0 && punctuationOnly) {

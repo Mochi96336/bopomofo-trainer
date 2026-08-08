@@ -115,10 +115,12 @@ describe("lazy lexical realization", () => {
   });
 
   it("filters licensed construction features with entry text plus UD evidence", () => {
-    const entries = [entry("entry:ma", "嗎"), entry("entry:ne", "呢")];
+    // Construction licensing is keyed by catalog identity, not written form,
+    // so these have to be the real polar-particle and 呢 entry IDs.
+    const entries = [entry("word:嗎:ㄇㄚ5", "嗎"), entry("word:呢:ㄋㄜ5", "呢")];
     const profiles = [
-      runtimeProfile("profile:ma", "entry:ma", "PART", "discourse:sp"),
-      runtimeProfile("profile:ne", "entry:ne", "PART", "discourse:sp"),
+      runtimeProfile("profile:ma", "word:嗎:ㄇㄚ5", "PART", "discourse:sp"),
+      runtimeProfile("profile:ne", "word:呢:ㄋㄜ5", "PART", "discourse:sp"),
     ];
     const questionSlot = {
       ...slot,
@@ -129,7 +131,7 @@ describe("lazy lexical realization", () => {
     };
     const index = buildLexicalProfileIndex(entries, profiles);
     expect(compatibleProfilesForSlot(questionSlot, index).map((item) => item.entryId))
-      .toEqual(["entry:ma"]);
+      .toEqual(["word:嗎:ㄇㄚ5"]);
   });
 
   it("is deterministic for the same seed", () => {

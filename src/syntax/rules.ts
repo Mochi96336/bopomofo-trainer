@@ -1,10 +1,10 @@
-import {
-  FORMAL_GRAMMAR_VERSION,
-} from "./features.js";
+import { FORMAL_GRAMMAR_VERSION } from "./features.js";
 import type {
+  ConstituentCardinalityBound,
   ProductionConstituent,
   ProductionFixture,
   ProductionRule,
+  ProductionRuleClass,
   SyntacticFunction,
   SyntaxCategory,
   SyntaxFeatureSet,
@@ -31,6 +31,8 @@ interface ConstituentOptions {
   readonly requiredFeatures?: SyntaxFeatureSet;
   readonly inheritFunctions?: boolean;
   readonly inheritValencyFrames?: boolean;
+  readonly cardinalityBound?: ConstituentCardinalityBound;
+  readonly excludedRuleClasses?: readonly ProductionRuleClass[];
 }
 
 function constituent(
@@ -50,6 +52,8 @@ function constituent(
     requiredFeatures: options.requiredFeatures ?? {},
     ...(options.inheritFunctions ? { inheritFunctions: true } : {}),
     ...(options.inheritValencyFrames ? { inheritValencyFrames: true } : {}),
+    ...(options.cardinalityBound === undefined ? {} : { cardinalityBound: options.cardinalityBound }),
+    ...(options.excludedRuleClasses === undefined ? {} : { excludedRuleClasses: options.excludedRuleClasses }),
   };
 }
 
@@ -70,9 +74,7 @@ function production(
     constituentKeys: constituents.map((item) => item.key),
   }],
 ): ProductionRule {
-  const hasVariableCardinality = constituents.some(
-    (item) => item.minimum !== item.maximum,
-  );
+  const hasVariableCardinality = constituents.some((item) => item.minimum !== item.maximum);
   return {
     id,
     grammarVersion: FORMAL_GRAMMAR_VERSION,
@@ -124,27 +126,47 @@ function fixturesForRule(rule: ProductionRule): readonly ProductionFixture[] {
     ruleId: rule.id,
     expected: "reject",
     surfaceOrderId: order.id,
-    constituentCounts: {
-      ...countsFor(rule, "minimum"),
-      [first.key]: first.maximum + 1,
-    },
+    constituentCounts: { ...countsFor(rule, "minimum"), [first.key]: first.maximum + 1 },
   });
   return fixtures;
 }
 
-function coordinationRule(
-  id: string,
+function coordinationItem(
+  key: string,
   category: SyntaxCategory,
-): ProductionRule {
-  return production(id, category, [
-    constituent("left", category, {
-      recursive: true,
-      inheritFunctions: true,
-      inheritValencyFrames: true,
-    }),
-    lexical("connector", ["CCONJ"], { requiredFunctions: ["coordinator"] }),
-    constituent("right", category, { recursive: true }),
-  ]);
+  inheritHeadRequirements = false,
+): ProductionConstituent {
+  return constituent(key, category, {
+    recursive: true,
+    inheritFunctions: inheritHeadRequirements,
+    inheritValencyFrames: inheritHeadRequirements,
+    excludedRuleClasses: ["coordination"],
+  });
+}
+
+function coordinationRules(id: string, category: SyntaxCategory): readonly ProductionRule[] {
+  const two: ProductionRule = {
+    ...production(id, category, [
+      coordinationItem("first", category, true),
+      lexical("connector", ["CCONJ"], { requiredFunctions: ["coordinator"] }),
+      coordinationItem("second", category),
+    ]),
+    ruleClass: "coordination",
+    coordinationItems: 2,
+  };
+  const threeId = `${id}.three`;
+  const three: ProductionRule = {
+    ...production(threeId, category, [
+      coordinationItem("first", category, true),
+      lexical("firstConnector", ["CCONJ"], { requiredFunctions: ["coordinator"] }),
+      coordinationItem("second", category),
+      lexical("secondConnector", ["CCONJ"], { requiredFunctions: ["coordinator"] }),
+      coordinationItem("third", category),
+    ]),
+    ruleClass: "coordination",
+    coordinationItems: 3,
+  };
+  return [two, three];
 }
 
 export const PHRASE_PRODUCTION_RULES: readonly ProductionRule[] = [
@@ -163,7 +185,11 @@ export const PHRASE_PRODUCTION_RULES: readonly ProductionRule[] = [
   production("phrase.noun.expanded", "NounPhrase", [
     constituent("determiner", "DeterminerPhrase", { minimum: 0, maximum: 1 }),
     constituent("numeral", "NumeralPhrase", { minimum: 0, maximum: 1 }),
-    constituent("modifier", "AdjectivePhrase", { minimum: 0, maximum: 3 }),
+    constituent("modifier", "AdjectivePhrase", {
+      minimum: 0,
+      maximum: 3,
+      cardinalityBound: "consecutive-modifiers",
+    }),
     constituent("head", "NominalHead", { inheritFunctions: true }),
   ]),
   production("phrase.determiner.lexical", "DeterminerPhrase", [
@@ -177,22 +203,16 @@ export const PHRASE_PRODUCTION_RULES: readonly ProductionRule[] = [
     lexical("classifier", ["PART"], { requiredFunctions: ["classifier"] }),
   ]),
   production("phrase.adjective.lexical", "AdjectivePhrase", [
-    lexical("head", ["ADJ"], {
-      inheritFunctions: true,
-      inheritValencyFrames: true,
-    }),
+    lexical("head", ["ADJ"], { inheritFunctions: true, inheritValencyFrames: true }),
   ]),
   production("phrase.adjective.modified", "AdjectivePhrase", [
     constituent("degree", "AdverbPhrase", { minimum: 0, maximum: 1 }),
-    constituent("negation", "AdverbPhrase", {
+    lexical("negation", ["ADV", "AUX", "PART", "VERB"], {
       minimum: 0,
       maximum: 1,
       requiredFeatures: { polarity: "negative" },
     }),
-    lexical("head", ["ADJ"], {
-      inheritFunctions: true,
-      inheritValencyFrames: true,
-    }),
+    lexical("head", ["ADJ"], { inheritFunctions: true, inheritValencyFrames: true }),
     constituent("complement", "Complement", { minimum: 0, maximum: 1 }),
   ]),
   production("phrase.adverb.lexical", "AdverbPhrase", [
@@ -210,55 +230,49 @@ export const PHRASE_PRODUCTION_RULES: readonly ProductionRule[] = [
     constituent("object", "NounPhrase", { inheritFunctions: true }),
     lexical("head", ["PART"], { requiredFunctions: ["adposition"] }),
   ]),
-  production("phrase.particle.lexical", "ParticlePhrase", [
-    lexical("head", ["PART"]),
-  ]),
+  production("phrase.particle.lexical", "ParticlePhrase", [lexical("head", ["PART"])]),
   production("phrase.complementizer.lexical", "ComplementizerPhrase", [
     lexical("head", ["SCONJ"], { requiredFunctions: ["marker"] }),
   ]),
   production("phrase.verb.lexical", "VerbPhrase", [
-    lexical("head", ["VERB"], {
-      inheritFunctions: true,
-      inheritValencyFrames: true,
-    }),
+    lexical("head", ["VERB"], { inheritFunctions: true, inheritValencyFrames: true }),
   ]),
   production("phrase.verb.expanded", "VerbPhrase", [
-    constituent("negation", "AdverbPhrase", {
+    lexical("negation", ["ADV", "AUX", "PART", "VERB"], {
       minimum: 0,
       maximum: 1,
       requiredFeatures: { polarity: "negative" },
     }),
     lexical("modal", ["AUX"], { minimum: 0, maximum: 2 }),
-    constituent("adverbial", "AdverbPhrase", { minimum: 0, maximum: 3 }),
-    lexical("head", ["VERB"], {
-      inheritFunctions: true,
-      inheritValencyFrames: true,
+    constituent("adverbial", "AdverbPhrase", {
+      minimum: 0,
+      maximum: 3,
+      cardinalityBound: "consecutive-modifiers",
     }),
-    constituent("complement", "Complement", { minimum: 0, maximum: 2 }),
+    lexical("head", ["VERB"], { inheritFunctions: true, inheritValencyFrames: true }),
+    constituent("complement", "Complement", {
+      minimum: 0,
+      maximum: 2,
+      cardinalityBound: "complements-per-predicate",
+    }),
     constituent("object", "NounPhrase", { minimum: 0, maximum: 2 }),
-    constituent("aspect", "ParticlePhrase", {
+    lexical("aspect", ["AUX", "PART"], {
       minimum: 0,
       maximum: 1,
       requiredFeatures: { aspect: "marked" },
     }),
   ]),
-  production("phrase.interjection.lexical", "InterjectionPhrase", [
-    lexical("head", ["INTJ"]),
-  ]),
-  production("phrase.symbol.lexical", "SymbolPhrase", [
-    lexical("head", ["SYM"]),
-  ]),
-  production("phrase.unknown.lexical", "UnknownPhrase", [
-    lexical("head", ["X"]),
-  ]),
+  production("phrase.interjection.lexical", "InterjectionPhrase", [lexical("head", ["INTJ"])]),
+  production("phrase.symbol.lexical", "SymbolPhrase", [lexical("head", ["SYM"])]),
+  production("phrase.unknown.lexical", "UnknownPhrase", [lexical("head", ["X"])]),
   production("phrase.punctuation.lexical", "Punctuation", [
     lexical("head", ["PUNCT"], { requiredFunctions: ["punctuation"] }),
   ]),
-  coordinationRule("phrase.noun.coordination", "NounPhrase"),
-  coordinationRule("phrase.verb.coordination", "VerbPhrase"),
-  coordinationRule("phrase.adjective.coordination", "AdjectivePhrase"),
-  coordinationRule("phrase.adverb.coordination", "AdverbPhrase"),
-  coordinationRule("phrase.adposition.coordination", "AdpositionPhrase"),
+  ...coordinationRules("phrase.noun.coordination", "NounPhrase"),
+  ...coordinationRules("phrase.verb.coordination", "VerbPhrase"),
+  ...coordinationRules("phrase.adjective.coordination", "AdjectivePhrase"),
+  ...coordinationRules("phrase.adverb.coordination", "AdverbPhrase"),
+  ...coordinationRules("phrase.adposition.coordination", "AdpositionPhrase"),
 ];
 
 export const PHRASE_PRODUCTION_FIXTURES: readonly ProductionFixture[] =
