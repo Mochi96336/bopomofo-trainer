@@ -40,6 +40,12 @@ function history(keyEntry: KeyProgressHistory = entry()): ProgressHistory {
     layoutId: "zhuyin-standard",
     lastCompletedRound: 4,
     keys: { [TOKEN]: keyEntry },
+    motor: {
+      coordination: {},
+      immediateHands: {},
+      sameHandRevisits: {},
+      toneCommits: {},
+    },
   };
 }
 

@@ -57,6 +57,7 @@ export function deriveMeasurementObservationsV2(
 
   const bindings: MeasurementObservationsV2["bindings"][number][] = [];
   const confusions: MeasurementObservationsV2["confusions"][number][] = [];
+  const inputOrderPositions: MeasurementObservationsV2["inputOrderPositions"][number][] = [];
   const coordination: MeasurementObservationsV2["coordination"][number][] = [];
   const immediateHands: MeasurementObservationsV2["immediateHands"][number][] = [];
   const sameHandRevisits: MeasurementObservationsV2["sameHandRevisits"][number][] = [];
@@ -137,6 +138,30 @@ export function deriveMeasurementObservationsV2(
     }
 
     if (trace.outcome === "accepted-component") {
+      const bodySize = expectedBodySize.get(trace.syllableOrdinal) ?? 0;
+      if (
+        bodySize >= 2
+        && trace.canonicalTokenIndex !== null
+        && trace.acceptedOrdinalInSyllable !== null
+      ) {
+        const canonicalBodyIndex = trace.canonicalTokenIndex;
+        const acceptedBodyIndex = trace.acceptedOrdinalInSyllable;
+        if (
+          canonicalBodyIndex < 0
+          || canonicalBodyIndex >= bodySize
+          || acceptedBodyIndex < 0
+          || acceptedBodyIndex >= bodySize
+        ) {
+          throw new Error(`trace ${trace.sequence} has an invalid input-order position`);
+        }
+        inputOrderPositions.push({
+          syllableOrdinal: trace.syllableOrdinal,
+          bodySize,
+          canonicalBodyIndex,
+          acceptedBodyIndex,
+        });
+      }
+
       const events = bodyEvents.get(trace.syllableOrdinal) ?? [];
       bodyEvents.set(trace.syllableOrdinal, [...events, trace]);
     }
@@ -225,6 +250,7 @@ export function deriveMeasurementObservationsV2(
   return {
     bindings,
     confusions,
+    inputOrderPositions,
     coordination,
     immediateHands,
     sameHandRevisits,

@@ -1,4 +1,10 @@
 import type { BindingSkillScope, PracticeMode, TokenId } from "../core/model.js";
+import {
+  coordinationTimingSample,
+  immediateHandTimingSample,
+  sameHandRevisitTimingSample,
+  toneCommitTimingSample,
+} from "./timing-eligibility.js";
 import type {
   CoordinationHandShape,
   ExplicitHand,
@@ -9,6 +15,7 @@ export const MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-1" as con
 const SMOOTHING_ALPHA = 0.25;
 
 export type CoordinationBodySizeBucket = "2" | "3" | "4+";
+export type BodyPositionBucket = "first" | "middle" | "last";
 
 export interface BindingAggregateV2 {
   readonly scope: BindingSkillScope;
@@ -25,6 +32,17 @@ export interface ConfusionAggregateV2 {
   readonly expectedToken: TokenId;
   readonly actualToken: TokenId;
   readonly occurrences: number;
+}
+
+export interface InputOrderPositionAggregateScope {
+  readonly bodySize: CoordinationBodySizeBucket;
+  readonly canonicalPosition: BodyPositionBucket;
+  readonly acceptedPosition: BodyPositionBucket;
+}
+
+export interface InputOrderPositionAggregate {
+  readonly scope: InputOrderPositionAggregateScope;
+  readonly observations: number;
 }
 
 export interface MotorTimingAggregate<Scope> {
@@ -62,6 +80,9 @@ export interface MeasurementSummaryV2 {
     readonly ambiguousErrors: number;
     readonly duplicateComponents: number;
     readonly prematureTones: number;
+  };
+  readonly strategy: {
+    readonly inputOrderPositions: Readonly<Record<string, InputOrderPositionAggregate>>;
   };
   readonly motor: {
     readonly coordination: Readonly<Record<string, MotorTimingAggregate<CoordinationAggregateScope>>>;
@@ -111,10 +132,16 @@ function emptyTimingState(): TimingState {
   };
 }
 
-function coordinationBodySizeBucket(bodySize: number): CoordinationBodySizeBucket {
+export function coordinationBodySizeBucket(bodySize: number): CoordinationBodySizeBucket {
   if (bodySize <= 2) return "2";
   if (bodySize === 3) return "3";
   return "4+";
+}
+
+export function bodyPositionBucket(index: number, bodySize: number): BodyPositionBucket {
+  if (index <= 0) return "first";
+  if (index >= bodySize - 1) return "last";
+  return "middle";
 }
 
 export function bindingAggregateKey(scope: BindingSkillScope): string {
@@ -128,6 +155,15 @@ export function confusionAggregateKey(
   actualToken: TokenId,
 ): string {
   return JSON.stringify(["confusion", mode, layoutId, expectedToken, actualToken]);
+}
+
+export function inputOrderPositionAggregateKey(scope: InputOrderPositionAggregateScope): string {
+  return JSON.stringify([
+    "input-order-position",
+    scope.bodySize,
+    scope.canonicalPosition,
+    scope.acceptedPosition,
+  ]);
 }
 
 export function coordinationAggregateKey(scope: CoordinationAggregateScope): string {
@@ -155,6 +191,9 @@ export function createEmptyMeasurementSummaryV2(): MeasurementSummaryV2 {
       ambiguousErrors: 0,
       duplicateComponents: 0,
       prematureTones: 0,
+    },
+    strategy: {
+      inputOrderPositions: {},
     },
     motor: {
       coordination: {},
@@ -240,6 +279,21 @@ export function aggregateMeasurementObservationsV2(
     });
   }
 
+  const inputOrderPositions = seedMap(prior.strategy.inputOrderPositions);
+  for (const observation of observations.inputOrderPositions) {
+    const scope: InputOrderPositionAggregateScope = {
+      bodySize: coordinationBodySizeBucket(observation.bodySize),
+      canonicalPosition: bodyPositionBucket(observation.canonicalBodyIndex, observation.bodySize),
+      acceptedPosition: bodyPositionBucket(observation.acceptedBodyIndex, observation.bodySize),
+    };
+    const key = inputOrderPositionAggregateKey(scope);
+    const previous = inputOrderPositions.get(key);
+    inputOrderPositions.set(key, {
+      scope,
+      observations: (previous?.observations ?? 0) + 1,
+    });
+  }
+
   const coordination = seedMap(prior.motor.coordination);
   for (const observation of observations.coordination) {
     const scope: CoordinationAggregateScope = {
@@ -248,7 +302,7 @@ export function aggregateMeasurementObservationsV2(
     };
     const key = coordinationAggregateKey(scope);
     const previous = coordination.get(key);
-    const timing = addTiming(timingStateOf(previous), observation.clean ? observation.timingMs : null);
+    const timing = addTiming(timingStateOf(previous), coordinationTimingSample(observation));
     coordination.set(key, { scope, ...timing });
   }
 
@@ -260,12 +314,7 @@ export function aggregateMeasurementObservationsV2(
     };
     const key = immediateHandAggregateKey(scope);
     const previous = immediateHands.get(key);
-    // Crossing a syllable/entry boundary includes reading and target-location
-    // latency, not just hand coordination. Keep the event as an observation for
-    // coverage/debugging, but only within-syllable hand paths may shape the
-    // motor timing estimate.
-    const eligible = observation.clean && observation.boundary === "within-syllable";
-    const timing = addTiming(timingStateOf(previous), eligible ? observation.timingMs : null);
+    const timing = addTiming(timingStateOf(previous), immediateHandTimingSample(observation));
     immediateHands.set(key, { scope, ...timing });
   }
 
@@ -277,8 +326,7 @@ export function aggregateMeasurementObservationsV2(
     };
     const key = sameHandRevisitAggregateKey(scope);
     const previous = sameHandRevisits.get(key);
-    const eligible = observation.clean && observation.boundary === "within-syllable";
-    const timing = addTiming(timingStateOf(previous), eligible ? observation.timingMs : null);
+    const timing = addTiming(timingStateOf(previous), sameHandRevisitTimingSample(observation));
     sameHandRevisits.set(key, { scope, ...timing });
   }
 
@@ -287,7 +335,7 @@ export function aggregateMeasurementObservationsV2(
     const scope: ToneCommitAggregateScope = { toneToken: observation.toneToken };
     const key = toneCommitAggregateKey(scope);
     const previous = toneCommits.get(key);
-    const timing = addTiming(timingStateOf(previous), observation.clean ? observation.timingMs : null);
+    const timing = addTiming(timingStateOf(previous), toneCommitTimingSample(observation));
     toneCommits.set(key, { scope, ...timing });
   }
 
@@ -299,6 +347,9 @@ export function aggregateMeasurementObservationsV2(
       ambiguousErrors: prior.semantic.ambiguousErrors + observations.ambiguousErrorCount,
       duplicateComponents: prior.semantic.duplicateComponents + observations.duplicateComponentCount,
       prematureTones: prior.semantic.prematureTones + observations.prematureToneCount,
+    },
+    strategy: {
+      inputOrderPositions: sortedRecord(inputOrderPositions),
     },
     motor: {
       coordination: sortedRecord(coordination),
