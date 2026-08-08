@@ -75,7 +75,7 @@ Product-only rejection, such as the current minimum of two practice lexical entr
 - `product-family`: apply the curriculum family policy;
 - `raw`: keep raw structural sampling semantics.
 
-For compatibility, the composer infers `product-family` when the supplied rule IDs exactly match the complete formal grammar and `raw` for custom grammars. Duplicate rule IDs do not count as a complete grammar. Therefore explicitly passing `FORMAL_SYNTAX_RULES` does not silently disable product policy. Callers can still make the mode explicit, and custom rule orderers cannot be combined with product-family mode.
+For compatibility, the composer infers `product-family` when the supplied production IDs form the complete formal grammar with no duplicates and `raw` for custom grammars. Therefore explicitly passing `FORMAL_SYNTAX_RULES` does not silently disable product policy. Callers can still make the mode explicit, and custom rule orderers cannot be combined with product-family mode.
 
 ## Effective-distribution guard
 
