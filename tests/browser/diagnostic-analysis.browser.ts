@@ -4,6 +4,7 @@ test("opens Analysis V2 without reviving the legacy transition network", async (
   await page.goto("/");
   await page.locator("#open-information").click();
   await page.locator(".diagnostic-open-analysis").click();
+  await expect(page.locator(".analysis-v2-modal")).toBeVisible();
   await expect(page.locator("#diagnostic-analysis")).toBeVisible();
 
   const tabs = page.locator('#diagnostic-analysis [role="tab"]');
@@ -19,4 +20,37 @@ test("opens Analysis V2 without reviving the legacy transition network", async (
   await expect(page.locator("#analysis-v2-strategy-title")).toHaveText("輸入策略");
   await expect(page.getByText(/canonical 位置只是注音結構的參考座標/)).toBeVisible();
   await expect(page.locator(".strategy-matrix")).toHaveCount(3);
+});
+
+test("contains Analysis V2 at a narrow phone viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.locator("#open-information").click();
+  await page.locator(".diagnostic-open-analysis").click();
+
+  const modal = page.locator(".analysis-v2-modal");
+  const analysis = page.locator("#diagnostic-analysis");
+  await expect(modal).toBeVisible();
+  await expect(analysis).toBeVisible();
+
+  const viewportContainment = await page.evaluate(() => ({
+    viewportWidth: window.innerWidth,
+    documentWidth: document.documentElement.scrollWidth,
+    viewportHeight: window.innerHeight,
+    documentHeight: document.documentElement.scrollHeight,
+  }));
+  expect(viewportContainment.documentWidth).toBeLessThanOrEqual(viewportContainment.viewportWidth);
+  expect(viewportContainment.documentHeight).toBeLessThanOrEqual(viewportContainment.viewportHeight);
+
+  await analysis.locator('[data-action="select-tab"][data-tab="coordination"]').click();
+  const speedCard = analysis.locator(".analysis-v2-speed-card");
+  await expect(speedCard).toBeVisible();
+  const overflow = await speedCard.evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(overflow.scrollWidth).toBeGreaterThanOrEqual(overflow.clientWidth);
+
+  await expect(analysis.locator('[role="tab"]')).toHaveCount(3);
+  await expect(analysis.locator(".diagnostic-analysis-close")).toBeVisible();
 });
