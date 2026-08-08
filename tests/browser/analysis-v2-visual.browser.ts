@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-async function openAnalysis(page: Parameters<typeof test>[0]["page"]): Promise<void> {
+async function openAnalysis(page: Page): Promise<void> {
   await page.goto("/");
   await page.locator("#open-information").click();
   await page.locator(".analysis-v2-open").click();
