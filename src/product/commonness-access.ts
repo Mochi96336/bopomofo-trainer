@@ -4,7 +4,7 @@ import {
   type CommonnessTier,
   type CommonnessTierThresholds,
 } from "../commonness/tiers.js";
-import type { MeasurementSummary } from "../measurement/types.js";
+import type { MeasurementSummaryV2 } from "../measurement-v2/aggregate.js";
 import type { ProductCatalogs } from "./types.js";
 
 /**
@@ -22,16 +22,7 @@ import type { ProductCatalogs } from "./types.js";
  * keep in sync with progress, and clearing progress honestly clears the levels.
  */
 export const COMMONNESS_UNLOCK_POLICY = {
-  /** Clean inputs one key needs before it counts as practised. */
   cleanInputsPerKey: 8,
-  /**
-   * Practised keys required for each level past the first, measured against a
-   * simulated flawless learner on the shipped catalog: 20 keys lands near the
-   * 34th sentence, 27 near the 60th, 33 near the 120th. The last bar stays
-   * below 36 because the most common tenth of the catalog alone cannot practise
-   * every key -- ㄦ and ㄆ barely occur in it -- and a bar the unlocked pool
-   * cannot reach would be a permanent lock, not a level.
-   */
   practisedKeysForTier: { 2: 20, 3: 27, 4: 33 },
 } as const satisfies {
   readonly cleanInputsPerKey: number;
@@ -39,39 +30,30 @@ export const COMMONNESS_UNLOCK_POLICY = {
 };
 
 export interface CommonnessUnlockProgress {
-  /** The next level still locked. */
   readonly tier: CommonnessTier;
   readonly practisedKeys: number;
   readonly requiredKeys: number;
 }
 
-/** Practised keys the level asks for; the first level asks for none. */
 export function requiredPractisedKeys(tier: CommonnessTier): number {
   return tier === 1 ? 0 : COMMONNESS_UNLOCK_POLICY.practisedKeysForTier[tier];
 }
 
-/** Keys with enough clean inputs to count as practised. */
-export function practisedKeyCount(measurements: MeasurementSummary): number {
-  return Object.values(measurements.bindings).filter((binding) =>
+export function practisedKeyCount(measurements: MeasurementSummaryV2): number {
+  return Object.values(measurements.semantic.bindings).filter((binding) =>
     binding.attempts - binding.errors >= COMMONNESS_UNLOCK_POLICY.cleanInputsPerKey,
   ).length;
 }
 
-/**
- * The levels the learner has earned. The most common level is always open:
- * practice has to start somewhere, and it is the level a fresh learner is
- * already being given today.
- */
 export function unlockedCommonnessTiers(
-  measurements: MeasurementSummary,
+  measurements: MeasurementSummaryV2,
 ): readonly CommonnessTier[] {
   const practised = practisedKeyCount(measurements);
   return COMMONNESS_TIERS.filter((tier) => practised >= requiredPractisedKeys(tier));
 }
 
-/** What the next locked level asks for, or `null` once every level is open. */
 export function nextCommonnessUnlock(
-  measurements: MeasurementSummary,
+  measurements: MeasurementSummaryV2,
 ): CommonnessUnlockProgress | null {
   const practised = practisedKeyCount(measurements);
   const tier = COMMONNESS_TIERS.find((candidate) => practised < requiredPractisedKeys(candidate));
@@ -79,14 +61,6 @@ export function nextCommonnessUnlock(
   return { tier, practisedKeys: practised, requiredKeys: requiredPractisedKeys(tier) };
 }
 
-/**
- * The levels actually practised: what the learner asked for, narrowed to what
- * is unlocked, and never empty -- an empty pool has no sentences to draw.
- *
- * Keeping the preference wider than the unlocked set is deliberate. A level the
- * learner never switched off joins practice on the round it unlocks, and a
- * level they did switch off stays off when a later one opens.
- */
 export function effectiveCommonnessTiers(
   preferred: readonly CommonnessTier[],
   unlocked: readonly CommonnessTier[],
@@ -96,18 +70,6 @@ export function effectiveCommonnessTiers(
   return enabled.length === 0 ? [unlocked[0]!] : enabled;
 }
 
-/**
- * The catalogs restricted to the given levels.
- *
- * The evaluation catalog is left whole: it is the fixed yardstick the product
- * measures against, and narrowing it by a practice preference would make its
- * readings mean different things at different settings. Syntax profiles are
- * filtered alongside the practice entries because the environment rejects a
- * profile that points at an entry it does not have.
- *
- * An entry with no reviewed frequency evidence has no level to filter by, so it
- * stays in every setting rather than being silently dropped by all of them.
- */
 export function catalogsForCommonnessTiers(
   catalogs: ProductCatalogs,
   thresholds: CommonnessTierThresholds,

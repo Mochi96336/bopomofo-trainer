@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { InteractionInput } from "../../src/practice/interaction-session.js";
+import type { PracticeInput } from "../../src/practice/interaction-input.js";
+import { inspectionNextToken } from "../../src/app/practice-session-view.js";
 import {
   applyProductInput,
   createFreshProgressForEnvironment,
@@ -31,12 +32,13 @@ function completeRound() {
   let state = createProductState(environment, progress, 0);
   let timestamp = 0;
   while (state.summary === null) {
-    const target = state.session.targets[state.session.position]!;
+    const token = inspectionNextToken(state.session);
+    if (token === null) throw new Error("incomplete session has no acceptable token");
     timestamp += 50;
-    const input: InteractionInput = {
+    const input: PracticeInput = {
       timestampMs: timestamp,
       physicalCode: "Test",
-      actualToken: target.tokenId,
+      actualToken: token,
       repeat: false,
       composing: false,
       modifierOnly: false,
@@ -61,14 +63,13 @@ function numbered(record: PilotRoundRecord, roundNumber: number): PilotRoundReco
 }
 
 describe("pilot history", () => {
-  it("records the median of Phase 3 eligible clean latency samples", () => {
+  it("records the median of v2 eligible clean binding latency samples", () => {
     const completed = completeRound();
     const record = createPilotRoundRecord(
       1,
       completed.round,
       completed.summary!,
       completed.session.traces,
-      environment.measurementPolicy,
     );
     expect(record.timingSamples).toBeGreaterThan(0);
     expect(record.cleanLatencyMedianMs).toBe(50);
@@ -81,7 +82,6 @@ describe("pilot history", () => {
       completed.round,
       completed.summary!,
       completed.session.traces,
-      environment.measurementPolicy,
     );
     let history = pilotHistoryFromProgress(createFreshProgressForEnvironment(
       environment,
@@ -117,7 +117,6 @@ describe("pilot history", () => {
       completed.round,
       completed.summary!,
       completed.session.traces,
-      environment.measurementPolicy,
     );
     const invalid = {
       schemaVersion: PILOT_HISTORY_SCHEMA_VERSION,

@@ -75,7 +75,17 @@ import {
   type SelectionTuning,
 } from "./selection-tuning.js";
 import { applyTheme, DEFAULT_THEME, loadTheme, saveTheme, type Theme } from "./theme.js";
-import { practiceCurrentTargetText } from "./practice-accessibility.js";
+import { practiceCurrentSyllableText } from "./practice-accessibility.js";
+import {
+  currentPracticeView,
+  errorCanonicalTokenIndex,
+  inspectionNextToken,
+  isMappedPracticeAttempt,
+  isMappedPracticeError,
+  syllableState,
+  tokenState,
+  type PracticeTokenState,
+} from "./practice-session-view.js";
 import {
   captureFocusIdentity,
   restoreFocusIdentity,
@@ -101,19 +111,11 @@ import type { StorageLike } from "./persistence-transaction.js";
 import { renderTrendSection } from "./practice-sparkline.js";
 import { weakBindingsMarkup, weakestBindings } from "./weak-bindings.js";
 
-/** Long enough to read a sentence that appeared while the learner was typing. */
 const UNLOCK_NOTICE_MS = 6000;
-/** Short: the next round is already on screen behind it. */
 const PREVIOUS_RESULT_MS = 1400;
-/**
- * Long enough to explain why the session started over, and no longer: what was
- * unreadable has already been dealt with by the time it is shown, so it is news
- * rather than a condition to keep reporting.
- */
 const RECOVERY_NOTICE_MS = 6000;
-
 const PROGRESS_RECOVERY_NOTICE =
-  "舊版或無效的本機進度已刪除，已從新的進度世代重新開始。";
+  "舊版量測已切換到新的輸入模型；舊量測證據已刪除，其他可相容的本機進度已保留。";
 const PILOT_RECOVERY_NOTICE =
   "舊版或無效的 Pilot 歷史已刪除；目前世代可由有效完成摘要補齊。";
 
@@ -126,83 +128,23 @@ function requireElement<T extends Element>(selector: string): T {
 }
 
 export interface AppDependencies {
-  /** The shell's mount point. Its markup is replaced on mount. */
   readonly root: HTMLElement;
-  /** The offscreen textarea that receives every practice keystroke. */
   readonly capture: HTMLTextAreaElement;
   readonly storage: StorageLike;
   readonly newSeed: () => string;
-  /**
-   * Called once the round's markup is in the document, including the first one.
-   *
-   * The browser layer lays the utterance out across balanced lines, which it can
-   * only do after measuring the entries this put on the page. It used to find
-   * out by watching the stage with a `MutationObserver`, inferring a re-render
-   * from a childList change; being told is the same signal without the guess.
-   */
   readonly onRoundMounted?: (stage: HTMLElement) => void;
-  /**
-   * Called with the information panel's content host each time it is rebuilt.
-   *
-   * The diagnostics layer replaces one section of that panel with a richer
-   * summary, and has to do it again after every rebuild. It used to watch the
-   * host with a `MutationObserver` over childList and subtree, which meant
-   * inferring a re-render from any change -- including the ones it made itself,
-   * which is what the microtask guard on the other side was for.
-   */
   readonly onPanelRendered?: (content: HTMLElement) => void;
 }
 
 export interface App {
-  /** Closes the information panel if it is open, and does nothing if not. */
   closePanel(): void;
-  /**
-   * Puts focus back on the practice surface, wherever it currently is.
-   *
-   * Offered because a layer that opens a surface of its own has to anchor focus
-   * on practice before it does, so closing that surface returns home. Reaching
-   * into the document for the capture element is how that used to be done.
-   */
   focusPractice(): void;
-  /**
-   * The state this instance is practising against, as of right now.
-   *
-   * Read by the diagnostics layer at the moment it renders. It reports what the
-   * session is actually using, including when storage refused the last write and
-   * the session is continuing in memory alone.
-   */
   getDiagnosticSnapshot(): DiagnosticSnapshot;
-  /**
-   * Removes the listeners and timers this instance owns, so a second instance
-   * can be built over the same document without the first still answering.
-   */
   destroy(): void;
 }
 
-/**
- * Builds one running instance of the practice shell.
- *
- * Everything below used to be module scope, which meant importing this file was
- * the same act as starting the app: the state could never be built twice and a
- * test could only ever read the source as text. The body is unchanged -- it is
- * the same state, the same renders and the same handlers -- but it now belongs
- * to a call rather than to a load, so the browser makes one and a test makes as
- * many as it likes.
- */
 export function createApp(deps: AppDependencies): App {
   const { root, capture, storage, newSeed, onRoundMounted, onPanelRendered } = deps;
-
-  /**
-   * Scopes every listener this instance puts on a target that outlives it.
-   *
-   * Three targets do: the document, the window, and the capture textarea, which
-   * sits outside `#app` precisely so that re-rendering the shell cannot take it
-   * away. A listener on any of them has to be released by hand, and releasing an
-   * anonymous one by hand is not possible at all -- so they are all handed this
-   * signal instead, and `destroy()` drops the whole set in one act. Listeners on
-   * elements inside `#app` need nothing: re-rendering replaces those elements,
-   * and their listeners go with them.
-   */
   const eventScope = new AbortController();
 
   const catalogs = {
@@ -210,6 +152,7 @@ export function createApp(deps: AppDependencies): App {
     evaluation: EVALUATION_CATALOG,
     syntaxProfiles: SYNTAX_PROFILES,
   } as const;
+
   let selectionTuning: SelectionTuning = DEFAULT_SELECTION_TUNING;
   try {
     selectionTuning = loadSelectionTuning(storage);
@@ -228,24 +171,14 @@ export function createApp(deps: AppDependencies): App {
     return createProductEnvironment(source, policyForSelectionTuning(selectionTuning));
   }
 
-  /**
-   * Stored progress, pilot history and backups are validated against the whole
-   * catalog, never the practised subset: their records point at entries that were
-   * drawn before the learner narrowed the levels, and reading them through the
-   * narrowed catalog would reject that history as invalid.
-   */
   let storageEnvironment = environmentFor(catalogs);
-  // Play draws from the practised levels only. Until progress is loaded there is
-  // nothing to unlock from, so it starts as the whole catalog.
   let environment = storageEnvironment;
   let unlockedTiers: readonly CommonnessTier[] = COMMONNESS_TIERS;
   let practisedTiers: readonly CommonnessTier[] = COMMONNESS_TIERS;
-  // Hidden local-review override (F9). Deliberately not persisted: it opens the
-  // levels for looking at, and nothing about it should survive as earned progress.
   let inspectionUnlockAll = false;
 
   const boot = loadAppState({
-    storage: storage,
+    storage,
     environment: storageEnvironment,
     mode: "guided",
     layoutId: STANDARD_BOPOMOFO_LAYOUT.id,
@@ -267,40 +200,15 @@ export function createApp(deps: AppDependencies): App {
   let imeWarning = false;
   let showKeyboardSketch = false;
   let inspectionAdvanceCount = 0;
-  // What just happened in a panel section, as opposed to what that section
-  // lastingly says. Cleared when the panel closes: each belongs to the visit that
-  // produced it, and none of them describes a condition that outlives it. The
-  // storage warning is not among them -- it is a lasting condition and lives in
-  // the global notice region.
   let tuningStatus: PanelActionStatus = NO_ACTION_STATUS;
   let rarityStatus: PanelActionStatus = NO_ACTION_STATUS;
   let dataStatus: PanelActionStatus = NO_ACTION_STATUS;
 
-  // Declared with the rest of the module state rather than beside the functions
-  // that use them: both read a hoisted render function, so keeping them here
-  // removes any ordering hazard if a top-level call is ever added above.
   const unlockNotice = createExpiringValue<string>(window, () => renderNotices());
   const previousResult = createExpiringValue<PilotRoundRecord>(window, () => updateTopbar());
-  // Retired on a timer like the unlock notice, rather than left standing for the
-  // session. This used to be the browser layer's job, which could only reach
-  // them by matching their text against its own copy of these two sentences.
-  const recoveryNotices = createExpiringValue<readonly string[]>(
-    window,
-    () => renderNotices(),
-  );
-  // Outside `#app`, so replacing the shell's markup cannot take the dialog with
-  // it, and alongside the analysis host rather than inside the panel it stacks
-  // over.
+  const recoveryNotices = createExpiringValue<readonly string[]>(window, () => renderNotices());
   const confirmDialog = createConfirmDialog(document.body);
 
-  /**
-   * Recomputes which levels are unlocked and which are practised, rebuilding the
-   * practice environment only when the practised set actually changes: rebuilding
-   * indexes the catalog, which is far too much work to repeat after every round
-   * just to arrive at the same pool.
-   *
-   * Returns the level that just unlocked, so the caller can say so.
-   */
   function syncPractisedLevels(
     progress: ProductProgress,
     rebuildAlways = false,
@@ -329,13 +237,6 @@ export function createApp(deps: AppDependencies): App {
     reverseBindings.set(tokenId, code);
   }
 
-  /**
-   * The practice hint and the diagnostic keyboard draw the same physical board,
-   * so they read it from the same place. This used to carry its own copy of the
-   * rows and its own column-span arithmetic; the two were identical, and nothing
-   * would have reported them drifting apart -- on the surface the learner uses to
-   * find a key.
-   */
   function keyboardSketchMarkup(): string {
     return KEYBOARD_GEOMETRY_ROWS.map((row) => `<div class="keyboard-sketch-row">
       ${row.map((key) => `<span class="keyboard-sketch-key${key.units === undefined ? "" : " wide"}" data-code="${key.code}" style="--key-columns:${keyboardColumnSpan(key)}"></span>`).join("")}
@@ -351,10 +252,9 @@ export function createApp(deps: AppDependencies): App {
   }
 
   function currentProgressPercent(): number {
-    if (product.session.targets.length === 0) return 100;
-    return Math.round(
-      (product.session.position / product.session.targets.length) * 100,
-    );
+    const total = product.session.plan.totalSlots;
+    if (total === 0) return 100;
+    return Math.round((product.session.completedCount / total) * 100);
   }
 
   function utteranceText(): string {
@@ -366,9 +266,9 @@ export function createApp(deps: AppDependencies): App {
     let attempts = 0;
     let errors = 0;
     for (const trace of product.session.traces) {
-      if (trace.outcome !== "correct" && trace.outcome !== "incorrect") continue;
+      if (!isMappedPracticeAttempt(trace)) continue;
       attempts += 1;
-      if (trace.outcome === "incorrect") errors += 1;
+      if (isMappedPracticeError(trace)) errors += 1;
     }
     return { attempts, errors };
   }
@@ -443,12 +343,6 @@ export function createApp(deps: AppDependencies): App {
     unlockNotice.clear();
   }
 
-  /**
-   * The other notices in this region describe a lasting condition, so they stay.
-   * This one announces something that just happened, so it retires on its own
-   * rather than sitting in the corner for the rest of the session. Opening the
-   * information panel also retires it, because that is where it was pointing.
-   */
   function showUnlockNotice(message: string): void {
     unlockNotice.set(message, UNLOCK_NOTICE_MS);
   }
@@ -467,13 +361,15 @@ export function createApp(deps: AppDependencies): App {
   function practiceEntryMarkup(): string {
     const entries = buildPracticeEntries(product.round.exercise);
     const punctuation = product.round.selection.utterance.punctuation ?? "";
+    let syllableOrdinal = 0;
     return entries.map((entry, entryIndex) => {
       const glyphs = entry.glyphs.map((glyph) => {
-        const reading = glyph.tokens.map((tokenId, tokenIndex) => {
-          const position = glyph.tokenStart + tokenIndex;
-          return `<span class="reading-token upcoming" data-position="${position}">${escapeHtml(tokenLabel(tokenId))}</span>`;
-        }).join("");
-        return `<span class="practice-glyph upcoming" data-token-start="${glyph.tokenStart}" data-token-end="${glyph.tokenEnd}">
+        const ordinal = syllableOrdinal;
+        syllableOrdinal += 1;
+        const reading = glyph.tokens.map((tokenId, canonicalTokenIndex) =>
+          `<span class="reading-token upcoming" data-syllable-ordinal="${ordinal}" data-canonical-token-index="${canonicalTokenIndex}">${escapeHtml(tokenLabel(tokenId))}</span>`
+        ).join("");
+        return `<span class="practice-glyph upcoming" data-syllable-ordinal="${ordinal}">
           <span class="han-character">${escapeHtml(glyph.character)}</span>
           <span class="syllable-reading" aria-hidden="true">${reading}</span>
         </span>`;
@@ -505,26 +401,13 @@ export function createApp(deps: AppDependencies): App {
       stage.classList.remove("round-enter");
       void stage.offsetWidth;
       stage.classList.add("round-enter");
-      stage.addEventListener("animationend", () => {
-        stage.classList.remove("round-enter");
-      }, { once: true });
+      stage.addEventListener("animationend", () => stage.classList.remove("round-enter"), { once: true });
     }
-
-    // Last, so what the callback measures is the finished round rather than one
-    // still being marked up.
     onRoundMounted?.(stage);
   }
 
-  function glyphVisualState(tokenStart: number, tokenEnd: number): VisualState {
-    if (product.session.position >= tokenEnd) return "done";
-    if (product.session.position >= tokenStart) return "current";
-    return "upcoming";
-  }
-
-  function tokenVisualState(position: number): VisualState {
-    if (position < product.session.position) return "done";
-    if (position === product.session.position) return "current";
-    return "upcoming";
+  function glyphVisualState(ordinal: number): VisualState {
+    return syllableState(product.session, ordinal);
   }
 
   function applyVisualState(element: HTMLElement, state: VisualState): void {
@@ -532,6 +415,27 @@ export function createApp(deps: AppDependencies): App {
     element.classList.add(state);
     if (state === "current") element.setAttribute("aria-current", "true");
     else element.removeAttribute("aria-current");
+  }
+
+  function applyTokenState(element: HTMLElement, state: PracticeTokenState): void {
+    element.classList.remove(
+      "done",
+      "current",
+      "upcoming",
+      "pending",
+      "commit-locked",
+      "commit-ready",
+    );
+    if (state === "done") element.classList.add("done");
+    else if (state === "upcoming") element.classList.add("upcoming");
+    else if (state === "pending") element.classList.add("current", "pending");
+    else if (state === "commit-ready") element.classList.add("current", "commit-ready");
+    else element.classList.add("upcoming", "commit-locked");
+    if (state === "pending" || state === "commit-ready") {
+      element.setAttribute("aria-current", "true");
+    } else {
+      element.removeAttribute("aria-current");
+    }
   }
 
   function updatePracticeFeedback(): void {
@@ -551,11 +455,25 @@ export function createApp(deps: AppDependencies): App {
     }
 
     const latest = product.session.traces.at(-1);
-    if (latest?.outcome === "incorrect") {
+    if (latest?.outcome === "duplicate-component") {
+      feedback.classList.add("error");
+      feedback.setAttribute("aria-live", "assertive");
+      feedback.textContent = `${latest.actualToken === null ? "這個鍵" : tokenLabel(latest.actualToken)} 已經輸入`;
+      return;
+    }
+    if (latest?.outcome === "premature-tone") {
+      feedback.classList.add("error");
+      feedback.setAttribute("aria-live", "assertive");
+      feedback.textContent = "先完成這個音節的注音，再輸入聲調";
+      return;
+    }
+    if (latest?.outcome === "unexpected-tone" || latest?.outcome === "unexpected-component") {
       const actual = latest.actualToken === null ? "未映射鍵" : tokenLabel(latest.actualToken);
       feedback.classList.add("error");
       feedback.setAttribute("aria-live", "assertive");
-      feedback.textContent = `按到 ${actual}，應為 ${tokenLabel(latest.expectedToken)}`;
+      feedback.textContent = latest.attributedExpectedToken === null
+        ? `按到 ${actual}，應為目前音節尚未完成的注音之一`
+        : `按到 ${actual}，應為 ${tokenLabel(latest.attributedExpectedToken)}`;
       return;
     }
     if (latest?.outcome === "unmapped") {
@@ -563,44 +481,46 @@ export function createApp(deps: AppDependencies): App {
       feedback.textContent = "未映射，進度未移動";
       return;
     }
-
     feedback.textContent = "";
   }
 
   function updatePracticeState(): void {
     const stage = requireElement<HTMLElement>("#practice-stage");
     const latest = product.session.traces.at(-1);
+    const errorIndex = errorCanonicalTokenIndex(product.session, latest);
 
     for (const glyph of stage.querySelectorAll<HTMLElement>(".practice-glyph")) {
-      const tokenStart = Number(glyph.dataset.tokenStart);
-      const tokenEnd = Number(glyph.dataset.tokenEnd);
-      applyVisualState(glyph, glyphVisualState(tokenStart, tokenEnd));
+      applyVisualState(glyph, glyphVisualState(Number(glyph.dataset.syllableOrdinal)));
     }
 
     for (const token of stage.querySelectorAll<HTMLElement>(".reading-token")) {
-      const position = Number(token.dataset.position);
-      const state = tokenVisualState(position);
-      applyVisualState(token, state);
-      const hasError = state === "current"
-        && latest?.position === position
-        && latest.outcome === "incorrect";
-      token.classList.toggle("error", hasError);
+      const ordinal = Number(token.dataset.syllableOrdinal);
+      const canonicalTokenIndex = Number(token.dataset.canonicalTokenIndex);
+      const state = tokenState(product.session, ordinal, canonicalTokenIndex);
+      applyTokenState(token, state);
+      token.classList.toggle(
+        "error",
+        ordinal === product.session.currentSyllableOrdinal && errorIndex === canonicalTokenIndex,
+      );
     }
 
     requireElement<HTMLElement>("#progress-fill").style.width = `${currentProgressPercent()}%`;
     requireElement<HTMLElement>("#progress-count").textContent =
-      `${product.session.position} / ${product.session.targets.length}`;
-    const target = product.session.targets[product.session.position];
+      `${product.session.completedCount} / ${product.session.plan.totalSlots}`;
+
+    const view = currentPracticeView(product.session);
     const currentTarget = requireElement<HTMLElement>("#practice-current-target");
-    const announcement = target === undefined
-      ? ""
-      : practiceCurrentTargetText({
-        roundNumber: currentRoundNumber(),
-        position: product.session.position + 1,
-        total: product.session.targets.length,
-        tokenLabel: tokenLabel(target.tokenId),
-        physicalKeyLabel: physicalKeyLabel(reverseBindings.get(target.tokenId) ?? ""),
-      });
+    const tokenLabels = view.acceptableTokens.map(tokenLabel);
+    const keyLabels = view.acceptableTokens.map((tokenId) =>
+      physicalKeyLabel(reverseBindings.get(tokenId) ?? ""));
+    const announcement = practiceCurrentSyllableText({
+      roundNumber: currentRoundNumber(),
+      completed: product.session.completedCount,
+      total: product.session.plan.totalSlots,
+      tokenLabels,
+      physicalKeyLabels: keyLabels,
+      toneReady: view.bodyComplete && view.syllable !== null,
+    });
     if (currentTarget.textContent !== announcement) currentTarget.textContent = announcement;
     updateKeyboardSketch();
     updatePracticeFeedback();
@@ -613,15 +533,13 @@ export function createApp(deps: AppDependencies): App {
       key.classList.remove("current");
     }
     if (!showKeyboardSketch) return;
-    const target = product.session.targets[product.session.position];
-    if (target === undefined) return;
-    const physicalCode = reverseBindings.get(target.tokenId);
-    if (physicalCode === undefined) return;
-    const key = keyboard.querySelector<HTMLElement>(
-      `.keyboard-sketch-key[data-code="${physicalCode}"]`,
-    );
-    if (key === null) return;
-    key.classList.add("current");
+    for (const tokenId of currentPracticeView(product.session).acceptableTokens) {
+      const physicalCode = reverseBindings.get(tokenId);
+      if (physicalCode === undefined) continue;
+      keyboard.querySelector<HTMLElement>(
+        `.keyboard-sketch-key[data-code="${physicalCode}"]`,
+      )?.classList.add("current");
+    }
   }
 
   function updateTopbar(): void {
@@ -649,8 +567,6 @@ export function createApp(deps: AppDependencies): App {
     previousResult.set(record, PREVIOUS_RESULT_MS);
   }
 
-  // The information panel links to licence files that live in the repository, not
-  // in the deployed bundle, so they resolve against GitHub rather than the site.
   const REPOSITORY_URL = "https://github.com/Mochi96336/bopomofo-trainer";
 
   function renderHistoryRows(): string {
@@ -672,14 +588,6 @@ export function createApp(deps: AppDependencies): App {
     }).join("");
   }
 
-  /**
-   * The rarest level in the current sentence; `null` when none is known.
-   *
-   * The rarest word, not the most common one: selection is already weighted
-   * towards common words, so nearly every sentence contains a top-tier word and
-   * that reading would sit at one mark almost always. The rarest word is what
-   * actually varies, and it is what makes a sentence hard.
-   */
   function roundRarestCommonnessTier(): CommonnessTier | null {
     const tiers = product.round.exercise.entries
       .map((entry) => catalogEntryCommonnessTier(entry, COMMONNESS_TIER_THRESHOLDS))
@@ -688,8 +596,6 @@ export function createApp(deps: AppDependencies): App {
     return tiers.reduce((rarest, tier) => (tier > rarest ? tier : rarest));
   }
 
-  // One reading beside the round status, which is where a level is legible
-  // without a legend on the practice stage.
   function renderCommonnessStatus(): void {
     const element = requireElement<HTMLElement>("#information-commonness");
     const tier = roundRarestCommonnessTier();
@@ -704,12 +610,6 @@ export function createApp(deps: AppDependencies): App {
       <span class="entry-commonness" data-tier="${tier}" aria-hidden="true">${commonnessDotsMarkup(tier)}</span>`;
   }
 
-  /**
-   * One round mark per level, numbered in the same order as the level reading on
-   * the practice stage. A locked mark says what it is waiting for rather than only
-   * that it is closed, and the last lit mark cannot be switched off because a pool
-   * with no levels in it has no sentence to draw.
-   */
   function renderRaritySection(): string {
     const practised = practisedKeyCount(product.progress.measurements);
     const toggles = COMMONNESS_TIERS.map((tier) => {
@@ -730,10 +630,6 @@ export function createApp(deps: AppDependencies): App {
         ${unlocked && !onlyEnabled ? "" : "disabled"}
       >${tier}</button>`;
     }).join("");
-    // Label, marks and count share one line: four marks and a pair of numbers do
-    // not fill a row each, and reading them together is the whole point. The reply
-    // to a press sits under the count rather than over it, so changing a level
-    // never costs the learner the progress they changed it against.
     const progress = rarityProgressText(
       nextCommonnessUnlock(product.progress.measurements),
       inspectionUnlockAll,
@@ -782,11 +678,6 @@ export function createApp(deps: AppDependencies): App {
     candidates[0]?.focus({ preventScroll: true });
   }
 
-  /**
-   * Writes a status into a region that is already on the page. The element is
-   * never added or removed, so the text change is what gets announced and the
-   * controls above it do not move when a reply arrives.
-   */
   function updateActionStatus(id: string, status: PanelActionStatus): void {
     const element = document.querySelector<HTMLElement>(`#${id}`);
     if (element === null) return;
@@ -904,23 +795,16 @@ export function createApp(deps: AppDependencies): App {
     backupInput?.addEventListener("change", () => void importProductBackup(backupInput));
     content.querySelector<HTMLButtonElement>("#reset-progress")?.addEventListener("click", () => void resetProgress());
     restoreInformationFocus(content, focusIdentity);
-    // After the focus restore, which is where the observer's microtask used to
-    // land: the enhancement rewrites a section, and doing that before the
-    // restore would take the element being restored to out from under it.
     onPanelRendered?.(content);
   }
 
   function openInformationPanel(): void {
     const dialog = requireElement<HTMLDialogElement>("#information-dialog");
     if (dialog.open) return;
-    // The unlock notice points here, so opening the panel retires it early.
     if (unlockNotice.value !== null) {
       clearUnlockNotice();
       renderNotices();
     }
-    // Nothing to blank on the way in. The count has its own element, so a status
-    // never took its place, and closing the panel already retired the statuses
-    // from the last visit.
     renderInformationPanel();
     dialog.showModal();
     requireElement<HTMLButtonElement>(".dialog-close").focus({ preventScroll: true });
@@ -965,7 +849,7 @@ export function createApp(deps: AppDependencies): App {
     if (input !== null) syncRangeFill(input);
     input?.addEventListener("input", () => {
       if (output !== null) output.value = `${input.value}%`;
-      if (input !== null) syncRangeFill(input);
+      syncRangeFill(input);
     });
     input?.addEventListener("change", () => {
       selectionTuning = { ...selectionTuning, [key]: Number(input.value) / 100 };
@@ -989,7 +873,6 @@ export function createApp(deps: AppDependencies): App {
     updateActionStatus("data-notice", dataStatus);
   }
 
-  /** What importing replaces, in the order the panel presents it. */
   const IMPORT_REPLACES = [
     "練習進度",
     "最近紀錄",
@@ -1009,17 +892,10 @@ export function createApp(deps: AppDependencies): App {
       ],
       note: "",
       confirmLabel: "匯入並取代",
-      // Replacing is not deleting: the learner chose a file to arrive, and the
-      // sentence on the button already says what happens to what is here.
       tone: "normal",
     };
   }
 
-  /**
-   * One import at a time. The confirmation is asynchronous now, so a second file
-   * picked while the first is still being read would leave two applications of two
-   * different generations racing into the same state.
-   */
   let importInFlight = false;
 
   async function importProductBackup(input: HTMLInputElement): Promise<void> {
@@ -1039,9 +915,6 @@ export function createApp(deps: AppDependencies): App {
         ),
         confirmReplacement: (backup) => confirmDialog.confirm(importConfirmation(backup)),
       });
-
-      // Declining leaves the picker reusable without help here: the shell clears
-      // the file input on every change, so the same file can be chosen again.
       if (outcome.kind === "no-file" || outcome.kind === "cancelled") return;
       if (outcome.kind === "unreadable") {
         dataStatus = actionFailed("無法讀取這份存檔。");
@@ -1056,8 +929,6 @@ export function createApp(deps: AppDependencies): App {
 
   function applyImportedBackup(backup: ProductBackup): void {
     selectionTuning = backup.selectionTuning;
-    // The imported tuning carries its own selection influences, so both
-    // environments are rebuilt even when the practised levels come out the same.
     storageEnvironment = environmentFor(catalogs);
     syncPractisedLevels(backup.progress, true);
     product = createProductState(environment, backup.progress, performance.now());
@@ -1084,13 +955,8 @@ export function createApp(deps: AppDependencies): App {
     title: "清除所有本機進度？",
     sections: [{
       heading: "將清除",
-      // Automatic evaluation rounds were removed, so this no longer mentions
-      // them; it does name the progress trend and the levels that were unlocked,
-      // both of which go with the measurements they were earned from.
       items: ["練習進度", "最近紀錄", "弱點量測", "進步趨勢", "稀有度解鎖"],
     }],
-    // The one thing a learner can still fall back on, and the only reassurance
-    // worth the line. What the site itself keeps is not a plausible worry.
     note: "已下載的存檔檔案不受影響。",
     confirmLabel: "清除全部資料",
     tone: "danger",
@@ -1098,18 +964,14 @@ export function createApp(deps: AppDependencies): App {
 
   async function resetProgress(): Promise<void> {
     if (!await confirmDialog.confirm(RESET_CONFIRMATION)) return;
-
     const clearing = clearLocalRecords(storage);
     storageWarning = clearing.storageWarning;
-
     const progress = createFreshProgressForEnvironment(
       storageEnvironment,
       newSeed(),
       "guided",
       STANDARD_BOPOMOFO_LAYOUT.id,
     );
-    // Cleared measurements mean nothing is unlocked any more, so practice returns
-    // to the most common level exactly as it does for a first run.
     syncPractisedLevels(progress);
     clearUnlockNotice();
     product = createProductState(environment, progress, performance.now());
@@ -1136,18 +998,12 @@ export function createApp(deps: AppDependencies): App {
       product.round,
       summary,
       product.session.traces,
-      environment.measurementPolicy,
     );
     pilotHistory = appendPilotRoundRecord(pilotHistory, record);
-    // History is folded exactly here: once, after the round is finalized and the
-    // measurement decisions for it are settled. Opening diagnostics, reloading,
-    // or re-importing a backup never re-enters this path, and the append itself
-    // ignores rounds it has already seen.
     progressHistory = appendRoundToProgressHistory({
       history: progressHistory,
       exercise: product.round.exercise,
       traces: product.session.traces,
-      measurementPolicy: environment.measurementPolicy,
       completedRound: roundNumber,
     });
     persistProgress();
@@ -1168,10 +1024,6 @@ export function createApp(deps: AppDependencies): App {
     const preservedProgress = product.progress;
     const previousUtteranceId = product.round.selection.utterance.id;
     let preview = product;
-
-    // Selection is deterministic by seed. Vary only the temporary selection
-    // seed and retry a few times so F8 normally shows a genuinely different
-    // prompt without recording a fake completion or modifying learner state.
     for (let attempt = 0; attempt < 8; attempt += 1) {
       inspectionAdvanceCount += 1;
       preview = createProductState(
@@ -1184,7 +1036,6 @@ export function createApp(deps: AppDependencies): App {
       );
       if (preview.round.selection.utterance.id !== previousUtteranceId) break;
     }
-
     product = { ...preview, progress: preservedProgress };
     imeWarning = false;
     capture.value = "";
@@ -1194,13 +1045,6 @@ export function createApp(deps: AppDependencies): App {
     focusCapture(true);
   }
 
-  /**
-   * Opens every commonness level for this page, or closes the override again.
-   *
-   * Nothing is written: the learner's measurements, unlock progress and level
-   * preference are untouched, so reloading returns to what was actually earned.
-   * The preference still applies, so a level switched off stays off.
-   */
   function toggleInspectionUnlock(): void {
     inspectionUnlockAll = !inspectionUnlockAll;
     syncPractisedLevels(product.progress);
@@ -1209,23 +1053,13 @@ export function createApp(deps: AppDependencies): App {
       : "檢視用開放已關閉，回到實際解鎖狀態。");
   }
 
-  /**
-   * Types the rest of the current sentence correctly and finishes the round.
-   *
-   * Each input is preceded by an unmapped guard input, which is exactly the
-   * interaction-noise case the measurement policy already excludes timing for: a
-   * machine typing at machine speed must not leave 0 ms best times behind. The
-   * correctness observations are real and do count -- the round is recorded as a
-   * clean one -- so this inflates accuracy and the practised-key counters. Use F9
-   * to look at rarer vocabulary; this key is for driving the round flow.
-   */
   function completeRoundForInspection(): void {
     if (product.summary !== null) return;
     const completedAt = new Date().toISOString();
     while (product.summary === null) {
-      const target = product.session.targets[product.session.position];
-      if (target === undefined) return;
-      for (const actualToken of [null, target.tokenId]) {
+      const token = inspectionNextToken(product.session);
+      if (token === null) return;
+      for (const actualToken of [null, token]) {
         product = applyProductInput(environment, product, {
           timestampMs: performance.now(),
           physicalCode: "InspectionComplete",
@@ -1292,7 +1126,7 @@ export function createApp(deps: AppDependencies): App {
     if (
       previousResult.value !== null
       && product.session.traces.length > beforeTraceCount
-      && latest?.outcome === "correct"
+      && latest?.accepted === true
     ) {
       clearPreviousResult();
     }
@@ -1345,8 +1179,6 @@ export function createApp(deps: AppDependencies): App {
     openInformationPanel();
   };
 
-  // Never `focusCapture` itself: a focus listener is called with the event, and
-  // the event object would arrive as the `force` argument and read as true.
   const handleWindowFocus = (): void => {
     focusCapture();
   };
@@ -1358,7 +1190,6 @@ export function createApp(deps: AppDependencies): App {
   window.addEventListener("focus", handleWindowFocus, { signal: eventScope.signal });
 
   mountShell();
-  // After the shell, because setting it renders the region it appears in.
   const recovered = [
     boot.recoveredFromInvalidState ? PROGRESS_RECOVERY_NOTICE : "",
     boot.recoveredPilotHistory ? PILOT_RECOVERY_NOTICE : "",
@@ -1382,9 +1213,6 @@ export function createApp(deps: AppDependencies): App {
       return { progress: product.progress, progressHistory, selectionTuning };
     },
     destroy(): void {
-      // Everything on the document, the window and the capture textarea goes at
-      // once, including the four anonymous handlers on capture that no
-      // `removeEventListener` call could have named.
       eventScope.abort();
       unlockNotice.clear();
       previousResult.clear();

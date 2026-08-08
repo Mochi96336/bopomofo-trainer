@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { InteractionInput } from "../../src/practice/interaction-session.js";
+import type { PracticeInput } from "../../src/practice/interaction-input.js";
+import { inspectionNextToken } from "../../src/app/practice-session-view.js";
 import {
   applyProductInput,
   createFreshProgressForEnvironment,
@@ -27,12 +28,13 @@ function typeRoundCorrectly(state: State, startMs: number): State {
   let current = state;
   let timestamp = startMs;
   while (current.summary === null) {
-    const target = current.session.targets[current.session.position]!;
+    const token = inspectionNextToken(current.session);
+    if (token === null) throw new Error("incomplete session has no acceptable token");
     timestamp += 120;
-    const input: InteractionInput = {
+    const input: PracticeInput = {
       timestampMs: timestamp,
       physicalCode: "Test",
-      actualToken: target.tokenId,
+      actualToken: token,
       repeat: false,
       composing: false,
       modifierOnly: false,
@@ -42,11 +44,6 @@ function typeRoundCorrectly(state: State, startMs: number): State {
   return current;
 }
 
-/**
- * Plays whole rounds through the real product loop and folds each completed
- * round into history exactly once, mirroring the browser's round-completion
- * flow.
- */
 function playRounds(count: number): { state: State; history: ProgressHistory } {
   const progress = createFreshProgressForEnvironment(
     environment,
@@ -63,7 +60,6 @@ function playRounds(count: number): { state: State; history: ProgressHistory } {
       history,
       exercise: state.round.exercise,
       traces: state.session.traces,
-      measurementPolicy: environment.measurementPolicy,
       completedRound: state.progress.practiceRoundsCompleted,
     });
     if (round < count) state = startNextProductRound(environment, state, round * 10_000 + 5_000);
@@ -80,15 +76,14 @@ describe("progress history across the product round loop", () => {
     expect(Object.keys(history.keys).length).toBeGreaterThan(0);
     for (const entry of Object.values(history.keys)) {
       expect(validTokens.has(entry.tokenId)).toBe(true);
-      // A key's history can never exceed what the learner actually produced.
       expect(entry.totalTimingSamples).toBeLessThanOrEqual(entry.totalObservations);
     }
   });
 
-  it("agrees with the cumulative aggregate on how many observations exist", () => {
+  it("agrees with the cumulative v2 binding aggregate on observation counts", () => {
     const { state, history } = playRounds(6);
 
-    for (const aggregate of Object.values(state.progress.measurements.bindings)) {
+    for (const aggregate of Object.values(state.progress.measurements.semantic.bindings)) {
       const entry = history.keys[aggregate.scope.tokenId];
       expect(entry).toBeDefined();
       expect(entry!.totalObservations).toBe(aggregate.attempts);
@@ -102,12 +97,8 @@ describe("progress history across the product round loop", () => {
       history,
       exercise: state.round.exercise,
       traces: state.session.traces,
-      measurementPolicy: environment.measurementPolicy,
       completedRound: state.progress.practiceRoundsCompleted,
     });
-
-    // Re-entering this path — a re-imported backup, a reopened panel — cannot
-    // inflate history.
     expect(replayed).toBe(history);
   });
 
@@ -129,8 +120,6 @@ describe("progress history across the product round loop", () => {
 
   it("is unaffected by inspecting a different prompt without completing it", () => {
     const { state, history } = playRounds(2);
-    // F8 inspection swaps the previewed round while preserving progress; no
-    // round completes, so nothing reaches the append path at all.
     const preview = createProductState(
       environment,
       { ...state.progress, seed: `${state.progress.seed}:inspection:1` },
