@@ -16,10 +16,7 @@ import {
   compatibleProfilesForSlot,
   realizeStructuralDerivation,
 } from "../syntax/realize.js";
-import {
-  sampleStructuralDerivation,
-  type StructuralRuleOrderer,
-} from "../syntax/sample.js";
+import { sampleStructuralDerivation } from "../syntax/sample.js";
 import type {
   DerivationBounds,
   ProductionRule,
@@ -28,7 +25,10 @@ import type {
 import {
   chooseSentenceConstructionVariant,
   createSentenceConstructionFamilyPlan,
+  PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
   rootFamilyAttemptBudget,
+  validateFormalSyntaxSamplingPolicy,
+  type FormalSyntaxSamplingPolicy,
   type SentenceConstructionFamilyPlan,
 } from "./formal-syntax-sampling-policy.js";
 
@@ -52,8 +52,11 @@ export interface FormalSyntaxUtteranceInput {
    * explicit. Passing FORMAL_SYNTAX_RULES explicitly does not change the mode.
    */
   readonly samplingMode?: FormalSyntaxSamplingMode;
-  /** Raw/research-only ordering override. It cannot be combined with product-family mode. */
-  readonly ruleOrderer?: StructuralRuleOrderer | null;
+  /**
+   * Curriculum policy injected at the composer boundary. It is valid only with
+   * product-family mode; omitted input uses PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.
+   */
+  readonly samplingPolicy?: FormalSyntaxSamplingPolicy;
 }
 
 function nextUnit(random: RandomSource): number {
@@ -185,15 +188,17 @@ export function composeFormalSyntaxUtterances(
   if (useProductFamilyPolicy && !sameCanonicalRuleSet(rules, FORMAL_SYNTAX_RULES)) {
     throw new Error("product-family sampling requires the canonical complete formal syntax rule set");
   }
-  if (useProductFamilyPolicy && input.ruleOrderer !== undefined && input.ruleOrderer !== null) {
-    throw new Error("product-family sampling cannot be combined with a custom ruleOrderer");
+  if (!useProductFamilyPolicy && input.samplingPolicy !== undefined) {
+    throw new Error("samplingPolicy requires product-family sampling mode");
   }
+  const samplingPolicy = useProductFamilyPolicy
+    ? input.samplingPolicy ?? PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY
+    : null;
+  if (samplingPolicy !== null) validateFormalSyntaxSamplingPolicy(samplingPolicy);
+
   // #155 deliberately controls Sentence-root family probability only. Nested
   // Clause/Phrase sampling stays on the raw structural sampler until a dedicated
   // nested family-local search contract exists.
-  const ruleOrderer: StructuralRuleOrderer | undefined = useProductFamilyPolicy
-    ? undefined
-    : input.ruleOrderer ?? undefined;
   const sentenceRules = useProductFamilyPolicy
     ? rules.filter((rule) => rule.output === "Sentence")
     : [];
@@ -204,9 +209,13 @@ export function composeFormalSyntaxUtterances(
   let rootFamilyBudgetInsufficient = false;
 
   const currentRootFamily = (remainingAttempts: number): SentenceConstructionFamilyPlan | null => {
-    if (!useProductFamilyPolicy) return null;
+    if (!useProductFamilyPolicy || samplingPolicy === null) return null;
     if (rootFamilyPlan === null) {
-      rootFamilyPlan = createSentenceConstructionFamilyPlan(sentenceRules, input.random);
+      rootFamilyPlan = createSentenceConstructionFamilyPlan(
+        sentenceRules,
+        input.random,
+        samplingPolicy,
+      );
       rootFamilyIndex = 0;
       attemptsInRootFamily = 0;
       rootFamilyBudgetInsufficient = remainingAttempts < rootFamilyPlan.length;
@@ -257,7 +266,6 @@ export function composeFormalSyntaxUtterances(
         return compatibleProfilesForSlot(slot, index).length > 0;
       },
       ...(input.bounds === undefined ? {} : { bounds: input.bounds }),
-      ...(ruleOrderer === undefined ? {} : { ruleOrderer }),
       ...(rootProductionRuleId === undefined ? {} : { rootProductionRuleId }),
     });
     if (shape === null) {
