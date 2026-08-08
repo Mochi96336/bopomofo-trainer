@@ -27,7 +27,6 @@ import type {
 } from "../syntax/types.js";
 import {
   chooseSentenceConstructionVariant,
-  createFormalSyntaxFamilyRuleOrderer,
   createSentenceConstructionFamilyPlan,
   rootFamilyAttemptBudget,
   type SentenceConstructionFamilyPlan,
@@ -48,9 +47,9 @@ export interface FormalSyntaxUtteranceInput {
   readonly rules?: readonly ProductionRule[];
   readonly bounds?: DerivationBounds;
   /**
-   * Product-family sampling is inferred for the complete formal grammar and raw
-   * sampling for custom grammars. Callers may make that choice explicit. Passing
-   * the complete FORMAL_SYNTAX_RULES explicitly does not change the mode.
+   * Product-family sampling is inferred only for the canonical complete formal
+   * grammar and raw sampling for custom grammars. Callers may make that choice
+   * explicit. Passing FORMAL_SYNTAX_RULES explicitly does not change the mode.
    */
   readonly samplingMode?: FormalSyntaxSamplingMode;
   /** Raw/research-only ordering override. It cannot be combined with product-family mode. */
@@ -142,19 +141,21 @@ function punctuationForPath(path: readonly string[]): "。" | "！" | "？" {
   return "。";
 }
 
-function sameRuleIdSet(
-  left: readonly ProductionRule[],
-  right: readonly ProductionRule[],
+function sameCanonicalRuleSet(
+  rules: readonly ProductionRule[],
+  canonicalRules: readonly ProductionRule[],
 ): boolean {
-  if (left.length !== right.length) return false;
-  const leftIds = new Set(left.map((rule) => rule.id));
-  const rightIds = new Set(right.map((rule) => rule.id));
-  if (leftIds.size !== left.length || rightIds.size !== right.length) return false;
-  return leftIds.size === rightIds.size && [...leftIds].every((ruleId) => rightIds.has(ruleId));
+  if (rules.length !== canonicalRules.length) return false;
+  const byId = new Map(rules.map((rule) => [rule.id, rule]));
+  if (byId.size !== rules.length) return false;
+  return canonicalRules.every((canonicalRule) => {
+    const candidate = byId.get(canonicalRule.id);
+    return candidate !== undefined && JSON.stringify(candidate) === JSON.stringify(canonicalRule);
+  });
 }
 
 function inferredSamplingMode(rules: readonly ProductionRule[]): FormalSyntaxSamplingMode {
-  return sameRuleIdSet(rules, FORMAL_SYNTAX_RULES) ? "product-family" : "raw";
+  return sameCanonicalRuleSet(rules, FORMAL_SYNTAX_RULES) ? "product-family" : "raw";
 }
 
 export function composeFormalSyntaxUtterances(
@@ -181,17 +182,17 @@ export function composeFormalSyntaxUtterances(
   const rules = input.rules ?? FORMAL_SYNTAX_RULES;
   const samplingMode = input.samplingMode ?? inferredSamplingMode(rules);
   const useProductFamilyPolicy = samplingMode === "product-family";
-  if (useProductFamilyPolicy && !sameRuleIdSet(rules, FORMAL_SYNTAX_RULES)) {
-    throw new Error("product-family sampling requires the complete formal syntax rule set");
+  if (useProductFamilyPolicy && !sameCanonicalRuleSet(rules, FORMAL_SYNTAX_RULES)) {
+    throw new Error("product-family sampling requires the canonical complete formal syntax rule set");
   }
   if (useProductFamilyPolicy && input.ruleOrderer !== undefined && input.ruleOrderer !== null) {
     throw new Error("product-family sampling cannot be combined with a custom ruleOrderer");
   }
-  const familyRuleOrderer = useProductFamilyPolicy ? createFormalSyntaxFamilyRuleOrderer() : null;
+  // #155 deliberately controls Sentence-root family probability only. Nested
+  // Clause/Phrase sampling stays on the raw structural sampler until a dedicated
+  // nested family-local search contract exists.
   const ruleOrderer: StructuralRuleOrderer | undefined = useProductFamilyPolicy
-    ? (orderingInput) => orderingInput.category === "Sentence"
-      ? null
-      : familyRuleOrderer!(orderingInput)
+    ? undefined
     : input.ruleOrderer ?? undefined;
   const sentenceRules = useProductFamilyPolicy
     ? rules.filter((rule) => rule.output === "Sentence")
