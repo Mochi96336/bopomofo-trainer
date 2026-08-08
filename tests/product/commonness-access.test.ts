@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { COMMONNESS_TIERS, type CommonnessTier } from "../../src/commonness/tiers.js";
 import type { CatalogCommonnessBase } from "../../src/core/model.js";
-import type { BindingAggregate, MeasurementSummary } from "../../src/measurement/types.js";
+import {
+  MEASUREMENT_V2_POLICY_VERSION,
+  type BindingAggregateV2,
+  type MeasurementSummaryV2,
+} from "../../src/measurement-v2/aggregate.js";
 import {
   catalogsForCommonnessTiers,
   COMMONNESS_UNLOCK_POLICY,
@@ -13,7 +17,7 @@ import {
 } from "../../src/product/commonness-access.js";
 import { PRODUCT_CATALOGS } from "./fixtures.js";
 
-function binding(tokenId: string, attempts: number, errors: number): BindingAggregate {
+function binding(tokenId: string, attempts: number, errors: number): BindingAggregateV2 {
   return {
     scope: { mode: "guided", layoutId: "standard", tokenId },
     attempts,
@@ -21,7 +25,6 @@ function binding(tokenId: string, attempts: number, errors: number): BindingAggr
     timingSamples: 0,
     currentTimeToTypeMs: null,
     bestTimeToTypeMs: null,
-    timingExclusions: { syllableStart: 0, incorrect: 0, recovery: 0, interactionNoise: 0 },
   };
 }
 
@@ -42,23 +45,28 @@ function commonnessBase(selectionWeight: number): CatalogCommonnessBase {
   };
 }
 
-/** `practised` keys at the clean-input bar, plus one key that falls short. */
-function measurements(practised: number, cleanInputs = 8): MeasurementSummary {
-  const bindings: Record<string, BindingAggregate> = {
+function measurements(practised: number, cleanInputs = 8): MeasurementSummaryV2 {
+  const bindings: Record<string, BindingAggregateV2> = {
     short: binding("zhuyin:ㄦ", COMMONNESS_UNLOCK_POLICY.cleanInputsPerKey - 1, 0),
   };
   for (let index = 0; index < practised; index += 1) {
     bindings[`key-${index}`] = binding(`zhuyin:${index}`, cleanInputs + 3, 3);
   }
   return {
-    policyVersion: "test",
-    traceCount: 0,
-    bindingObservationCount: 0,
-    confusionObservationCount: 0,
-    transitionObservationCount: 0,
-    bindings,
-    confusions: {},
-    transitions: {},
+    policyVersion: MEASUREMENT_V2_POLICY_VERSION,
+    semantic: {
+      bindings,
+      confusions: {},
+      ambiguousErrors: 0,
+      duplicateComponents: 0,
+      prematureTones: 0,
+    },
+    motor: {
+      coordination: {},
+      immediateHands: {},
+      sameHandRevisits: {},
+      toneCommits: {},
+    },
   };
 }
 
@@ -79,9 +87,12 @@ describe("commonness unlock policy", () => {
 
   it("does not count errors towards a key, so accuracy shortens the road", () => {
     const clean = COMMONNESS_UNLOCK_POLICY.cleanInputsPerKey;
-    const sloppy: MeasurementSummary = {
+    const sloppy: MeasurementSummaryV2 = {
       ...measurements(0),
-      bindings: { one: binding("zhuyin:ㄅ", clean, clean) },
+      semantic: {
+        ...measurements(0).semantic,
+        bindings: { one: binding("zhuyin:ㄅ", clean, clean) },
+      },
     };
     expect(practisedKeyCount(sloppy)).toBe(0);
   });
@@ -131,8 +142,6 @@ describe("catalogs for commonness levels", () => {
   });
 
   it("keeps entries without frequency evidence at every setting", () => {
-    // The fixture catalog carries no commonness base, so no entry has a level to
-    // be filtered by and narrowing must not empty the pool.
     const narrowed = catalogsForCommonnessTiers(PRODUCT_CATALOGS, thresholds, [1]);
     expect(narrowed.practice).toEqual(PRODUCT_CATALOGS.practice);
   });
