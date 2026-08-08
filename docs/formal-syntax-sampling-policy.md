@@ -1,55 +1,91 @@
-# Formal syntax sampling taxonomy
+# Formal syntax sampling policy
 
 The formal grammar and the product sampling policy are different layers.
 
-`src/syntax` answers whether a derivation is legal. It must not assign product frequency to a construction. The production sampler currently tries reachable rules in randomized order, so splitting one linguistic construction into more `ProductionRule`s can accidentally give that construction more raw sampling tickets.
-
-The curriculum-side registry in `src/curriculum/formal-syntax-taxonomy.ts` makes that coupling explicit before the behavior is changed. It classifies current `Sentence` and `Clause` productions in a hierarchy:
+`src/syntax` answers whether a derivation is legal. It does not assign product frequency to a construction. The curriculum taxonomy classifies legal productions as:
 
 ```text
 kind -> construction family -> production variant
 ```
 
-This lets later curriculum policy assign mass above the raw production level. Adding or splitting a production must not silently change the mass of its construction family.
+The product policy assigns probability above the raw production level. Variants only divide the mass already assigned to their construction family.
 
-## Current equal-rule ticket audit
+## Why this exists
 
-With the current grammar, ten `Sentence` productions are reachable at the root. If all are reachable and each production behaves like one equal ticket, the raw structural distribution is:
+The raw structural sampler randomizes reachable productions. With the current grammar, that means ten root `Sentence` productions behave like ten equal tickets before reachability/failover effects:
 
 - statement: 2/10 = 20%
 - question: 6/10 = 60%
 - request: 1/10 = 10%
 - exclamative: 1/10 = 10%
 
-Within the root rules, `question.a-not-a` owns two tickets (20% of all root productions) because its intransitive and transitive variants are separate grammar rules. `question.constituent` has the same structural duplication.
+`question.a-not-a` owns two of those raw tickets solely because intransitive and transitive A-not-A are separate executable productions. `question.constituent` has the same implementation duplication. That is a grammar representation detail, not a sensible curriculum prior.
 
-This is an audit of the current sampler mechanics, not an intended language or curriculum distribution. Realized shares can differ further because lexical reachability, derivation bounds, and realization failures cause retry/failover.
+The same leakage exists at `Clause`: the complete grammar currently has 24 Clause productions, including four embedded/content rules from `complement-rules.ts`.
 
-The same risk exists below the root. The complete grammar currently has 24 `Clause` productions, including four embedded/content-clause rules declared in `complement-rules.ts`. Their raw equal-ticket coarse-kind shares are:
+## Product prior
 
-- core predication: 8/24 = 33.3%
-- marked constructions: 6/24 = 25%
-- embedded/content clauses: 4/24 = 16.7%
-- complex predicates: 3/24 = 12.5%
-- information structure/omission: 3/24 = 12.5%
+`PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY` is a training prior, not a claim about natural Mandarin corpus frequencies.
 
-Each current Clause production also has its own specific construction family (`core.transitive`, `marked.ba`, `embedded.object-content`, and so on). That extra level matters because a future split of one construction into several executable variants should not make that construction more common inside its coarse kind.
+Root kinds start at:
 
-Again, the percentages above are implementation ticket counts, not desired product weights.
+- statement: 64%
+- question: 26%
+- request: 6%
+- exclamative: 4%
+
+Question mass is then divided by construction family:
+
+- polar: 35% of question mass
+- constituent: 30%
+- A-not-A: 25%
+- alternative: 10%
+
+The nominal A-not-A prior is therefore:
+
+```text
+0.26 × 0.25 = 0.065 = 6.5%
+```
+
+Both A-not-A productions share that same 6.5% family mass. Adding another executable A-not-A variant does not create another top-level ticket.
+
+Clause kinds start at:
+
+- core predication: 60%
+- marked constructions: 20%
+- complex predicates: 8%
+- information structure/omission: 7%
+- embedded/content clauses: 5%
+
+Current Clause families begin equal within their coarse kind. The important boundary is still explicit: a future split of `marked.bei`, `marked.ba`, or another construction into multiple production variants does not increase the construction's family mass.
+
+## Failover semantics
+
+Sampling uses weighted ordering without replacement:
+
+1. choose an available kind by weight;
+2. choose an available construction family inside it by weight;
+3. shuffle executable variants inside that family;
+4. try all variants in the selected family before falling through to the next weighted family/kind.
+
+Unavailable kinds or families are naturally renormalized among those still present. A policy never filters grammar rules or makes an illegal derivation legal.
+
+The raw `sampleStructuralDerivation()` API keeps its existing uniform-shuffle behavior unless a caller supplies a rule orderer. The curriculum formal-syntax composer applies the product family policy only when using the default formal grammar. Custom grammar callers keep raw sampler behavior by default, and callers can explicitly override or disable rule ordering.
 
 ## Contract
 
 1. Formal grammar remains the legality source of truth.
-2. Sampling taxonomy lives outside `src/syntax`.
-3. Adding or splitting a controlled grammar production requires an explicit taxonomy update.
-4. Curriculum policy may assign mass to kinds and construction families, then normalize production variants inside a family.
+2. Sampling taxonomy and probability live outside `src/syntax` grammar definitions.
+3. Adding or splitting a controlled production requires an explicit taxonomy update.
+4. Kind and family weights belong to versioned curriculum policy.
 5. Variant count must not silently change family probability.
-6. Learner adaptation and recency penalties remain later policy layers; they do not legalize or invalidate grammar.
+6. Rule ordering may reorder but may not filter, duplicate, or replace eligible grammar productions.
+7. Learner adaptation and construction recency are later policy layers; they do not legalize or invalidate grammar.
 
-Run the diagnostic directly with:
+Run the diagnostic with:
 
 ```sh
 npx tsx scripts/audit-formal-syntax-sampling.ts
 ```
 
-This change is deliberately diagnostic-only. It does not alter generated utterances or sampling probabilities yet.
+It reports both the old equal-production ticket shares and the nominal product family priors. Realized frequencies can still differ because lexical reachability, derivation bounds, and failover are real constraints; those effective shares should be monitored separately rather than baked back into grammar.
