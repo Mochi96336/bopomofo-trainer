@@ -245,7 +245,13 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
   let model = options.getModel();
   let preferences = loadPreferences(options.storage);
   let selectedKey: TokenId | null = null;
+  let openFrame: number | null = null;
   const persist = () => savePreferences(options.storage, preferences);
+  const cancelOpenFrame = (): void => {
+    if (openFrame === null) return;
+    window.cancelAnimationFrame(openFrame);
+    openFrame = null;
+  };
   const render = () => {
     host.innerHTML = `<div class="analysis-v2-shell"><header class="analysis-v2-header"><div><p class="analysis-v2-kicker">Analysis V2</p><h2 id="diagnostic-analysis-title">學習分析</h2></div><div class="analysis-v2-header-actions"><div class="analysis-v2-tabs" role="tablist" aria-label="分析類型">${TABS.map((tab) => `<button type="button" role="tab" data-action="select-tab" data-tab="${tab}" aria-selected="${preferences.activeTab === tab}" tabindex="${preferences.activeTab === tab ? 0 : -1}">${tabLabel(tab)}</button>`).join("")}</div><button type="button" class="diagnostic-analysis-close" data-action="close-analysis" aria-label="返回練習">Esc</button></div></header><main class="analysis-v2-main">${bodyMarkup(model, preferences, selectedKey)}</main></div>`;
   };
@@ -257,18 +263,22 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
     if (focus) host.querySelector<HTMLButtonElement>(`[data-action="select-tab"][data-tab="${tab}"]`)?.focus();
   };
   const close = () => {
+    cancelOpenFrame();
     host.hidden = true;
     host.classList.remove("open");
     options.onClose?.();
   };
   const open = (initialTab?: AnalysisV2Tab) => {
+    cancelOpenFrame();
     model = options.getModel();
     const loaded = loadPreferences(options.storage);
     preferences = initialTab === undefined ? loaded : { ...loaded, activeTab: initialTab };
     selectedKey = null;
     host.hidden = false;
     render();
-    window.requestAnimationFrame(() => {
+    openFrame = window.requestAnimationFrame(() => {
+      openFrame = null;
+      if (host.hidden) return;
       host.classList.add("open");
       host.querySelector<HTMLButtonElement>(".diagnostic-analysis-close")?.focus();
     });
@@ -329,6 +339,7 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
     open,
     close,
     destroy(): void {
+      cancelOpenFrame();
       window.removeEventListener("keydown", interceptEscape, { capture: true });
       host.remove();
     },
