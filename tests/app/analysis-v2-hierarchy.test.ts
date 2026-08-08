@@ -90,11 +90,15 @@ const MODEL: AnalysisV2Model = {
         observations: 6,
       },
       {
+        scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "last" },
+        observations: 6,
+      },
+      {
         scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "first" },
         observations: 4,
       },
     ],
-    totalObservations: 10,
+    totalObservations: 16,
     bodySizeBucketsWithData: 1,
   },
 };
@@ -164,14 +168,15 @@ describe("Analysis V2 visual hierarchy", () => {
     expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toContain("100 ms");
   });
 
-  it("gives strategy one readable deviation anchor without changing its bounded matrix", () => {
+  it("gives strategy one supported deviation anchor without changing its bounded matrix", () => {
     const host = open();
     host.querySelector<HTMLButtonElement>(
       '[data-action="select-tab"][data-tab="strategy"]',
     )?.click();
     const lead = host.querySelector(".analysis-v2-strategy-readout");
     expect(lead?.textContent).toContain("後 → 前");
-    expect(lead?.textContent).toContain("100%");
+    expect(lead?.textContent).toContain("40%");
+    expect(lead?.textContent).toContain("4 / 10");
     expect(host.querySelectorAll(".strategy-matrix")).toHaveLength(1);
   });
 });
