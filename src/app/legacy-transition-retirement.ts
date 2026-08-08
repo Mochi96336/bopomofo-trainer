@@ -4,6 +4,8 @@ import {
   type DiagnosticPreferenceStorage,
 } from "./diagnostic-preferences.js";
 
+const navigationGuardedHosts = new WeakSet<HTMLElement>();
+
 function normalizePreferenceSource(source: string | null): string | null {
   if (source === null) return null;
   try {
@@ -52,6 +54,40 @@ export function retireLegacyTransitionSummary(
   }
 }
 
+function installSemanticTabNavigation(host: HTMLElement): void {
+  if (navigationGuardedHosts.has(host)) return;
+  navigationGuardedHosts.add(host);
+
+  // The archived analysis controller still knows about its research-only
+  // transition tab. Production removes that tab after every render, so its own
+  // three-tab arrow-key state machine must not run: otherwise ArrowRight from
+  // Key can activate a state whose tab was intentionally removed. Intercept the
+  // tablist navigation before the generic bubble handler and route only between
+  // the two production-visible semantic tabs. A click goes through the existing
+  // controller path, keeping persistence, rendering and focus single-sourced.
+  host.addEventListener("keydown", (event) => {
+    if (!(event.target instanceof HTMLButtonElement)
+      || event.target.getAttribute("role") !== "tab") return;
+    const tabs = [...host.querySelectorAll<HTMLButtonElement>(
+      '[role="tab"]:not(#diagnostic-analysis-tab-transition)',
+    )];
+    const currentIndex = tabs.indexOf(event.target);
+    if (currentIndex < 0 || tabs.length === 0) return;
+
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowRight") nextIndex = (currentIndex + 1) % tabs.length;
+    if (event.key === "ArrowLeft") nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    if (event.key === "Home") nextIndex = 0;
+    if (event.key === "End") nextIndex = tabs.length - 1;
+    if (nextIndex === null) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    tabs[nextIndex]!.click();
+  }, { capture: true });
+}
+
 export function retireLegacyTransitionAnalysis(host: HTMLElement): void {
   host.querySelector("#diagnostic-analysis-tab-transition")?.remove();
+  installSemanticTabNavigation(host);
 }
