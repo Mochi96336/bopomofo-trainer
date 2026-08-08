@@ -1,8 +1,5 @@
 import type { TokenId } from "../core/model.js";
-import type {
-  DiagnosticDataState,
-  DiagnosticReinforcementState,
-} from "./types.js";
+import type { DiagnosticDataState } from "./types.js";
 
 export function diagnosticDataStateLabel(state: DiagnosticDataState): string {
   if (state === "sufficient") return "資料足夠";
@@ -40,10 +37,4 @@ export function physicalKeyLabel(code: string): string {
   if (code.startsWith("Key")) return code.slice(3);
   if (code.startsWith("Digit")) return code.slice(5);
   return PHYSICAL_KEY_LABELS[code] ?? code;
-}
-
-export function reinforcementStateLabel(state: DiagnosticReinforcementState): string {
-  if (state === "reinforced") return "選題加權中";
-  if (state === "neutral") return "目前無額外加權";
-  return "尚未達選題門檻";
 }

@@ -1,4 +1,169 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import {
+  aggregateMeasurementObservationsV2,
+} from "../../src/measurement-v2/aggregate.js";
+import {
+  createFreshProgressForEnvironment,
+  createProductEnvironment,
+} from "../../src/product/session.js";
+import { serializeProductProgress } from "../../src/product/progress.js";
+import { STANDARD_BOPOMOFO_LAYOUT } from "../../src/scheme/standard-layout.js";
+import {
+  EVALUATION_CATALOG,
+  PRACTICE_CATALOG,
+  SYNTAX_PROFILES,
+} from "../../src/app/generated/catalog.js";
+
+const PROGRESS_KEY = "bopomofo-trainer.progress.v4";
+
+function seededAnalysisProgress(): string {
+  const environment = createProductEnvironment({
+    practice: PRACTICE_CATALOG,
+    evaluation: EVALUATION_CATALOG,
+    syntaxProfiles: SYNTAX_PROFILES,
+  });
+  const fresh = createFreshProgressForEnvironment(
+    environment,
+    "analysis-v2-browser-data",
+    "guided",
+    STANDARD_BOPOMOFO_LAYOUT.id,
+  );
+  let sequence = 0;
+  const measurements = aggregateMeasurementObservationsV2({
+    bindings: [
+      {
+        traceSequence: sequence++,
+        scope: { mode: "guided", layoutId: STANDARD_BOPOMOFO_LAYOUT.id, tokenId: "zhuyin:ㄅ" },
+        physicalCode: "Digit1",
+        correct: false,
+        timingMs: null,
+      },
+      ...Array.from({ length: 8 }, (_, index) => ({
+        traceSequence: sequence++,
+        scope: { mode: "guided" as const, layoutId: STANDARD_BOPOMOFO_LAYOUT.id, tokenId: "zhuyin:ㄆ" },
+        physicalCode: "KeyQ",
+        correct: index >= 4,
+        timingMs: index === 0 ? null : 120 + index,
+      })),
+    ],
+    confusions: [
+      {
+        traceSequence: sequence++,
+        mode: "guided",
+        layoutId: STANDARD_BOPOMOFO_LAYOUT.id,
+        expectedToken: "zhuyin:ㄅ",
+        actualToken: "zhuyin:ㄆ",
+        physicalCode: "KeyQ",
+      },
+      ...Array.from({ length: 3 }, () => ({
+        traceSequence: sequence++,
+        mode: "guided" as const,
+        layoutId: STANDARD_BOPOMOFO_LAYOUT.id,
+        expectedToken: "zhuyin:ㄆ",
+        actualToken: "zhuyin:ㄇ",
+        physicalCode: "KeyA",
+      })),
+    ],
+    inputOrderPositions: [
+      { syllableOrdinal: 0, bodySize: 2, canonicalBodyIndex: 0, acceptedBodyIndex: 1 },
+      { syllableOrdinal: 0, bodySize: 2, canonicalBodyIndex: 1, acceptedBodyIndex: 0 },
+      { syllableOrdinal: 1, bodySize: 3, canonicalBodyIndex: 0, acceptedBodyIndex: 1 },
+    ],
+    coordination: [],
+    immediateTokens: [
+      ...Array.from({ length: 5 }, (_, index) => ({
+        traceSequence: sequence++,
+        fromToken: "zhuyin:ㄅ",
+        toToken: "zhuyin:ㄆ",
+        boundary: "within-syllable" as const,
+        timingMs: 100 + index * 4,
+        clean: true,
+      })),
+      ...Array.from({ length: 4 }, (_, index) => ({
+        traceSequence: sequence++,
+        fromToken: "zhuyin:ㄆ",
+        toToken: "zhuyin:ㄇ",
+        boundary: "within-syllable" as const,
+        timingMs: 140 + index * 4,
+        clean: true,
+      })),
+    ],
+    immediateHands: [],
+    sameHandRevisits: [],
+    toneCommits: [],
+    ambiguousErrorCount: 0,
+    duplicateComponentCount: 0,
+    prematureToneCount: 0,
+  });
+  return serializeProductProgress({
+    ...fresh,
+    measurements,
+  });
+}
+
+async function installAnalysisProgress(page: Page): Promise<void> {
+  const progress = seededAnalysisProgress();
+  await page.addInitScript(({ key, source }) => {
+    window.localStorage.setItem(key, source);
+  }, { key: PROGRESS_KEY, source: progress });
+}
+
+test("renders the information-panel Analysis V2 summary as a structured three-column entry point", async ({ page }) => {
+  await page.goto("/");
+  await page.locator("#open-information").click();
+
+  const summary = page.locator(".analysis-v2-summary");
+  await expect(summary).toBeVisible();
+  const layout = await summary.evaluate((element) => {
+    const signals = element.querySelector<HTMLElement>(".analysis-v2-summary-signals")!;
+    const cells = [...signals.children] as HTMLElement[];
+    const open = element.querySelector<HTMLElement>(".analysis-v2-open")!;
+    return {
+      summaryDisplay: getComputedStyle(element).display,
+      signalsDisplay: getComputedStyle(signals).display,
+      columns: getComputedStyle(signals).gridTemplateColumns.split(" ").filter(Boolean).length,
+      strongDisplays: cells.map((cell) => getComputedStyle(cell.querySelector("strong")!).display),
+      secondBorder: getComputedStyle(cells[1]!).borderLeftWidth,
+      arrow: getComputedStyle(open, "::after").content,
+    };
+  });
+  expect(layout.summaryDisplay).toBe("grid");
+  expect(layout.signalsDisplay).toBe("grid");
+  expect(layout.columns).toBe(3);
+  expect(layout.strongDisplays).toEqual(["block", "block", "block"]);
+  expect(layout.secondBorder).not.toBe("0px");
+  expect(layout.arrow).toContain("→");
+});
+
+test("renders evidence thresholds through the production Analysis V2 mount", async ({ page }) => {
+  await installAnalysisProgress(page);
+  await page.goto("/");
+  await page.locator("#open-information").click();
+  await page.locator(".analysis-v2-open").click();
+
+  const analysis = page.locator("#analysis-v2");
+  const insufficient = analysis.locator('[data-action="select-key"][data-token="zhuyin:ㄅ"]');
+  const sufficient = analysis.locator('[data-action="select-key"][data-token="zhuyin:ㄆ"]');
+  await expect(insufficient).toHaveClass(/insufficient/);
+  await expect(sufficient).toHaveClass(/sufficient/);
+  expect(await insufficient.evaluate((element) =>
+    getComputedStyle(element).getPropertyValue("--analysis-strength").trim(),
+  )).toBe("0");
+  expect(Number(await sufficient.evaluate((element) =>
+    getComputedStyle(element).getPropertyValue("--analysis-strength").trim(),
+  ))).toBeGreaterThan(0);
+
+  await analysis.locator('[data-action="semantic-view"][data-value="confusion"]').click();
+  await expect(analysis.locator(".confusion-matrix")).toHaveCount(0);
+  await expect(analysis.locator(".analysis-v2-confusion-table tbody tr")).toHaveCount(2);
+  await expect(analysis.locator(".analysis-v2-confusion-table")).toContainText("樣本不足");
+  await expect(analysis.locator(".analysis-v2-confusion-table")).toContainText("初步");
+
+  await analysis.locator('[data-action="select-tab"][data-tab="coordination"]').click();
+  await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(1);
+  await expect(analysis.getByText(/1 條達門檻轉換/)).toBeVisible();
+  await expect(analysis.getByText(/9 個鍵間乾淨樣本/)).toHaveCount(0);
+});
 
 test("opens Analysis V2 without reviving the legacy transition network", async ({ page }) => {
   await page.goto("/");
@@ -9,6 +174,11 @@ test("opens Analysis V2 without reviving the legacy transition network", async (
 
   const tabs = page.locator('#analysis-v2 [role="tab"]');
   await expect(tabs).toHaveText(["語意", "協調", "策略"]);
+  for (let index = 0; index < 3; index += 1) {
+    const panelId = await tabs.nth(index).getAttribute("aria-controls");
+    expect(panelId).not.toBeNull();
+    await expect(page.locator(`#${panelId}`)).toHaveCount(1);
+  }
   await expect(page.locator('[data-action="toggle-network"]')).toHaveCount(0);
   await expect(page.locator(".diagnostic-relationship-svg")).toHaveCount(0);
 
@@ -22,7 +192,7 @@ test("opens Analysis V2 without reviving the legacy transition network", async (
   await expect(page.locator(".strategy-matrix")).toHaveCount(3);
 });
 
-test("contains Analysis V2 at a narrow phone viewport", async ({ page }) => {
+test("contains Analysis V2 at a narrow phone viewport without scrolling the whole speed card", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.locator("#open-information").click();
@@ -53,12 +223,27 @@ test("contains Analysis V2 at a narrow phone viewport", async ({ page }) => {
 
   await analysis.locator('[data-action="select-tab"][data-tab="coordination"]').click();
   const speedCard = analysis.locator(".analysis-v2-speed-card");
+  const speedScroll = analysis.locator(".analysis-v2-speed-scroll");
   await expect(speedCard).toBeVisible();
-  const overflow = await speedCard.evaluate((element) => ({
-    clientWidth: element.clientWidth,
-    scrollWidth: element.scrollWidth,
-  }));
-  expect(overflow.scrollWidth).toBeGreaterThanOrEqual(overflow.clientWidth);
+  const overflow = await speedCard.evaluate((card) => {
+    const scroller = card.querySelector<HTMLElement>(".analysis-v2-speed-scroll")!;
+    const copy = card.querySelector<HTMLElement>(".analysis-v2-card-title-line")!;
+    const legend = card.querySelector<HTMLElement>(".analysis-v2-speed-legend")!;
+    return {
+      cardClient: card.clientWidth,
+      cardScroll: card.scrollWidth,
+      scrollerClient: scroller.clientWidth,
+      scrollerScroll: scroller.scrollWidth,
+      copyRight: copy.getBoundingClientRect().right,
+      legendRight: legend.getBoundingClientRect().right,
+      cardRight: card.getBoundingClientRect().right,
+    };
+  });
+  expect(overflow.cardScroll).toBeLessThanOrEqual(overflow.cardClient + 1);
+  expect(overflow.scrollerScroll).toBeGreaterThan(overflow.scrollerClient);
+  expect(overflow.copyRight).toBeLessThanOrEqual(overflow.cardRight + 1);
+  expect(overflow.legendRight).toBeLessThanOrEqual(overflow.cardRight + 1);
+  await expect(speedScroll).toHaveAttribute("tabindex", "0");
 
   await expect(analysis.locator('[role="tab"]')).toHaveCount(3);
   await expect(analysis.locator(".analysis-v2-close")).toBeVisible();

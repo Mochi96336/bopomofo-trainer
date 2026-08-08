@@ -16,21 +16,11 @@ const MODEL: AnalysisV2Model = {
       attempts: 10,
       errors: 2,
       displayedErrorRatio: 0.2,
-      errorMetricLabel: "錯誤觀察比例",
       errorDataState: "sufficient",
       timingAvailability: "available",
       timingMs: 100,
       timingSamples: 8,
-      bestTimingMs: 80,
       timingDataState: "sufficient",
-      excludedSamples: null,
-      overallDataState: "sufficient",
-      reinforcement: {
-        state: "neutral",
-        label: "穩定",
-        reason: "test",
-        expectedTokenBoost: 1,
-      },
     }],
     confusions: [{
       id: "confusion",
@@ -43,7 +33,7 @@ const MODEL: AnalysisV2Model = {
       occurrences: 3,
       expectedConfusionTotal: 3,
       expectedErrorShare: 1,
-      dataState: "sufficient",
+      dataState: "preliminary",
     }],
     keyProgress: {},
     keysWithData: 1,
@@ -87,12 +77,18 @@ const MODEL: AnalysisV2Model = {
     cleanTimingSamples: 6,
   },
   strategy: {
-    inputOrderPositions: [{
-      scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "first" },
-      observations: 4,
-    }],
-    totalObservations: 4,
-    bodySizeBucketsWithData: 1,
+    inputOrderPositions: [
+      {
+        scope: { bodySize: "2", canonicalPosition: "first", acceptedPosition: "last" },
+        observations: 2,
+      },
+      {
+        scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "first" },
+        observations: 4,
+      },
+    ],
+    totalObservations: 6,
+    bodySizeBucketsWithData: 2,
   },
 };
 
@@ -126,66 +122,99 @@ describe("Analysis V2 panel", () => {
     expect(tabs.map((node) => node.textContent)).toEqual(["語意", "協調", "策略"]);
     expect(host.textContent).not.toContain("轉換總覽");
 
-    const semantic = tabs[0]!;
-    const panel = host.querySelector<HTMLElement>('[role="tabpanel"]');
-    expect(panel?.id).toBe("analysis-v2-panel-semantic");
-    expect(semantic.id).toBe("analysis-v2-tab-semantic");
-    expect(semantic.getAttribute("aria-controls")).toBe(panel?.id);
-    expect(panel?.getAttribute("aria-labelledby")).toBe(semantic.id);
+    const panels = [...host.querySelectorAll<HTMLElement>('[role="tabpanel"]')];
+    expect(panels.map((panel) => panel.id)).toEqual([
+      "analysis-v2-panel-semantic",
+      "analysis-v2-panel-coordination",
+      "analysis-v2-panel-strategy",
+    ]);
+    for (const tab of tabs) {
+      const controlled = host.querySelector<HTMLElement>(`#${tab.getAttribute("aria-controls")}`);
+      expect(controlled).not.toBeNull();
+      expect(controlled?.getAttribute("aria-labelledby")).toBe(tab.id);
+    }
+    expect(panels[0]?.hidden).toBe(false);
+    expect(panels[1]?.hidden).toBe(true);
+    expect(panels[2]?.hidden).toBe(true);
+    expect(host.querySelector(".analysis-v2-close")?.getAttribute("aria-label")).toContain("Esc");
   });
 
-  it("switches semantic analysis from key correctness to a directional confusion matrix and preserves focus", () => {
+  it("switches semantic analysis to a sparse directional confusion list and preserves focus", () => {
     const host = open();
-    const confusion = host.querySelector<HTMLButtonElement>('[data-action="semantic-view"][data-value="confusion"]');
+    const confusion = host.querySelector<HTMLButtonElement>(
+      '[data-action="semantic-view"][data-value="confusion"]',
+    );
     confusion?.focus();
     confusion?.click();
-    const replacement = host.querySelector<HTMLButtonElement>('[data-action="semantic-view"][data-value="confusion"]');
-    expect(host.querySelector(".confusion-matrix")).not.toBeNull();
-    expect(host.textContent).toContain("應按 ↓ / 實按 →");
-    expect(host.textContent).toContain("3");
+    const replacement = host.querySelector<HTMLButtonElement>(
+      '[data-action="semantic-view"][data-value="confusion"]',
+    );
+    expect(host.querySelector(".confusion-matrix")).toBeNull();
+    expect(host.querySelectorAll(".analysis-v2-confusion-table tbody tr")).toHaveLength(1);
+    expect(host.textContent).toContain("只列實際觀察到");
+    expect(host.textContent).toContain("初步");
     expect(document.activeElement).toBe(replacement);
   });
 
-  it("keeps keyboard focus on a semantic key when its detail rerenders", () => {
+  it("keeps keyboard focus and main scroll position when semantic detail rerenders", () => {
     const host = open();
-    const key = host.querySelector<HTMLButtonElement>('[data-action="select-key"][data-token="zhuyin:ㄅ"]');
+    const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
+    main.scrollTop = 120;
+    const key = host.querySelector<HTMLButtonElement>(
+      '[data-action="select-key"][data-token="zhuyin:ㄅ"]',
+    );
     key?.focus();
     key?.click();
-    const replacement = host.querySelector<HTMLButtonElement>('[data-action="select-key"][data-token="zhuyin:ㄅ"]');
+    const replacement = host.querySelector<HTMLButtonElement>(
+      '[data-action="select-key"][data-token="zhuyin:ㄅ"]',
+    );
     expect(replacement?.getAttribute("aria-pressed")).toBe("true");
     expect(document.activeElement).toBe(replacement);
-    expect(host.textContent).toContain("有效鍵間時間");
+    expect(host.querySelector<HTMLElement>(".analysis-v2-main")?.scrollTop).toBe(120);
+    expect(host.textContent).toContain("錯誤資料");
+    expect(host.textContent).toContain("可比較 · 10 次");
   });
 
-  it("renders observed accepted-token speed lines without direction markers and exposes keyboard-readable details", () => {
+  it("renders only ready observed speed lines without direction markers", () => {
     const host = open();
-    host.querySelector<HTMLButtonElement>('[data-action="select-tab"][data-tab="coordination"]')?.click();
+    host.querySelector<HTMLButtonElement>(
+      '[data-action="select-tab"][data-tab="coordination"]',
+    )?.click();
     const path = host.querySelector<SVGPathElement>(".analysis-v2-speed-path");
     const svg = host.querySelector<SVGSVGElement>(".analysis-v2-speed-svg");
     const details = host.querySelector<HTMLDetailsElement>(".analysis-v2-speed-details");
     expect(path).not.toBeNull();
     expect(path?.getAttribute("marker-end")).toBeNull();
-    expect(path?.querySelector("title")?.textContent).toContain("ㄅ 到 ㄆ，120 毫秒，6 個乾淨樣本");
+    expect(path?.querySelector("title")?.textContent)
+      .toContain("ㄅ 到 ㄆ，120 毫秒，6 個乾淨樣本");
     expect(svg?.getAttribute("aria-hidden")).toBe("true");
-    expect(details?.querySelector("summary")?.textContent).toBe("速度明細（1）");
+    expect(details?.querySelector("summary")?.textContent).toBe("目前顯示的速度明細（1）");
     expect(details?.textContent).toContain("ㄅ 到 ㄆ，120 毫秒，6 個乾淨樣本");
-    expect(host.textContent).toContain("不從 canonical 結構補線");
+    expect(host.textContent).toContain("每一條至少累積 5 個時間樣本");
+    expect(host.textContent).toContain("不用危險色表示");
   });
 
   it("states that hand classes are inferred from standard fingering rather than detected hands", () => {
     const host = open();
-    host.querySelector<HTMLButtonElement>('[data-action="select-tab"][data-tab="coordination"]')?.click();
+    host.querySelector<HTMLButtonElement>(
+      '[data-action="select-tab"][data-tab="coordination"]',
+    )?.click();
     expect(host.textContent).toContain("不是偵測實際使用的手");
     expect(host.textContent).toContain("88 ms");
     expect(host.textContent).toContain("92 ms");
   });
 
-  it("renders canonical position only as a reference against actual accepted order", () => {
+  it("does not render impossible middle positions for a two-component body", () => {
     const host = open();
-    host.querySelector<HTMLButtonElement>('[data-action="select-tab"][data-tab="strategy"]')?.click();
+    host.querySelector<HTMLButtonElement>(
+      '[data-action="select-tab"][data-tab="strategy"]',
+    )?.click();
     expect(host.textContent).toContain("canonical 位置只是注音結構的參考座標");
-    expect(host.textContent).toContain("4 個位置觀察");
-    expect(host.textContent).toContain("100%");
+    const matrices = [...host.querySelectorAll<HTMLTableElement>(".strategy-matrix")];
+    expect(matrices).toHaveLength(3);
+    expect(matrices[0]?.textContent).not.toContain("中");
+    expect(matrices[0]?.querySelectorAll("thead th")).toHaveLength(3);
+    expect(host.textContent).toContain("2 成分只有前／後");
   });
 
   it("cannot finish a stale open frame after the analysis has already closed", () => {
