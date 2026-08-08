@@ -144,7 +144,7 @@ describe("formal syntax effective product distribution", () => {
     expect(composition.fallbackReasons).toContain("formal-syntax-no-candidate");
   });
 
-  it("rejects a duplicate-ID rule list as an incomplete product grammar", () => {
+  it("rejects a duplicate-ID rule list as a non-canonical product grammar", () => {
     const malformedRules = [
       ...FORMAL_SYNTAX_RULES.slice(0, -1),
       FORMAL_SYNTAX_RULES[0]!,
