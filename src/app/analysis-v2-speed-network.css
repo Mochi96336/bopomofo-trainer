@@ -1,35 +1,57 @@
-.analysis-v2-speed-card {
+.analysis-v2-speed-field {
   display: grid;
-  gap: 14px;
-  padding-top: 0;
-  padding-bottom: 24px;
-  border-bottom: 1px solid var(--hairline);
+  min-width: 0;
+  gap: 10px;
 }
 
-.analysis-v2-speed-card .analysis-v2-card-title-line {
-  align-items: start;
+.analysis-v2-speed-meta {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
 }
 
-.analysis-v2-speed-card .analysis-v2-card-title-line p {
-  margin: 6px 0 0;
+.analysis-v2-speed-meta > div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.analysis-v2-speed-meta span,
+.analysis-v2-speed-meta small {
   color: var(--ink-muted);
-  font-size: 0.76rem;
-  line-height: 1.6;
+  font-size: 0.66rem;
+}
+
+.analysis-v2-speed-meta strong {
+  font-size: 0.74rem;
+  font-weight: 680;
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-v2-speed-stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 270px);
+  min-height: clamp(430px, 60dvh, 610px);
+  align-items: stretch;
 }
 
 .analysis-v2-speed-scroll {
+  display: grid;
   min-width: 0;
+  min-height: 0;
   overflow-x: auto;
   overflow-y: visible;
-  padding: 12px 0 20px;
+  align-items: center;
+  padding: 18px 0 28px;
   overscroll-behavior-inline: contain;
   scrollbar-gutter: stable;
 }
 
 /* Match the original diagnostic keyboard structure: one transformed board owns
    both the key rows and the SVG coordinate plane. Never transform the two
-   layers independently. Responsive min-width may enlarge this speed copy on a
-   narrow viewport, but its shape/transform remain the original keyboard. */
+   layers independently. */
 .analysis-v2-speed-board {
   position: relative;
   width: min(760px, 92%);
@@ -57,6 +79,13 @@
 .analysis-v2-speed-keyboard .analysis-v2-key.mapped {
   display: grid;
   place-items: center;
+  transition: border-color 100ms ease, color 100ms ease, opacity 100ms ease;
+}
+
+.analysis-v2-speed-keyboard .analysis-v2-key.is-related {
+  z-index: 3;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--key-border));
+  color: var(--ink);
 }
 
 .analysis-v2-speed-svg {
@@ -72,21 +101,36 @@
 
 .analysis-v2-speed-path {
   fill: none;
-  stroke: color-mix(in srgb, var(--accent) 82%, var(--ink) 18%);
+  stroke: color-mix(in srgb, var(--accent) 84%, var(--ink) 16%);
   stroke-width: var(--relation-width);
-  stroke-opacity: var(--relation-opacity);
+  stroke-opacity: calc(var(--relation-opacity) * 0.56);
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
   pointer-events: stroke;
-  cursor: help;
-  transition: stroke-opacity 100ms ease, stroke-width 100ms ease;
+  cursor: pointer;
+  transition:
+    stroke-opacity 110ms ease,
+    stroke-width 110ms ease,
+    stroke 110ms ease;
 }
 
-.analysis-v2-speed-path:hover {
+.analysis-v2-speed-path.salient {
+  stroke-opacity: var(--relation-opacity);
+}
+
+.analysis-v2-speed-path:hover,
+.analysis-v2-speed-path:focus-visible,
+.analysis-v2-speed-path.is-focused,
+.analysis-v2-speed-path.selected {
+  outline: none;
   stroke: var(--accent);
   stroke-opacity: 1;
-  stroke-width: calc(var(--relation-width) + 0.5px);
+  stroke-width: calc(var(--relation-width) + 0.7px);
+}
+
+.analysis-v2-speed-path.is-muted {
+  stroke-opacity: 0.08;
 }
 
 .analysis-v2-speed-path.tone {
@@ -101,10 +145,26 @@
   place-items: center;
   padding: 20px;
   color: var(--ink-muted);
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   line-height: 1.6;
   text-align: center;
   pointer-events: none;
+}
+
+.analysis-v2-speed-pair {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.analysis-v2-speed-pair strong {
+  font-size: 1.55rem;
+  font-weight: 660;
+}
+
+.analysis-v2-speed-pair span {
+  color: var(--ink-muted);
+  font-size: 0.8rem;
 }
 
 .analysis-v2-speed-legend {
@@ -114,7 +174,7 @@
   gap: 9px;
   min-width: 0;
   color: var(--ink-muted);
-  font-size: 0.7rem;
+  font-size: 0.66rem;
 }
 
 .analysis-v2-speed-legend i {
@@ -122,7 +182,7 @@
   border-radius: 999px;
   background: linear-gradient(
     90deg,
-    color-mix(in srgb, var(--accent) 54%, transparent),
+    color-mix(in srgb, var(--accent) 48%, transparent),
     var(--accent)
   );
 }
@@ -130,28 +190,24 @@
 .analysis-v2-speed-legend small {
   min-width: 0;
   justify-self: end;
-  text-align: right;
-  line-height: 1.45;
-}
-
-.analysis-v2-speed-details {
-  border-top: 1px solid var(--hairline);
-  padding-top: 10px;
   color: var(--ink-muted);
-  font-size: 0.7rem;
-}
-
-.analysis-v2-speed-details summary {
-  cursor: pointer;
-}
-
-.analysis-v2-speed-details ul {
-  margin-bottom: 0;
-  padding-left: 20px;
-  line-height: 1.55;
+  font-size: 0.62rem;
+  text-align: right;
 }
 
 @media (max-width: 900px) {
+  .analysis-v2-speed-stage {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .analysis-v2-speed-inspector {
+    min-height: 118px;
+    padding: 18px 0 0;
+    border-top: 1px solid var(--hairline);
+    border-left: 0;
+  }
+
   .analysis-v2-speed-legend {
     grid-template-columns: auto minmax(80px, 1fr) auto;
   }
@@ -164,6 +220,16 @@
 }
 
 @media (max-width: 640px) {
+  .analysis-v2-speed-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .analysis-v2-speed-scroll {
+    padding-block: 14px 22px;
+  }
+
   .analysis-v2-speed-legend {
     grid-template-columns: auto minmax(64px, 1fr) auto;
   }
