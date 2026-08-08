@@ -84,6 +84,12 @@ function milliseconds(value: number | null): string {
 function tabLabel(tab: AnalysisV2Tab): string {
   return tab === "coordination" ? "協調" : tab === "strategy" ? "策略" : "語意";
 }
+function tabId(tab: AnalysisV2Tab): string {
+  return `analysis-v2-tab-${tab}`;
+}
+function tabPanelId(tab: AnalysisV2Tab): string {
+  return `analysis-v2-panel-${tab}`;
+}
 
 function keyByToken(model: AnalysisV2Model): ReadonlyMap<TokenId, KeyDiagnostic> {
   return new Map(model.semantic.keys.map((row) => [row.tokenId, row]));
@@ -177,13 +183,17 @@ function speedNetworkMarkup(model: AnalysisV2Model): string {
   const paths = buildAnalysisV2SpeedPaths(model.coordination.immediateTokens);
   const samples = model.coordination.immediateTokens.reduce((sum, cell) => sum + cell.timingSamples, 0);
   const viewBox = ANALYSIS_V2_SPEED_VIEWBOX;
+  const details = paths.length === 0
+    ? ""
+    : `<details class="analysis-v2-speed-details"><summary>速度明細（${paths.length}）</summary><ul>${paths.map((path) => `<li>${escapeHtml(path.label)}</li>`).join("")}</ul></details>`;
   return `<section class="analysis-v2-card analysis-v2-speed-card">
     <div class="analysis-v2-card-title-line"><div><h4>實際鍵間速度</h4><p>只畫實際相鄰接受、同音節且乾淨的鍵間時間；不從 canonical 結構補線。</p></div><span>${paths.length} 條有速度資料 · ${samples} 個乾淨樣本</span></div>
     <div class="analysis-v2-speed-board">
       ${speedKeyboardMarkup()}
-      ${paths.length === 0 ? '<div class="analysis-v2-speed-empty">累積到乾淨的同音節相鄰輸入後，速度飛線會出現在這裡。</div>' : `<svg class="analysis-v2-speed-svg" viewBox="${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}" preserveAspectRatio="none" aria-label="實際鍵間速度圖">${paths.map((path) => `<path class="analysis-v2-speed-path${path.ready ? " ready" : " sampling"}${path.includesTone ? " tone" : ""}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity};--relation-slowness:${path.slowness}"><title>${escapeHtml(path.label)}</title></path>`).join("")}</svg>`}
+      ${paths.length === 0 ? '<div class="analysis-v2-speed-empty">累積到乾淨的同音節相鄰輸入後，速度飛線會出現在這裡。</div>' : `<svg class="analysis-v2-speed-svg" viewBox="${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}" preserveAspectRatio="none" aria-hidden="true" focusable="false">${paths.map((path) => `<path class="analysis-v2-speed-path${path.ready ? " ready" : " sampling"}${path.includesTone ? " tone" : ""}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity};--relation-slowness:${path.slowness}"><title>${escapeHtml(path.label)}</title></path>`).join("")}</svg>`}
     </div>
     <div class="analysis-v2-speed-legend"><span>相對較快</span><i aria-hidden="true"></i><span>相對較慢</span><small>線粗反映乾淨樣本量；少於 5 個樣本會較淡。此版先不加方向箭頭。</small></div>
+    ${details}
   </section>`;
 }
 
@@ -279,8 +289,19 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
     window.cancelAnimationFrame(openFrame);
     openFrame = null;
   };
+  const focusSemanticView = (value: SemanticView): void => {
+    host.querySelector<HTMLButtonElement>(
+      `[data-action="semantic-view"][data-value="${value}"]`,
+    )?.focus();
+  };
+  const focusSemanticKey = (token: TokenId): void => {
+    [...host.querySelectorAll<HTMLButtonElement>('[data-action="select-key"]')]
+      .find((button) => button.dataset.token === token)
+      ?.focus();
+  };
   const render = () => {
-    host.innerHTML = `<div class="analysis-v2-shell"><header class="analysis-v2-header"><div><p class="analysis-v2-kicker">Analysis V2</p><h2 id="analysis-v2-title">學習分析</h2></div><div class="analysis-v2-header-actions"><div class="analysis-v2-tabs" role="tablist" aria-label="分析類型">${TABS.map((tab) => `<button type="button" role="tab" data-action="select-tab" data-tab="${tab}" aria-selected="${preferences.activeTab === tab}" tabindex="${preferences.activeTab === tab ? 0 : -1}">${tabLabel(tab)}</button>`).join("")}</div><button type="button" class="analysis-v2-close" data-action="close-analysis" aria-label="返回練習">Esc</button></div></header><main class="analysis-v2-main">${bodyMarkup(model, preferences, selectedKey)}</main></div>`;
+    const activeTab = preferences.activeTab;
+    host.innerHTML = `<div class="analysis-v2-shell"><header class="analysis-v2-header"><div><p class="analysis-v2-kicker">Analysis V2</p><h2 id="analysis-v2-title">學習分析</h2></div><div class="analysis-v2-header-actions"><div class="analysis-v2-tabs" role="tablist" aria-label="分析類型">${TABS.map((tab) => `<button id="${tabId(tab)}" type="button" role="tab" data-action="select-tab" data-tab="${tab}" aria-controls="${tabPanelId(tab)}" aria-selected="${activeTab === tab}" tabindex="${activeTab === tab ? 0 : -1}">${tabLabel(tab)}</button>`).join("")}</div><button type="button" class="analysis-v2-close" data-action="close-analysis" aria-label="返回練習">Esc</button></div></header><main class="analysis-v2-main"><section id="${tabPanelId(activeTab)}" role="tabpanel" aria-labelledby="${tabId(activeTab)}">${bodyMarkup(model, preferences, selectedKey)}</section></main></div>`;
   };
   const selectTab = (tab: AnalysisV2Tab, focus = true) => {
     preferences = { ...preferences, activeTab: tab };
@@ -326,6 +347,7 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
         preferences = { ...preferences, semanticView: value };
         persist();
         render();
+        focusSemanticView(value);
       }
       return;
     }
@@ -334,6 +356,7 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
       if (token !== undefined) {
         selectedKey = selectedKey === token ? null : token;
         render();
+        focusSemanticKey(token);
       }
     }
   };
