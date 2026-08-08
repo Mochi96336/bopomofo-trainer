@@ -26,8 +26,9 @@ async function openAnalysis(page: Page): Promise<void> {
 function speedPairs(count: number): readonly [TokenId, TokenId][] {
   const tokens = [...new Set(Object.values(STANDARD_BOPOMOFO_LAYOUT.bindings)
     .filter((token): token is TokenId => token !== undefined && token.startsWith("zhuyin:")))];
-  const result: Array<[TokenId, TokenId]> = [];
-  const seen = new Set<string>();
+  const primary: [TokenId, TokenId] = ["zhuyin:ㄅ", "zhuyin:ㄆ"];
+  const result: Array<[TokenId, TokenId]> = count > 0 ? [primary] : [];
+  const seen = new Set(result.map(([from, to]) => `${from}>${to}`));
   for (let index = 0; result.length < count && index < tokens.length * tokens.length; index += 1) {
     const from = tokens[index % tokens.length]!;
     const to = tokens[(index * 7 + 5) % tokens.length]!;
