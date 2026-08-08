@@ -22,6 +22,18 @@ export interface ConfusionObservationV2 {
   readonly physicalCode: string;
 }
 
+/**
+ * One accepted body component projected into the relationship between canonical
+ * notation position and actual accepted position. This deliberately does not
+ * retain token identity, so long-term strategy evidence stays bounded.
+ */
+export interface InputOrderPositionObservation {
+  readonly syllableOrdinal: number;
+  readonly bodySize: number;
+  readonly canonicalBodyIndex: number;
+  readonly acceptedBodyIndex: number;
+}
+
 export interface CoordinationObservation {
   readonly syllableOrdinal: number;
   readonly bodySize: number;
@@ -58,6 +70,7 @@ export interface ToneCommitObservation {
 export interface MeasurementObservationsV2 {
   readonly bindings: readonly BindingObservationV2[];
   readonly confusions: readonly ConfusionObservationV2[];
+  readonly inputOrderPositions: readonly InputOrderPositionObservation[];
   readonly coordination: readonly CoordinationObservation[];
   readonly immediateHands: readonly ImmediateHandObservation[];
   readonly sameHandRevisits: readonly SameHandRevisitObservation[];

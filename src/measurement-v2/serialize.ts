@@ -5,12 +5,17 @@ import {
   confusionAggregateKey,
   coordinationAggregateKey,
   immediateHandAggregateKey,
+  inputOrderPositionAggregateKey,
   sameHandRevisitAggregateKey,
   toneCommitAggregateKey,
   type BindingAggregateV2,
+  type BodyPositionBucket,
   type ConfusionAggregateV2,
   type CoordinationAggregateScope,
+  type CoordinationBodySizeBucket,
   type ImmediateHandAggregateScope,
+  type InputOrderPositionAggregate,
+  type InputOrderPositionAggregateScope,
   type MeasurementSummaryV2,
   type MotorTimingAggregate,
   type SameHandRevisitAggregateScope,
@@ -52,6 +57,14 @@ function handShape(value: unknown): value is CoordinationHandShape {
     || value === "right-only"
     || value === "mixed"
     || value === "unknown";
+}
+
+function bodySizeBucket(value: unknown): value is CoordinationBodySizeBucket {
+  return value === "2" || value === "3" || value === "4+";
+}
+
+function bodyPosition(value: unknown): value is BodyPositionBucket {
+  return value === "first" || value === "middle" || value === "last";
 }
 
 function parseBinding(
@@ -117,6 +130,27 @@ function parseConfusion(
   };
 }
 
+function parseInputOrderPositionScope(value: unknown): InputOrderPositionAggregateScope | null {
+  if (!isRecord(value)
+    || !bodySizeBucket(value.bodySize)
+    || !bodyPosition(value.canonicalPosition)
+    || !bodyPosition(value.acceptedPosition)) return null;
+  return {
+    bodySize: value.bodySize,
+    canonicalPosition: value.canonicalPosition,
+    acceptedPosition: value.acceptedPosition,
+  };
+}
+
+function parseInputOrderPosition(value: unknown): InputOrderPositionAggregate | null {
+  if (!isRecord(value)) return null;
+  const scope = parseInputOrderPositionScope(value.scope);
+  if (scope === null || !isNonNegativeInteger(value.observations) || value.observations === 0) {
+    return null;
+  }
+  return { scope, observations: value.observations as number };
+}
+
 function parseMotor<Scope>(
   value: unknown,
   parseScope: (value: unknown) => Scope | null,
@@ -144,9 +178,7 @@ function parseMotor<Scope>(
 }
 
 function parseCoordinationScope(value: unknown): CoordinationAggregateScope | null {
-  if (!isRecord(value)) return null;
-  if ((value.bodySize !== "2" && value.bodySize !== "3" && value.bodySize !== "4+")
-    || !handShape(value.handShape)) return null;
+  if (!isRecord(value) || !bodySizeBucket(value.bodySize) || !handShape(value.handShape)) return null;
   return { bodySize: value.bodySize, handShape: value.handShape };
 }
 
@@ -217,6 +249,21 @@ export function parseMeasurementSummaryV2(
       aggregate.actualToken,
     ),
   );
+
+  // Strategy evidence was added after the V2 measurement epoch shipped. A
+  // current-schema record without this section is safely interpreted as having
+  // no strategy history yet; no existing semantic or motor evidence changes.
+  const strategy = value.strategy === undefined
+    ? { inputOrderPositions: {} }
+    : value.strategy;
+  if (!isRecord(strategy)) return null;
+  const inputOrderPositions = parseRecord(
+    strategy.inputOrderPositions,
+    parseInputOrderPosition,
+    (aggregate) => inputOrderPositionAggregateKey(aggregate.scope),
+    27,
+  );
+
   const coordination = parseRecord(
     value.motor.coordination,
     (candidate) => parseMotor(candidate, parseCoordinationScope),
@@ -240,8 +287,9 @@ export function parseMeasurementSummaryV2(
     (candidate) => parseMotor(candidate, (scope) => parseToneScope(scope, validTokens)),
     (aggregate) => toneCommitAggregateKey(aggregate.scope),
   );
-  if (bindings === null || confusions === null || coordination === null
-    || immediateHands === null || sameHandRevisits === null || toneCommits === null) return null;
+  if (bindings === null || confusions === null || inputOrderPositions === null
+    || coordination === null || immediateHands === null
+    || sameHandRevisits === null || toneCommits === null) return null;
 
   return {
     policyVersion: MEASUREMENT_V2_POLICY_VERSION,
@@ -252,6 +300,7 @@ export function parseMeasurementSummaryV2(
       duplicateComponents: value.semantic.duplicateComponents as number,
       prematureTones: value.semantic.prematureTones as number,
     },
+    strategy: { inputOrderPositions },
     motor: { coordination, immediateHands, sameHandRevisits, toneCommits },
   };
 }
