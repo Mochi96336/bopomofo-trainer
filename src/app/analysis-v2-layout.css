@@ -104,16 +104,17 @@
 .analysis-v2-shell,
 .analysis-v2-main,
 .analysis-v2-domain,
-.analysis-v2-card,
-.analysis-v2-semantic-layout,
-.analysis-v2-card-grid,
-.analysis-v2-strategy-grid {
+.analysis-v2-semantic-stage,
+.analysis-v2-speed-field,
+.analysis-v2-speed-stage,
+.analysis-v2-strategy-stage,
+.analysis-v2-evidence-rail {
   min-width: 0;
 }
 
 .analysis-v2-header {
-  min-height: 76px;
-  padding: 18px 24px 0;
+  min-height: 64px;
+  padding: 14px 24px 0;
 }
 
 .analysis-v2-header-actions {
@@ -135,13 +136,13 @@
 }
 
 .analysis-v2-main {
-  padding: 20px 24px 28px;
+  padding: 16px 24px 26px;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
 
 .analysis-v2-domain {
-  gap: 22px;
+  gap: 14px;
 }
 
 .analysis-v2-close {
@@ -169,66 +170,10 @@
   outline-color: transparent;
 }
 
-.analysis-v2-matrix-scroll,
-.analysis-v2-confusion-scroll,
-.analysis-v2-speed-scroll {
+.analysis-v2-speed-scroll,
+.analysis-v2-table-scroll {
   scrollbar-gutter: stable;
   overscroll-behavior-inline: contain;
-}
-
-.analysis-v2-motor-table {
-  min-width: 500px;
-}
-
-.analysis-v2-motor-table.wide {
-  min-width: 650px;
-}
-
-.analysis-v2-card:has(> .analysis-v2-motor-table),
-.analysis-v2-card.strategy-card {
-  overflow-x: auto;
-}
-
-.analysis-v2-matrix-scroll thead th,
-.analysis-v2-confusion-scroll thead th {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--panel);
-}
-
-.analysis-v2-matrix-scroll th:first-child,
-.analysis-v2-confusion-scroll th:first-child {
-  position: sticky;
-  left: 0;
-  z-index: 1;
-  min-width: 70px;
-  background: var(--panel);
-}
-
-.analysis-v2-matrix-scroll thead th:first-child,
-.analysis-v2-confusion-scroll thead th:first-child {
-  z-index: 3;
-}
-
-.analysis-v2-card-title-line {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--analysis-space-3);
-  min-width: 0;
-}
-
-.analysis-v2-card-title-line > div {
-  min-width: 0;
-}
-
-.analysis-v2-card-title-line > span {
-  flex: 0 0 auto;
-  color: var(--ink-muted);
-  font-size: 0.72rem;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 
 .analysis-v2-speed-board {
@@ -248,8 +193,8 @@
   }
 
   .analysis-v2-header {
-    gap: 10px;
-    padding-top: 14px;
+    gap: 8px;
+    padding-top: 12px;
   }
 
   .analysis-v2-header-actions {
@@ -264,45 +209,47 @@
     flex: 1 1 0;
   }
 
-  .analysis-v2-semantic-layout {
+  .analysis-v2-domain-head {
+    gap: 10px;
+  }
+
+  .analysis-v2-semantic-stage,
+  .analysis-v2-semantic-stage.has-selection {
     grid-template-columns: minmax(0, 1fr);
     min-height: 0;
   }
 
-  .analysis-v2-keyboard-wrap {
-    padding-right: 0;
+  .analysis-v2-visual-stage {
+    padding: 22px 0 26px;
   }
 
-  .analysis-v2-side-detail {
-    padding: 20px 0 0;
+  .analysis-v2-semantic-stage > .analysis-v2-inspector,
+  .analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector {
+    min-height: 0;
+    padding: 18px 0 0;
     border-top: 1px solid var(--hairline);
     border-left: 0;
   }
 
-  .analysis-v2-card-grid,
-  .analysis-v2-strategy-grid {
-    grid-template-columns: minmax(0, 1fr);
+  .analysis-v2-semantic-stage:not(.has-selection) > .analysis-v2-inspector {
+    display: none;
   }
 
-  .analysis-v2-card-grid > .analysis-v2-card,
-  .analysis-v2-card-grid > .analysis-v2-card:nth-child(odd),
-  .analysis-v2-card-grid > .analysis-v2-card:nth-child(even),
-  .analysis-v2-card-grid > .analysis-v2-card:nth-child(3),
-  .analysis-v2-card-grid > .analysis-v2-card:nth-child(4) {
-    grid-column: auto;
-    padding-inline: 0;
+  .analysis-v2-evidence-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analysis-v2-evidence-group:nth-child(3) {
     border-left: 0;
-  }
-
-  .analysis-v2-strategy-grid > .analysis-v2-card,
-  .analysis-v2-strategy-grid > .analysis-v2-card:first-child,
-  .analysis-v2-strategy-grid > .analysis-v2-card:last-child {
-    padding-inline: 0;
-  }
-
-  .analysis-v2-strategy-grid > .analysis-v2-card + .analysis-v2-card {
     border-top: 1px solid var(--hairline);
-    border-left: 0;
+  }
+
+  .analysis-v2-evidence-group:nth-child(4) {
+    border-top: 1px solid var(--hairline);
+  }
+
+  .analysis-v2-strategy-stage {
+    min-height: 480px;
   }
 }
 
@@ -314,7 +261,7 @@
 
   .analysis-v2-header {
     min-height: auto;
-    padding: 12px 14px 0;
+    padding: 10px 14px 0;
   }
 
   .analysis-v2-header h2 {
@@ -340,15 +287,15 @@
   }
 
   .analysis-v2-main {
-    padding: 16px 14px 24px;
+    padding: 14px 14px 22px;
   }
 
   .analysis-v2-domain {
-    gap: 18px;
+    gap: 12px;
   }
 
   .analysis-v2-domain-head {
-    gap: var(--analysis-space-3);
+    gap: var(--analysis-space-2);
   }
 
   .analysis-v2-segments {
@@ -359,19 +306,8 @@
     flex: 1 1 0;
   }
 
-  .analysis-v2-keyboard-wrap {
-    padding-block: 14px 18px;
-  }
-
-  .analysis-v2-card-title-line {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 5px;
-  }
-
-  .analysis-v2-card-title-line > span {
-    flex: none;
-    white-space: normal;
+  .analysis-v2-visual-stage {
+    padding-block: 16px 20px;
   }
 
   .analysis-v2-speed-board {
@@ -385,13 +321,58 @@
   .analysis-v2-motor-table.wide {
     min-width: 600px;
   }
+
+  .analysis-v2-evidence-rail {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analysis-v2-evidence-group + .analysis-v2-evidence-group,
+  .analysis-v2-evidence-group:nth-child(3),
+  .analysis-v2-evidence-group:nth-child(4) {
+    border-top: 1px solid var(--hairline);
+    border-left: 0;
+  }
+
+  .analysis-v2-evidence-group[open] {
+    grid-column: auto;
+  }
+
+  .analysis-v2-evidence-group summary {
+    min-height: 46px;
+    padding-inline: 4px;
+  }
+
+  .analysis-v2-evidence-body {
+    padding-inline: 0;
+  }
+
+  .analysis-v2-method {
+    justify-self: stretch;
+  }
+
+  .analysis-v2-method summary {
+    margin-left: 0;
+  }
+
+  .analysis-v2-method p {
+    text-align: left;
+  }
+
+  .analysis-v2-strategy-stage {
+    width: 100%;
+    min-height: 420px;
+  }
+
+  .analysis-v2-strategy-field {
+    overflow-x: auto;
+  }
+
+  .strategy-matrix {
+    min-width: 360px;
+  }
 }
 
 @media (max-width: 420px) {
-  .analysis-v2-header {
-    padding-top: 10px;
-  }
-
   .analysis-v2-speed-board {
     min-width: 560px;
   }
