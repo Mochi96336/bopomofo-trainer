@@ -26,19 +26,28 @@
   scrollbar-gutter: stable;
 }
 
-/* The speed board is only the responsive stage. The original keyboard owns
-   its own 760px/92% geometry; the SVG copies that exact box and transform. */
+/* Match the original diagnostic keyboard structure: one transformed board owns
+   both the key rows and the SVG coordinate plane. Never transform the two
+   layers independently. Responsive min-width may enlarge this speed copy on a
+   narrow viewport, but its shape/transform remain the original keyboard. */
 .analysis-v2-speed-board {
   position: relative;
+  width: min(760px, 92%);
+  margin-inline: auto;
   padding: 0;
   overflow: visible;
   background: transparent;
+  transform: perspective(520px) rotateX(19deg);
+  transform-origin: 50% 100%;
 }
 
 .analysis-v2-speed-keyboard {
   position: relative;
   z-index: 1;
+  width: 100%;
+  margin: 0;
   opacity: 0.9;
+  transform: none;
 }
 
 .analysis-v2-speed-keyboard .analysis-v2-key {
@@ -53,14 +62,12 @@
 .analysis-v2-speed-svg {
   position: absolute;
   z-index: 2;
-  top: 0;
-  left: 50%;
-  width: min(760px, 92%);
+  inset: 0;
+  width: 100%;
   height: 100%;
   overflow: visible;
   pointer-events: none;
-  transform: translateX(-50%) perspective(520px) rotateX(19deg);
-  transform-origin: 50% 100%;
+  transform: none;
 }
 
 .analysis-v2-speed-path {
