@@ -1,6 +1,7 @@
 import type { CatalogEntry } from "../core/model.js";
 import { stableRuntimeDigest } from "../core/stable-id.js";
 import type { StructuralDerivationShape, StructuralLexicalSlot } from "./derive.js";
+import { syntaxProfileMatchesRequirements } from "./profile-match.js";
 import type {
   RuntimeSyntaxProfile,
   SurfaceRealization,
@@ -39,33 +40,6 @@ export function buildLexicalProfileIndex(
   return { profilesByUpos: grouped, entriesById };
 }
 
-function featureMatches(slot: StructuralLexicalSlot, profile: RuntimeSyntaxProfile): boolean {
-  for (const [feature, value] of Object.entries(slot.requiredFeatures)) {
-    switch (feature) {
-      case "upos":
-        if (profile.upos !== value) return false;
-        break;
-      case "function":
-        if (typeof value !== "string" || !profile.functions.includes(value as never)) return false;
-        break;
-      case "valency":
-        if (typeof value !== "string" || !profile.valencyFrames.includes(value as never)) return false;
-        break;
-      case "dependencyRelation":
-        if (typeof value !== "string"
-          || (profile.dependencyEvidence.dependencyRelationCounts[value] ?? 0) <= 0) return false;
-        break;
-      case "surfacePosition":
-        if (typeof value !== "string"
-          || (profile.dependencyEvidence.surfacePositionCounts[value] ?? 0) <= 0) return false;
-        break;
-      default:
-        break;
-    }
-  }
-  return true;
-}
-
 export function compatibleProfilesForSlot(
   slot: StructuralLexicalSlot,
   index: LexicalProfileIndex,
@@ -73,11 +47,11 @@ export function compatibleProfilesForSlot(
   const candidates = slot.allowedUpos.length === 0
     ? Object.values(index.profilesByUpos).flat()
     : slot.allowedUpos.flatMap((upos) => index.profilesByUpos[upos] ?? []);
-  return candidates.filter((profile) =>
-    slot.requiredFunctions.every((value) => profile.functions.includes(value))
-    && (slot.requiredValencyFrames.length === 0
-      || slot.requiredValencyFrames.some((value) => profile.valencyFrames.includes(value)))
-    && featureMatches(slot, profile));
+  return candidates.filter((profile) => {
+    const entry = index.entriesById.get(profile.entryId);
+    return entry !== undefined
+      && syntaxProfileMatchesRequirements(profile, slot, entry.prompt.text);
+  });
 }
 
 function seededOffset(seed: string, slotId: string, size: number): number {

@@ -149,7 +149,7 @@ describe("manifest-scale syntax rule index", () => {
     expect(first.entries).toHaveLength(10_000);
   });
 
-  it("fails closed on a lexical feature absent from UD evidence", () => {
+  it("treats a known lexical construction feature as supported but still fails closed on the wrong form", () => {
     const featureRule = rule("sentence.request", "Sentence", [
       constituent("marker", "Lexeme", {
         allowedUpos: ["VERB"],
@@ -165,7 +165,28 @@ describe("manifest-scale syntax rule index", () => {
     expect(index.rules[0]).toMatchObject({
       globallyRealizable: false,
       blockerConstituentKeys: ["marker"],
-      unsupportedFeatureNames: ["clauseType"],
+      unsupportedFeatureNames: [],
     });
+  });
+
+  it("lets the same licensed feature become reachable for an eligible lexical item", () => {
+    const featureRule = rule("sentence.request", "Sentence", [
+      constituent("marker", "Lexeme", {
+        allowedUpos: ["VERB"],
+        requiredFeatures: { clauseType: "request" },
+      }),
+    ]);
+    const index = buildSyntaxRuleIndex({
+      lexemes: [{ id: "candidate:1", text: "請", generalRank: 1 }],
+      profiles: [profile("candidate:1", "VERB", "root")],
+      rules: [featureRule],
+    });
+
+    expect(index.rules[0]).toMatchObject({
+      globallyRealizable: true,
+      blockerConstituentKeys: [],
+      unsupportedFeatureNames: [],
+    });
+    expect(index.entries[0]?.directPositionIds).toEqual(["sentence.request:marker"]);
   });
 });

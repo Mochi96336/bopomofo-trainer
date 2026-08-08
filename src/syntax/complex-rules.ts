@@ -105,7 +105,7 @@ function fixtures(rule: ProductionRule): readonly ProductionFixture[] {
 function paired(
   id: string,
   coordinationType: string,
-  markerUpos: readonly Upos[] = ["CCONJ", "SCONJ", "PART"],
+  markerUpos: readonly Upos[] = ["ADV", "CCONJ", "SCONJ", "PART"],
 ): ProductionRule {
   return production(id, "ClauseSequence", [
     constituent("firstClause", "Clause", {
@@ -124,13 +124,13 @@ export const COMPLEX_PRODUCTION_RULES: readonly ProductionRule[] = [
   paired("complex.coordination", "coordination"),
   paired("complex.additive", "additive"),
   paired("complex.alternative", "alternative"),
-  paired("complex.cause-result", "cause-result", ["SCONJ", "CCONJ", "PART"]),
-  paired("complex.condition", "condition", ["SCONJ", "PART"]),
-  paired("complex.hypothetical", "hypothetical", ["SCONJ", "PART"]),
-  paired("complex.concessive", "concessive", ["SCONJ", "CCONJ", "PART"]),
-  paired("complex.contrast", "contrast", ["CCONJ", "SCONJ", "PART"]),
-  paired("complex.purpose", "purpose", ["SCONJ", "ADP", "PART"]),
-  paired("complex.temporal-sequence", "temporal-sequence", ["SCONJ", "ADV", "PART"]),
+  paired("complex.cause-result", "cause-result"),
+  paired("complex.condition", "condition"),
+  paired("complex.hypothetical", "hypothetical"),
+  paired("complex.concessive", "concessive"),
+  paired("complex.contrast", "contrast"),
+  paired("complex.purpose", "purpose", ["ADV", "SCONJ", "ADP", "PART"]),
+  paired("complex.temporal-sequence", "temporal-sequence"),
   production("complex.bounded-clause-sequence", "ClauseSequence", [
     constituent("clause", "Clause", {
       minimum: 2,
