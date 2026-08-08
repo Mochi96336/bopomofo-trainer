@@ -1,3 +1,4 @@
+import "./analysis-v2-speed-network.css";
 import type { TokenId } from "../core/model.js";
 import type { ImmediateTokenAggregateScope } from "../measurement-v2/aggregate.js";
 import { tokenLabel } from "../diagnostics/labels.js";
