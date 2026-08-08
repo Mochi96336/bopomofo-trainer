@@ -15,6 +15,7 @@ import type {
   DerivationBounds,
   ProductionRule,
   RuntimeSyntaxProfile,
+  StructuralLexicalSlot,
 } from "../syntax/types.js";
 
 export interface FormalSyntaxUtteranceInput {
@@ -22,6 +23,7 @@ export interface FormalSyntaxUtteranceInput {
   readonly profiles: readonly RuntimeSyntaxProfile[];
   readonly random: RandomSource;
   readonly entryWeightsById?: Readonly<Record<string, number>>;
+  readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
   readonly maximumAttempts: number;
   readonly rules?: readonly ProductionRule[];
@@ -55,6 +57,11 @@ function weightedIndex(
     if (target < 0) return index;
   }
   return weights.length - 1;
+}
+
+function isPracticeLexicalSlot(slot: StructuralLexicalSlot): boolean {
+  return slot.formalLiteral === undefined
+    && !(slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT");
 }
 
 function selectCompatibleProfile(
@@ -104,6 +111,10 @@ export function composeFormalSyntaxUtterances(
   if (!Number.isInteger(input.maximumAttempts) || input.maximumAttempts <= 0) {
     throw new Error("maximumAttempts must be a positive integer");
   }
+  const minimumLexicalEntries = input.minimumLexicalEntries ?? 1;
+  if (!Number.isInteger(minimumLexicalEntries) || minimumLexicalEntries <= 0) {
+    throw new Error("minimumLexicalEntries must be a positive integer");
+  }
   const eligibleEntryIds = new Set(input.eligibleEntries.map((entry) => entry.id));
   const eligibleProfiles = input.profiles.filter((profile) => eligibleEntryIds.has(profile.entryId));
   const index = buildLexicalProfileIndex(input.eligibleEntries, eligibleProfiles);
@@ -128,6 +139,10 @@ export function composeFormalSyntaxUtterances(
     });
     if (shape === null) {
       fallbackReasons.add("formal-syntax-structural-sampling-exhausted");
+      continue;
+    }
+    if (shape.lexicalSlots.filter(isPracticeLexicalSlot).length < minimumLexicalEntries) {
+      fallbackReasons.add("formal-syntax-under-minimum-lexical-entries");
       continue;
     }
     const offsets: Record<string, number> = {};

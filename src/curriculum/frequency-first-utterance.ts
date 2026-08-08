@@ -420,6 +420,7 @@ function generateOnce(
       entryWeightsById: Object.fromEntries(
         eligibleEntries.map((entry) => [entry.id, entryWeight(entry)]),
       ),
+      minimumLexicalEntries: 2,
       maximumCandidates: 1,
       maximumAttempts: 64,
       bounds: {
