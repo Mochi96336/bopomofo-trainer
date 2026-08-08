@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { enumerateStructuralDerivations } from "../../src/syntax/derive.js";
 import {
   FORMAL_SYNTAX_FIXTURES,
   FORMAL_SYNTAX_RULES,
@@ -57,5 +58,36 @@ describe("formal phrase production inventory", () => {
       object: 2,
       aspect: 1,
     });
+  });
+
+  it("does not inherit the phrase function through an adposition object", () => {
+    // clause.locative requires an oblique AdpositionPhrase. The phrase is the
+    // oblique; the noun inside 在<NP> is the object of the adposition and must
+    // not be forced to have been observed as an oblique dependent itself.
+    for (const ruleId of ["phrase.adposition.preposed", "phrase.adposition.postposed"]) {
+      const rule = PHRASE_PRODUCTION_RULES.find((item) => item.id === ruleId);
+      expect(rule, ruleId).toBeDefined();
+      expect(rule?.constituents.find((item) => item.key === "object")?.inheritFunctions)
+        .toBeUndefined();
+    }
+  });
+
+  it("keeps oblique on the locative phrase without pushing it onto the noun", () => {
+    const keep = new Set([
+      "clause.locative",
+      "phrase.adposition.preposed",
+      "phrase.noun.bare",
+      "phrase.nominal-head.noun",
+    ]);
+    const slots = [...enumerateStructuralDerivations({
+      rootCategory: "Clause",
+      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
+    })].flatMap((shape) => shape.lexicalSlots);
+    const nounSlots = slots.filter((slot) => slot.allowedUpos.includes("NOUN"));
+    expect(nounSlots.length).toBeGreaterThan(0);
+    // The subject noun still carries its own subject requirement; no noun
+    // anywhere in the derivation is forced to be an oblique dependent.
+    expect(nounSlots.some((slot) => slot.requiredFunctions.includes("oblique")))
+      .toBe(false);
   });
 });
