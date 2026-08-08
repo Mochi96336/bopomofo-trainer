@@ -4,7 +4,11 @@ import {
   SYNTAX_PROFILES,
 } from "../../src/app/generated/catalog.js";
 import { createSeededRandom } from "../../src/curriculum/random.js";
-import { createFormalSyntaxFamilySamplingSession } from "../../src/curriculum/formal-syntax-sampling-policy.js";
+import {
+  createFormalSyntaxFamilyRuleOrderer,
+  createSentenceConstructionFamilyPlan,
+  PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+} from "../../src/curriculum/formal-syntax-sampling-policy.js";
 import { sentenceConstructionClassification } from "../../src/curriculum/formal-syntax-taxonomy.js";
 import type { StructuralLexicalSlot } from "../../src/syntax/derive.js";
 import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
@@ -24,10 +28,13 @@ function increment(counts: Map<string, number>, key: string): void {
 }
 
 describe("formal syntax effective product distribution", () => {
-  it("keeps A-not-A bounded after real-catalog reachability and product length filtering", () => {
+  it("keeps A-not-A bounded after real-catalog reachability and family-local search", () => {
     const index = buildLexicalProfileIndex(PRACTICE_CATALOG, SYNTAX_PROFILES);
     const sentenceRules = FORMAL_SYNTAX_RULES.filter((rule) => rule.output === "Sentence");
-    const sampleCount = 128;
+    const familyRuleOrderer = createFormalSyntaxFamilyRuleOrderer();
+    const lowerCategoryOrderer = (input: Parameters<typeof familyRuleOrderer>[0]) =>
+      input.category === "Sentence" ? null : familyRuleOrderer(input);
+    const sampleCount = 64;
     const initialFamilyCounts = new Map<string, number>();
     const familyCounts = new Map<string, number>();
     const transitionCounts = new Map<string, number>();
@@ -36,27 +43,24 @@ describe("formal syntax effective product distribution", () => {
 
     for (let round = 0; round < sampleCount; round += 1) {
       const random = createSeededRandom(`formal-family-distribution:${round}`);
-      const samplingSession = createFormalSyntaxFamilySamplingSession();
-      const rootOrder = samplingSession.ruleOrderer({
-        category: "Sentence",
-        candidates: sentenceRules,
-        random,
-      });
-      expect(rootOrder).not.toBeNull();
-      const initialClassification = sentenceConstructionClassification(rootOrder![0]!.id);
-      expect(initialClassification).not.toBeNull();
-      const initialFamily = initialClassification!.family;
+      const rootPlan = createSentenceConstructionFamilyPlan(sentenceRules, random);
+      const initialFamily = rootPlan[0]!.family;
       increment(initialFamilyCounts, initialFamily);
-
+      let familyIndex = 0;
+      let attemptsInFamily = 0;
       let acceptedRootRuleId: string | null = null;
+
       for (let attempt = 0; attempt < 64 && acceptedRootRuleId === null; attempt += 1) {
+        const family = rootPlan[familyIndex];
+        if (family === undefined) break;
         totalAttempts += 1;
         const shape = sampleStructuralDerivation({
           rootCategory: "Sentence",
           rules: FORMAL_SYNTAX_RULES,
           random,
           maximumAttempts: 1,
-          ruleOrderer: samplingSession.ruleOrderer,
+          ruleOrderer: lowerCategoryOrderer,
+          rootProductionRuleIds: family.productionRuleIds,
           isLexicalSlotReachable: (slot) => {
             if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") return true;
             return compatibleProfilesForSlot(slot, index).length > 0;
@@ -71,9 +75,16 @@ describe("formal syntax effective product distribution", () => {
             maximumLexicalEntriesPerUtterance: 6,
           },
         });
-        if (shape === null) continue;
-        if (shape.lexicalSlots.filter(isPracticeLexicalSlot).length < 2) continue;
-        acceptedRootRuleId = shape.root.productionRuleId;
+        if (shape !== null && shape.lexicalSlots.filter(isPracticeLexicalSlot).length >= 2) {
+          acceptedRootRuleId = shape.root.productionRuleId;
+          expect(sentenceConstructionClassification(acceptedRootRuleId)?.family).toBe(family.family);
+          break;
+        }
+        attemptsInFamily += 1;
+        if (attemptsInFamily >= PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.maximumRootFamilyAttempts) {
+          familyIndex += 1;
+          attemptsInFamily = 0;
+        }
       }
 
       expect(acceptedRootRuleId).not.toBeNull();
