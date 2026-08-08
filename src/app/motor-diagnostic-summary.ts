@@ -17,10 +17,15 @@ function milliseconds(value: number | null): string {
   return value === null ? "—" : `${Math.round(value)} ms`;
 }
 
+// Called only when no individual aggregate clears the display gate. The total
+// can still exceed the gate when samples are spread across several scopes; say
+// that explicitly instead of showing a dash beside an apparently sufficient
+// total and making the two numbers look contradictory.
 function sampleMeta(samples: number, observations: number): string {
   if (observations === 0) return "尚無資料";
   if (samples === 0) return `${observations} 次觀察 · 尚無乾淨時間`;
-  return `${samples} 個乾淨樣本${samples < SUFFICIENT_SAMPLES ? " · 樣本累積中" : ""}`;
+  if (samples < SUFFICIENT_SAMPLES) return `${samples} 個乾淨樣本 · 樣本累積中`;
+  return `${samples} 個乾淨樣本 · 分散於各類，單類樣本不足`;
 }
 
 function handLabel(hand: "left" | "right"): string {
