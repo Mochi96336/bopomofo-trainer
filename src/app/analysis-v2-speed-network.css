@@ -26,11 +26,11 @@
   scrollbar-gutter: stable;
 }
 
-/* The board owns one coordinate field. Responsive min-width lives in
-   analysis-v2-layout.css; this file owns only the overlay geometry. */
+/* The speed board is only the responsive stage. The original keyboard owns
+   its own 760px/92% geometry; the SVG copies that exact box and transform. */
 .analysis-v2-speed-board {
   position: relative;
-  padding: 10px;
+  padding: 0;
   overflow: visible;
   background: transparent;
 }
@@ -38,10 +38,7 @@
 .analysis-v2-speed-keyboard {
   position: relative;
   z-index: 1;
-  width: 100%;
-  margin: 0;
   opacity: 0.9;
-  transform: none;
 }
 
 .analysis-v2-speed-keyboard .analysis-v2-key {
@@ -53,20 +50,17 @@
   place-items: center;
 }
 
-.analysis-v2-speed-keyboard .analysis-v2-key.mapped strong {
-  font-size: 0.76rem;
-  font-weight: 650;
-}
-
 .analysis-v2-speed-svg {
   position: absolute;
   z-index: 2;
-  inset: 10px;
-  width: calc(100% - 20px);
-  height: calc(100% - 20px);
+  top: 0;
+  left: 50%;
+  width: min(760px, 92%);
+  height: 100%;
   overflow: visible;
   pointer-events: none;
-  transform: none;
+  transform: translateX(-50%) perspective(520px) rotateX(19deg);
+  transform-origin: 50% 100%;
 }
 
 .analysis-v2-speed-path {
@@ -95,7 +89,7 @@
 .analysis-v2-speed-empty {
   position: absolute;
   z-index: 3;
-  inset: 10px;
+  inset: 0;
   display: grid;
   place-items: center;
   padding: 20px;
