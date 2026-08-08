@@ -1,96 +1,173 @@
-# Phase 3 measurement policy
+# Input-order v2 measurement policy
 
 ## Purpose
 
-Phase 3 converts raw `InteractionTrace` values into deterministic observations and aggregates. It does not claim to produce a final learning score, typing speed, or confidence value.
+The production measurement pipeline now separates **semantic evidence** from **observed motor evidence**. Canonical Bopomofo token order remains useful catalog structure, but it is no longer treated as the order a learner must physically type.
 
-The policy is versioned as `phase-3-v2` and lives in `src/measurement/policy.ts`. UI code does not decide which samples are valid.
+The current aggregate policy is versioned as `input-order-v2-aggregate-1` in `src/measurement-v2/aggregate.ts`. Raw interaction semantics live in `InteractionTraceV2`; projection lives in `src/measurement-v2/derive-observations.ts`.
 
-## Context policy
+The older `src/measurement/` Phase 3 implementation remains only for archived research and a narrow semantic compatibility view. Production motor measurement must not derive timing from its token-pair transition channel.
 
-| Context | Binding correctness | Confusion | Motor timing | Transition timing |
-| --- | --- | --- | --- | --- |
-| `exercise-start` | excluded | excluded | excluded | excluded |
-| `entry-start` | excluded | excluded | excluded | excluded |
-| `syllable-start` | included | included | excluded | excluded |
-| `within-syllable` | included | included | eligible | eligible |
-| `tone` | included | included | eligible | eligible |
+## Input semantics
 
-An excluded channel still receives an explicit machine-readable reason rather than silently disappearing.
+Within one syllable:
 
-The first key of an exercise or entry includes reading and orientation latency, so it contributes nothing. The first key of a later syllable still contributes binding correctness and confusion, but its timing remains separated from within-syllable motor timing.
+- non-tone body components may be completed in any order;
+- a completed body component stays completed;
+- the tone is an explicit commit and is accepted only after every body component is complete;
+- repeating an already completed component is `duplicate-component`;
+- a tone before body completion is `premature-tone`;
+- a mapped token outside the remaining body is unexpected input.
 
-Confusion deliberately has a wider context set than motor timing: which key a learner reaches for instead is worth recording at a syllable start, even though that keystroke's interval is not comparable with a within-syllable one.
+An incorrect mapped input receives an expected-token attribution only when one target is unambiguous. If several body components remain, the system records an ambiguous error instead of manufacturing an expected-to-actual confusion pair.
 
-## Event policy
+## Semantic observations
 
-- Correct mapped, non-recovery input in `within-syllable` or `tone` may produce binding and transition timing.
-- Incorrect mapped input in any binding context produces a binding error and an expected-to-actual confusion observation.
-- A correct key after a mapped error is retained as a binding completion, marked as recovery, and excluded from timing.
-- Unmapped keys are interaction noise. They do not create a binding or confusion observation and do not start recovery.
-- Repeats, modifier shortcuts, and composition events are also interaction noise rather than motor errors.
-- Any interaction noise between two successful advances invalidates the later timing interval. The later correct binding remains recorded, but its timing and transition are excluded as `interaction-noise`.
-- Transitions require a previous token and a nonzero token index. They therefore cannot cross exercise, entry, or syllable boundaries.
+### Binding
 
-Every raw trace receives an explicit included or excluded decision for the binding, confusion, and transition channels. Exclusions retain a machine-readable reason.
-
-## Skill identity
-
-Binding identity is:
+A successfully matched token produces binding success evidence for:
 
 ```text
-practice mode + layout ID + expected token
+practice mode + layout ID + token
 ```
 
-Confusion identity adds the actual token. Transition identity uses the previous and current token. Guided and recall modes, or two layouts, never share aggregates implicitly.
+An error updates a token binding only when `attributedExpectedToken` is known. This means freedom of body order does not create false errors for tokens that happened to appear earlier in canonical notation.
 
-## Aggregation
+Clean binding timing is based on actual accepted-event timing. Start, recovery, and noise-affected intervals are excluded from clean timing while correctness evidence can still be retained where semantically valid.
 
-Binding aggregates currently retain:
+### Confusion
 
-- attempts;
-- errors;
-- eligible timing sample count;
-- current provisional time-to-type;
-- best eligible time-to-type;
-- counts of timing exclusions caused by syllable starts, incorrect input, recovery, and interaction noise.
-
-Confusions count expected-to-actual occurrences. Transitions retain eligible sample count, current provisional timing, and best timing.
-
-The provisional current timing is an exponential moving average:
+A confusion observation exists only when the system can state both:
 
 ```text
-new = previous + alpha × (sample - previous)
+expected token
+actual token
 ```
 
-`alpha` is currently `0.25`, is validated, and is deliberately configurable. The first eligible sample initializes the estimate. Values are rounded to three decimal places for stable serialized output.
+without guessing user intent. Ambiguous errors, duplicate components, and premature tones are counted separately rather than forced into the confusion matrix.
 
-This is smoothing, not confidence. Minimum samples, outlier treatment, confidence normalization, and curriculum eligibility remain Phase 4 decisions.
+## Motor observations
 
-Aggregate keys are sorted with direct code-unit comparison rather than locale-sensitive collation so serialized output remains stable across environments.
+Motor observations are derived from actual accepted event order and physical-key ergonomics.
 
-## Replaying exported traces
+### Syllable coordination
 
-The interaction spike's downloaded JSON can be analyzed without opening the browser:
+Measures the span from the first accepted body component to the last accepted body component. The aggregate identity is deliberately coarse:
 
-```bash
-npm run measurement:analyze -- path/to/bopomofo-spike.json
+```text
+body-size bucket × hand shape
 ```
 
-The command prints the policy, every per-trace decision, and the aggregate summary as JSON. A trace can therefore remain useful even when a later policy version changes which intervals are eligible.
+Body-size buckets are `2`, `3`, and `4+`. Hand shape is `left-only`, `right-only`, `mixed`, or `unknown`.
 
-## What this model can claim
+### Immediate hand transition
 
-It can explain exactly why a raw event did or did not affect a binding, confusion, transition, or timing aggregate. Replaying the same exercise and traces produces the same output.
+Looks only at consecutive accepted physical events. Aggregate identity is one of four assigned-hand paths:
 
-It cannot yet claim that:
+```text
+L → L
+L → R
+R → L
+R → R
+```
 
-- the smoothing parameter is optimal;
-- the aggregate predicts learning;
-- boundary correctness should influence curriculum;
-- recovery time should be discarded permanently;
-- unmapped input is always irrelevant;
-- transition timing is useful enough to drive selection;
-- two skill estimates are comparable before minimum-sample rules exist.
+It does not use canonical token adjacency.
 
-Those questions remain explicit rather than being hidden inside a score.
+### Same-hand revisit
+
+For each accepted event, the system may look back to the previous accepted event assigned to the same hand, even across syllable or entry boundaries. The measurement is a **revisit interval**, not a claim that the two keys were consecutive or that the entire interval was finger travel time.
+
+Aggregate identity is intentionally limited to:
+
+```text
+hand × whether the opposite hand intervened
+```
+
+Boundary class stays observation metadata and is not multiplied into the aggregate key.
+
+### Tone commit
+
+Measures from the last accepted body component to the accepted tone. Tone commit is separate from body coordination because the tone acts as syllable completion rather than another freely ordered body component.
+
+## Noise and recovery
+
+Repeats, modifier-only shortcuts, composition events, unmapped input, and mapped errors remain explicit trace events. Timing observations affected by intervening noise or recovery are marked dirty or excluded from clean timing instead of silently being treated as ordinary motor samples.
+
+Raw evidence is kept more expressive than aggregate identity so policy can evolve without inventing precision that the sample count does not support.
+
+## Bounded aggregation
+
+Observation records may contain token, physical code, hand, boundary, syllable, and timing information together. These fields **must not automatically form a Cartesian-product skill identity**.
+
+Production aggregate cardinality is intentionally bounded:
+
+- immediate hand: at most 4 scopes;
+- same-hand revisit: at most 4 scopes;
+- coordination: at most 12 scopes;
+- tone commit: tone identity only.
+
+Exact token-pair, physical-key-pair, finger, distance, and boundary-cross-product motor aggregates are not part of this policy.
+
+The current timing smoother remains an exponential moving average with alpha `0.25`; the first clean sample initializes the estimate. Best clean timing is retained separately.
+
+## Structural adjacency is not motor evidence
+
+Canonical catalog adjacency is exposed explicitly as `StructuralAdjacencyOccurrence` in `src/relations/structural-adjacency.ts`.
+
+For a canonical syllable such as:
+
+```text
+ㄒ ㄩ ㄝ ˊ
+```
+
+catalog structure may contain:
+
+```text
+ㄒ → ㄩ
+ㄩ → ㄝ
+ㄝ → ˊ
+```
+
+A learner may nevertheless type the body as:
+
+```text
+ㄝ → ㄩ → ㄒ → ˊ
+```
+
+The first sequence is structural evidence. The second is observed motor order. They must never share statistical meaning.
+
+Existing selection and legacy semantic diagnostics receive a compatibility view containing V2 binding/confusion evidence and an intentionally empty legacy transition record.
+
+## Persistence
+
+Product progress schema 7 uses measurement epoch `coordination-v1`.
+
+Schema 6 progress may retain compatible identity and history state during migration, but legacy measurement evidence is reset. Old strict-order errors, confusions, and transitions cannot safely be reinterpreted under unordered syllable semantics.
+
+Persisted V2 aggregates are validated independently, including key/scope consistency and bounded motor identities.
+
+## Curriculum boundary
+
+Current adaptive selection may consume semantic binding evidence. Motor coordination aggregates are diagnostic-only in this version.
+
+A future motor-driven curriculum must explicitly define how an exercise causes or encourages a motor objective. Selecting a word that canonically contains `A → B` is not sufficient evidence that the learner will physically perform `A → B` when body order is free.
+
+## What the model can claim
+
+The current model can state:
+
+- which token binding was successfully completed;
+- a confusion pair when intended target attribution is unambiguous;
+- how long a syllable body took to coordinate;
+- which assigned-hand path occurred between consecutive accepted events;
+- when the same hand was used again and whether the other hand intervened;
+- tone-commit timing;
+- why an observation was excluded from clean timing.
+
+It does **not** claim:
+
+- that canonical token order is required typing order;
+- that an ambiguous wrong key reveals which remaining token the learner intended;
+- that same-hand revisit duration equals pure finger movement time;
+- that one exact token pair is weak from only a few samples;
+- that motor aggregates should already drive curriculum selection.
