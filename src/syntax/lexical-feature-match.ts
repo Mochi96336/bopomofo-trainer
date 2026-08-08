@@ -6,6 +6,12 @@ import type {
 } from "./types.js";
 
 const NEGATORS = new Set(["不", "未", "沒", "沒有", "別", "無", "非", "不是"]);
+/**
+ * A-not-A takes a much narrower negator than a negative clause does. 別 is
+ * prohibitive, 未/非/無 are literary or copular negators, and none of them
+ * form V-neg-V — only 不 and 沒 do.
+ */
+const A_NOT_A_NEGATORS = new Set(["不", "沒"]);
 const ASPECT_MARKERS = new Set(["了", "過", "著", "着"]);
 const DISPOSAL_MARKERS = new Set(["把", "將"]);
 const PASSIVE_MARKERS = new Set(["被"]);
@@ -40,6 +46,7 @@ const COORDINATION_CONNECTORS: Readonly<Record<string, ReadonlySet<string>>> = {
  */
 export const LICENSED_CONSTRUCTION_FORMS: ReadonlySet<string> = new Set([
   ...NEGATORS,
+  ...A_NOT_A_NEGATORS,
   ...ASPECT_MARKERS,
   ...DISPOSAL_MARKERS,
   ...PASSIVE_MARKERS,
@@ -104,6 +111,7 @@ const LICENSED_FEATURE_VALUES = new Set([
   "questionType:polar",
   "questionType:constituent",
   "questionType:alternative",
+  "questionType:a-not-a",
   "complementType:directional",
   "complementType:potential",
   "complementType:degree",
@@ -114,6 +122,10 @@ function relationSeen(profile: RuntimeSyntaxProfile, ...relations: readonly stri
   return relations.some(
     (relation) => (profile.dependencyEvidence.dependencyRelationCounts[relation] ?? 0) > 0,
   );
+}
+
+function negatorEvidence(profile: RuntimeSyntaxProfile): boolean {
+  return relationSeen(profile, "advmod", "aux") || profile.upos === "PART";
 }
 
 function featureKey(feature: SyntaxFeatureName, value: SyntaxFeatureValue): string {
@@ -147,8 +159,9 @@ export function lexicalConstructionFeatureMatches(
   if (!formMatchesIdentity(entryId, text)) return false;
   switch (featureKey(feature, value)) {
     case "polarity:negative":
-      return NEGATORS.has(text)
-        && (relationSeen(profile, "advmod", "aux") || profile.upos === "PART");
+      return NEGATORS.has(text) && negatorEvidence(profile);
+    case "questionType:a-not-a":
+      return A_NOT_A_NEGATORS.has(text) && negatorEvidence(profile);
     case "aspect:marked":
       return ASPECT_MARKERS.has(text) && relationSeen(profile, "aux");
     case "voice:disposal":

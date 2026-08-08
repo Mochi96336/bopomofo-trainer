@@ -182,6 +182,27 @@ describe("lexical construction feature matching", () => {
     },
   );
 
+  it("licenses a narrower negator for A-not-A than for a negative clause", () => {
+    const adverbialNegator = profile("ADV", "advmod");
+    for (const [text, entryId] of [
+      ["不", "word:不:ㄅㄨ4"],
+      ["沒", "word:沒:ㄇㄟ2"],
+    ] as const) {
+      expect(matches(text, adverbialNegator, "polarity", "negative", entryId)).toBe(true);
+      expect(matches(text, adverbialNegator, "questionType", "a-not-a", entryId)).toBe(true);
+    }
+    // 別/未/非/無 negate a clause but never form V-neg-V.
+    for (const [text, entryId] of [
+      ["別", "word:別:ㄅㄧㄝ2"],
+      ["未", "word:未:ㄨㄟ4"],
+      ["非", "word:非:ㄈㄟ1"],
+      ["無", "word:無:ㄨ2"],
+    ] as const) {
+      expect(matches(text, adverbialNegator, "polarity", "negative", entryId)).toBe(true);
+      expect(matches(text, adverbialNegator, "questionType", "a-not-a", entryId)).toBe(false);
+    }
+  });
+
   it("fails a pinned construction form closed when the identity is unknown", () => {
     expect(matches("的", profile("SCONJ", "mark:rel"), "clauseType", "relative", undefined))
       .toBe(false);

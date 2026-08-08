@@ -115,4 +115,32 @@ describe("formal syntax lexical bindings", () => {
     expect(result.candidates[0]?.text).toBe("吃不吃飯");
     expect(result.candidates[0]?.text).not.toContain("睡");
   });
+
+  it("does not fill the A-not-A negation slot with a clause-only negator", () => {
+    const eat = entry("word:吃:ㄔ1", "吃");
+    // 別 is a licensed clause negator but never forms V-neg-V, so the slot has
+    // no filler and the rule has to fail rather than realize 吃別吃.
+    const prohibitive = entry("word:別:ㄅㄧㄝ2", "別");
+
+    const result = composeFormalSyntaxUtterances({
+      eligibleEntries: [eat, prohibitive],
+      profiles: [
+        profile("profile:eat", eat.id, "VERB", ["predicate"], ["intransitive"], "root"),
+        profile(
+          "profile:prohibitive",
+          prohibitive.id,
+          "ADV",
+          ["adverbial"],
+          ["avalent"],
+          "advmod",
+        ),
+      ],
+      random: new ConstantRandom(0),
+      maximumCandidates: 1,
+      maximumAttempts: 1,
+      rules: rules(["sentence.a-not-a-question"]),
+    });
+
+    expect(result.candidates).toEqual([]);
+  });
 });

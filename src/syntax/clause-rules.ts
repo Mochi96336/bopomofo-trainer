@@ -263,14 +263,14 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   production("sentence.a-not-a-question", "Sentence", [
     constituent("subject", "NounPhrase", { minimum: 0, maximum: 1, requiredFunctions: ["subject"] }),
     aNotALexeme("positivePredicate", ["intransitive", "ambitransitive"]),
-    lexical("negation", ["ADV", "AUX", "PART"], { requiredFeatures: { polarity: "negative" } }),
+    lexical("negation", ["ADV", "AUX", "PART"], { requiredFeatures: { questionType: "a-not-a" } }),
     aNotALexeme("negativePredicate", ["intransitive", "ambitransitive"]),
     constituent("punctuation", "Punctuation", { minimum: 0, maximum: 1 }),
   ]),
   production("sentence.a-not-a-transitive-question", "Sentence", [
     constituent("subject", "NounPhrase", { minimum: 0, maximum: 1, requiredFunctions: ["subject"] }),
     aNotALexeme("positivePredicate", ["transitive", "ambitransitive"]),
-    lexical("negation", ["ADV", "AUX", "PART"], { requiredFeatures: { polarity: "negative" } }),
+    lexical("negation", ["ADV", "AUX", "PART"], { requiredFeatures: { questionType: "a-not-a" } }),
     aNotALexeme("negativePredicate", ["transitive", "ambitransitive"]),
     object(),
     constituent("punctuation", "Punctuation", { minimum: 0, maximum: 1 }),
