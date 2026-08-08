@@ -281,6 +281,54 @@ export function createFormalSyntaxFamilyRuleOrderer(
   };
 }
 
+export interface FormalSyntaxFamilySamplingSession {
+  readonly ruleOrderer: StructuralRuleOrderer;
+  /** Start a fresh root Sentence decision after one candidate is accepted. */
+  resetRootChoice(): void;
+}
+
+function sameRuleIdSet(
+  candidates: readonly ProductionRule[],
+  cachedRuleIds: readonly string[],
+): boolean {
+  if (candidates.length !== cachedRuleIds.length) return false;
+  const candidateIds = new Set(candidates.map((rule) => rule.id));
+  return cachedRuleIds.every((ruleId) => candidateIds.has(ruleId));
+}
+
+/**
+ * Keep one root Sentence ordering stable while the composer retries a candidate.
+ * Product-only rejection such as a minimum practice-length check must not redraw
+ * the construction family and reward families that are easier to realize.
+ * Clause and lower-category choices remain fresh on each structural attempt.
+ */
+export function createFormalSyntaxFamilySamplingSession(
+  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+): FormalSyntaxFamilySamplingSession {
+  const baseOrderer = createFormalSyntaxFamilyRuleOrderer(policy);
+  let cachedSentenceRuleIds: readonly string[] | null = null;
+
+  return {
+    ruleOrderer: (input) => {
+      if (input.category !== "Sentence") return baseOrderer(input);
+      if (cachedSentenceRuleIds === null) {
+        const ordered = baseOrderer(input);
+        if (ordered === null) throw new Error("formal syntax family orderer did not order Sentence rules");
+        cachedSentenceRuleIds = ordered.map((rule) => rule.id);
+        return ordered;
+      }
+      if (!sameRuleIdSet(input.candidates, cachedSentenceRuleIds)) {
+        throw new Error("formal syntax sampling session Sentence candidate set changed before reset");
+      }
+      const byId = new Map(input.candidates.map((rule) => [rule.id, rule]));
+      return cachedSentenceRuleIds.map((ruleId) => byId.get(ruleId)!);
+    },
+    resetRootChoice: () => {
+      cachedSentenceRuleIds = null;
+    },
+  };
+}
+
 function normalizedWeight(
   keys: readonly string[],
   weights: Readonly<Record<string, number>>,
