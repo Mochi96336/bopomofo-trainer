@@ -10,6 +10,7 @@ import {
   createFreshProgressForEnvironment,
   createProductEnvironment,
 } from "../../src/product/session.js";
+import { PRODUCT_PROGRESS_SCHEMA_VERSION } from "../../src/product/types.js";
 import { PRODUCT_CATALOGS } from "./fixtures.js";
 
 class MemoryStorage implements StorageLike {
@@ -22,6 +23,11 @@ class MemoryStorage implements StorageLike {
 const environment = createProductEnvironment(PRODUCT_CATALOGS);
 
 describe("local progress adapter", () => {
+  it("reports an empty store explicitly", () => {
+    expect(loadLocalProductProgress(new MemoryStorage(), environment, "guided", "standard"))
+      .toEqual({ progress: null, status: "empty" });
+  });
+
   it("saves, restores, exposes, and clears canonical progress", () => {
     const storage = new MemoryStorage();
     const progress = createFreshProgressForEnvironment(
@@ -33,13 +39,32 @@ describe("local progress adapter", () => {
     saveLocalProductProgress(storage, progress);
     expect(loadLocalProductProgress(storage, environment, "guided", "standard")).toEqual({
       progress,
-      recoveredFromInvalidState: false,
+      status: "loaded",
     });
     clearLocalProductProgress(storage);
     expect(storage.getItem(LOCAL_PROGRESS_KEY)).toBeNull();
   });
 
-  it("rejects a stored generation from an earlier schema instead of migrating it", () => {
+  it("labels a successful legacy measurement-epoch migration separately from a normal load", () => {
+    const storage = new MemoryStorage();
+    const progress = createFreshProgressForEnvironment(
+      environment,
+      "legacy-seed",
+      "guided",
+      "standard",
+    );
+    const stored = JSON.parse(JSON.stringify(progress)) as Record<string, unknown>;
+    stored.schemaVersion = PRODUCT_PROGRESS_SCHEMA_VERSION - 1;
+    delete stored.measurementEpoch;
+    storage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(stored));
+
+    const result = loadLocalProductProgress(storage, environment, "guided", "standard");
+    expect(result.status).toBe("migrated");
+    expect(result.progress?.seed).toBe("legacy-seed");
+    expect(result.progress?.measurements.semantic.bindings).toEqual({});
+  });
+
+  it("rejects an unsupported stored generation as invalid", () => {
     const storage = new MemoryStorage();
     const progress = createFreshProgressForEnvironment(
       environment,
@@ -48,12 +73,12 @@ describe("local progress adapter", () => {
       "standard",
     );
     const stored = JSON.parse(JSON.stringify(progress)) as Record<string, unknown>;
-    stored.schemaVersion = 5;
+    stored.schemaVersion = PRODUCT_PROGRESS_SCHEMA_VERSION - 2;
     storage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(stored));
 
     expect(loadLocalProductProgress(storage, environment, "guided", "standard")).toEqual({
       progress: null,
-      recoveredFromInvalidState: true,
+      status: "invalid",
     });
   });
 
@@ -84,16 +109,16 @@ describe("local progress adapter", () => {
     storage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(stored));
     expect(loadLocalProductProgress(storage, environment, "guided", "standard")).toEqual({
       progress: null,
-      recoveredFromInvalidState: true,
+      status: "invalid",
     });
   });
 
-  it("reports invalid stored state without partially loading it", () => {
+  it("reports malformed stored state as invalid without partially loading it", () => {
     const storage = new MemoryStorage();
     storage.setItem(LOCAL_PROGRESS_KEY, "{broken");
     expect(loadLocalProductProgress(storage, environment, "guided", "standard")).toEqual({
       progress: null,
-      recoveredFromInvalidState: true,
+      status: "invalid",
     });
   });
 });
