@@ -1,6 +1,18 @@
+import {
+  PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+  SENTENCE_CONSTRUCTION_FAMILIES,
+  sentenceConstructionFamilyPrior,
+} from "../src/curriculum/formal-syntax-sampling-policy.js";
 import { auditEqualRuleTicketDistribution } from "../src/curriculum/formal-syntax-taxonomy.js";
 import { FORMAL_SYNTAX_RULES } from "../src/syntax/grammar.js";
 
-const audit = auditEqualRuleTicketDistribution(FORMAL_SYNTAX_RULES);
-
-console.log(JSON.stringify(audit, null, 2));
+console.log(JSON.stringify({
+  equalRuleTickets: auditEqualRuleTicketDistribution(FORMAL_SYNTAX_RULES),
+  productPolicy: {
+    version: PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version,
+    sentenceRootFamilyPriors: Object.fromEntries(SENTENCE_CONSTRUCTION_FAMILIES.map((family) => [
+      family,
+      sentenceConstructionFamilyPrior(family),
+    ])),
+  },
+}, null, 2));

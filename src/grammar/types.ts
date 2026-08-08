@@ -101,6 +101,8 @@ export interface GrammarUtteranceCandidate {
   readonly text: string;
   readonly punctuation: GrammarTemplate["punctuation"];
   readonly syntaxDerivationId?: string;
+  /** Root production trace for formal-syntax diagnostics/curriculum classification. */
+  readonly syntaxRootRuleId?: string;
   readonly syntaxProfileIds?: readonly string[];
 }
 

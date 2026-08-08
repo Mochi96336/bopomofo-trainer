@@ -1,0 +1,242 @@
+import { describe, expect, it } from "vitest";
+import {
+  PRACTICE_CATALOG,
+  SYNTAX_PROFILES,
+} from "../../src/app/generated/catalog.js";
+import {
+  activeSentenceConstructionFamilies,
+  PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+} from "../../src/curriculum/formal-syntax-sampling-policy.js";
+import { createSeededRandom } from "../../src/curriculum/random.js";
+import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
+import { sentenceConstructionClassification } from "../../src/curriculum/formal-syntax-taxonomy.js";
+import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
+import { sampleStructuralDerivation } from "../../src/syntax/sample.js";
+
+const PRODUCT_BOUNDS = {
+  maximumPhraseDepth: 3,
+  maximumClauseNesting: 1,
+  maximumClausesPerSentence: 2,
+  maximumCoordinationItems: 2,
+  maximumConsecutiveModifiers: 2,
+  maximumComplementsPerPredicate: 1,
+  maximumLexicalEntriesPerUtterance: 6,
+} as const;
+
+function increment(counts: Map<string, number>, key: string): void {
+  counts.set(key, (counts.get(key) ?? 0) + 1);
+}
+
+describe("formal syntax effective product distribution", () => {
+  it("keeps every active Sentence root family structurally reachable under product bounds", () => {
+    const sentenceRules = FORMAL_SYNTAX_RULES.filter((rule) => rule.output === "Sentence");
+    for (const family of activeSentenceConstructionFamilies()) {
+      const ruleIds = sentenceRules
+        .filter((rule) => sentenceConstructionClassification(rule.id)?.family === family)
+        .map((rule) => rule.id);
+      expect(ruleIds.length, family).toBeGreaterThan(0);
+      const reachable = ruleIds.some((ruleId) => sampleStructuralDerivation({
+        rootCategory: "Sentence",
+        rules: FORMAL_SYNTAX_RULES,
+        random: createSeededRandom(`formal-family-reachability:${family}:${ruleId}`),
+        rootProductionRuleId: ruleId,
+        maximumAttempts: 64,
+        bounds: PRODUCT_BOUNDS,
+      }) !== null);
+      expect(reachable, `active root family is unreachable under PRODUCT_BOUNDS: ${family}`).toBe(true);
+    }
+
+    // Complex sentences remain legal grammar/taxonomy, but the current product
+    // clause-depth budget cannot enter ClauseSequence and then its recursive Clause.
+    expect(sampleStructuralDerivation({
+      rootCategory: "Sentence",
+      rules: FORMAL_SYNTAX_RULES,
+      random: createSeededRandom("formal-family-complex-inactive-at-depth-one"),
+      rootProductionRuleId: "sentence.complex",
+      maximumAttempts: 64,
+      bounds: PRODUCT_BOUNDS,
+    })).toBeNull();
+  });
+
+  it("keeps realized family shares bounded through the actual product composer", () => {
+    const sampleCount = 64;
+    const familyCounts = new Map<string, number>();
+    let questions = 0;
+
+    for (let round = 0; round < sampleCount; round += 1) {
+      const composition = composeFormalSyntaxUtterances({
+        eligibleEntries: PRACTICE_CATALOG,
+        profiles: SYNTAX_PROFILES,
+        random: createSeededRandom(`formal-family-product-distribution:${round}`),
+        samplingMode: "product-family",
+        minimumLexicalEntries: 2,
+        maximumCandidates: 1,
+        maximumAttempts: 64,
+        bounds: PRODUCT_BOUNDS,
+      });
+      expect(composition.candidates).toHaveLength(1);
+      const candidate = composition.candidates[0]!;
+      expect(candidate.syntaxRootRuleId).toBeDefined();
+      const classification = sentenceConstructionClassification(candidate.syntaxRootRuleId!);
+      expect(classification).not.toBeNull();
+      increment(familyCounts, classification!.family);
+      if (classification!.kind === "question") questions += 1;
+    }
+
+    const counts = Object.fromEntries([...familyCounts.entries()].sort());
+    const aNotA = familyCounts.get("question.a-not-a") ?? 0;
+    const aNotAShare = aNotA / sampleCount;
+    const questionShare = questions / sampleCount;
+    const diagnostic = JSON.stringify({ sampleCount, aNotAShare, questionShare, counts });
+
+    // Guard both disappearance and renewed over-representation. These are
+    // product-health bounds, not claims about natural Mandarin frequencies.
+    expect(aNotAShare, diagnostic).toBeGreaterThan(0.015);
+    expect(aNotAShare, diagnostic).toBeLessThan(0.12);
+    expect(questionShare, diagnostic).toBeGreaterThan(0.12);
+    expect(questionShare, diagnostic).toBeLessThan(0.40);
+  });
+
+  it("does not disable product policy when the canonical grammar is passed explicitly", () => {
+    const omitted = composeFormalSyntaxUtterances({
+      eligibleEntries: PRACTICE_CATALOG,
+      profiles: SYNTAX_PROFILES,
+      random: createSeededRandom("formal-family-explicit-rules-equivalence"),
+      minimumLexicalEntries: 2,
+      maximumCandidates: 1,
+      maximumAttempts: 64,
+      bounds: PRODUCT_BOUNDS,
+    });
+    const explicit = composeFormalSyntaxUtterances({
+      eligibleEntries: PRACTICE_CATALOG,
+      profiles: SYNTAX_PROFILES,
+      random: createSeededRandom("formal-family-explicit-rules-equivalence"),
+      rules: [...FORMAL_SYNTAX_RULES],
+      minimumLexicalEntries: 2,
+      maximumCandidates: 1,
+      maximumAttempts: 64,
+      bounds: PRODUCT_BOUNDS,
+    });
+
+    expect(omitted.candidates).toHaveLength(1);
+    expect(explicit.candidates).toHaveLength(1);
+    expect(explicit.candidates[0]).toMatchObject({
+      id: omitted.candidates[0]!.id,
+      text: omitted.candidates[0]!.text,
+      syntaxRootRuleId: omitted.candidates[0]!.syntaxRootRuleId,
+    });
+  });
+
+  it("uses an injected product-family policy instead of the production default", () => {
+    const fourFamilyPolicy = {
+      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+      version: "formal-syntax-family-sampling-test-four-families",
+      sentenceFamilyWeights: {
+        "statement.declarative": 1,
+        "question.polar": 1,
+        request: 1,
+        exclamative: 1,
+      },
+    } as const;
+
+    const composition = composeFormalSyntaxUtterances({
+      eligibleEntries: PRACTICE_CATALOG,
+      profiles: SYNTAX_PROFILES,
+      random: createSeededRandom("formal-family-injected-policy"),
+      samplingMode: "product-family",
+      samplingPolicy: fourFamilyPolicy,
+      minimumLexicalEntries: 1,
+      maximumCandidates: 1,
+      maximumAttempts: 4,
+      bounds: PRODUCT_BOUNDS,
+    });
+
+    // The production default has seven active families and would fail this
+    // four-attempt budget before sampling. Absence of that fallback proves the
+    // injected policy reaches the composer's active-family planner.
+    expect(composition.fallbackReasons).not.toContain("formal-syntax-root-family-budget-insufficient");
+  });
+
+  it("rejects an injected policy in raw sampling mode", () => {
+    expect(() => composeFormalSyntaxUtterances({
+      eligibleEntries: PRACTICE_CATALOG,
+      profiles: SYNTAX_PROFILES,
+      random: createSeededRandom("formal-family-policy-in-raw-mode"),
+      samplingMode: "raw",
+      samplingPolicy: PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+      minimumLexicalEntries: 1,
+      maximumCandidates: 1,
+      maximumAttempts: 1,
+      bounds: PRODUCT_BOUNDS,
+    })).toThrow(/samplingPolicy requires product-family sampling mode/u);
+  });
+
+  it("treats same-ID but structurally modified grammar as custom instead of canonical", () => {
+    const targetIndex = FORMAL_SYNTAX_RULES.findIndex((rule) => rule.id === "sentence.declarative");
+    if (targetIndex < 0) throw new Error("fixture requires sentence.declarative");
+    const target = FORMAL_SYNTAX_RULES[targetIndex]!;
+    const modifiedRules = [...FORMAL_SYNTAX_RULES];
+    modifiedRules[targetIndex] = {
+      ...target,
+      constituents: [...target.constituents].reverse(),
+    };
+
+    expect(() => composeFormalSyntaxUtterances({
+      eligibleEntries: PRACTICE_CATALOG,
+      profiles: SYNTAX_PROFILES,
+      random: createSeededRandom("formal-family-modified-grammar-inferred-raw"),
+      rules: modifiedRules,
+      minimumLexicalEntries: 1,
+      maximumCandidates: 1,
+      maximumAttempts: 1,
+      bounds: PRODUCT_BOUNDS,
+    })).not.toThrow();
+
+    expect(() => composeFormalSyntaxUtterances({
+      eligibleEntries: PRACTICE_CATALOG,
+      profiles: SYNTAX_PROFILES,
+      random: createSeededRandom("formal-family-modified-grammar-explicit-product"),
+      rules: modifiedRules,
+      samplingMode: "product-family",
+      minimumLexicalEntries: 1,
+      maximumCandidates: 1,
+      maximumAttempts: 64,
+      bounds: PRODUCT_BOUNDS,
+    })).toThrow(/canonical complete formal syntax rule set/u);
+  });
+
+  it("returns a fallback instead of throwing when a fresh active-family plan cannot fit the budget", () => {
+    const composition = composeFormalSyntaxUtterances({
+      eligibleEntries: PRACTICE_CATALOG,
+      profiles: SYNTAX_PROFILES,
+      random: createSeededRandom("formal-family-insufficient-budget"),
+      samplingMode: "product-family",
+      minimumLexicalEntries: 1,
+      maximumCandidates: 2,
+      maximumAttempts: 6,
+      bounds: PRODUCT_BOUNDS,
+    });
+
+    expect(composition.candidates).toEqual([]);
+    expect(composition.fallbackReasons).toContain("formal-syntax-root-family-budget-insufficient");
+    expect(composition.fallbackReasons).toContain("formal-syntax-no-candidate");
+  });
+
+  it("rejects a duplicate-ID rule list as a non-canonical product grammar", () => {
+    const malformedRules = [
+      ...FORMAL_SYNTAX_RULES.slice(0, -1),
+      FORMAL_SYNTAX_RULES[0]!,
+    ];
+    expect(() => composeFormalSyntaxUtterances({
+      eligibleEntries: PRACTICE_CATALOG,
+      profiles: SYNTAX_PROFILES,
+      random: createSeededRandom("formal-family-duplicate-rule-ids"),
+      rules: malformedRules,
+      samplingMode: "product-family",
+      minimumLexicalEntries: 1,
+      maximumCandidates: 1,
+      maximumAttempts: 64,
+      bounds: PRODUCT_BOUNDS,
+    })).toThrow(/canonical complete formal syntax rule set/u);
+  });
+});
