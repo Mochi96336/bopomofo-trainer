@@ -45,9 +45,10 @@ function tokenSupport(tokenId: TokenId, motorEntryCount: number): CatalogTokenSu
     commonBindingEntryCount: 1,
     commonMotorEntryCount: motorEntryCount,
     commonnessTierCounts: {
-      common: 1,
-      uncommon: 0,
-      rare: 0,
+      1: 1,
+      2: 0,
+      3: 0,
+      4: 0,
     },
   };
 }
