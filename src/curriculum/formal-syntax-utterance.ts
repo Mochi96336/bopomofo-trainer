@@ -16,7 +16,10 @@ import {
   compatibleProfilesForSlot,
   realizeStructuralDerivation,
 } from "../syntax/realize.js";
-import { sampleStructuralDerivation } from "../syntax/sample.js";
+import {
+  sampleStructuralDerivation,
+  type StructuralRuleOrderer,
+} from "../syntax/sample.js";
 import type {
   DerivationBounds,
   ProductionRule,
@@ -35,6 +38,7 @@ export interface FormalSyntaxUtteranceInput {
   readonly maximumAttempts: number;
   readonly rules?: readonly ProductionRule[];
   readonly bounds?: DerivationBounds;
+  readonly ruleOrderer?: StructuralRuleOrderer;
 }
 
 function nextUnit(random: RandomSource): number {
@@ -160,6 +164,7 @@ export function composeFormalSyntaxUtterances(
         return compatibleProfilesForSlot(slot, index).length > 0;
       },
       ...(input.bounds === undefined ? {} : { bounds: input.bounds }),
+      ...(input.ruleOrderer === undefined ? {} : { ruleOrderer: input.ruleOrderer }),
     });
     if (shape === null) {
       fallbackReasons.add("formal-syntax-structural-sampling-exhausted");
