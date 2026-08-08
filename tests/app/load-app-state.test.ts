@@ -64,7 +64,7 @@ describe("app boot state", () => {
     expect(boot.storageWarning).toBe("");
   });
 
-  it("reports a successful legacy measurement-epoch migration without calling it invalid recovery", () => {
+  it("reports a successful legacy measurement-epoch migration as needing current-schema writeback", () => {
     const storage = new MemoryStorage();
     const stored = JSON.parse(JSON.stringify(
       createFreshProgressForEnvironment(environment, "legacy", "guided", "standard"),
@@ -75,7 +75,7 @@ describe("app boot state", () => {
 
     const boot = load(storage);
     expect(boot.progressLoadStatus).toBe("migrated");
-    expect(boot.loadedExistingProgress).toBe(true);
+    expect(boot.loadedExistingProgress).toBe(false);
     expect(boot.progress.seed).toBe("legacy");
     expect(boot.progress.practiceRoundsCompleted).toBe(0);
     expect(boot.storageWarning).toBe("");
