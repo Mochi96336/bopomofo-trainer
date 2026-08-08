@@ -91,9 +91,9 @@ test("keeps the protected keyboard width stable when a semantic inspector opens"
 
   const analysis = page.locator("#analysis-v2");
   const keyboard = analysis.locator(".analysis-v2-keyboard");
-  const before = await keyboard.evaluate((node) => node.offsetWidth);
+  const before = await keyboard.evaluate((node) => (node as HTMLElement).offsetWidth);
   await analysis.locator('[data-action="select-key"]').first().click();
-  const after = await keyboard.evaluate((node) => node.offsetWidth);
+  const after = await keyboard.evaluate((node) => (node as HTMLElement).offsetWidth);
 
   expect(before).toBe(760);
   expect(after).toBe(before);
@@ -108,7 +108,7 @@ test("keeps flyline width stable on selection and exposes a wider pointer target
   await analysis.locator('[data-action="select-tab"][data-tab="coordination"]').click();
 
   const board = analysis.locator(".analysis-v2-speed-board");
-  const before = await board.evaluate((node) => node.offsetWidth);
+  const before = await board.evaluate((node) => (node as HTMLElement).offsetWidth);
   const hit = analysis.locator(".analysis-v2-speed-hit").first();
   const hitStyle = await hit.evaluate((node) => ({
     strokeWidth: getComputedStyle(node).strokeWidth,
@@ -120,7 +120,7 @@ test("keeps flyline width stable on selection and exposes a wider pointer target
   await analysis.locator(".analysis-v2-speed-path").first().evaluate((node) => {
     node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
-  const after = await board.evaluate((node) => node.offsetWidth);
+  const after = await board.evaluate((node) => (node as HTMLElement).offsetWidth);
   expect(before).toBe(760);
   expect(after).toBe(before);
   await expect(analysis.locator(".analysis-v2-speed-stage")).toHaveClass(/has-selection/);
