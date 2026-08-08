@@ -1,5 +1,10 @@
 import { sha256Canonical } from "../reference/importers/canonical-json.js";
 import { DEFAULT_DERIVATION_BOUNDS, FORMAL_GRAMMAR_VERSION } from "./features.js";
+import {
+  EMPTY_SYNTAX_REQUIREMENTS,
+  requirementsForConstituent,
+  type SyntaxRequirements,
+} from "./requirements.js";
 import type {
   DerivationBounds,
   ProductionConstituent,
@@ -48,6 +53,7 @@ export interface StructuralDerivationOptions {
   readonly rootCategory: SyntaxCategory;
   readonly rules: readonly ProductionRule[];
   readonly bounds?: DerivationBounds;
+  readonly isLexicalSlotReachable?: (slot: StructuralLexicalSlot) => boolean;
 }
 
 interface ExpansionState {
@@ -110,6 +116,7 @@ function* countVectors(
 
 function makeSlot(
   constituent: ProductionConstituent,
+  requirements: SyntaxRequirements,
   occurrenceIndex: number,
   path: readonly string[],
 ): StructuralLexicalSlot {
@@ -118,9 +125,9 @@ function makeSlot(
     key: constituent.key,
     occurrenceIndex,
     allowedUpos: constituent.allowedUpos,
-    requiredFunctions: constituent.requiredFunctions,
-    requiredValencyFrames: constituent.requiredValencyFrames,
-    requiredFeatures: constituent.requiredFeatures,
+    requiredFunctions: requirements.requiredFunctions,
+    requiredValencyFrames: requirements.requiredValencyFrames,
+    requiredFeatures: requirements.requiredFeatures,
   };
   return {
     kind: "lexical-slot",
@@ -128,19 +135,21 @@ function makeSlot(
     constituentKey: constituent.key,
     occurrenceIndex,
     allowedUpos: constituent.allowedUpos,
-    requiredFunctions: constituent.requiredFunctions,
-    requiredValencyFrames: constituent.requiredValencyFrames,
-    requiredFeatures: constituent.requiredFeatures,
+    requiredFunctions: requirements.requiredFunctions,
+    requiredValencyFrames: requirements.requiredValencyFrames,
+    requiredFeatures: requirements.requiredFeatures,
   };
 }
 
 function* expandConstituentOccurrences(
   constituent: ProductionConstituent,
+  parentRequirements: SyntaxRequirements,
   count: number,
   rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
   bounds: DerivationBounds,
   state: ExpansionState,
   path: readonly string[],
+  isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   occurrenceIndex = 0,
   accumulated: readonly StructuralElement[] = [],
   rulePath: readonly string[] = [],
@@ -157,16 +166,21 @@ function* expandConstituentOccurrences(
   }
   const nextState = decrementForRecursiveEdge(state, constituent);
   if (nextState === null) return;
+  const childRequirements = requirementsForConstituent(constituent, parentRequirements);
+  if (childRequirements === null) return;
   if (constituent.category === "Lexeme") {
     if (nextState.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) return;
-    const slot = makeSlot(constituent, occurrenceIndex, path);
+    const slot = makeSlot(constituent, childRequirements, occurrenceIndex, path);
+    if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) return;
     yield* expandConstituentOccurrences(
       constituent,
+      parentRequirements,
       count,
       rulesByOutput,
       bounds,
       { ...nextState, lexicalCount: nextState.lexicalCount + 1 },
       path,
+      isLexicalSlotReachable,
       occurrenceIndex + 1,
       [...accumulated, slot],
       rulePath,
@@ -176,18 +190,22 @@ function* expandConstituentOccurrences(
   }
   for (const expanded of expandCategory(
     constituent.category,
+    childRequirements,
     rulesByOutput,
     bounds,
     nextState,
     [...path, `${constituent.key}[${occurrenceIndex}]`],
+    isLexicalSlotReachable,
   )) {
     yield* expandConstituentOccurrences(
       constituent,
+      parentRequirements,
       count,
       rulesByOutput,
       bounds,
       expanded.state,
       path,
+      isLexicalSlotReachable,
       occurrenceIndex + 1,
       [...accumulated, expanded.element],
       [...rulePath, ...expanded.rulePath],
@@ -198,11 +216,13 @@ function* expandConstituentOccurrences(
 
 function* expandOrderedConstituents(
   ordered: readonly ProductionConstituent[],
+  parentRequirements: SyntaxRequirements,
   counts: Readonly<Record<string, number>>,
   rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
   bounds: DerivationBounds,
   state: ExpansionState,
   path: readonly string[],
+  isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   index = 0,
   children: readonly StructuralElement[] = [],
   rulePath: readonly string[] = [],
@@ -221,19 +241,23 @@ function* expandOrderedConstituents(
   const count = counts[constituent.key] ?? 0;
   for (const expansion of expandConstituentOccurrences(
     constituent,
+    parentRequirements,
     count,
     rulesByOutput,
     bounds,
     state,
     [...path, constituent.key],
+    isLexicalSlotReachable,
   )) {
     yield* expandOrderedConstituents(
       ordered,
+      parentRequirements,
       counts,
       rulesByOutput,
       bounds,
       expansion.state,
       path,
+      isLexicalSlotReachable,
       index + 1,
       [...children, ...expansion.elements],
       [...rulePath, ...expansion.rulePath],
@@ -244,10 +268,12 @@ function* expandOrderedConstituents(
 
 function* expandCategory(
   category: SyntaxCategory,
+  requirements: SyntaxRequirements,
   rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
   bounds: DerivationBounds,
   inputState: ExpansionState,
   path: readonly string[],
+  isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
 ): Generator<ExpandedElement> {
   let state = inputState;
   if (category === "Clause") {
@@ -266,11 +292,13 @@ function* expandCategory(
         });
         for (const expanded of expandOrderedConstituents(
           ordered,
+          requirements,
           counts,
           rulesByOutput,
           bounds,
           state,
           [...path, rule.id, order.id],
+          isLexicalSlotReachable,
         )) {
           const identity = {
             category,
@@ -316,10 +344,12 @@ export function* enumerateStructuralDerivations(
   };
   for (const expansion of expandCategory(
     options.rootCategory,
+    EMPTY_SYNTAX_REQUIREMENTS,
     rulesByOutput,
     bounds,
     initialState,
     [options.rootCategory],
+    options.isLexicalSlotReachable,
   )) {
     if (expansion.element.kind !== "syntax-node") continue;
     const identity = {

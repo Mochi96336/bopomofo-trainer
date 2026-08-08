@@ -29,6 +29,8 @@ interface ConstituentOptions {
   readonly requiredFunctions?: readonly SyntacticFunction[];
   readonly requiredValencyFrames?: readonly ValencyFrame[];
   readonly requiredFeatures?: SyntaxFeatureSet;
+  readonly inheritFunctions?: boolean;
+  readonly inheritValencyFrames?: boolean;
 }
 
 function constituent(
@@ -46,6 +48,8 @@ function constituent(
     requiredFunctions: options.requiredFunctions ?? [],
     requiredValencyFrames: options.requiredValencyFrames ?? [],
     requiredFeatures: options.requiredFeatures ?? {},
+    ...(options.inheritFunctions ? { inheritFunctions: true } : {}),
+    ...(options.inheritValencyFrames ? { inheritValencyFrames: true } : {}),
   };
 }
 
@@ -133,7 +137,11 @@ function coordinationRule(
   category: SyntaxCategory,
 ): ProductionRule {
   return production(id, category, [
-    constituent("left", category, { recursive: true }),
+    constituent("left", category, {
+      recursive: true,
+      inheritFunctions: true,
+      inheritValencyFrames: true,
+    }),
     lexical("connector", ["CCONJ"], { requiredFunctions: ["coordinator"] }),
     constituent("right", category, { recursive: true }),
   ]);
@@ -141,22 +149,22 @@ function coordinationRule(
 
 export const PHRASE_PRODUCTION_RULES: readonly ProductionRule[] = [
   production("phrase.nominal-head.noun", "NominalHead", [
-    lexical("head", ["NOUN"]),
+    lexical("head", ["NOUN"], { inheritFunctions: true }),
   ]),
   production("phrase.nominal-head.pronoun", "NominalHead", [
-    lexical("head", ["PRON"]),
+    lexical("head", ["PRON"], { inheritFunctions: true }),
   ]),
   production("phrase.nominal-head.proper", "NominalHead", [
-    lexical("head", ["PROPN"]),
+    lexical("head", ["PROPN"], { inheritFunctions: true }),
   ]),
   production("phrase.noun.bare", "NounPhrase", [
-    constituent("head", "NominalHead"),
+    constituent("head", "NominalHead", { inheritFunctions: true }),
   ]),
   production("phrase.noun.expanded", "NounPhrase", [
     constituent("determiner", "DeterminerPhrase", { minimum: 0, maximum: 1 }),
     constituent("numeral", "NumeralPhrase", { minimum: 0, maximum: 1 }),
     constituent("modifier", "AdjectivePhrase", { minimum: 0, maximum: 3 }),
-    constituent("head", "NominalHead"),
+    constituent("head", "NominalHead", { inheritFunctions: true }),
   ]),
   production("phrase.determiner.lexical", "DeterminerPhrase", [
     lexical("head", ["DET"], { requiredFunctions: ["determiner"] }),
@@ -169,7 +177,10 @@ export const PHRASE_PRODUCTION_RULES: readonly ProductionRule[] = [
     lexical("classifier", ["PART"], { requiredFunctions: ["classifier"] }),
   ]),
   production("phrase.adjective.lexical", "AdjectivePhrase", [
-    lexical("head", ["ADJ"]),
+    lexical("head", ["ADJ"], {
+      inheritFunctions: true,
+      inheritValencyFrames: true,
+    }),
   ]),
   production("phrase.adjective.modified", "AdjectivePhrase", [
     constituent("degree", "AdverbPhrase", { minimum: 0, maximum: 1 }),
@@ -178,22 +189,25 @@ export const PHRASE_PRODUCTION_RULES: readonly ProductionRule[] = [
       maximum: 1,
       requiredFeatures: { polarity: "negative" },
     }),
-    lexical("head", ["ADJ"]),
+    lexical("head", ["ADJ"], {
+      inheritFunctions: true,
+      inheritValencyFrames: true,
+    }),
     constituent("complement", "Complement", { minimum: 0, maximum: 1 }),
   ]),
   production("phrase.adverb.lexical", "AdverbPhrase", [
-    lexical("head", ["ADV"]),
+    lexical("head", ["ADV"], { inheritFunctions: true }),
   ]),
   production("phrase.adverb.degree", "AdverbPhrase", [
     lexical("degree", ["ADV"], { requiredFunctions: ["modifier"] }),
-    lexical("head", ["ADV"]),
+    lexical("head", ["ADV"], { inheritFunctions: true }),
   ]),
   production("phrase.adposition.preposed", "AdpositionPhrase", [
     lexical("head", ["ADP"], { requiredFunctions: ["adposition"] }),
-    constituent("object", "NounPhrase"),
+    constituent("object", "NounPhrase", { inheritFunctions: true }),
   ]),
   production("phrase.adposition.postposed", "AdpositionPhrase", [
-    constituent("object", "NounPhrase"),
+    constituent("object", "NounPhrase", { inheritFunctions: true }),
     lexical("head", ["PART"], { requiredFunctions: ["adposition"] }),
   ]),
   production("phrase.particle.lexical", "ParticlePhrase", [
@@ -203,7 +217,10 @@ export const PHRASE_PRODUCTION_RULES: readonly ProductionRule[] = [
     lexical("head", ["SCONJ"], { requiredFunctions: ["marker"] }),
   ]),
   production("phrase.verb.lexical", "VerbPhrase", [
-    lexical("head", ["VERB"]),
+    lexical("head", ["VERB"], {
+      inheritFunctions: true,
+      inheritValencyFrames: true,
+    }),
   ]),
   production("phrase.verb.expanded", "VerbPhrase", [
     constituent("negation", "AdverbPhrase", {
@@ -213,7 +230,10 @@ export const PHRASE_PRODUCTION_RULES: readonly ProductionRule[] = [
     }),
     lexical("modal", ["AUX"], { minimum: 0, maximum: 2 }),
     constituent("adverbial", "AdverbPhrase", { minimum: 0, maximum: 3 }),
-    lexical("head", ["VERB"]),
+    lexical("head", ["VERB"], {
+      inheritFunctions: true,
+      inheritValencyFrames: true,
+    }),
     constituent("complement", "Complement", { minimum: 0, maximum: 2 }),
     constituent("object", "NounPhrase", { minimum: 0, maximum: 2 }),
     constituent("aspect", "ParticlePhrase", {

@@ -13,6 +13,8 @@ interface Options {
   readonly maximum?: number;
   readonly recursive?: boolean;
   readonly requiredFeatures?: SyntaxFeatureSet;
+  readonly inheritFunctions?: boolean;
+  readonly inheritValencyFrames?: boolean;
 }
 
 function constituent(
@@ -30,6 +32,8 @@ function constituent(
     requiredFunctions: [],
     requiredValencyFrames: [],
     requiredFeatures: options.requiredFeatures ?? {},
+    ...(options.inheritFunctions ? { inheritFunctions: true } : {}),
+    ...(options.inheritValencyFrames ? { inheritValencyFrames: true } : {}),
   };
 }
 
@@ -149,7 +153,7 @@ export const COMPLEX_PRODUCTION_RULES: readonly ProductionRule[] = [
       recursive: true,
       requiredFeatures: { clauseType: "relative" },
     }),
-    constituent("head", "NominalHead"),
+    constituent("head", "NominalHead", { inheritFunctions: true }),
   ]),
 ];
 

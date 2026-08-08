@@ -155,6 +155,10 @@ export interface ProductionConstituent {
   readonly requiredFunctions: readonly SyntacticFunction[];
   readonly requiredValencyFrames: readonly ValencyFrame[];
   readonly requiredFeatures: SyntaxFeatureSet;
+  /** Propagate the enclosing category's function requirements through this edge. */
+  readonly inheritFunctions?: boolean;
+  /** Propagate the enclosing category's valency requirements through this edge. */
+  readonly inheritValencyFrames?: boolean;
 }
 
 export interface SurfaceOrder {

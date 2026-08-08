@@ -119,6 +119,10 @@ export function composeFormalSyntaxUtterances(
       rules,
       random: input.random,
       maximumAttempts: 1,
+      isLexicalSlotReachable: (slot) => {
+        if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") return true;
+        return compatibleProfilesForSlot(slot, index).length > 0;
+      },
       ...(input.bounds === undefined ? {} : { bounds: input.bounds }),
     });
     if (shape === null) {
