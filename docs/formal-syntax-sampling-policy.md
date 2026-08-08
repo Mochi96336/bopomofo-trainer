@@ -59,7 +59,7 @@ Clause kinds start at:
 
 Current Clause families begin equal within their coarse kind. The important boundary is still explicit: a future split of `marked.bei`, `marked.ba`, or another construction into multiple production variants does not increase the construction's family mass.
 
-## Failover semantics
+## Candidate-search semantics
 
 Sampling uses weighted ordering without replacement:
 
@@ -68,9 +68,26 @@ Sampling uses weighted ordering without replacement:
 3. shuffle executable variants inside that family;
 4. try all variants in the selected family before falling through to the next weighted family/kind.
 
-Unavailable kinds or families are naturally renormalized among those still present. A policy never filters grammar rules or makes an illegal derivation legal.
+The product composer then keeps that **root Sentence ordering stable for the lifetime of one candidate search**. This matters because product-only acceptance rules run after structural sampling. For example, the training product currently requires at least two practice lexical entries even though a one-entry Mandarin utterance may be formally legal.
 
-The raw `sampleStructuralDerivation()` API keeps its existing uniform-shuffle behavior unless a caller supplies a rule orderer. The curriculum formal-syntax composer applies the product family policy only when using the default formal grammar. Custom grammar callers keep raw sampler behavior by default, and callers can explicitly override or disable rule ordering.
+Without a stable root decision, a short declarative can be selected legally, rejected only by the product minimum-length rule, and then cause the next attempt to redraw the entire Sentence family. Short constructions that nearly always satisfy the product rule—such as A-not-A—then gain probability through survival bias even when their nominal family weight is correct.
+
+With a sampling session:
+
+- product-level retry keeps the same root family/fallback ordering;
+- Clause and lower structural choices may be redrawn so the chosen root construction can explore another legal realization;
+- structurally unavailable roots still fall through the already-ranked fallback order inside the sampler;
+- after one candidate is accepted, the session resets and the next candidate receives a fresh root decision.
+
+Unavailable kinds or families are therefore handled as grammar feasibility, while product-only rejection does not silently become a new family draw.
+
+The raw `sampleStructuralDerivation()` API keeps its existing uniform-shuffle behavior unless a caller supplies a rule orderer. The curriculum formal-syntax composer applies the product family policy and sticky root sampling session only when using the default formal grammar. Custom grammar callers keep raw sampler behavior by default, and callers can explicitly override or disable rule ordering.
+
+## Effective-distribution guard
+
+The tests also exercise the packaged practice catalog and runtime syntax profiles with the real product derivation bounds and minimum practice length. This is intentionally separate from the nominal-prior unit tests: it detects probability distortion caused by reachability, failover, or post-structural product filters.
+
+A failed guard should be investigated as a sampling-semantics problem. Do not simply relax the threshold or tune A-not-A weight until the mismatch between nominal and realized distribution is understood.
 
 ## Contract
 
@@ -80,7 +97,8 @@ The raw `sampleStructuralDerivation()` API keeps its existing uniform-shuffle be
 4. Kind and family weights belong to versioned curriculum policy.
 5. Variant count must not silently change family probability.
 6. Rule ordering may reorder but may not filter, duplicate, or replace eligible grammar productions.
-7. Learner adaptation and construction recency are later policy layers; they do not legalize or invalidate grammar.
+7. Product-only rejection must not redraw a root construction family during the same candidate search.
+8. Learner adaptation and construction recency are later policy layers; they do not legalize or invalidate grammar.
 
 Run the diagnostic with:
 
@@ -88,4 +106,4 @@ Run the diagnostic with:
 npx tsx scripts/audit-formal-syntax-sampling.ts
 ```
 
-It reports both the old equal-production ticket shares and the nominal product family priors. Realized frequencies can still differ because lexical reachability, derivation bounds, and failover are real constraints; those effective shares should be monitored separately rather than baked back into grammar.
+It reports both the old equal-production ticket shares and the nominal product family priors. Realized frequencies can still differ because lexical reachability, derivation bounds, and failover are real constraints; those effective shares are guarded separately rather than baked back into grammar.
