@@ -50,7 +50,11 @@ function profile(
   relation: string,
   valencySignature = "none",
 ): SyntaxProfile {
-  const functions = relation === "nsubj" ? ["subject"] as const : ["predicate"] as const;
+  const functions = relation === "nsubj"
+    ? ["subject"] as const
+    : relation === "obj"
+      ? ["object"] as const
+      : ["predicate"] as const;
   return {
     id: `profile:${entryId}:${upos}`,
     entryId,
@@ -80,10 +84,14 @@ function profile(
 
 const rules: readonly ProductionRule[] = [
   rule("phrase.noun", "NounPhrase", [
-    constituent("head", "Lexeme", { allowedUpos: ["NOUN"] }),
+    constituent("head", "Lexeme", { allowedUpos: ["NOUN"], inheritFunctions: true }),
   ]),
   rule("phrase.verb", "VerbPhrase", [
-    constituent("head", "Lexeme", { allowedUpos: ["VERB"] }),
+    constituent("head", "Lexeme", {
+      allowedUpos: ["VERB"],
+      inheritFunctions: true,
+      inheritValencyFrames: true,
+    }),
   ]),
   rule("clause.intransitive", "Clause", [
     constituent("subject", "NounPhrase", { requiredFunctions: ["subject"] }),
@@ -93,7 +101,7 @@ const rules: readonly ProductionRule[] = [
     }),
   ]),
   rule("sentence.declarative", "Sentence", [
-    constituent("clause", "Clause", { requiredFeatures: { clauseType: "declarative" } }),
+    constituent("clause", "Clause"),
   ]),
 ];
 
@@ -147,6 +155,53 @@ describe("manifest-scale syntax rule index", () => {
     expect(first.candidateCount).toBe(10_000);
     expect(first.noUdEvidenceCandidateCount).toBe(5_000);
     expect(first.entries).toHaveLength(10_000);
+  });
+
+  it("propagates a transparent phrase requirement exactly like runtime derivation", () => {
+    const transparentRules = [
+      rule("phrase.noun", "NounPhrase", [
+        constituent("head", "Lexeme", { allowedUpos: ["NOUN"], inheritFunctions: true }),
+      ]),
+      rule("sentence.subject", "Sentence", [
+        constituent("subject", "NounPhrase", { requiredFunctions: ["subject"] }),
+      ]),
+    ];
+    const index = buildSyntaxRuleIndex({
+      lexemes: [{ id: "candidate:1", text: "甲", generalRank: 1 }],
+      profiles: [profile("candidate:1", "NOUN", "obj")],
+      rules: transparentRules,
+    });
+    expect(index.entries[0]).toMatchObject({ status: "no-reachable-sentence-rule" });
+    expect(index.rules.find((item) => item.ruleId === "sentence.subject")).toMatchObject({
+      globallyRealizable: false,
+      blockerConstituentKeys: ["subject"],
+    });
+  });
+
+  it("does not leak an embedded clause's structural function onto its internal predicate", () => {
+    const embeddedRules = [
+      rule("clause.predicate", "Clause", [
+        constituent("predicate", "Lexeme", {
+          allowedUpos: ["VERB"],
+          requiredFunctions: ["predicate"],
+        }),
+      ]),
+      rule("content.clause", "ContentClause", [
+        constituent("clause", "Clause"),
+      ]),
+      rule("sentence.subject-content", "Sentence", [
+        constituent("subjectClause", "ContentClause", { requiredFunctions: ["subject"] }),
+      ]),
+    ];
+    const index = buildSyntaxRuleIndex({
+      lexemes: [{ id: "candidate:1", text: "走", generalRank: 1 }],
+      profiles: [profile("candidate:1", "VERB", "root")],
+      rules: embeddedRules,
+    });
+    expect(index.entries[0]).toMatchObject({
+      status: "indexed",
+      sentenceRuleIds: ["sentence.subject-content"],
+    });
   });
 
   it("treats a known lexical construction feature as supported but still fails closed on the wrong form", () => {

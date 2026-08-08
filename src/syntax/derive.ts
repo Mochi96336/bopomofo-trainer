@@ -1,4 +1,9 @@
 import { sha256Canonical } from "../reference/importers/canonical-json.js";
+import {
+  effectiveConstituentMaximum,
+  excludedClassesForConstituent,
+  ruleAllowedByDerivationBounds,
+} from "./derivation-limits.js";
 import { DEFAULT_DERIVATION_BOUNDS, FORMAL_GRAMMAR_VERSION } from "./features.js";
 import {
   EMPTY_SYNTAX_REQUIREMENTS,
@@ -9,6 +14,7 @@ import type {
   DerivationBounds,
   ProductionConstituent,
   ProductionRule,
+  ProductionRuleClass,
   SyntacticFunction,
   SyntaxCategory,
   SyntaxFeatureSet,
@@ -26,6 +32,8 @@ export interface StructuralLexicalSlot {
   readonly requiredFunctions: readonly SyntacticFunction[];
   readonly requiredValencyFrames: readonly ValencyFrame[];
   readonly requiredFeatures: SyntaxFeatureSet;
+  readonly entryBindingId?: string;
+  readonly formalLiteral?: string;
 }
 
 export interface StructuralSyntaxNode {
@@ -71,12 +79,7 @@ interface ExpandedElement {
 }
 
 const CLAUSE_LIKE = new Set<SyntaxCategory>([
-  "Sentence",
-  "Clause",
-  "ClauseSequence",
-  "RelativeClause",
-  "ContentClause",
-  "QuotedClause",
+  "Sentence", "Clause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
 ]);
 
 function compareText(left: string, right: string): number {
@@ -98,6 +101,7 @@ function decrementForRecursiveEdge(
 
 function* countVectors(
   constituents: readonly ProductionConstituent[],
+  bounds: DerivationBounds,
   index = 0,
   current: Readonly<Record<string, number>> = {},
 ): Generator<Readonly<Record<string, number>>> {
@@ -106,12 +110,15 @@ function* countVectors(
     yield current;
     return;
   }
-  for (let count = constituent.minimum; count <= constituent.maximum; count += 1) {
-    yield* countVectors(constituents, index + 1, {
-      ...current,
-      [constituent.key]: count,
-    });
+  const maximum = effectiveConstituentMaximum(constituent, bounds);
+  for (let count = constituent.minimum; count <= maximum; count += 1) {
+    yield* countVectors(constituents, bounds, index + 1, { ...current, [constituent.key]: count });
   }
+}
+
+function bindingId(constituent: ProductionConstituent, path: readonly string[]): string | undefined {
+  if (constituent.entryBinding === undefined) return undefined;
+  return `${path.slice(0, -1).join("/")}:${constituent.entryBinding}`;
 }
 
 function makeSlot(
@@ -120,6 +127,7 @@ function makeSlot(
   occurrenceIndex: number,
   path: readonly string[],
 ): StructuralLexicalSlot {
+  const entryBindingId = bindingId(constituent, path);
   const identity = {
     path,
     key: constituent.key,
@@ -128,6 +136,8 @@ function makeSlot(
     requiredFunctions: requirements.requiredFunctions,
     requiredValencyFrames: requirements.requiredValencyFrames,
     requiredFeatures: requirements.requiredFeatures,
+    entryBindingId,
+    formalLiteral: constituent.formalLiteral,
   };
   return {
     kind: "lexical-slot",
@@ -138,6 +148,8 @@ function makeSlot(
     requiredFunctions: requirements.requiredFunctions,
     requiredValencyFrames: requirements.requiredValencyFrames,
     requiredFeatures: requirements.requiredFeatures,
+    ...(entryBindingId === undefined ? {} : { entryBindingId }),
+    ...(constituent.formalLiteral === undefined ? {} : { formalLiteral: constituent.formalLiteral }),
   };
 }
 
@@ -196,6 +208,7 @@ function* expandConstituentOccurrences(
     nextState,
     [...path, `${constituent.key}[${occurrenceIndex}]`],
     isLexicalSlotReachable,
+    excludedClassesForConstituent(constituent),
   )) {
     yield* expandConstituentOccurrences(
       constituent,
@@ -274,16 +287,18 @@ function* expandCategory(
   inputState: ExpansionState,
   path: readonly string[],
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
+  excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
 ): Generator<ExpandedElement> {
   let state = inputState;
   if (category === "Clause") {
     if (state.clauseCount >= bounds.maximumClausesPerSentence) return;
     state = { ...state, clauseCount: state.clauseCount + 1 };
   }
-  const rules = rulesByOutput.get(category) ?? [];
+  const rules = (rulesByOutput.get(category) ?? [])
+    .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses));
   for (const rule of rules) {
     const constituentsByKey = new Map(rule.constituents.map((item) => [item.key, item]));
-    for (const counts of countVectors(rule.constituents)) {
+    for (const counts of countVectors(rule.constituents, bounds)) {
       for (const order of [...rule.surfaceOrders].sort((left, right) => compareText(left.id, right.id))) {
         const ordered = order.constituentKeys.map((key) => {
           const item = constituentsByKey.get(key);
@@ -350,6 +365,7 @@ export function* enumerateStructuralDerivations(
     initialState,
     [options.rootCategory],
     options.isLexicalSlotReachable,
+    new Set(),
   )) {
     if (expansion.element.kind !== "syntax-node") continue;
     const identity = {

@@ -19,6 +19,7 @@ interface Options {
   readonly requiredFeatures?: SyntaxFeatureSet;
   readonly inheritFunctions?: boolean;
   readonly inheritValencyFrames?: boolean;
+  readonly formalLiteral?: string;
 }
 
 function constituent(
@@ -38,6 +39,7 @@ function constituent(
     requiredFeatures: options.requiredFeatures ?? {},
     ...(options.inheritFunctions ? { inheritFunctions: true } : {}),
     ...(options.inheritValencyFrames ? { inheritValencyFrames: true } : {}),
+    ...(options.formalLiteral === undefined ? {} : { formalLiteral: options.formalLiteral }),
   };
 }
 
@@ -46,10 +48,7 @@ function lexical(
   allowedUpos: readonly Upos[],
   options: Options = {},
 ): ProductionConstituent {
-  return {
-    ...constituent(key, "Lexeme", options),
-    allowedUpos,
-  };
+  return { ...constituent(key, "Lexeme", options), allowedUpos };
 }
 
 function production(
@@ -65,9 +64,7 @@ function production(
     constituents,
     surfaceOrders: [{ id: "canonical", constituentKeys: constituents.map((item) => item.key) }],
     constraints: [],
-    positiveFixtureIds: variable
-      ? [`${id}:minimum`, `${id}:maximum`]
-      : [`${id}:minimum`],
+    positiveFixtureIds: variable ? [`${id}:minimum`, `${id}:maximum`] : [`${id}:minimum`],
     negativeFixtureIds: [`${id}:overflow`],
   };
 }
@@ -115,52 +112,31 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
       recursive: true,
       requiredFunctions: ["complement"],
       requiredValencyFrames: ["resultative"],
-      requiredFeatures: { complementType: "result" },
     }),
   ]),
   production("complement.directional", "Complement", [
-    lexical("direction", ["VERB"], {
-      requiredFeatures: { complementType: "directional" },
-    }),
+    lexical("direction", ["VERB"], { requiredFeatures: { complementType: "directional" } }),
   ]),
   production("complement.potential", "Complement", [
     lexical("linker", ["PART"], { requiredFeatures: { complementType: "potential" } }),
     lexical("result", ["VERB", "ADJ"]),
   ]),
   production("complement.degree", "Complement", [
-    lexical("marker", ["PART"], {
-      requiredFeatures: { complementType: "degree" },
-    }),
-    constituent("degree", "AdjectivePhrase", {
-      recursive: true,
-      requiredFunctions: ["complement"],
-      requiredFeatures: { complementType: "degree" },
-    }),
+    lexical("marker", ["PART"], { requiredFeatures: { complementType: "degree" } }),
+    constituent("degree", "AdjectivePhrase", { recursive: true, requiredFunctions: ["complement"] }),
   ]),
   production("complement.quantity", "Complement", [
-    constituent("quantity", "NumeralPhrase", {
-      requiredFunctions: ["complement"],
-      requiredFeatures: { complementType: "quantity" },
-    }),
+    constituent("quantity", "NumeralPhrase", { requiredFunctions: ["complement"] }),
   ]),
   production("complement.duration", "Complement", [
-    constituent("duration", "NumeralPhrase", {
-      requiredFunctions: ["complement"],
-      requiredFeatures: { complementType: "duration" },
-    }),
+    constituent("duration", "NumeralPhrase", { requiredFunctions: ["complement"] }),
   ]),
   production("content.clause", "ContentClause", [
     constituent("complementizer", "ComplementizerPhrase", { minimum: 0, maximum: 1 }),
-    constituent("clause", "Clause", {
-      recursive: true,
-      requiredFeatures: { clauseType: "content" },
-    }),
+    constituent("clause", "Clause", { recursive: true }),
   ]),
   production("clause.subject-content", "Clause", [
-    constituent("subjectClause", "ContentClause", {
-      recursive: true,
-      requiredFunctions: ["subject"],
-    }),
+    constituent("subjectClause", "ContentClause", { recursive: true, requiredFunctions: ["subject"] }),
     constituent("predicate", "VerbPhrase", { requiredFunctions: ["predicate"] }),
   ]),
   production("clause.object-content", "Clause", [
@@ -169,10 +145,7 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
       requiredFunctions: ["predicate"],
       requiredValencyFrames: ["clausal-complement"],
     }),
-    constituent("objectClause", "ContentClause", {
-      recursive: true,
-      requiredFunctions: ["object"],
-    }),
+    constituent("objectClause", "ContentClause", { recursive: true, requiredFunctions: ["object"] }),
   ]),
   production("clause.complement-content", "Clause", [
     constituent("subject", "NounPhrase", { minimum: 0, maximum: 1 }),
@@ -186,37 +159,21 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
     }),
   ]),
   production("relative.clause", "RelativeClause", [
-    constituent("clause", "Clause", {
-      recursive: true,
-      requiredFeatures: { clauseType: "relative" },
-    }),
-    lexical("marker", ["PART"], {
-      requiredFeatures: { clauseType: "relative" },
-    }),
+    constituent("clause", "Clause", { recursive: true }),
+    lexical("marker", ["PART"], { requiredFeatures: { clauseType: "relative" } }),
   ]),
   production("phrase.noun.relative", "NounPhrase", [
-    constituent("relative", "RelativeClause", {
-      recursive: true,
-      requiredFunctions: ["modifier"],
-    }),
+    constituent("relative", "RelativeClause", { recursive: true, requiredFunctions: ["modifier"] }),
     constituent("head", "NominalHead", { inheritFunctions: true }),
   ]),
   production("phrase.noun.de-nominalization", "NounPhrase", [
-    constituent("clause", "Clause", {
-      recursive: true,
-      requiredFeatures: { clauseType: "nominalized" },
-    }),
-    lexical("marker", ["PART"], {
-      requiredFeatures: { clauseType: "nominalized" },
-    }),
+    constituent("clause", "Clause", { recursive: true }),
+    lexical("marker", ["PART"], { requiredFeatures: { clauseType: "nominalized" } }),
   ]),
   production("quoted.clause", "QuotedClause", [
-    constituent("openPunctuation", "Punctuation", { minimum: 0, maximum: 1 }),
-    constituent("clause", "Clause", {
-      recursive: true,
-      requiredFeatures: { clauseType: "quoted" },
-    }),
-    constituent("closePunctuation", "Punctuation", { minimum: 0, maximum: 1 }),
+    lexical("openPunctuation", ["PUNCT"], { formalLiteral: "「" }),
+    constituent("clause", "Clause", { recursive: true }),
+    lexical("closePunctuation", ["PUNCT"], { formalLiteral: "」" }),
   ]),
   production("clause.quoted-content", "Clause", [
     constituent("subject", "NounPhrase", { minimum: 0, maximum: 1 }),
@@ -224,10 +181,7 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
       requiredFunctions: ["predicate"],
       requiredValencyFrames: ["clausal-complement"],
     }),
-    constituent("quotation", "QuotedClause", {
-      recursive: true,
-      requiredFunctions: ["object"],
-    }),
+    constituent("quotation", "QuotedClause", { recursive: true, requiredFunctions: ["object"] }),
   ]),
 ];
 

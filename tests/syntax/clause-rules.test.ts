@@ -27,7 +27,6 @@ const REQUIRED_CONSTRUCTIONS = [
   "clause.topic-comment",
   "clause.subject-omission",
   "clause.object-omission",
-  "sentence.imperative",
   "sentence.request",
   "sentence.exclamative",
   "sentence.polar-question",
@@ -42,9 +41,18 @@ describe("formal clause and question production inventory", () => {
       .toEqual([]);
   });
 
-  it("contains every required basic, special, omitted, and question construction", () => {
+  it("contains every required executable basic, special, omitted, and question construction", () => {
     const ids = new Set(CLAUSE_PRODUCTION_RULES.map((rule) => rule.id));
     expect(REQUIRED_CONSTRUCTIONS.filter((id) => !ids.has(id))).toEqual([]);
+  });
+
+  it("does not keep sentence labels that have no executable structural distinction", () => {
+    const rules = new Map(CLAUSE_PRODUCTION_RULES.map((rule) => [rule.id, rule]));
+    expect(rules.has("sentence.imperative")).toBe(false);
+    const exclamative = rules.get("sentence.exclamative");
+    const interjection = exclamative?.constituents.find((item) => item.key === "interjection");
+    expect(interjection?.minimum).toBe(1);
+    expect(interjection?.maximum).toBe(1);
   });
 
   it("uses formal markers and valency rather than lexical text", () => {
