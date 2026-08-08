@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type { RandomSource } from "../../src/core/model.js";
 import {
+  activeSentenceConstructionFamilies,
   chooseSentenceConstructionVariant,
   createSentenceConstructionFamilyPlan,
   PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
   rootFamilyAttemptBudget,
   SENTENCE_CONSTRUCTION_FAMILIES,
   sentenceConstructionFamilyPrior,
+  sentenceConstructionKind,
   validateFormalSyntaxSamplingPolicy,
 } from "../../src/curriculum/formal-syntax-sampling-policy.js";
 import { sentenceConstructionClassification } from "../../src/curriculum/formal-syntax-taxonomy.js";
@@ -32,10 +34,26 @@ describe("formal syntax family sampling policy", () => {
     expect("clauseFamilyWeights" in PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY).toBe(false);
   });
 
-  it("assigns A-not-A one family prior instead of two production tickets", () => {
+  it("derives family kinds from the canonical taxonomy instead of a second mapping", () => {
+    for (const family of SENTENCE_CONSTRUCTION_FAMILIES) {
+      const rule = FORMAL_SYNTAX_RULES.find((candidate) =>
+        candidate.output === "Sentence"
+        && sentenceConstructionClassification(candidate.id)?.family === family,
+      );
+      expect(rule, family).toBeDefined();
+      expect(sentenceConstructionKind(family)).toBe(
+        sentenceConstructionClassification(rule!.id)!.kind,
+      );
+    }
+  });
+
+  it("assigns A-not-A one family prior and leaves unreachable complex sentences inactive", () => {
     expect(sentenceConstructionFamilyPrior("question.a-not-a")).toBeCloseTo(0.065, 10);
     expect(sentenceConstructionFamilyPrior("question.polar")).toBeCloseTo(0.091, 10);
     expect(sentenceConstructionFamilyPrior("question.constituent")).toBeCloseTo(0.078, 10);
+    expect(sentenceConstructionFamilyPrior("statement.declarative")).toBeCloseTo(0.64, 10);
+    expect(sentenceConstructionFamilyPrior("statement.complex")).toBe(0);
+    expect(activeSentenceConstructionFamilies()).not.toContain("statement.complex");
   });
 
   it("orders root fallback by joint family weight instead of grouping all families by kind", () => {
@@ -50,14 +68,15 @@ describe("formal syntax family sampling policy", () => {
       });
     const plan = createSentenceConstructionFamilyPlan(
       candidates,
-      // 0.70 selects question.polar from the joint prior; 0 then selects the
+      // 0.78 selects question.polar from the joint prior; 0 then selects the
       // highest-weight remaining family, statement.declarative. The old nested
       // kind permutation would have kept the remaining question families ahead.
-      new SequenceRandom([0.70, 0]),
+      new SequenceRandom([0.78, 0]),
     );
 
     expect(plan[0]?.family).toBe("question.polar");
     expect(plan[1]?.family).toBe("statement.declarative");
+    expect(plan.map((item) => item.family)).not.toContain("statement.complex");
   });
 
   it("keeps family variants as identity only until one attempt selects exactly one", () => {
@@ -78,8 +97,10 @@ describe("formal syntax family sampling policy", () => {
       .toBe("sentence.a-not-a-transitive-question");
   });
 
-  it("derives family-local search budget from actual family count", () => {
-    expect(rootFamilyAttemptBudget(64, 8)).toBe(8);
+  it("derives family-local search budget from the active family count", () => {
+    const familyCount = activeSentenceConstructionFamilies().length;
+    expect(familyCount).toBe(7);
+    expect(rootFamilyAttemptBudget(64, familyCount)).toBe(9);
     expect(rootFamilyAttemptBudget(64, 9)).toBe(7);
     expect(() => rootFamilyAttemptBudget(8, 9)).toThrow(/cannot cover 9 root families/u);
   });
@@ -116,7 +137,7 @@ describe("formal syntax family sampling policy", () => {
     })).toThrow(/references non-root production/u);
   });
 
-  it("rejects non-positive policy weights", () => {
+  it("rejects non-positive active policy weights", () => {
     expect(() => validateFormalSyntaxSamplingPolicy({
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       sentenceFamilyWeights: {
@@ -124,5 +145,13 @@ describe("formal syntax family sampling policy", () => {
         "question.a-not-a": 0,
       },
     })).toThrow(/question\.a-not-a must be finite and positive/u);
+  });
+
+  it("rejects a positive-mass kind with no active family", () => {
+    const { request: _request, ...withoutRequest } = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.sentenceFamilyWeights;
+    expect(() => validateFormalSyntaxSamplingPolicy({
+      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+      sentenceFamilyWeights: withoutRequest,
+    })).toThrow(/sentence kind request has positive mass but no active construction families/u);
   });
 });
