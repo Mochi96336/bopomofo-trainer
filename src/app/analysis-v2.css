@@ -11,11 +11,10 @@
 
 .analysis-v2-header {
   display: flex;
-  align-items: center;
+  align-items: end;
   justify-content: space-between;
-  gap: 24px;
-  padding: 22px 26px 16px;
-  border-bottom: 1px solid color-mix(in srgb, currentColor 14%, transparent);
+  gap: 28px;
+  border-bottom: 1px solid var(--hairline);
 }
 
 .analysis-v2-header h2,
@@ -24,12 +23,9 @@
   margin: 0;
 }
 
+/* The internal implementation name is not part of the visual hierarchy. */
 .analysis-v2-kicker {
-  margin: 0 0 2px;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  opacity: 0.55;
+  display: none;
 }
 
 .analysis-v2-header-actions,
@@ -37,48 +33,72 @@
 .analysis-v2-segments {
   display: flex;
   align-items: center;
-  gap: 6px;
 }
 
 .analysis-v2-tabs,
 .analysis-v2-segments {
-  padding: 4px;
-  border: 1px solid color-mix(in srgb, currentColor 14%, transparent);
-  border-radius: 999px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
 }
 
 .analysis-v2-tabs button,
 .analysis-v2-segments button {
+  position: relative;
   border: 0;
-  border-radius: 999px;
-  padding: 7px 13px;
+  border-radius: 0;
   background: transparent;
-  color: inherit;
+  color: var(--ink-muted);
   cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 620;
+}
+
+.analysis-v2-tabs button::after,
+.analysis-v2-segments button::after {
+  position: absolute;
+  right: 12%;
+  bottom: -1px;
+  left: 12%;
+  height: 1px;
+  background: transparent;
+  content: "";
 }
 
 .analysis-v2-tabs button[aria-selected="true"],
 .analysis-v2-segments button[aria-pressed="true"] {
-  background: color-mix(in srgb, currentColor 12%, transparent);
+  background: transparent;
+  color: var(--ink);
   font-weight: 700;
+}
+
+.analysis-v2-tabs button[aria-selected="true"]::after,
+.analysis-v2-segments button[aria-pressed="true"]::after {
+  background: var(--ink);
 }
 
 .analysis-v2-main {
   min-height: 0;
   overflow: auto;
-  padding: 22px 26px 28px;
 }
 
 .analysis-v2-domain {
   display: grid;
-  gap: 18px;
 }
 
 .analysis-v2-domain-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 20px;
+  gap: 24px;
+}
+
+.analysis-v2-domain-head h3 {
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .analysis-v2-domain-head p,
@@ -86,83 +106,120 @@
 .analysis-v2-note,
 .analysis-v2-detail-card p {
   margin: 6px 0 0;
-  line-height: 1.5;
-  opacity: 0.7;
+  color: var(--ink-muted);
+  font-size: 0.76rem;
+  line-height: 1.65;
 }
 
 .analysis-v2-semantic-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.75fr) minmax(240px, 0.75fr);
-  gap: 22px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  min-height: 500px;
+  align-items: stretch;
 }
 
-.analysis-v2-keyboard-wrap,
-.analysis-v2-side-detail,
-.analysis-v2-card,
-.analysis-v2-empty {
-  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
-  border-radius: 16px;
-  background: color-mix(in srgb, currentColor 2%, transparent);
-  padding: 16px;
+/* The keyboard is the canvas, not a card. */
+.analysis-v2-keyboard-wrap {
+  display: grid;
+  min-width: 0;
+  align-content: center;
+  padding: 28px 34px 24px 4px;
+}
+
+.analysis-v2-keyboard-wrap > .analysis-v2-note {
+  width: min(760px, 100%);
+  margin: 22px auto 0;
+}
+
+.analysis-v2-side-detail {
+  min-width: 0;
+  padding: 28px 0 24px 26px;
+  border-left: 1px solid var(--hairline);
 }
 
 .analysis-v2-keyboard {
   display: grid;
-  gap: 6px;
+  width: min(820px, 100%);
+  margin-inline: auto;
+  gap: clamp(3px, 0.55vw, 6px);
 }
 
 .analysis-v2-keyboard-row {
   display: grid;
   grid-template-columns: repeat(60, minmax(0, 1fr));
-  gap: 4px;
+  gap: clamp(3px, 0.55vw, 6px);
 }
 
 .analysis-v2-key {
   position: relative;
   isolation: isolate;
+  display: grid;
+  min-width: 0;
+  height: clamp(34px, 4.25vw, 52px);
+  padding: 3px 1px;
   grid-column: span var(--key-columns);
-  min-height: 48px;
+  place-items: center;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, currentColor 16%, transparent);
-  border-radius: 8px;
+  border: 1px solid var(--key-border);
+  border-radius: 38% 44% 40% 46% / 42% 38% 46% 40%;
   background: transparent;
-  color: inherit;
+  box-shadow:
+    inset 0 -1px 0 var(--key-shadow-inset),
+    0 1px 0 var(--key-shadow-highlight);
+  color: var(--ink-muted);
   cursor: pointer;
+}
+
+.analysis-v2-key:nth-child(3n) {
+  border-radius: 44% 38% 46% 40% / 38% 45% 39% 46%;
 }
 
 .analysis-v2-key::before,
 .analysis-v2-matrix td::before {
-  content: "";
   position: absolute;
-  inset: 0;
   z-index: -1;
+  inset: 0;
   background: currentColor;
-  opacity: calc(0.03 + var(--analysis-strength, 0) * 0.28);
+  content: "";
+  opacity: calc(0.018 + var(--analysis-strength, 0) * 0.24);
   pointer-events: none;
 }
 
 .analysis-v2-key.insufficient::before {
-  opacity: 0.03;
+  opacity: 0.018;
 }
 
 .analysis-v2-key.preliminary::before {
-  opacity: calc(0.03 + var(--analysis-strength, 0) * 0.14);
+  opacity: calc(0.018 + var(--analysis-strength, 0) * 0.11);
 }
 
 .analysis-v2-key.sufficient::before {
-  opacity: calc(0.03 + var(--analysis-strength, 0) * 0.28);
+  opacity: calc(0.018 + var(--analysis-strength, 0) * 0.24);
 }
 
 .analysis-v2-key strong,
 .analysis-v2-key small {
   display: block;
+  max-width: 100%;
 }
 
+.analysis-v2-key strong {
+  color: var(--ink);
+  font-size: clamp(0.68rem, 0.88vw, 0.82rem);
+  line-height: 1;
+}
+
+/* Keep the metric atomic. The old free wrapping produced 100% / · 1 on one
+   key and 8% · / 26 on the next. */
 .analysis-v2-key small {
-  margin-top: 2px;
-  font-size: 0.68rem;
-  opacity: 0.62;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--ink-muted);
+  font-size: clamp(0.48rem, 0.58vw, 0.61rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .analysis-v2-key.insufficient small {
@@ -170,26 +227,33 @@
 }
 
 .analysis-v2-key.selected {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
+  z-index: 3;
+  border-color: var(--key-current-border);
+  background: var(--key-current-bg);
+  box-shadow:
+    inset 0 -1px 0 var(--key-current-shadow-1),
+    0 0 0 2px var(--key-current-shadow-2);
+  color: var(--ink);
 }
 
 .analysis-v2-key.unmapped {
-  opacity: 0.18;
+  opacity: 0.3;
   cursor: default;
 }
 
 .analysis-v2-selection-empty {
-  min-height: 150px;
   display: grid;
-  place-items: center;
-  text-align: center;
-  opacity: 0.62;
+  min-height: 180px;
+  align-content: start;
+  padding-top: 4px;
+  color: var(--ink-muted);
+  font-size: 0.76rem;
+  line-height: 1.6;
 }
 
 .analysis-v2-detail-card {
   display: grid;
-  gap: 14px;
+  gap: 18px;
 }
 
 .analysis-v2-detail-heading {
@@ -200,36 +264,47 @@
 
 .analysis-v2-detail-heading strong {
   font-size: 2rem;
+  font-weight: 660;
+}
+
+.analysis-v2-detail-heading span {
+  color: var(--ink-muted);
+  font-size: 0.72rem;
 }
 
 .analysis-v2-detail-card dl {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
   margin: 0;
+  border-top: 1px solid var(--hairline);
 }
 
 .analysis-v2-detail-card dl > div {
-  padding: 10px;
-  border-radius: 10px;
-  background: color-mix(in srgb, currentColor 5%, transparent);
+  display: grid;
+  padding: 10px 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 1px solid var(--hairline);
 }
 
 .analysis-v2-detail-card dt {
-  font-size: 0.75rem;
-  opacity: 0.6;
+  color: var(--ink-muted);
+  font-size: 0.72rem;
 }
 
 .analysis-v2-detail-card dd {
-  margin: 3px 0 0;
-  font-weight: 700;
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 680;
+  font-variant-numeric: tabular-nums;
 }
 
 .analysis-v2-matrix-scroll,
 .analysis-v2-confusion-scroll {
+  min-width: 0;
   overflow: auto;
-  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
-  border-radius: 14px;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
 }
 
 .analysis-v2-matrix,
@@ -242,10 +317,11 @@
 .analysis-v2-matrix caption,
 .analysis-v2-motor-table caption,
 .analysis-v2-confusion-table caption {
+  padding: 10px 0 12px;
+  color: var(--ink-muted);
+  font-size: 0.72rem;
+  line-height: 1.5;
   text-align: left;
-  padding: 10px 12px;
-  font-size: 0.78rem;
-  opacity: 0.65;
 }
 
 .analysis-v2-matrix th,
@@ -254,28 +330,34 @@
 .analysis-v2-motor-table td,
 .analysis-v2-confusion-table th,
 .analysis-v2-confusion-table td {
-  border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
-  padding: 9px;
+  padding: 10px 9px;
+  border-bottom: 1px solid var(--hairline);
   text-align: center;
   vertical-align: middle;
+}
+
+.analysis-v2-matrix th + th,
+.analysis-v2-matrix td + td,
+.analysis-v2-motor-table th + th,
+.analysis-v2-motor-table td + td,
+.analysis-v2-confusion-table th + th,
+.analysis-v2-confusion-table td + td {
+  border-left: 1px solid var(--hairline);
 }
 
 .analysis-v2-matrix th,
 .analysis-v2-motor-table th,
 .analysis-v2-confusion-table th {
-  font-size: 0.76rem;
-  font-weight: 700;
-  background: color-mix(in srgb, currentColor 4%, transparent);
+  background: transparent;
+  color: var(--ink-muted);
+  font-size: 0.7rem;
+  font-weight: 650;
 }
 
 .analysis-v2-matrix td {
   position: relative;
   isolation: isolate;
   min-width: 42px;
-}
-
-.analysis-v2-matrix td.not-applicable {
-  opacity: 0.35;
 }
 
 .analysis-v2-confusion-table {
@@ -287,8 +369,9 @@
   text-align: left;
 }
 
-.analysis-v2-confusion-table td:nth-child(2) {
-  width: 32px;
+.analysis-v2-confusion-table td:nth-child(2),
+.analysis-v2-confusion-table th:nth-child(2) {
+  width: 34px;
   color: var(--ink-muted);
 }
 
@@ -300,7 +383,7 @@
 .analysis-v2-confusion-table td small {
   margin-top: 2px;
   color: var(--ink-muted);
-  font-size: 0.7rem;
+  font-size: 0.66rem;
 }
 
 .analysis-v2-confusion-table tr.insufficient {
@@ -308,36 +391,58 @@
 }
 
 .analysis-v2-evidence-state {
-  display: inline-block;
-  padding: 2px 7px;
-  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-  border-radius: 999px;
+  color: var(--ink-muted);
   font-size: 0.68rem;
   white-space: nowrap;
 }
 
-.analysis-v2-evidence-state.preliminary {
-  border-style: dashed;
+.analysis-v2-evidence-state.preliminary::before {
+  content: "◌ ";
 }
 
 .analysis-v2-evidence-state.sufficient {
-  border-color: color-mix(in srgb, var(--accent) 36%, transparent);
+  color: var(--ink);
 }
 
-.analysis-v2-card-grid,
-.analysis-v2-strategy-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.analysis-v2-card-grid .analysis-v2-card:nth-child(3),
-.analysis-v2-card-grid .analysis-v2-card:nth-child(4) {
-  grid-column: span 2;
+/* These are evidence sections, not cards. Hairlines and spacing carry the
+   hierarchy; rounded surfaces are reserved for the physical keys themselves. */
+.analysis-v2-card {
+  min-width: 0;
+  padding: 20px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .analysis-v2-card h4 {
-  font-size: 1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.analysis-v2-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--hairline);
+}
+
+.analysis-v2-card-grid > .analysis-v2-card {
+  border-bottom: 1px solid var(--hairline);
+}
+
+.analysis-v2-card-grid > .analysis-v2-card:nth-child(odd) {
+  padding-right: 22px;
+}
+
+.analysis-v2-card-grid > .analysis-v2-card:nth-child(even) {
+  padding-left: 22px;
+  border-left: 1px solid var(--hairline);
+}
+
+.analysis-v2-card-grid > .analysis-v2-card:nth-child(3),
+.analysis-v2-card-grid > .analysis-v2-card:nth-child(4) {
+  grid-column: span 2;
+  padding-inline: 0;
+  border-left: 0;
 }
 
 .analysis-v2-motor-table {
@@ -346,54 +451,69 @@
 
 .analysis-v2-motor-cell {
   display: grid;
+  min-width: 118px;
   gap: 3px;
-  min-width: 120px;
 }
 
 .analysis-v2-motor-cell strong {
-  font-size: 0.95rem;
+  font-size: 0.84rem;
+  font-weight: 680;
 }
 
 .analysis-v2-motor-cell small,
 .analysis-v2-motor-cell span {
-  font-size: 0.68rem;
-  line-height: 1.35;
-  opacity: 0.62;
+  color: var(--ink-muted);
+  font-size: 0.64rem;
+  line-height: 1.4;
 }
 
 .analysis-v2-motor-cell.sampling strong {
-  opacity: 0.68;
+  color: var(--ink-muted);
 }
 
 .analysis-v2-motor-cell.empty {
-  opacity: 0.45;
+  opacity: 0.5;
 }
 
 .analysis-v2-tone-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(138px, 1fr));
   margin-top: 14px;
+  border-top: 1px solid var(--hairline);
 }
 
 .analysis-v2-tone-cell {
   display: grid;
   gap: 8px;
-  padding: 12px;
-  border-radius: 12px;
-  background: color-mix(in srgb, currentColor 4%, transparent);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--hairline);
 }
 
-.analysis-v2-card-title-line {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+.analysis-v2-tone-cell + .analysis-v2-tone-cell {
+  border-left: 1px solid var(--hairline);
 }
 
-.analysis-v2-card-title-line span {
-  font-size: 0.75rem;
-  opacity: 0.6;
+.analysis-v2-strategy-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.analysis-v2-strategy-grid > .analysis-v2-card {
+  padding: 18px 18px 20px;
+}
+
+.analysis-v2-strategy-grid > .analysis-v2-card:first-child {
+  padding-left: 0;
+}
+
+.analysis-v2-strategy-grid > .analysis-v2-card:last-child {
+  padding-right: 0;
+}
+
+.analysis-v2-strategy-grid > .analysis-v2-card + .analysis-v2-card {
+  border-left: 1px solid var(--hairline);
 }
 
 .strategy-matrix {
@@ -408,18 +528,21 @@
 .strategy-matrix td small {
   min-height: 1em;
   margin-top: 2px;
-  font-size: 0.68rem;
-  opacity: 0.58;
+  color: var(--ink-muted);
+  font-size: 0.64rem;
 }
 
 .analysis-v2-empty {
-  min-height: 160px;
   display: grid;
+  min-height: 140px;
   place-items: center;
+  padding: 18px 0;
+  color: var(--ink-muted);
+  font-size: 0.76rem;
+  line-height: 1.6;
   text-align: center;
-  opacity: 0.68;
 }
 
 .analysis-v2-empty.compact {
-  min-height: 60px;
+  min-height: 54px;
 }
