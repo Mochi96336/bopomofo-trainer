@@ -34,6 +34,10 @@ describe("formal syntax sampling taxonomy", () => {
       kind: "core-predication",
       family: "core.transitive",
     });
+    expect(clauseConstructionClassification("clause.object-content")).toEqual({
+      kind: "embedded-content",
+      family: "embedded.object-content",
+    });
   });
 
   it("makes the current equal-rule ticket bias explicit instead of treating it as policy", () => {
@@ -79,12 +83,13 @@ describe("formal syntax sampling taxonomy", () => {
       .toMatchObject({ ticketCount: 2, rawShare: 0.2 });
 
     expect(audit.clauseKinds).toEqual([
-      expect.objectContaining({ family: "complex-predicate", ticketCount: 3, rawShare: 0.15 }),
-      expect.objectContaining({ family: "core-predication", ticketCount: 8, rawShare: 0.4 }),
-      expect.objectContaining({ family: "information-structure", ticketCount: 3, rawShare: 0.15 }),
-      expect.objectContaining({ family: "marked", ticketCount: 6, rawShare: 0.3 }),
+      expect.objectContaining({ family: "complex-predicate", ticketCount: 3, rawShare: 3 / 24 }),
+      expect.objectContaining({ family: "core-predication", ticketCount: 8, rawShare: 8 / 24 }),
+      expect.objectContaining({ family: "embedded-content", ticketCount: 4, rawShare: 4 / 24 }),
+      expect.objectContaining({ family: "information-structure", ticketCount: 3, rawShare: 3 / 24 }),
+      expect.objectContaining({ family: "marked", ticketCount: 6, rawShare: 6 / 24 }),
     ]);
-    expect(audit.clauseFamilies).toHaveLength(20);
+    expect(audit.clauseFamilies).toHaveLength(24);
     expect(audit.clauseFamilies.every((row) => row.ticketCount === 1)).toBe(true);
   });
 
