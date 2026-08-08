@@ -25,7 +25,7 @@ function freshStoredProgress(): string {
 }
 
 describe("progress load notices", () => {
-  it("announces a successful measurement-epoch migration without calling the progress invalid", () => {
+  it("announces a successful measurement-epoch migration and writes the new schema immediately", () => {
     const stored = JSON.parse(freshStoredProgress()) as Record<string, unknown>;
     stored.schemaVersion = PRODUCT_PROGRESS_SCHEMA_VERSION - 1;
     delete stored.measurementEpoch;
@@ -38,6 +38,11 @@ describe("progress load notices", () => {
     expect(notice).toContain("舊版量測已切換到新的輸入模型");
     expect(notice).toContain("其他可相容的本機進度已保留");
     expect(notice).not.toContain("無效的本機進度");
+
+    const persisted = storage.getItem(LOCAL_PROGRESS_KEY);
+    if (persisted === null) throw new Error("migrated progress was not written back");
+    expect((JSON.parse(persisted) as Record<string, unknown>).schemaVersion)
+      .toBe(PRODUCT_PROGRESS_SCHEMA_VERSION);
   });
 
   it("announces a fresh reset for invalid progress without claiming compatible progress was preserved", () => {
