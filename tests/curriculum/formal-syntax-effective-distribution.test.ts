@@ -24,13 +24,15 @@ describe("formal syntax effective product distribution", () => {
     const index = buildLexicalProfileIndex(PRACTICE_CATALOG, SYNTAX_PROFILES);
     const orderer = createFormalSyntaxFamilyRuleOrderer();
     const sampleCount = 128;
-    let aNotA = 0;
+    const familyCounts = new Map<string, number>();
     let questions = 0;
+    let totalAttempts = 0;
 
     for (let round = 0; round < sampleCount; round += 1) {
       const random = createSeededRandom(`formal-family-distribution:${round}`);
       let acceptedRootRuleId: string | null = null;
       for (let attempt = 0; attempt < 64 && acceptedRootRuleId === null; attempt += 1) {
+        totalAttempts += 1;
         const shape = sampleStructuralDerivation({
           rootCategory: "Sentence",
           rules: FORMAL_SYNTAX_RULES,
@@ -59,13 +61,26 @@ describe("formal syntax effective product distribution", () => {
       expect(acceptedRootRuleId).not.toBeNull();
       const classification = sentenceConstructionClassification(acceptedRootRuleId!);
       expect(classification).not.toBeNull();
+      familyCounts.set(
+        classification!.family,
+        (familyCounts.get(classification!.family) ?? 0) + 1,
+      );
       if (classification!.kind === "question") questions += 1;
-      if (classification!.family === "question.a-not-a") aNotA += 1;
     }
 
+    const counts = Object.fromEntries([...familyCounts.entries()].sort());
+    const aNotA = familyCounts.get("question.a-not-a") ?? 0;
     const aNotAShare = aNotA / sampleCount;
     const questionShare = questions / sampleCount;
-    expect(aNotAShare).toBeLessThan(0.12);
-    expect(questionShare).toBeLessThan(0.40);
+    const diagnostic = JSON.stringify({
+      sampleCount,
+      totalAttempts,
+      averageAttempts: totalAttempts / sampleCount,
+      aNotAShare,
+      questionShare,
+      counts,
+    });
+    expect(aNotAShare, diagnostic).toBeLessThan(0.12);
+    expect(questionShare, diagnostic).toBeLessThan(0.40);
   });
 });
