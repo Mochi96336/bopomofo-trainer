@@ -56,10 +56,11 @@ describe("formal syntax family sampling policy", () => {
       rules: FORMAL_SYNTAX_RULES,
       random: new SequenceRandom([0]),
       maximumAttempts: 1,
-      rootProductionRuleIds: ["sentence.a-not-a-question"],
+      rootProductionRuleIds: ["sentence.declarative"],
     });
-    expect(shape?.root.productionRuleId).toBe("sentence.a-not-a-question");
+    expect(shape?.root.productionRuleId).toBe("sentence.declarative");
     expect(shape?.productionRulePath.length).toBeGreaterThan(1);
+    expect(shape?.productionRulePath[1]?.startsWith("clause.")).toBe(true);
   });
 
   it("fails closed if an external rule orderer filters eligible grammar rules", () => {
