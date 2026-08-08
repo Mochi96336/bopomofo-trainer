@@ -115,7 +115,7 @@ const UNLOCK_NOTICE_MS = 6000;
 const PREVIOUS_RESULT_MS = 1400;
 const RECOVERY_NOTICE_MS = 6000;
 const PROGRESS_RECOVERY_NOTICE =
-  "舊版量測已切換到新的輸入模型；舊量測證據未沿用，其他可相容的本機進度已保留。";
+  "舊版量測已切換到新的輸入模型；舊量測證據已刪除，其他可相容的本機進度已保留。";
 const PILOT_RECOVERY_NOTICE =
   "舊版或無效的 Pilot 歷史已刪除；目前世代可由有效完成摘要補齊。";
 
@@ -472,7 +472,7 @@ export function createApp(deps: AppDependencies): App {
       feedback.classList.add("error");
       feedback.setAttribute("aria-live", "assertive");
       feedback.textContent = latest.attributedExpectedToken === null
-        ? `按到 ${actual}，不是目前音節尚未完成的注音`
+        ? `按到 ${actual}，應為目前音節尚未完成的注音之一`
         : `按到 ${actual}，應為 ${tokenLabel(latest.attributedExpectedToken)}`;
       return;
     }
