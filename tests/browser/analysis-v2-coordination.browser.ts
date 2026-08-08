@@ -14,14 +14,26 @@ test("surfaces motor evidence through the integrated Analysis V2 summary", async
 
   await summary.locator(".analysis-v2-open").click();
   await page.locator('[data-action="select-tab"][data-tab="coordination"]').click();
-  const coordination = page.locator("#analysis-v2-coordination-title").locator("..");
-  await expect(coordination).toContainText("不同動作類型不以絕對毫秒互相比弱");
-  await expect(page.getByRole("heading", { name: "實際鍵間速度" })).toBeVisible();
+
+  await expect(page.locator("#analysis-v2-coordination-title")).toHaveText("協調");
+  await expect(page.locator(".analysis-v2-speed-field")).toBeVisible();
   await expect(page.locator(".analysis-v2-speed-board")).toBeVisible();
   await expect(page.locator(".analysis-v2-speed-svg marker")).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "標準指法手別轉換" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "同側鍵位再出手" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "聲調完成" })).toBeVisible();
+
+  const evidence = page.locator(".analysis-v2-evidence-group");
+  await expect(evidence).toHaveCount(4);
+  await expect(evidence.locator("summary")).toHaveText([
+    /手別轉換/,
+    /同側再出手/,
+    /音節跨度/,
+    /聲調收尾/,
+  ]);
+  await expect(page.locator(".analysis-v2-evidence-group[open]")).toHaveCount(0);
+
+  await evidence.first().locator("summary").click();
+  await expect(evidence.first()).toHaveAttribute("open", "");
+  await expect(evidence.first()).toContainText("依標準指法的鍵位分工推定");
+  await expect(evidence.first()).toContainText("不代表偵測到你實際使用哪隻手");
 });
 
 test("retires canonical transition diagnostics from every production navigation path", async ({ page }) => {
