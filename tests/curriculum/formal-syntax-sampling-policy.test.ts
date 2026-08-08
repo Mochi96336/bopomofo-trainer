@@ -50,6 +50,9 @@ describe("formal syntax family sampling policy", () => {
       });
     const plan = createSentenceConstructionFamilyPlan(
       candidates,
+      // 0.70 selects question.polar from the joint prior; 0 then selects the
+      // highest-weight remaining family, statement.declarative. The old nested
+      // kind permutation would have kept the remaining question families ahead.
       new SequenceRandom([0.70, 0]),
     );
 
