@@ -19,17 +19,35 @@ function isPracticeLexicalSlot(slot: StructuralLexicalSlot): boolean {
     && !(slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT");
 }
 
+function increment(counts: Map<string, number>, key: string): void {
+  counts.set(key, (counts.get(key) ?? 0) + 1);
+}
+
 describe("formal syntax effective product distribution", () => {
   it("keeps A-not-A bounded after real-catalog reachability and product length filtering", () => {
     const index = buildLexicalProfileIndex(PRACTICE_CATALOG, SYNTAX_PROFILES);
+    const sentenceRules = FORMAL_SYNTAX_RULES.filter((rule) => rule.output === "Sentence");
     const sampleCount = 128;
+    const initialFamilyCounts = new Map<string, number>();
     const familyCounts = new Map<string, number>();
+    const transitionCounts = new Map<string, number>();
     let questions = 0;
     let totalAttempts = 0;
 
     for (let round = 0; round < sampleCount; round += 1) {
       const random = createSeededRandom(`formal-family-distribution:${round}`);
       const samplingSession = createFormalSyntaxFamilySamplingSession();
+      const rootOrder = samplingSession.ruleOrderer({
+        category: "Sentence",
+        candidates: sentenceRules,
+        random,
+      });
+      expect(rootOrder).not.toBeNull();
+      const initialClassification = sentenceConstructionClassification(rootOrder![0]!.id);
+      expect(initialClassification).not.toBeNull();
+      const initialFamily = initialClassification!.family;
+      increment(initialFamilyCounts, initialFamily);
+
       let acceptedRootRuleId: string | null = null;
       for (let attempt = 0; attempt < 64 && acceptedRootRuleId === null; attempt += 1) {
         totalAttempts += 1;
@@ -61,14 +79,14 @@ describe("formal syntax effective product distribution", () => {
       expect(acceptedRootRuleId).not.toBeNull();
       const classification = sentenceConstructionClassification(acceptedRootRuleId!);
       expect(classification).not.toBeNull();
-      familyCounts.set(
-        classification!.family,
-        (familyCounts.get(classification!.family) ?? 0) + 1,
-      );
+      increment(familyCounts, classification!.family);
+      increment(transitionCounts, `${initialFamily}->${classification!.family}`);
       if (classification!.kind === "question") questions += 1;
     }
 
     const counts = Object.fromEntries([...familyCounts.entries()].sort());
+    const initialCounts = Object.fromEntries([...initialFamilyCounts.entries()].sort());
+    const transitions = Object.fromEntries([...transitionCounts.entries()].sort());
     const aNotA = familyCounts.get("question.a-not-a") ?? 0;
     const aNotAShare = aNotA / sampleCount;
     const questionShare = questions / sampleCount;
@@ -78,7 +96,9 @@ describe("formal syntax effective product distribution", () => {
       averageAttempts: totalAttempts / sampleCount,
       aNotAShare,
       questionShare,
+      initialCounts,
       counts,
+      transitions,
     });
     expect(aNotAShare, diagnostic).toBeLessThan(0.12);
     expect(questionShare, diagnostic).toBeLessThan(0.40);
