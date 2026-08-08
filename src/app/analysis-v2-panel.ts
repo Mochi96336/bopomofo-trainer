@@ -37,6 +37,7 @@ export interface AnalysisV2Controller {
 export interface AnalysisV2Options {
   readonly getModel: () => AnalysisV2Model;
   readonly storage: AnalysisV2PreferenceStorage;
+  readonly onClose?: () => void;
 }
 
 const PREFERENCES_KEY = "bopomofo-trainer.analysis-v2.v1";
@@ -255,7 +256,11 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
     render();
     if (focus) host.querySelector<HTMLButtonElement>(`[data-action="select-tab"][data-tab="${tab}"]`)?.focus();
   };
-  const close = () => { host.hidden = true; host.classList.remove("open"); };
+  const close = () => {
+    host.hidden = true;
+    host.classList.remove("open");
+    options.onClose?.();
+  };
   const open = (initialTab?: AnalysisV2Tab) => {
     model = options.getModel();
     const loaded = loadPreferences(options.storage);
