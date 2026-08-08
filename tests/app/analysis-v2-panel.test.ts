@@ -139,7 +139,7 @@ describe("Analysis V2 panel", () => {
   });
 
   it("cannot finish a stale open frame after the analysis has already closed", () => {
-    let scheduled: FrameRequestCallback | null = null;
+    let scheduled: FrameRequestCallback = () => undefined;
     vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
       scheduled = callback;
       return 17;
@@ -158,7 +158,7 @@ describe("Analysis V2 panel", () => {
 
     expect(cancel).toHaveBeenCalledWith(17);
     expect(document.activeElement).toBe(returnTarget);
-    scheduled?.(0);
+    scheduled(0);
     expect(controller.host.hidden).toBe(true);
     expect(controller.host.classList.contains("open")).toBe(false);
     expect(document.activeElement).toBe(returnTarget);
