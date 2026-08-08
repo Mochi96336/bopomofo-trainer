@@ -101,10 +101,7 @@ function openAnalysisFromPractice(
   analysis.open();
 }
 
-function mountAnalysisTopLayer(
-  analysis: HTMLElement,
-  focusPractice: () => void,
-): () => void {
+function mountAnalysisTopLayer(analysis: HTMLElement): () => void {
   const modal = document.createElement("dialog");
   modal.className = "diagnostic-analysis-modal";
   modal.setAttribute("aria-labelledby", "diagnostic-analysis-title");
@@ -119,31 +116,14 @@ function mountAnalysisTopLayer(
       modal.showModal();
       return;
     }
-    if (analysis.hidden && modal.open) {
-      modal.close();
-      focusPractice();
-    }
+    if (analysis.hidden && modal.open) modal.close();
   };
   const observer = new MutationObserver(sync);
   observer.observe(analysis, { attributes: true, attributeFilter: ["hidden"] });
   modal.addEventListener("cancel", (event) => event.preventDefault());
-
-  // The controller hides itself synchronously. MutationObserver delivery is a
-  // later microtask, so a caller that closes with the visible close control must
-  // not temporarily leave focus on a now-hidden button. This listener is
-  // registered after the controller's own host handler and therefore runs after
-  // `close()` in the same dispatch. Escape still falls back to the observer.
-  const returnFocusAfterCloseControl = (event: Event): void => {
-    const target = event.target instanceof Element
-      ? event.target.closest<HTMLElement>('[data-action="close-analysis"]')
-      : null;
-    if (target !== null && analysis.hidden) focusPractice();
-  };
-  analysis.addEventListener("click", returnFocusAfterCloseControl);
   sync();
 
   return () => {
-    analysis.removeEventListener("click", returnFocusAfterCloseControl);
     observer.disconnect();
     if (modal.open) modal.close();
     modal.remove();
@@ -157,8 +137,9 @@ export function mountDiagnosticEnhancement(
   const analysis = createAnalysisV2({
     getModel: currentAnalysisModel,
     storage: deps.storage,
+    onClose: deps.focusPractice,
   });
-  const releaseTopLayer = mountAnalysisTopLayer(analysis.host, deps.focusPractice);
+  const releaseTopLayer = mountAnalysisTopLayer(analysis.host);
 
   return {
     panelRendered(content: HTMLElement): void {
