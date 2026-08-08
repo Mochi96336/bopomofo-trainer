@@ -26,21 +26,6 @@ import type {
 } from "./types.js";
 import { assertValidGrammar } from "./validate.js";
 
-export interface StructuralRuleOrderingInput {
-  readonly category: SyntaxCategory;
-  readonly candidates: readonly ProductionRule[];
-  readonly random: RandomSource;
-}
-
-/**
- * Curriculum/research callers may reorder eligible productions without changing
- * the grammar or filtering the candidate set. Returning null keeps the sampler's
- * default uniform shuffle for that category.
- */
-export type StructuralRuleOrderer = (
-  input: StructuralRuleOrderingInput,
-) => readonly ProductionRule[] | null;
-
 export interface StructuralSamplingOptions {
   readonly rootCategory: SyntaxCategory;
   readonly rules: readonly ProductionRule[];
@@ -48,7 +33,6 @@ export interface StructuralSamplingOptions {
   readonly bounds?: DerivationBounds;
   readonly maximumAttempts?: number;
   readonly isLexicalSlotReachable?: (slot: StructuralLexicalSlot) => boolean;
-  readonly ruleOrderer?: StructuralRuleOrderer;
   /**
    * Target exactly one existing production at the root choice point. Descendant
    * categories still see the complete grammar. Restricting this API to one root
@@ -95,41 +79,6 @@ function shuffled<T>(values: readonly T[], random: RandomSource): readonly T[] {
     [result[index], result[swap]] = [result[swap]!, result[index]!];
   }
   return result;
-}
-
-function normalizedRuleOrder(
-  candidates: readonly ProductionRule[],
-  ordered: readonly ProductionRule[],
-): readonly ProductionRule[] {
-  if (ordered.length !== candidates.length) {
-    throw new Error("structural rule orderer must return every eligible production exactly once");
-  }
-  const byId = new Map(candidates.map((rule) => [rule.id, rule]));
-  const seen = new Set<string>();
-  return ordered.map((rule) => {
-    if (seen.has(rule.id)) {
-      throw new Error(`structural rule orderer returned duplicate production: ${rule.id}`);
-    }
-    seen.add(rule.id);
-    const canonical = byId.get(rule.id);
-    if (canonical === undefined) {
-      throw new Error(`structural rule orderer returned ineligible production: ${rule.id}`);
-    }
-    return canonical;
-  });
-}
-
-function orderedRulesForCategory(
-  category: SyntaxCategory,
-  candidates: readonly ProductionRule[],
-  random: RandomSource,
-  ruleOrderer: StructuralRuleOrderer | undefined,
-): readonly ProductionRule[] {
-  if (ruleOrderer === undefined) return shuffled(candidates, random);
-  const ordered = ruleOrderer({ category, candidates, random });
-  return ordered === null
-    ? shuffled(candidates, random)
-    : normalizedRuleOrder(candidates, ordered);
 }
 
 function decrement(state: State, constituent: ProductionConstituent): State | null {
@@ -189,7 +138,6 @@ function sampleCategory(
   path: readonly string[],
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
-  ruleOrderer: StructuralRuleOrderer | undefined,
   rootProductionRuleId: string | undefined,
   isRoot: boolean,
 ): Sampled | null {
@@ -201,7 +149,7 @@ function sampleCategory(
   const eligibleRules = (rulesByOutput.get(category) ?? [])
     .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))
     .filter((rule) => !isRoot || rootProductionRuleId === undefined || rule.id === rootProductionRuleId);
-  const candidates = orderedRulesForCategory(category, eligibleRules, random, ruleOrderer);
+  const candidates = shuffled(eligibleRules, random);
   for (const rule of candidates) {
     const order = rule.surfaceOrders[chooseIndex(random, rule.surfaceOrders.length)];
     if (order === undefined) continue;
@@ -264,7 +212,6 @@ function sampleCategory(
           [...path, rule.id, `${constituent.key}[${occurrenceIndex}]`],
           isLexicalSlotReachable,
           excludedClassesForConstituent(constituent),
-          ruleOrderer,
           rootProductionRuleId,
           false,
         );
@@ -339,7 +286,6 @@ export function sampleStructuralDerivation(
       [options.rootCategory],
       options.isLexicalSlotReachable,
       new Set(),
-      options.ruleOrderer,
       requestedRootRuleId,
       true,
     );
