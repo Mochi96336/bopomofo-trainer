@@ -16,6 +16,7 @@ function event(overrides: Partial<{
   ctrlKey: boolean;
   metaKey: boolean;
   shiftKey: boolean;
+  timeStamp: number;
 }> = {}) {
   return {
     code: overrides.code ?? "Digit5",
@@ -26,6 +27,7 @@ function event(overrides: Partial<{
     ctrlKey: overrides.ctrlKey ?? false,
     metaKey: overrides.metaKey ?? false,
     shiftKey: overrides.shiftKey ?? false,
+    ...(overrides.timeStamp === undefined ? {} : { timeStamp: overrides.timeStamp }),
   };
 }
 
@@ -36,6 +38,15 @@ describe("keyboardEventToInput", () => {
       actualToken: "zhuyin:ㄓ",
       timestampMs: 42,
     });
+  });
+
+  it("uses browser event time instead of delayed handler-arrival time", () => {
+    expect(keyboardEventToInput(
+      event({ timeStamp: 17.25 }),
+      STANDARD_BOPOMOFO_LAYOUT,
+      900,
+      false,
+    ).timestampMs).toBe(17.25);
   });
 
   it("maps all five tone keys, including Space for explicit first tone", () => {
