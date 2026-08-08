@@ -74,7 +74,7 @@ The local budget is not a magic constant tied to today's eight families. `rootFa
 
 Product-only rejection, such as the current minimum of two practice lexical entries, lexical uniqueness failure, or a duplicate realized candidate, counts against the same family-local budget instead of causing an immediate fresh family draw.
 
-This does not imply that realized output frequencies exactly equal the nominal root prior. Reachability, descendant structural sampling, lexical realization, and eventual fallback can still change effective shares. The policy removes representation-count bias at the Sentence root and bounds one-shot failover; effective output remains something to measure rather than assert from the nominal prior.
+This does not imply that realized output frequencies exactly equal the nominal root prior. Reachability, descendant structural sampling, lexical realization, and eventual fallback can still change effective shares. The policy removes representation-count bias at the Sentence root and gives each attempted family the same bounded local search opportunity; effective output remains something to measure rather than assert from the nominal prior.
 
 ## Clause and lower categories
 
