@@ -25,14 +25,15 @@ Within the root rules, `question.a-not-a` owns two tickets (20% of all root prod
 
 This is an audit of the current sampler mechanics, not an intended language or curriculum distribution. Realized shares can differ further because lexical reachability, derivation bounds, and realization failures cause retry/failover.
 
-The same risk exists below the root. Current `Clause` rules group into these coarse kinds:
+The same risk exists below the root. The complete grammar currently has 24 `Clause` productions, including four embedded/content-clause rules declared in `complement-rules.ts`. Their raw equal-ticket coarse-kind shares are:
 
-- core predication: 8/20 = 40%
-- marked constructions: 6/20 = 30%
-- complex predicates: 3/20 = 15%
-- information structure/omission: 3/20 = 15%
+- core predication: 8/24 = 33.3%
+- marked constructions: 6/24 = 25%
+- embedded/content clauses: 4/24 = 16.7%
+- complex predicates: 3/24 = 12.5%
+- information structure/omission: 3/24 = 12.5%
 
-Each current Clause production also has its own specific construction family (`core.transitive`, `marked.ba`, `marked.bei`, and so on). That extra level matters because a future split of one construction into several executable variants should not make that construction more common inside its coarse kind.
+Each current Clause production also has its own specific construction family (`core.transitive`, `marked.ba`, `embedded.object-content`, and so on). That extra level matters because a future split of one construction into several executable variants should not make that construction more common inside its coarse kind.
 
 Again, the percentages above are implementation ticket counts, not desired product weights.
 
