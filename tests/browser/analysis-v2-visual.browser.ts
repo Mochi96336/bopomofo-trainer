@@ -188,13 +188,14 @@ test("stacks speed copy on phones without changing the keyboard", async ({ page 
     const titleLine = analysis.querySelector<HTMLElement>(".analysis-v2-speed-card .analysis-v2-card-title-line")!;
     const copy = titleLine.querySelector<HTMLElement>("div")!;
     const speedCard = analysis.querySelector<HTMLElement>(".analysis-v2-speed-card")!;
+    const speedBoard = analysis.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
     const speedKeyboard = analysis.querySelector<HTMLElement>(".analysis-v2-speed-keyboard")!;
     const regularKey = speedKeyboard.querySelector<HTMLElement>(".analysis-v2-key[style*='--key-columns:4']")!;
     return {
       titleDirection: getComputedStyle(titleLine).flexDirection,
       copyWidthRatio: copy.getBoundingClientRect().width / speedCard.getBoundingClientRect().width,
-      keyboardTransform: getComputedStyle(speedKeyboard).transform,
-      keyHeight: regularKey.getBoundingClientRect().height,
+      keyboardTransform: getComputedStyle(speedBoard).transform,
+      keyHeight: Number.parseFloat(getComputedStyle(regularKey).height),
     };
   });
 
