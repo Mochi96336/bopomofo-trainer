@@ -12,17 +12,16 @@ import {
 
 export interface FormalSyntaxSamplingPolicy {
   readonly version: string;
-  readonly maximumRootFamilyAttempts: number;
   readonly sentenceKindWeights: Readonly<Record<SentenceKind, number>>;
   readonly sentenceFamilyWeights: Readonly<Record<SentenceConstructionFamily, number>>;
   readonly clauseKindWeights: Readonly<Record<ClauseKind, number>>;
   readonly clauseFamilyWeights: Readonly<Record<ClauseConstructionFamily, number>>;
 }
 
-const SENTENCE_KINDS: readonly SentenceKind[] = [
+export const SENTENCE_KINDS: readonly SentenceKind[] = [
   "statement", "question", "request", "exclamative",
 ];
-const SENTENCE_FAMILIES_BY_KIND: Readonly<Record<SentenceKind, readonly SentenceConstructionFamily[]>> = {
+export const SENTENCE_FAMILIES_BY_KIND: Readonly<Record<SentenceKind, readonly SentenceConstructionFamily[]>> = {
   statement: ["statement.declarative", "statement.complex"],
   question: [
     "question.polar",
@@ -33,15 +32,17 @@ const SENTENCE_FAMILIES_BY_KIND: Readonly<Record<SentenceKind, readonly Sentence
   request: ["request"],
   exclamative: ["exclamative"],
 };
+export const SENTENCE_CONSTRUCTION_FAMILIES: readonly SentenceConstructionFamily[] =
+  SENTENCE_KINDS.flatMap((kind) => SENTENCE_FAMILIES_BY_KIND[kind]);
 
-const CLAUSE_KINDS: readonly ClauseKind[] = [
+export const CLAUSE_KINDS: readonly ClauseKind[] = [
   "core-predication",
   "marked",
   "complex-predicate",
   "information-structure",
   "embedded-content",
 ];
-const CLAUSE_FAMILIES_BY_KIND: Readonly<Record<ClauseKind, readonly ClauseConstructionFamily[]>> = {
+export const CLAUSE_FAMILIES_BY_KIND: Readonly<Record<ClauseKind, readonly ClauseConstructionFamily[]>> = {
   "core-predication": [
     "core.nominal-predicate",
     "core.adjective-predicate",
@@ -77,20 +78,18 @@ const CLAUSE_FAMILIES_BY_KIND: Readonly<Record<ClauseKind, readonly ClauseConstr
     "embedded.quoted-content",
   ],
 };
+export const CLAUSE_CONSTRUCTION_FAMILIES: readonly ClauseConstructionFamily[] =
+  CLAUSE_KINDS.flatMap((kind) => CLAUSE_FAMILIES_BY_KIND[kind]);
 
 /**
  * Training prior, not a claim about corpus sentence frequencies.
  *
- * The important contract is where the mass lives: kinds and construction
- * families own probability, while executable production variants only divide
- * the mass already assigned to their family.
+ * Kinds and construction families own probability. Executable variants are
+ * implementation choices inside that family and never create extra family mass
+ * or extra attempts.
  */
 export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy = {
-  version: "formal-syntax-family-sampling-v1",
-  // There are eight current root construction families. Eight local attempts
-  // gives a stochastic but feasible family multiple inner-derivation chances
-  // while keeping the product's existing 64-attempt global search bounded.
-  maximumRootFamilyAttempts: 8,
+  version: "formal-syntax-family-sampling-v2",
   sentenceKindWeights: {
     statement: 0.64,
     question: 0.26,
@@ -114,9 +113,6 @@ export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy =
     "information-structure": 0.07,
     "embedded-content": 0.05,
   },
-  // Clause families begin equal within each coarse kind. Their separation is
-  // still important: adding a second executable variant of 被/把/etc. must not
-  // give that construction another ticket.
   clauseFamilyWeights: {
     "core.nominal-predicate": 1,
     "core.adjective-predicate": 1,
@@ -153,6 +149,11 @@ function nextUnit(random: RandomSource): number {
   return value;
 }
 
+function chooseIndex(random: RandomSource, size: number): number {
+  if (!Number.isInteger(size) || size <= 0) throw new Error("sampling choice requires at least one value");
+  return Math.min(size - 1, Math.floor(nextUnit(random) * size));
+}
+
 function assertWeightMap(
   label: string,
   expectedKeys: readonly string[],
@@ -177,15 +178,10 @@ function assertWeightMap(
 
 export function validateFormalSyntaxSamplingPolicy(policy: FormalSyntaxSamplingPolicy): void {
   if (policy.version.length === 0) throw new Error("formal syntax sampling policy version is required");
-  if (!Number.isInteger(policy.maximumRootFamilyAttempts) || policy.maximumRootFamilyAttempts <= 0) {
-    throw new Error("maximumRootFamilyAttempts must be a positive integer");
-  }
-  const sentenceFamilies = SENTENCE_KINDS.flatMap((kind) => SENTENCE_FAMILIES_BY_KIND[kind]);
-  const clauseFamilies = CLAUSE_KINDS.flatMap((kind) => CLAUSE_FAMILIES_BY_KIND[kind]);
   assertWeightMap("sentence kind", SENTENCE_KINDS, policy.sentenceKindWeights);
-  assertWeightMap("sentence family", sentenceFamilies, policy.sentenceFamilyWeights);
+  assertWeightMap("sentence family", SENTENCE_CONSTRUCTION_FAMILIES, policy.sentenceFamilyWeights);
   assertWeightMap("clause kind", CLAUSE_KINDS, policy.clauseKindWeights);
-  assertWeightMap("clause family", clauseFamilies, policy.clauseFamilyWeights);
+  assertWeightMap("clause family", CLAUSE_CONSTRUCTION_FAMILIES, policy.clauseFamilyWeights);
 }
 
 function weightedPermutation<T>(
@@ -261,11 +257,10 @@ function hierarchicalFamilyPlan(
       random,
     );
     for (const family of orderedFamilies) {
-      const variants = weightedPermutation(byFamily.get(family)!, () => 1, random);
       result.push({
         kind,
         family,
-        productionRuleIds: variants.map((rule) => rule.id),
+        productionRuleIds: [...byFamily.get(family)!].map((rule) => rule.id).sort(),
       });
     }
   }
@@ -297,6 +292,44 @@ export function createSentenceConstructionFamilyPlan(
   }));
 }
 
+/**
+ * One family attempt gets exactly one executable root variant. A family with
+ * more ProductionRules therefore does not receive more root-rule opportunities
+ * per attempt.
+ */
+export function chooseSentenceConstructionVariant(
+  family: SentenceConstructionFamilyPlan,
+  random: RandomSource,
+): string {
+  const ids = family.productionRuleIds;
+  if (ids.length === 0) throw new Error(`sentence construction family ${family.family} has no variants`);
+  if (ids.length === 1) return ids[0]!;
+  return ids[chooseIndex(random, ids.length)]!;
+}
+
+/**
+ * Divide a bounded candidate-search budget across every currently available
+ * root family. This is derived from the actual plan instead of assuming a fixed
+ * family count. Fail closed if the caller cannot afford one attempt per family.
+ */
+export function rootFamilyAttemptBudget(
+  maximumAttempts: number,
+  familyCount: number,
+): number {
+  if (!Number.isInteger(maximumAttempts) || maximumAttempts <= 0) {
+    throw new Error("maximumAttempts must be a positive integer");
+  }
+  if (!Number.isInteger(familyCount) || familyCount <= 0) {
+    throw new Error("familyCount must be a positive integer");
+  }
+  if (maximumAttempts < familyCount) {
+    throw new Error(
+      `formal syntax candidate-search budget ${maximumAttempts} cannot cover ${familyCount} root families`,
+    );
+  }
+  return Math.floor(maximumAttempts / familyCount);
+}
+
 function hierarchicalRuleOrder(
   candidates: readonly ProductionRule[],
   classify: (ruleId: string) => HierarchicalClassification | null,
@@ -311,7 +344,11 @@ function hierarchicalRuleOrder(
     kindWeights,
     familyWeights,
     random,
-  ).flatMap((item) => item.productionRuleIds.map((ruleId) => byId.get(ruleId)!));
+  ).flatMap((item) => weightedPermutation(
+    item.productionRuleIds.map((ruleId) => byId.get(ruleId)!),
+    () => 1,
+    random,
+  ));
 }
 
 export function createFormalSyntaxFamilyRuleOrderer(
