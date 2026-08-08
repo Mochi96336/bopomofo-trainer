@@ -88,6 +88,11 @@ export interface DiagnosticEnhancement {
   destroy(): void;
 }
 
+interface AnalysisTopLayer {
+  close(): void;
+  destroy(): void;
+}
+
 function findLegacyWeakSection(content: HTMLElement): HTMLElement | null {
   return content.querySelector<HTMLElement>('section[data-legacy-weak-section="true"]');
 }
@@ -101,7 +106,7 @@ function openAnalysisFromPractice(
   analysis.open();
 }
 
-function mountAnalysisTopLayer(analysis: HTMLElement): () => void {
+function mountAnalysisTopLayer(analysis: HTMLElement): AnalysisTopLayer {
   const modal = document.createElement("dialog");
   modal.className = "diagnostic-analysis-modal";
   modal.setAttribute("aria-labelledby", "diagnostic-analysis-title");
@@ -111,22 +116,28 @@ function mountAnalysisTopLayer(analysis: HTMLElement): () => void {
   analysis.before(modal);
   modal.append(analysis);
 
+  const close = (): void => {
+    if (modal.open) modal.close();
+  };
   const sync = (): void => {
     if (!analysis.hidden && !modal.open) {
       modal.showModal();
       return;
     }
-    if (analysis.hidden && modal.open) modal.close();
+    if (analysis.hidden) close();
   };
   const observer = new MutationObserver(sync);
   observer.observe(analysis, { attributes: true, attributeFilter: ["hidden"] });
   modal.addEventListener("cancel", (event) => event.preventDefault());
   sync();
 
-  return () => {
-    observer.disconnect();
-    if (modal.open) modal.close();
-    modal.remove();
+  return {
+    close,
+    destroy(): void {
+      observer.disconnect();
+      close();
+      modal.remove();
+    },
   };
 }
 
@@ -134,12 +145,19 @@ export function mountDiagnosticEnhancement(
   deps: DiagnosticEnhancementDependencies,
 ): DiagnosticEnhancement {
   const currentAnalysisModel = () => analysisV2ModelFrom(deps.getSnapshot());
+  let topLayer: AnalysisTopLayer | null = null;
   const analysis = createAnalysisV2({
     getModel: currentAnalysisModel,
     storage: deps.storage,
-    onClose: deps.focusPractice,
+    onClose: () => {
+      // Close the browser top layer before focusing practice. A still-open modal
+      // dialog owns focus containment, so attempting the reverse order leaves
+      // focus on the now-hidden Analysis V2 close control.
+      topLayer?.close();
+      deps.focusPractice();
+    },
   });
-  const releaseTopLayer = mountAnalysisTopLayer(analysis.host);
+  topLayer = mountAnalysisTopLayer(analysis.host);
 
   return {
     panelRendered(content: HTMLElement): void {
@@ -153,7 +171,7 @@ export function mountDiagnosticEnhancement(
       content.querySelector(".motor-diagnostic-section")?.remove();
     },
     destroy(): void {
-      releaseTopLayer();
+      topLayer?.destroy();
       analysis.destroy();
     },
   };
