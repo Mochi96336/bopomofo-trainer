@@ -22,8 +22,6 @@ const freshProgress = createFreshProgressForEnvironment(
   "guided",
   "standard",
 );
-// Two completed rounds, so a history that references round 1 is consistent with
-// the progress it travels with.
 const progress = {
   ...freshProgress,
   practiceRoundsCompleted: 2,
@@ -164,9 +162,6 @@ describe("product backup with progress history", () => {
     );
     const draft = JSON.parse(source) as Record<string, unknown>;
     delete draft.progressHistory;
-
-    // Every backup this version writes carries the section, so a missing one
-    // is a malformed file rather than an older export to be filled in.
     expect(parse(JSON.stringify(draft))).toBeNull();
   });
 
@@ -179,7 +174,6 @@ describe("product backup with progress history", () => {
     );
     const draft = JSON.parse(source) as Record<string, unknown>;
     draft.progressHistory = { schemaVersion: 99, mode: "guided", layoutId: "standard", keys: {} };
-
     expect(parse(JSON.stringify(draft))).toBeNull();
   });
 
@@ -190,7 +184,6 @@ describe("product backup with progress history", () => {
       { ...progressHistory, lastCompletedRound: 5 },
       DEFAULT_SELECTION_TUNING,
     );
-
     expect(parse(source)).toBeNull();
   });
 
@@ -204,7 +197,6 @@ describe("product backup with progress history", () => {
       },
       DEFAULT_SELECTION_TUNING,
     );
-
     expect(parse(source)).toBeNull();
   });
 
@@ -218,7 +210,7 @@ describe("product backup with progress history", () => {
     expect(parse(backupFor(candidate))).toBeNull();
     expect(localLoadFor(candidate)).toEqual({
       progress: null,
-      recoveredFromInvalidState: true,
+      status: "invalid",
     });
   });
 
@@ -228,7 +220,7 @@ describe("product backup with progress history", () => {
     expect(parse(backupFor(candidate))?.progress).toEqual(candidate);
     expect(localLoadFor(candidate)).toEqual({
       progress: candidate,
-      recoveredFromInvalidState: false,
+      status: "loaded",
     });
   });
 });
