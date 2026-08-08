@@ -37,6 +37,12 @@ export interface BuildDiagnosticModelInput {
   readonly layout: InputLayout;
   readonly selectionPolicy: FrequencyFirstUtterancePolicy;
   /**
+   * Some compatibility projections preserve binding timing totals but not the
+   * reasons individual samples were excluded. False precision is worse than an
+   * omitted breakdown, so callers must declare that boundary explicitly.
+   */
+  readonly timingExclusionsAvailable?: boolean;
+  /**
    * Bounded progress history, when the browser has any. `null` and `undefined`
    * both mean "no history yet", which the projection reports as such rather
    * than inventing points from cumulative aggregates.
@@ -141,6 +147,7 @@ export function buildDiagnosticModel(
   const tokenIds = [...codeByToken.keys()]
     .filter((tokenId) => input.support.byToken[tokenId] !== undefined)
     .sort(codeUnitCompare);
+  const timingExclusionsAvailable = input.timingExclusionsAvailable ?? true;
 
   const keys: KeyDiagnostic[] = tokenIds.map((tokenId) => {
     const physicalCode = codeByToken.get(tokenId) ?? "";
@@ -177,12 +184,14 @@ export function buildDiagnosticModel(
       timingSamples,
       bestTimingMs: aggregate?.bestTimeToTypeMs ?? null,
       timingDataState,
-      excludedSamples: aggregate?.timingExclusions ?? {
-        syllableStart: 0,
-        incorrect: 0,
-        recovery: 0,
-        interactionNoise: 0,
-      },
+      excludedSamples: timingExclusionsAvailable
+        ? aggregate?.timingExclusions ?? {
+            syllableStart: 0,
+            incorrect: 0,
+            recovery: 0,
+            interactionNoise: 0,
+          }
+        : null,
       overallDataState,
       reinforcement: selectionInfluence(
         aggregate,
