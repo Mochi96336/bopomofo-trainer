@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { RandomSource } from "../../src/core/model.js";
 import {
+  chooseSentenceConstructionVariant,
   createFormalSyntaxFamilyRuleOrderer,
   createSentenceConstructionFamilyPlan,
   PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+  rootFamilyAttemptBudget,
   sentenceConstructionFamilyPrior,
   validateFormalSyntaxSamplingPolicy,
 } from "../../src/curriculum/formal-syntax-sampling-policy.js";
@@ -34,29 +36,37 @@ describe("formal syntax family sampling policy", () => {
     expect(sentenceConstructionFamilyPrior("question.constituent")).toBeCloseTo(0.078, 10);
   });
 
-  it("keeps variants together in one root-family search plan", () => {
+  it("keeps family variants as identity only until one attempt selects exactly one", () => {
     const candidates = FORMAL_SYNTAX_RULES.filter((rule) => rule.output === "Sentence");
     const plan = createSentenceConstructionFamilyPlan(
       candidates,
-      // 0.80 is safely inside the question interval for the current root
-      // candidate order. After the remaining kind permutation is consumed,
-      // 0.40 selects A-not-A within the question family distribution.
-      new SequenceRandom([0.80, 0, 0, 0, 0.40, 0, 0, 0, 0, 0]),
+      new SequenceRandom([0.80, 0, 0, 0, 0.40, 0, 0, 0, 0]),
     );
-    expect(plan[0]?.family).toBe("question.a-not-a");
-    expect(plan[0]?.productionRuleIds).toHaveLength(2);
-    expect(plan[0]?.productionRuleIds.map((ruleId) =>
-      sentenceConstructionClassification(ruleId)?.family,
-    )).toEqual(["question.a-not-a", "question.a-not-a"]);
+    const aNotA = plan.find((item) => item.family === "question.a-not-a");
+    expect(aNotA).toBeDefined();
+    expect(aNotA?.productionRuleIds).toEqual([
+      "sentence.a-not-a-question",
+      "sentence.a-not-a-transitive-question",
+    ]);
+    expect(chooseSentenceConstructionVariant(aNotA!, new SequenceRandom([0])))
+      .toBe("sentence.a-not-a-question");
+    expect(chooseSentenceConstructionVariant(aNotA!, new SequenceRandom([0.99])))
+      .toBe("sentence.a-not-a-transitive-question");
   });
 
-  it("can target one root family without filtering descendant grammar", () => {
+  it("derives family-local search budget from actual family count", () => {
+    expect(rootFamilyAttemptBudget(64, 8)).toBe(8);
+    expect(rootFamilyAttemptBudget(64, 9)).toBe(7);
+    expect(() => rootFamilyAttemptBudget(8, 9)).toThrow(/cannot cover 9 root families/u);
+  });
+
+  it("can target exactly one root production without filtering descendant grammar", () => {
     const shape = sampleStructuralDerivation({
       rootCategory: "Sentence",
       rules: FORMAL_SYNTAX_RULES,
       random: new SequenceRandom([0]),
       maximumAttempts: 1,
-      rootProductionRuleIds: ["sentence.declarative"],
+      rootProductionRuleId: "sentence.declarative",
     });
     expect(shape?.root.productionRuleId).toBe("sentence.declarative");
     expect(shape?.productionRulePath.length).toBeGreaterThan(1);
@@ -78,11 +88,11 @@ describe("formal syntax family sampling policy", () => {
       rootCategory: "Sentence",
       rules: FORMAL_SYNTAX_RULES,
       random: new SequenceRandom([0]),
-      rootProductionRuleIds: ["sentence.not-real"],
+      rootProductionRuleId: "sentence.not-real",
     })).toThrow(/references non-root production/u);
   });
 
-  it("rejects non-positive policy weights and family search budgets", () => {
+  it("rejects non-positive policy weights", () => {
     expect(() => validateFormalSyntaxSamplingPolicy({
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       sentenceFamilyWeights: {
@@ -90,10 +100,6 @@ describe("formal syntax family sampling policy", () => {
         "question.a-not-a": 0,
       },
     })).toThrow(/question\.a-not-a must be finite and positive/u);
-    expect(() => validateFormalSyntaxSamplingPolicy({
-      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
-      maximumRootFamilyAttempts: 0,
-    })).toThrow(/maximumRootFamilyAttempts must be a positive integer/u);
   });
 
   it("still exposes a pure rule-ordering adapter for non-product callers", () => {
@@ -106,5 +112,7 @@ describe("formal syntax family sampling policy", () => {
     });
     expect(ordered).not.toBeNull();
     expect(new Set(ordered!.map((rule) => rule.id))).toEqual(new Set(candidates.map((rule) => rule.id)));
+    expect(ordered!.map((rule) => sentenceConstructionClassification(rule.id)?.family))
+      .toHaveLength(candidates.length);
   });
 });
