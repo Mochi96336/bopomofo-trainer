@@ -47,7 +47,7 @@ So the nominal A-not-A prior is:
 
 Both A-not-A productions share that one family mass.
 
-Clause kinds start at 60% core predication, 20% marked, 8% complex-predicate, 7% information-structure, and 5% embedded-content. Current Clause families begin equal inside each kind; variants divide family mass rather than create mass.
+Clause kinds start at 60% core predication, 20% marked, 8% complex-predicate, 7% information-structure, and 5% embedded-content. Every current Clause family has exactly one executable production. The lower-category adapter therefore samples Clause families safely today and fails closed if a Clause family gains multiple variants; nested variant-neutral family search must be implemented before such a grammar split can affect product sampling.
 
 ## Family-local search without variant-count bias
 
@@ -93,8 +93,9 @@ The deterministic guard has both lower and upper bounds for A-not-A and total qu
 6. One family-local attempt targets exactly one root production variant.
 7. Root-family budget is derived from the actual plan, not a hard-coded family count.
 8. Root targeting never removes descendant grammar.
-9. Effective-distribution tests exercise the actual product composer path.
-10. Learner adaptation and construction recency remain later policy layers; they do not legalize or invalidate grammar.
+9. Nested Clause families fail closed if they gain multiple variants until nested variant-neutral search exists.
+10. Effective-distribution tests exercise the actual product composer path.
+11. Learner adaptation and construction recency remain later policy layers; they do not legalize or invalidate grammar.
 
 Run the diagnostic with:
 
