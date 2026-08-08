@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Exercise } from "../../src/core/model.js";
-import { PHASE_3_MEASUREMENT_POLICY } from "../../src/measurement/policy.js";
-import type { InteractionTrace } from "../../src/practice/interaction-session.js";
+import type { InteractionTraceV2 } from "../../src/practice/interaction-session-v2.js";
 import { PROGRESS_HISTORY_POLICY } from "../../src/progress-history/policy.js";
 import {
   appendRoundToProgressHistory,
@@ -27,49 +26,79 @@ const exercise: Exercise = {
   ],
 };
 
-function traceFactory(): (overrides?: Partial<InteractionTrace>) => InteractionTrace {
+function traceFactory(): (overrides?: Partial<InteractionTraceV2>) => InteractionTraceV2 {
   let sequence = 0;
   return (overrides = {}) => {
     sequence += 1;
     return {
       sequence,
       timestampMs: sequence * 1000,
-      elapsedSinceAdvanceMs: 100,
+      elapsedSincePreviousAcceptedMs: 100,
       exerciseId: exercise.id,
       entryId: "entry:a",
-      expectedToken: TOKEN,
-      actualToken: TOKEN,
+      entryIndex: 0,
+      syllableIndex: 0,
+      syllableOrdinal: 0,
       physicalCode: "KeyA",
-      correct: true,
-      advanced: true,
-      position: 0,
+      actualToken: TOKEN,
+      matchedSlotId: "0:0:0",
+      matchedToken: TOKEN,
+      canonicalTokenIndex: 0,
+      attributedExpectedToken: null,
+      acceptedOrdinalInSyllable: 0,
       context: "within-syllable",
-      outcome: "correct",
-      previousToken: null,
+      outcome: "accepted-component",
+      accepted: true,
       recovery: false,
       repeat: false,
       composing: false,
       modifierOnly: false,
-      entryIndex: 0,
-      syllableIndex: 0,
-      tokenIndex: 1,
       ...overrides,
     };
   };
 }
 
+function mappedError(
+  trace: ReturnType<typeof traceFactory>,
+  overrides: Partial<InteractionTraceV2> = {},
+): InteractionTraceV2 {
+  return trace({
+    actualToken: "zhuyin:B",
+    matchedSlotId: null,
+    matchedToken: null,
+    canonicalTokenIndex: null,
+    attributedExpectedToken: TOKEN,
+    acceptedOrdinalInSyllable: null,
+    outcome: "unexpected-component",
+    accepted: false,
+    ...overrides,
+  });
+}
+
+function noise(
+  trace: ReturnType<typeof traceFactory>,
+  outcome: "unmapped" | "ignored-modifier" | "ignored-repeat" | "composition",
+  overrides: Partial<InteractionTraceV2> = {},
+): InteractionTraceV2 {
+  return trace({
+    actualToken: null,
+    matchedSlotId: null,
+    matchedToken: null,
+    canonicalTokenIndex: null,
+    attributedExpectedToken: null,
+    acceptedOrdinalInSyllable: null,
+    outcome,
+    accepted: false,
+    ...overrides,
+  });
+}
+
 function append(
   history: ProgressHistory,
-  traces: readonly InteractionTrace[],
+  traces: readonly InteractionTraceV2[],
   completedRound: number,
 ): ProgressHistory {
-  return appendRoundToProgressHistory({
-    history,
-    exercise,
-    traces,
-    measurementPolicy: PHASE_3_MEASUREMENT_POLICY,
-    completedRound,
-  });
+  return appendRoundToProgressHistory({ history, exercise, traces, completedRound });
 }
 
 function emptyHistory(): ProgressHistory {
@@ -81,10 +110,9 @@ describe("progress history correctness bucketing", () => {
     const trace = traceFactory();
     const traces = [
       ...Array.from({ length: 5 }, () => trace()),
-      trace({ outcome: "incorrect", correct: false, advanced: false, actualToken: "zhuyin:B" }),
+      mappedError(trace),
     ];
-    const history = append(emptyHistory(), traces, 1);
-    const entry = history.keys[TOKEN]!;
+    const entry = append(emptyHistory(), traces, 1).keys[TOKEN]!;
 
     expect(entry.correctness).toEqual([]);
     expect(entry.partialCorrectness).toEqual({ attempts: 6, errors: 1 });
@@ -94,12 +122,11 @@ describe("progress history correctness bucketing", () => {
   it("closes exactly one point at the bucket size and carries the remainder forward", () => {
     const trace = traceFactory();
     const traces = [
-      trace({ outcome: "incorrect", correct: false, advanced: false, actualToken: "zhuyin:B" }),
-      trace({ outcome: "incorrect", correct: false, advanced: false, actualToken: "zhuyin:B" }),
+      mappedError(trace),
+      mappedError(trace),
       ...Array.from({ length: 7 }, () => trace()),
     ];
-    const history = append(emptyHistory(), traces, 3);
-    const entry = history.keys[TOKEN]!;
+    const entry = append(emptyHistory(), traces, 3).keys[TOKEN]!;
 
     expect(entry.correctness).toEqual([
       {
@@ -110,21 +137,18 @@ describe("progress history correctness bucketing", () => {
         errorRatio: 0.25,
       },
     ]);
-    // The ninth observation starts the next bucket rather than widening this one.
     expect(entry.partialCorrectness).toEqual({ attempts: 1, errors: 0 });
     expect(entry.totalObservations).toBe(9);
   });
 
-  it("counts a mapped recovery input as a correctness observation", () => {
+  it("counts a mapped recovery input as correctness but not timing", () => {
     const trace = traceFactory();
     const traces = [
-      trace({ outcome: "incorrect", correct: false, advanced: false, actualToken: "zhuyin:B" }),
+      mappedError(trace),
       trace({ recovery: true }),
     ];
     const entry = append(emptyHistory(), traces, 1).keys[TOKEN]!;
 
-    // Matching the cumulative 錯誤觀察比例: the correcting keystroke is another
-    // mapped observation, so this is not a first-attempt error rate.
     expect(entry.partialCorrectness).toEqual({ attempts: 2, errors: 1 });
     expect(entry.partialTiming.samples).toEqual([]);
   });
@@ -132,13 +156,12 @@ describe("progress history correctness bucketing", () => {
   it("ignores unmapped, modifier, repeat, and composition input", () => {
     const trace = traceFactory();
     const traces = [
-      trace({ outcome: "unmapped", actualToken: null, correct: null, advanced: false }),
-      trace({ outcome: "ignored-modifier", modifierOnly: true, advanced: false }),
-      trace({ outcome: "ignored-repeat", repeat: true, advanced: false }),
-      trace({ outcome: "composition", composing: true, advanced: false }),
+      noise(trace, "unmapped"),
+      noise(trace, "ignored-modifier", { modifierOnly: true }),
+      noise(trace, "ignored-repeat", { repeat: true }),
+      noise(trace, "composition", { composing: true }),
     ];
     const history = append(emptyHistory(), traces, 1);
-
     expect(history.keys[TOKEN]).toBeUndefined();
   });
 
@@ -166,9 +189,9 @@ describe("progress history correctness bucketing", () => {
 });
 
 describe("progress history timing bucketing", () => {
-  function timedTraces(values: readonly number[]): readonly InteractionTrace[] {
+  function timedTraces(values: readonly number[]): readonly InteractionTraceV2[] {
     const trace = traceFactory();
-    return values.map((elapsedSinceAdvanceMs) => trace({ elapsedSinceAdvanceMs }));
+    return values.map((elapsedSincePreviousAcceptedMs) => trace({ elapsedSincePreviousAcceptedMs }));
   }
 
   it("closes a timing point from accepted samples using the bucket median", () => {
@@ -192,26 +215,18 @@ describe("progress history timing bucketing", () => {
     expect(bucketRepresentativeTimingMs([100, 200])).toBe(150);
   });
 
-  it("excludes syllable-start, incorrect, recovery, and interaction-noise timing", () => {
+  it("excludes start, incorrect, recovery, and interaction-noise timing", () => {
     const trace = traceFactory();
     const traces = [
-      trace({ context: "syllable-start", elapsedSinceAdvanceMs: 900 }),
-      trace({
-        outcome: "incorrect",
-        correct: false,
-        advanced: false,
-        actualToken: "zhuyin:B",
-        elapsedSinceAdvanceMs: 800,
-      }),
-      trace({ recovery: true, elapsedSinceAdvanceMs: 700 }),
-      trace({ outcome: "unmapped", actualToken: null, correct: null, advanced: false }),
-      trace({ elapsedSinceAdvanceMs: 600 }),
-      trace({ elapsedSinceAdvanceMs: 250 }),
+      trace({ context: "syllable-start", elapsedSincePreviousAcceptedMs: 900 }),
+      mappedError(trace, { elapsedSincePreviousAcceptedMs: 800 }),
+      trace({ recovery: true, elapsedSincePreviousAcceptedMs: 700 }),
+      noise(trace, "unmapped"),
+      trace({ elapsedSincePreviousAcceptedMs: 600 }),
+      trace({ elapsedSincePreviousAcceptedMs: 250 }),
     ];
     const entry = append(emptyHistory(), traces, 1).keys[TOKEN]!;
 
-    // Four excluded intervals, one interaction-noise-contaminated interval, and
-    // a single clean sample: correctness still saw every mapped observation.
     expect(entry.partialTiming.samples).toEqual([250]);
     expect(entry.totalTimingSamples).toBe(1);
     expect(entry.partialCorrectness.attempts).toBe(5);
@@ -220,10 +235,10 @@ describe("progress history timing bucketing", () => {
   it("never admits a non-finite or negative interval", () => {
     const trace = traceFactory();
     const traces = [
-      trace({ elapsedSinceAdvanceMs: Number.NaN }),
-      trace({ elapsedSinceAdvanceMs: Number.POSITIVE_INFINITY }),
-      trace({ elapsedSinceAdvanceMs: -5 }),
-      trace({ elapsedSinceAdvanceMs: 310 }),
+      trace({ elapsedSincePreviousAcceptedMs: Number.NaN }),
+      trace({ elapsedSincePreviousAcceptedMs: Number.POSITIVE_INFINITY }),
+      trace({ elapsedSincePreviousAcceptedMs: -5 }),
+      trace({ elapsedSincePreviousAcceptedMs: 310 }),
     ];
     const entry = append(emptyHistory(), traces, 1).keys[TOKEN]!;
 
@@ -273,7 +288,6 @@ describe("progress history round application", () => {
       history: createEmptyProgressHistory("recall", "zhuyin-standard"),
       exercise,
       traces: [trace()],
-      measurementPolicy: PHASE_3_MEASUREMENT_POLICY,
       completedRound: 1,
     })).toThrow(/cannot append/u);
   });
