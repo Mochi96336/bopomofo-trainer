@@ -8,7 +8,10 @@ import type {
   ProductRoundSummary,
 } from "./types.js";
 
-export const PILOT_HISTORY_SCHEMA_VERSION = 3 as const;
+// Schema 4 is the first Pilot history whose timing/error semantics are sourced
+// from unordered input-order V2. Earlier records must not cross the measurement
+// epoch boundary even when their structural shape is otherwise readable.
+export const PILOT_HISTORY_SCHEMA_VERSION = 4 as const;
 export const PILOT_HISTORY_LIMIT = 24;
 
 export interface PilotRoundRecord {
