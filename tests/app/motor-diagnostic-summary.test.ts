@@ -31,6 +31,38 @@ describe("motor diagnostic summary", () => {
     expect(hand.meta).toContain("樣本累積中");
   });
 
+  it("explains when enough total samples are split across insufficient paths", () => {
+    const rl = { fromHand: "right" as const, toHand: "left" as const };
+    const lr = { fromHand: "left" as const, toHand: "right" as const };
+    const summary: MeasurementSummaryV2 = {
+      ...createEmptyMeasurementSummaryV2(),
+      motor: {
+        ...createEmptyMeasurementSummaryV2().motor,
+        immediateHands: {
+          [immediateHandAggregateKey(rl)]: {
+            scope: rl,
+            observations: 3,
+            timingSamples: 3,
+            currentTimeToTypeMs: 180,
+            bestTimeToTypeMs: 150,
+          },
+          [immediateHandAggregateKey(lr)]: {
+            scope: lr,
+            observations: 3,
+            timingSamples: 3,
+            currentTimeToTypeMs: 160,
+            bestTimeToTypeMs: 140,
+          },
+        },
+      },
+    };
+
+    const hand = motorDiagnosticSignals(summary)[1]!;
+    expect(hand.value).toBe("—");
+    expect(hand.meta).toContain("6 個乾淨樣本");
+    expect(hand.meta).toContain("單類樣本不足");
+  });
+
   it("reports the slowest sufficiently sampled actual hand path", () => {
     const rl = { fromHand: "right" as const, toHand: "left" as const };
     const lr = { fromHand: "left" as const, toHand: "right" as const };
