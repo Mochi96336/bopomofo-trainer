@@ -115,13 +115,21 @@ function mountAnalysisTopLayer(
   modal.append(analysis);
 
   const sync = (): void => {
-    if (!analysis.hidden && !modal.open) modal.showModal();
-    if (analysis.hidden && modal.open) modal.close();
+    if (!analysis.hidden && !modal.open) {
+      modal.showModal();
+      return;
+    }
+    if (analysis.hidden && modal.open) {
+      modal.close();
+      // The top-layer adapter owns the return-focus boundary. Relying on a
+      // platform `close` event made focus timing differ between jsdom and real
+      // browsers even though the analysis state was already closed.
+      focusPractice();
+    }
   };
   const observer = new MutationObserver(sync);
   observer.observe(analysis, { attributes: true, attributeFilter: ["hidden"] });
   modal.addEventListener("cancel", (event) => event.preventDefault());
-  modal.addEventListener("close", focusPractice);
   sync();
 
   return () => {
