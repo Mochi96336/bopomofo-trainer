@@ -20,15 +20,42 @@ export type SentenceConstructionFamily =
   | "request"
   | "exclamative";
 
-export type ClauseConstructionFamily =
+export type ClauseKind =
   | "core-predication"
   | "marked"
   | "complex-predicate"
   | "information-structure";
 
+export type ClauseConstructionFamily =
+  | "core.nominal-predicate"
+  | "core.adjective-predicate"
+  | "core.intransitive"
+  | "core.transitive"
+  | "core.ditransitive"
+  | "core.copular"
+  | "core.existential"
+  | "core.locative"
+  | "marked.modal"
+  | "marked.negative"
+  | "marked.aspect"
+  | "marked.ba"
+  | "marked.bei"
+  | "marked.comparative"
+  | "complex.causative"
+  | "complex.pivotal"
+  | "complex.serial-verb"
+  | "information.topic-comment"
+  | "information.subject-omission"
+  | "information.object-omission";
+
 export interface SentenceConstructionClassification {
   readonly kind: SentenceKind;
   readonly family: SentenceConstructionFamily;
+}
+
+export interface ClauseConstructionClassification {
+  readonly kind: ClauseKind;
+  readonly family: ClauseConstructionFamily;
 }
 
 const SENTENCE_CLASSIFICATION_BY_RULE_ID: Readonly<Record<string, SentenceConstructionClassification>> = {
@@ -44,30 +71,36 @@ const SENTENCE_CLASSIFICATION_BY_RULE_ID: Readonly<Record<string, SentenceConstr
   "sentence.exclamative": { kind: "exclamative", family: "exclamative" },
 };
 
-const CLAUSE_FAMILY_BY_RULE_ID: Readonly<Record<string, ClauseConstructionFamily>> = {
-  "clause.nominal-predicate": "core-predication",
-  "clause.adjective-predicate": "core-predication",
-  "clause.intransitive": "core-predication",
-  "clause.transitive": "core-predication",
-  "clause.ditransitive": "core-predication",
-  "clause.copular": "core-predication",
-  "clause.existential": "core-predication",
-  "clause.locative": "core-predication",
+const CLAUSE_CLASSIFICATION_BY_RULE_ID: Readonly<Record<string, ClauseConstructionClassification>> = {
+  "clause.nominal-predicate": { kind: "core-predication", family: "core.nominal-predicate" },
+  "clause.adjective-predicate": { kind: "core-predication", family: "core.adjective-predicate" },
+  "clause.intransitive": { kind: "core-predication", family: "core.intransitive" },
+  "clause.transitive": { kind: "core-predication", family: "core.transitive" },
+  "clause.ditransitive": { kind: "core-predication", family: "core.ditransitive" },
+  "clause.copular": { kind: "core-predication", family: "core.copular" },
+  "clause.existential": { kind: "core-predication", family: "core.existential" },
+  "clause.locative": { kind: "core-predication", family: "core.locative" },
 
-  "clause.modal": "marked",
-  "clause.negative": "marked",
-  "clause.aspect": "marked",
-  "clause.ba": "marked",
-  "clause.bei": "marked",
-  "clause.comparative": "marked",
+  "clause.modal": { kind: "marked", family: "marked.modal" },
+  "clause.negative": { kind: "marked", family: "marked.negative" },
+  "clause.aspect": { kind: "marked", family: "marked.aspect" },
+  "clause.ba": { kind: "marked", family: "marked.ba" },
+  "clause.bei": { kind: "marked", family: "marked.bei" },
+  "clause.comparative": { kind: "marked", family: "marked.comparative" },
 
-  "clause.causative": "complex-predicate",
-  "clause.pivotal": "complex-predicate",
-  "clause.serial-verb": "complex-predicate",
+  "clause.causative": { kind: "complex-predicate", family: "complex.causative" },
+  "clause.pivotal": { kind: "complex-predicate", family: "complex.pivotal" },
+  "clause.serial-verb": { kind: "complex-predicate", family: "complex.serial-verb" },
 
-  "clause.topic-comment": "information-structure",
-  "clause.subject-omission": "information-structure",
-  "clause.object-omission": "information-structure",
+  "clause.topic-comment": { kind: "information-structure", family: "information.topic-comment" },
+  "clause.subject-omission": {
+    kind: "information-structure",
+    family: "information.subject-omission",
+  },
+  "clause.object-omission": {
+    kind: "information-structure",
+    family: "information.object-omission",
+  },
 };
 
 export function sentenceConstructionClassification(
@@ -76,8 +109,10 @@ export function sentenceConstructionClassification(
   return SENTENCE_CLASSIFICATION_BY_RULE_ID[ruleId] ?? null;
 }
 
-export function clauseConstructionFamily(ruleId: string): ClauseConstructionFamily | null {
-  return CLAUSE_FAMILY_BY_RULE_ID[ruleId] ?? null;
+export function clauseConstructionClassification(
+  ruleId: string,
+): ClauseConstructionClassification | null {
+  return CLAUSE_CLASSIFICATION_BY_RULE_ID[ruleId] ?? null;
 }
 
 function controlledRules(
@@ -94,12 +129,12 @@ export function assertFormalSyntaxSamplingTaxonomyCoverage(
     .filter((rule) => sentenceConstructionClassification(rule.id) === null)
     .map((rule) => rule.id);
   const missingClause = controlledRules(rules, "Clause")
-    .filter((rule) => clauseConstructionFamily(rule.id) === null)
+    .filter((rule) => clauseConstructionClassification(rule.id) === null)
     .map((rule) => rule.id);
 
   const staleSentence = Object.keys(SENTENCE_CLASSIFICATION_BY_RULE_ID)
     .filter((ruleId) => !rules.some((rule) => rule.id === ruleId && rule.output === "Sentence"));
-  const staleClause = Object.keys(CLAUSE_FAMILY_BY_RULE_ID)
+  const staleClause = Object.keys(CLAUSE_CLASSIFICATION_BY_RULE_ID)
     .filter((ruleId) => !rules.some((rule) => rule.id === ruleId && rule.output === "Clause"));
 
   const problems = [
@@ -151,6 +186,7 @@ export function auditEqualRuleTicketDistribution(
 ): {
   readonly sentenceKinds: readonly EqualRuleTicketAuditRow[];
   readonly sentenceFamilies: readonly EqualRuleTicketAuditRow[];
+  readonly clauseKinds: readonly EqualRuleTicketAuditRow[];
   readonly clauseFamilies: readonly EqualRuleTicketAuditRow[];
 } {
   assertFormalSyntaxSamplingTaxonomyCoverage(rules);
@@ -166,9 +202,13 @@ export function auditEqualRuleTicketDistribution(
       const classification = sentenceConstructionClassification(rule.id)!;
       return { family: classification.family, ruleId: rule.id };
     })),
-    clauseFamilies: auditRows(clauseRules.map((rule) => ({
-      family: clauseConstructionFamily(rule.id)!,
-      ruleId: rule.id,
-    }))),
+    clauseKinds: auditRows(clauseRules.map((rule) => {
+      const classification = clauseConstructionClassification(rule.id)!;
+      return { family: classification.kind, ruleId: rule.id };
+    })),
+    clauseFamilies: auditRows(clauseRules.map((rule) => {
+      const classification = clauseConstructionClassification(rule.id)!;
+      return { family: classification.family, ruleId: rule.id };
+    })),
   };
 }
