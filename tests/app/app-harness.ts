@@ -1,5 +1,5 @@
 import { createApp, type App } from "../../src/app/create-app.js";
-import { mountDiagnosticEnhancement } from "../../src/app/diagnostic-enhancement.js";
+import { mountAnalysisV2Integration } from "../../src/app/analysis-v2-integration.js";
 import type { StorageLike } from "../../src/app/persistence-transaction.js";
 
 /**
@@ -145,7 +145,7 @@ export interface MountOptions {
   readonly storage?: StorageLike;
   readonly onRoundMounted?: (stage: HTMLElement) => void;
   /**
-   * Composes the diagnostics layer over the shell exactly as `browser.ts` does.
+   * Composes Analysis V2 over the shell exactly as `browser.ts` does.
    *
    * The two only meet through the handles they exchange, so wiring them the
    * same way here is what makes that meeting assertable rather than something
@@ -173,11 +173,11 @@ export function mountApp(options: MountOptions = {}): MountedApp {
 
   let seed = 0;
   let app: App | null = null;
-  const enhancement = options.diagnostics === true
-    ? mountDiagnosticEnhancement({
+  const analysisV2 = options.diagnostics === true
+    ? mountAnalysisV2Integration({
       closePanel: () => app?.closePanel(),
       focusPractice: () => app?.focusPractice(),
-      getSnapshot: () => app?.getDiagnosticSnapshot() ?? null,
+      getSnapshot: () => app?.getAnalysisV2Snapshot() ?? null,
       storage: createMemoryStorage(),
     })
     : null;
@@ -195,9 +195,9 @@ export function mountApp(options: MountOptions = {}): MountedApp {
     ...options.onRoundMounted === undefined
       ? {}
       : { onRoundMounted: options.onRoundMounted },
-    ...enhancement === null
+    ...analysisV2 === null
       ? {}
-      : { onPanelRendered: (content: HTMLElement) => enhancement.panelRendered(content) },
+      : { onPanelRendered: (content: HTMLElement) => analysisV2.panelRendered(content) },
   });
   const mountedApp = app;
 
@@ -232,7 +232,7 @@ export function mountApp(options: MountOptions = {}): MountedApp {
       await Promise.resolve();
     },
     destroy(options: { readonly keepDocument?: boolean } = {}): void {
-      enhancement?.destroy();
+      analysisV2?.destroy();
       mountedApp.destroy();
       if (options.keepDocument !== true) document.body.innerHTML = "";
     },
