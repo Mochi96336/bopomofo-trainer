@@ -3,10 +3,14 @@ import {
   PRACTICE_CATALOG,
   SYNTAX_PROFILES,
 } from "../../src/app/generated/catalog.js";
+import {
+  activeSentenceConstructionFamilies,
+} from "../../src/curriculum/formal-syntax-sampling-policy.js";
 import { createSeededRandom } from "../../src/curriculum/random.js";
 import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
 import { sentenceConstructionClassification } from "../../src/curriculum/formal-syntax-taxonomy.js";
 import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
+import { sampleStructuralDerivation } from "../../src/syntax/sample.js";
 
 const PRODUCT_BOUNDS = {
   maximumPhraseDepth: 3,
@@ -23,6 +27,36 @@ function increment(counts: Map<string, number>, key: string): void {
 }
 
 describe("formal syntax effective product distribution", () => {
+  it("keeps every active Sentence root family structurally reachable under product bounds", () => {
+    const sentenceRules = FORMAL_SYNTAX_RULES.filter((rule) => rule.output === "Sentence");
+    for (const family of activeSentenceConstructionFamilies()) {
+      const ruleIds = sentenceRules
+        .filter((rule) => sentenceConstructionClassification(rule.id)?.family === family)
+        .map((rule) => rule.id);
+      expect(ruleIds.length, family).toBeGreaterThan(0);
+      const reachable = ruleIds.some((ruleId) => sampleStructuralDerivation({
+        rootCategory: "Sentence",
+        rules: FORMAL_SYNTAX_RULES,
+        random: createSeededRandom(`formal-family-reachability:${family}:${ruleId}`),
+        rootProductionRuleId: ruleId,
+        maximumAttempts: 64,
+        bounds: PRODUCT_BOUNDS,
+      }) !== null);
+      expect(reachable, `active root family is unreachable under PRODUCT_BOUNDS: ${family}`).toBe(true);
+    }
+
+    // Complex sentences remain legal grammar/taxonomy, but the current product
+    // clause-depth budget cannot enter ClauseSequence and then its recursive Clause.
+    expect(sampleStructuralDerivation({
+      rootCategory: "Sentence",
+      rules: FORMAL_SYNTAX_RULES,
+      random: createSeededRandom("formal-family-complex-inactive-at-depth-one"),
+      rootProductionRuleId: "sentence.complex",
+      maximumAttempts: 64,
+      bounds: PRODUCT_BOUNDS,
+    })).toBeNull();
+  });
+
   it("keeps realized family shares bounded through the actual product composer", () => {
     const sampleCount = 64;
     const familyCounts = new Map<string, number>();
@@ -127,7 +161,7 @@ describe("formal syntax effective product distribution", () => {
     })).toThrow(/canonical complete formal syntax rule set/u);
   });
 
-  it("returns a fallback instead of throwing when a fresh family plan cannot fit the budget", () => {
+  it("returns a fallback instead of throwing when a fresh active-family plan cannot fit the budget", () => {
     const composition = composeFormalSyntaxUtterances({
       eligibleEntries: PRACTICE_CATALOG,
       profiles: SYNTAX_PROFILES,
@@ -135,7 +169,7 @@ describe("formal syntax effective product distribution", () => {
       samplingMode: "product-family",
       minimumLexicalEntries: 1,
       maximumCandidates: 2,
-      maximumAttempts: 7,
+      maximumAttempts: 6,
       bounds: PRODUCT_BOUNDS,
     });
 
