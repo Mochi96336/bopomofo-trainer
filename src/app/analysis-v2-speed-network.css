@@ -1,0 +1,124 @@
+.analysis-v2-speed-card {
+  display: grid;
+  gap: 14px;
+}
+
+.analysis-v2-speed-card .analysis-v2-card-title-line {
+  align-items: start;
+}
+
+.analysis-v2-speed-card .analysis-v2-card-title-line p {
+  margin: 6px 0 0;
+  line-height: 1.5;
+  opacity: 0.7;
+}
+
+.analysis-v2-speed-board {
+  position: relative;
+  min-width: 720px;
+  padding: 10px;
+  border-radius: 14px;
+  background: color-mix(in srgb, currentColor 2%, transparent);
+  overflow: hidden;
+}
+
+.analysis-v2-speed-keyboard {
+  position: relative;
+  z-index: 1;
+  opacity: 0.76;
+}
+
+.analysis-v2-speed-keyboard .analysis-v2-key {
+  pointer-events: none;
+}
+
+.analysis-v2-speed-keyboard .analysis-v2-key.mapped {
+  display: grid;
+  place-items: center;
+}
+
+.analysis-v2-speed-keyboard .analysis-v2-key.mapped strong {
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.analysis-v2-speed-svg {
+  position: absolute;
+  z-index: 2;
+  inset: 10px;
+  width: calc(100% - 20px);
+  height: calc(100% - 20px);
+  overflow: visible;
+  pointer-events: none;
+}
+
+.analysis-v2-speed-path {
+  fill: none;
+  stroke: color-mix(
+    in srgb,
+    var(--ink-muted) calc((1 - var(--relation-slowness)) * 100%),
+    var(--danger) calc(var(--relation-slowness) * 100%)
+  );
+  stroke-width: var(--relation-width);
+  stroke-opacity: var(--relation-opacity);
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.analysis-v2-speed-path.tone {
+  stroke-dasharray: 3 2;
+}
+
+.analysis-v2-speed-path.sampling {
+  stroke-dasharray: 2.5 2.5;
+}
+
+.analysis-v2-speed-empty {
+  position: absolute;
+  z-index: 3;
+  inset: 10px;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  text-align: center;
+  color: var(--ink-muted);
+  background: color-mix(in srgb, var(--panel) 58%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.analysis-v2-speed-legend {
+  display: grid;
+  grid-template-columns: auto minmax(120px, 220px) auto 1fr;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink-muted);
+  font-size: 0.72rem;
+}
+
+.analysis-v2-speed-legend i {
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--ink-muted), var(--danger));
+}
+
+.analysis-v2-speed-legend small {
+  justify-self: end;
+  text-align: right;
+  line-height: 1.4;
+}
+
+@media (max-width: 900px) {
+  .analysis-v2-speed-card {
+    overflow: auto;
+  }
+
+  .analysis-v2-speed-legend {
+    grid-template-columns: auto minmax(100px, 1fr) auto;
+  }
+
+  .analysis-v2-speed-legend small {
+    grid-column: 1 / -1;
+    justify-self: start;
+    text-align: left;
+  }
+}
