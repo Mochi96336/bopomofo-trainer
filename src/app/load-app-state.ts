@@ -6,6 +6,9 @@ import {
 } from "../product/pilot-history.js";
 import { createFreshProgressForEnvironment } from "../product/session.js";
 import type { ProductEnvironment, ProductProgress } from "../product/types.js";
+import type {
+  LocalProgressLoadStatus,
+} from "./local-progress.js";
 import type { StorageLike } from "./persistence-transaction.js";
 import { loadLocalPilotHistory } from "./pilot-history.js";
 import { loadLocalProductProgress } from "./local-progress.js";
@@ -27,13 +30,15 @@ const PROGRESS_UNREADABLE =
 const HISTORY_UNREADABLE =
   "瀏覽器無法讀取完整本機資料；練習仍可使用，但練習歷史可能無法保存。";
 
+export type AppProgressLoadStatus = LocalProgressLoadStatus | "unavailable";
+
 export interface AppBootState {
   readonly progress: ProductProgress;
   readonly pilotHistory: PilotHistory;
   readonly progressHistory: ProgressHistory;
-  /** False when nothing was stored, which is what makes the first save happen. */
+  /** False when nothing valid was stored, which is what makes the first save happen. */
   readonly loadedExistingProgress: boolean;
-  readonly recoveredFromInvalidState: boolean;
+  readonly progressLoadStatus: AppProgressLoadStatus;
   readonly recoveredPilotHistory: boolean;
   /** Empty when every read succeeded. */
   readonly storageWarning: string;
@@ -57,12 +62,13 @@ export function loadAppState(options: LoadAppStateOptions): AppBootState {
 
   let storageWarning = "";
   let loaded: ProductProgress | null = null;
-  let recoveredFromInvalidState = false;
+  let progressLoadStatus: AppProgressLoadStatus = "empty";
   try {
     const result = loadLocalProductProgress(storage, environment, mode, layoutId);
     loaded = result.progress;
-    recoveredFromInvalidState = result.recoveredFromInvalidState;
+    progressLoadStatus = result.status;
   } catch {
+    progressLoadStatus = "unavailable";
     storageWarning = PROGRESS_UNREADABLE;
   }
 
@@ -99,7 +105,7 @@ export function loadAppState(options: LoadAppStateOptions): AppBootState {
     pilotHistory,
     progressHistory,
     loadedExistingProgress: loaded !== null,
-    recoveredFromInvalidState,
+    progressLoadStatus,
     recoveredPilotHistory,
     storageWarning,
   };
