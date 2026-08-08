@@ -23,7 +23,7 @@ The raw structural sampler randomizes reachable productions. With the current gr
 
 ## Sentence-root product prior
 
-`PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY` is a training prior, not a claim about natural Mandarin corpus frequencies. The policy is versioned as `formal-syntax-family-sampling-v3`.
+`PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY` is the production training prior, not a claim about natural Mandarin corpus frequencies. The policy is versioned as `formal-syntax-family-sampling-v3`.
 
 Root kinds start at:
 
@@ -102,20 +102,24 @@ This does not imply that realized output frequencies exactly equal the nominal r
 
 Clause taxonomy remains useful for audit and future policy work, but #155 does **not** assign product Clause probabilities.
 
-Nested `Clause`, phrase, and lower-category choices continue to use the raw structural sampler. A proper Clause probability policy would require nested family-local sampling, not merely a weighted rule orderer, because even singleton Clause families can still exhibit success-rate/failover bias.
+Nested `Clause`, phrase, and lower-category choices continue to use the raw structural sampler. A proper Clause probability policy would require nested family-local sampling, not merely weighted rule ordering, because even singleton Clause families can still exhibit success-rate/failover bias.
 
 That work is intentionally outside this PR.
 
-## Sampling mode and canonical grammar identity
+## Sampling mode, policy injection, and canonical grammar identity
 
 `composeFormalSyntaxUtterances()` has an explicit `samplingMode`:
 
-- `product-family`: apply the active Sentence-root curriculum family policy;
+- `product-family`: apply an active Sentence-root curriculum family policy;
 - `raw`: keep raw structural sampling semantics.
+
+`FormalSyntaxSamplingPolicy` is injected at the curriculum/composer boundary through optional `samplingPolicy`. In `product-family` mode, omitting it uses `PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY`; supplying it validates and uses the caller's policy. `raw` mode rejects `samplingPolicy` rather than silently ignoring it.
+
+The policy object never enters `src/syntax`. The structural sampler has no generic rule-ordering hook: it only performs raw structural sampling, plus the narrow `rootProductionRuleId` target needed by the composer to realize one already-selected root variant.
 
 The composer infers `product-family` only when the supplied rules match the canonical complete `FORMAL_SYNTAX_RULES`, including rule content, not merely the same IDs. Same-ID but structurally modified rules are custom grammar and infer `raw`; explicitly requesting `product-family` with such rules fails closed.
 
-Explicitly passing the canonical `FORMAL_SYNTAX_RULES` does not silently disable product policy. Custom rule orderers cannot be combined with product-family mode.
+Explicitly passing the canonical `FORMAL_SYNTAX_RULES` does not silently disable product policy.
 
 ## Effective-distribution guard
 
@@ -140,8 +144,10 @@ The deterministic guard has both lower and upper bounds for A-not-A and total qu
 13. Root targeting never removes descendant grammar.
 14. Clause and lower-category choices remain raw until nested family-local sampling is designed explicitly.
 15. Product-family mode requires the canonical complete formal grammar, not just matching rule IDs.
-16. Effective-distribution tests exercise the actual product composer path.
-17. Learner adaptation and construction recency remain later policy layers; they do not legalize or invalidate grammar.
+16. `FormalSyntaxSamplingPolicy` is injectable at the composer boundary; raw mode rejects policy injection.
+17. The structural sampler exposes no generic production-ordering policy hook.
+18. Effective-distribution tests exercise the actual product composer path.
+19. Learner adaptation and construction recency remain later policy layers; they do not legalize or invalidate grammar.
 
 Run the diagnostic with:
 
