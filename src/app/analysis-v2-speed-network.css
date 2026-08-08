@@ -1,6 +1,9 @@
 .analysis-v2-speed-card {
   display: grid;
   gap: 14px;
+  padding-top: 0;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--hairline);
 }
 
 .analysis-v2-speed-card .analysis-v2-card-title-line {
@@ -9,30 +12,40 @@
 
 .analysis-v2-speed-card .analysis-v2-card-title-line p {
   margin: 6px 0 0;
-  line-height: 1.5;
-  opacity: 0.7;
+  color: var(--ink-muted);
+  font-size: 0.76rem;
+  line-height: 1.6;
 }
 
 .analysis-v2-speed-scroll {
   min-width: 0;
   overflow-x: auto;
+  overflow-y: visible;
+  padding: 12px 0 20px;
   overscroll-behavior-inline: contain;
   scrollbar-gutter: stable;
 }
 
+/* Keep the old keyboard-and-flyline composition: the keyboard itself is the
+   field. No rounded dashboard surface sits behind it. */
 .analysis-v2-speed-board {
   position: relative;
   min-width: 720px;
   padding: 10px;
-  border-radius: 14px;
-  background: color-mix(in srgb, currentColor 2%, transparent);
-  overflow: hidden;
+  overflow: visible;
+  background: transparent;
+}
+
+.analysis-v2-speed-keyboard,
+.analysis-v2-speed-svg {
+  transform: perspective(720px) rotateX(10deg);
+  transform-origin: 50% 100%;
 }
 
 .analysis-v2-speed-keyboard {
   position: relative;
   z-index: 1;
-  opacity: 0.76;
+  opacity: 0.9;
 }
 
 .analysis-v2-speed-keyboard .analysis-v2-key {
@@ -45,7 +58,7 @@
 }
 
 .analysis-v2-speed-keyboard .analysis-v2-key.mapped strong {
-  font-size: 0.82rem;
+  font-size: 0.76rem;
   font-weight: 650;
 }
 
@@ -59,24 +72,27 @@
   pointer-events: none;
 }
 
+/* The old visual language used one clearly visible line family over the keys.
+   Keep that readability, but feed it only current actual/ready evidence. Relative
+   slowness changes opacity; it does not turn the fastest edge almost black in
+   dark mode and does not use a danger colour. */
 .analysis-v2-speed-path {
   fill: none;
-  stroke: color-mix(
-    in srgb,
-    var(--ink-muted),
-    var(--ink) calc(var(--relation-slowness) * 100%)
-  );
+  stroke: color-mix(in srgb, var(--accent) 82%, var(--ink) 18%);
   stroke-width: var(--relation-width);
   stroke-opacity: var(--relation-opacity);
   stroke-linecap: round;
+  stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
   pointer-events: stroke;
   cursor: help;
-  transition: stroke-opacity 100ms ease;
+  transition: stroke-opacity 100ms ease, stroke-width 100ms ease;
 }
 
 .analysis-v2-speed-path:hover {
+  stroke: var(--accent);
   stroke-opacity: 1;
+  stroke-width: calc(var(--relation-width) + 0.5px);
 }
 
 .analysis-v2-speed-path.tone {
@@ -90,10 +106,11 @@
   display: grid;
   place-items: center;
   padding: 20px;
-  text-align: center;
   color: var(--ink-muted);
-  background: color-mix(in srgb, var(--panel) 58%, transparent);
-  backdrop-filter: blur(2px);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  text-align: center;
+  pointer-events: none;
 }
 
 .analysis-v2-speed-legend {
@@ -103,20 +120,41 @@
   gap: 9px;
   min-width: 0;
   color: var(--ink-muted);
-  font-size: 0.72rem;
+  font-size: 0.7rem;
 }
 
 .analysis-v2-speed-legend i {
   height: 2px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--ink-muted), var(--ink));
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent) 54%, transparent),
+    var(--accent)
+  );
 }
 
 .analysis-v2-speed-legend small {
   min-width: 0;
   justify-self: end;
   text-align: right;
-  line-height: 1.4;
+  line-height: 1.45;
+}
+
+.analysis-v2-speed-details {
+  border-top: 1px solid var(--hairline);
+  padding-top: 10px;
+  color: var(--ink-muted);
+  font-size: 0.7rem;
+}
+
+.analysis-v2-speed-details summary {
+  cursor: pointer;
+}
+
+.analysis-v2-speed-details ul {
+  margin-bottom: 0;
+  padding-left: 20px;
+  line-height: 1.55;
 }
 
 @media (max-width: 900px) {
@@ -128,5 +166,16 @@
     grid-column: 1 / -1;
     justify-self: start;
     text-align: left;
+  }
+}
+
+@media (max-width: 640px) {
+  .analysis-v2-speed-scroll {
+    margin-inline: -4px;
+    padding-inline: 4px;
+  }
+
+  .analysis-v2-speed-legend {
+    grid-template-columns: auto minmax(64px, 1fr) auto;
   }
 }
