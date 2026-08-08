@@ -26,17 +26,6 @@ function handLabel(hand: "left" | "right"): string {
   return hand === "left" ? "左" : "右";
 }
 
-function timingSignal(
-  label: string,
-  aggregate: MotorTimingAggregate<unknown> | undefined,
-): MotorSignal {
-  return {
-    label,
-    value: milliseconds(aggregate?.currentTimeToTypeMs ?? null),
-    meta: sampleMeta(aggregate?.timingSamples ?? 0, aggregate?.observations ?? 0),
-  };
-}
-
 function slowestWithEnoughSamples<T>(
   aggregates: readonly MotorTimingAggregate<T>[],
 ): MotorTimingAggregate<T> | null {
