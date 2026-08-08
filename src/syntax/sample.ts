@@ -49,6 +49,12 @@ export interface StructuralSamplingOptions {
   readonly maximumAttempts?: number;
   readonly isLexicalSlotReachable?: (slot: StructuralLexicalSlot) => boolean;
   readonly ruleOrderer?: StructuralRuleOrderer;
+  /**
+   * Restrict only the root choice point to these existing production IDs.
+   * Descendants still see the complete grammar. This is a generation target,
+   * not a grammar-legality filter.
+   */
+  readonly rootProductionRuleIds?: readonly string[];
 }
 
 interface State {
@@ -183,6 +189,8 @@ function sampleCategory(
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
   ruleOrderer: StructuralRuleOrderer | undefined,
+  rootProductionRuleIds: ReadonlySet<string> | undefined,
+  isRoot: boolean,
 ): Sampled | null {
   let state = inputState;
   if (category === "Clause") {
@@ -190,7 +198,8 @@ function sampleCategory(
     state = { ...state, clauseCount: state.clauseCount + 1 };
   }
   const eligibleRules = (rulesByOutput.get(category) ?? [])
-    .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses));
+    .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))
+    .filter((rule) => !isRoot || rootProductionRuleIds === undefined || rootProductionRuleIds.has(rule.id));
   const candidates = orderedRulesForCategory(category, eligibleRules, random, ruleOrderer);
   for (const rule of candidates) {
     const order = rule.surfaceOrders[chooseIndex(random, rule.surfaceOrders.length)];
@@ -255,6 +264,8 @@ function sampleCategory(
           isLexicalSlotReachable,
           excludedClassesForConstituent(constituent),
           ruleOrderer,
+          rootProductionRuleIds,
+          false,
         );
         if (child === null) {
           failed = true;
@@ -287,6 +298,27 @@ function sampleCategory(
   return null;
 }
 
+function rootRuleIdSet(
+  options: StructuralSamplingOptions,
+): ReadonlySet<string> | undefined {
+  if (options.rootProductionRuleIds === undefined) return undefined;
+  if (options.rootProductionRuleIds.length === 0) {
+    throw new Error("rootProductionRuleIds must contain at least one production ID");
+  }
+  const requested = new Set<string>();
+  for (const ruleId of options.rootProductionRuleIds) {
+    if (requested.has(ruleId)) {
+      throw new Error(`rootProductionRuleIds contains duplicate production: ${ruleId}`);
+    }
+    const rule = options.rules.find((candidate) => candidate.id === ruleId);
+    if (rule === undefined || rule.output !== options.rootCategory) {
+      throw new Error(`rootProductionRuleIds references non-root production: ${ruleId}`);
+    }
+    requested.add(ruleId);
+  }
+  return requested;
+}
+
 export function sampleStructuralDerivation(
   options: StructuralSamplingOptions,
 ): StructuralDerivationShape | null {
@@ -296,6 +328,7 @@ export function sampleStructuralDerivation(
     throw new Error("maximumAttempts must be a positive integer");
   }
   assertValidGrammar(options.rules, bounds);
+  const requestedRootRuleIds = rootRuleIdSet(options);
   const rulesByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();
   for (const rule of options.rules) {
     rulesByOutput.set(rule.output, [...(rulesByOutput.get(rule.output) ?? []), rule]);
@@ -317,6 +350,8 @@ export function sampleStructuralDerivation(
       options.isLexicalSlotReachable,
       new Set(),
       options.ruleOrderer,
+      requestedRootRuleIds,
+      true,
     );
     if (sampled === null || sampled.element.kind !== "syntax-node") continue;
     const identity = {
