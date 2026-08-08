@@ -6,6 +6,10 @@ function codeUnitCompare(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+function isToneToken(tokenId: TokenId): boolean {
+  return tokenId.startsWith("tone:");
+}
+
 interface EntryTokenContexts {
   readonly all: ReadonlySet<TokenId>;
   readonly binding: ReadonlySet<TokenId>;
@@ -17,14 +21,24 @@ export function entryTokenContexts(entry: CatalogEntry): EntryTokenContexts {
   const binding = new Set<TokenId>();
   const motor = new Set<TokenId>();
 
-  for (let syllableIndex = 0; syllableIndex < entry.syllables.length; syllableIndex += 1) {
-    const syllable = entry.syllables[syllableIndex]!;
-    for (let tokenIndex = 0; tokenIndex < syllable.tokens.length; tokenIndex += 1) {
-      const tokenId = syllable.tokens[tokenIndex]!;
+  for (const syllable of entry.syllables) {
+    const bodyTokens = syllable.tokens.filter((tokenId) => !isToneToken(tokenId));
+    for (const tokenId of syllable.tokens) {
       all.add(tokenId);
-      const entryBoundary = syllableIndex === 0 && tokenIndex === 0;
-      if (!entryBoundary) binding.add(tokenId);
-      if (tokenIndex > 0) motor.add(tokenId);
+      // V2 correctness observations are available for every semantic token,
+      // including a token that happens to be first in the catalog's canonical
+      // spelling. Canonical position is presentation data, not an evidence gate.
+      binding.add(tokenId);
+
+      // A body component is timeable whenever the syllable has another body
+      // component that can be accepted before it. Since V2 permits any valid
+      // body order, every body token in a multi-component body can occupy that
+      // measured position. Tone is committed after the body and therefore has a
+      // real observed predecessor whenever the syllable has a body component.
+      const timeable = isToneToken(tokenId)
+        ? bodyTokens.length > 0
+        : bodyTokens.length > 1;
+      if (timeable) motor.add(tokenId);
     }
   }
 
