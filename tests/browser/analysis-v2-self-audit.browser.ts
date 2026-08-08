@@ -91,13 +91,12 @@ test("keeps the protected keyboard width stable when a semantic inspector opens"
 
   const analysis = page.locator("#analysis-v2");
   const keyboard = analysis.locator(".analysis-v2-keyboard");
-  const before = await keyboard.evaluate((node) => node.getBoundingClientRect().width);
+  const before = await keyboard.evaluate((node) => node.offsetWidth);
   await analysis.locator('[data-action="select-key"]').first().click();
-  const after = await keyboard.evaluate((node) => node.getBoundingClientRect().width);
+  const after = await keyboard.evaluate((node) => node.offsetWidth);
 
-  expect(before).toBeGreaterThan(759);
-  expect(before).toBeLessThan(761);
-  expect(Math.abs(after - before)).toBeLessThan(0.5);
+  expect(before).toBe(760);
+  expect(after).toBe(before);
   await expect(analysis.locator(".analysis-v2-semantic-stage")).toHaveClass(/has-selection/);
 });
 
@@ -109,7 +108,7 @@ test("keeps flyline width stable on selection and exposes a wider pointer target
   await analysis.locator('[data-action="select-tab"][data-tab="coordination"]').click();
 
   const board = analysis.locator(".analysis-v2-speed-board");
-  const before = await board.evaluate((node) => node.getBoundingClientRect().width);
+  const before = await board.evaluate((node) => node.offsetWidth);
   const hit = analysis.locator(".analysis-v2-speed-hit").first();
   const hitStyle = await hit.evaluate((node) => ({
     strokeWidth: getComputedStyle(node).strokeWidth,
@@ -121,22 +120,25 @@ test("keeps flyline width stable on selection and exposes a wider pointer target
   await analysis.locator(".analysis-v2-speed-path").first().evaluate((node) => {
     node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
-  const after = await board.evaluate((node) => node.getBoundingClientRect().width);
-  expect(before).toBeGreaterThan(759);
-  expect(before).toBeLessThan(761);
-  expect(Math.abs(after - before)).toBeLessThan(0.5);
+  const after = await board.evaluate((node) => node.offsetWidth);
+  expect(before).toBe(760);
+  expect(after).toBe(before);
   await expect(analysis.locator(".analysis-v2-speed-stage")).toHaveClass(/has-selection/);
 });
 
 test("describes dense speed ranking as visible-only and keeps an expanded evidence family geometrically coherent", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await installSpeedProgress(page, 40);
+  const requestedEdges = 40;
+  const seededEdges = speedPairs(requestedEdges).length;
+  expect(seededEdges).toBeGreaterThan(36);
+  await installSpeedProgress(page, requestedEdges);
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
   await analysis.locator('[data-action="select-tab"][data-tab="coordination"]').click();
 
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(36);
-  await expect(analysis.locator(".analysis-v2-speed-meta")).toContainText("36 / 40 條可比較");
+  await expect(analysis.locator(".analysis-v2-speed-meta"))
+    .toContainText(`36 / ${seededEdges} 條可比較`);
   await expect(analysis.locator(".analysis-v2-speed-readout")).toContainText("目前畫面中較慢");
 
   const summaries = analysis.locator(".analysis-v2-evidence-group > summary");
