@@ -1,5 +1,10 @@
 import type { RandomSource } from "../core/model.js";
 import { stableRuntimeDigest } from "../core/stable-id.js";
+import {
+  effectiveConstituentMaximum,
+  excludedClassesForConstituent,
+  ruleAllowedByDerivationBounds,
+} from "./derivation-limits.js";
 import { DEFAULT_DERIVATION_BOUNDS, FORMAL_GRAMMAR_VERSION } from "./features.js";
 import type {
   StructuralDerivationShape,
@@ -16,6 +21,7 @@ import type {
   DerivationBounds,
   ProductionConstituent,
   ProductionRule,
+  ProductionRuleClass,
   SyntaxCategory,
 } from "./types.js";
 import { assertValidGrammar } from "./validate.js";
@@ -78,12 +84,18 @@ function decrement(state: State, constituent: ProductionConstituent): State | nu
   return { ...state, remainingPhraseDepth: state.remainingPhraseDepth - 1 };
 }
 
+function bindingId(constituent: ProductionConstituent, path: readonly string[]): string | undefined {
+  if (constituent.entryBinding === undefined) return undefined;
+  return `${path.slice(0, -1).join("/")}:${constituent.entryBinding}`;
+}
+
 function makeSlot(
   constituent: ProductionConstituent,
   requirements: SyntaxRequirements,
   occurrenceIndex: number,
   path: readonly string[],
 ): StructuralLexicalSlot {
+  const entryBindingId = bindingId(constituent, path);
   const identity = {
     path,
     key: constituent.key,
@@ -92,6 +104,8 @@ function makeSlot(
     requiredFunctions: requirements.requiredFunctions,
     requiredValencyFrames: requirements.requiredValencyFrames,
     requiredFeatures: requirements.requiredFeatures,
+    entryBindingId,
+    formalLiteral: constituent.formalLiteral,
   };
   return {
     kind: "lexical-slot",
@@ -102,6 +116,8 @@ function makeSlot(
     requiredFunctions: requirements.requiredFunctions,
     requiredValencyFrames: requirements.requiredValencyFrames,
     requiredFeatures: requirements.requiredFeatures,
+    ...(entryBindingId === undefined ? {} : { entryBindingId }),
+    ...(constituent.formalLiteral === undefined ? {} : { formalLiteral: constituent.formalLiteral }),
   };
 }
 
@@ -114,13 +130,18 @@ function sampleCategory(
   inputState: State,
   path: readonly string[],
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
+  excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
 ): Sampled | null {
   let state = inputState;
   if (category === "Clause") {
     if (state.clauseCount >= bounds.maximumClausesPerSentence) return null;
     state = { ...state, clauseCount: state.clauseCount + 1 };
   }
-  const candidates = shuffled(rulesByOutput.get(category) ?? [], random);
+  const candidates = shuffled(
+    (rulesByOutput.get(category) ?? [])
+      .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses)),
+    random,
+  );
   for (const rule of candidates) {
     const order = rule.surfaceOrders[chooseIndex(random, rule.surfaceOrders.length)];
     if (order === undefined) continue;
@@ -134,7 +155,12 @@ function sampleCategory(
     let failed = false;
     for (const maybeConstituent of ordered) {
       const constituent = maybeConstituent!;
-      const range = constituent.maximum - constituent.minimum + 1;
+      const maximum = effectiveConstituentMaximum(constituent, bounds);
+      if (maximum < constituent.minimum) {
+        failed = true;
+        break;
+      }
+      const range = maximum - constituent.minimum + 1;
       const count = constituent.minimum + chooseIndex(random, range);
       for (let occurrenceIndex = 0; occurrenceIndex < count; occurrenceIndex += 1) {
         const afterDepth = decrement(workingState, constituent);
@@ -177,6 +203,7 @@ function sampleCategory(
           workingState,
           [...path, rule.id, `${constituent.key}[${occurrenceIndex}]`],
           isLexicalSlotReachable,
+          excludedClassesForConstituent(constituent),
         );
         if (child === null) {
           failed = true;
@@ -237,6 +264,7 @@ export function sampleStructuralDerivation(
       },
       [options.rootCategory],
       options.isLexicalSlotReachable,
+      new Set(),
     );
     if (sampled === null || sampled.element.kind !== "syntax-node") continue;
     const identity = {

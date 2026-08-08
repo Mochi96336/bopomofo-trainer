@@ -52,6 +52,7 @@ function dependencyDirectionMatches(
 
 function featureMatches(
   profile: RuntimeSyntaxProfile,
+  entryId: string | undefined,
   text: string | undefined,
   feature: SyntaxFeatureName,
   value: string | number | boolean,
@@ -73,7 +74,7 @@ function featureMatches(
       return typeof value === "string" && dependencyDirectionMatches(profile, value);
     default:
       return text !== undefined
-        && lexicalConstructionFeatureMatches(text, profile, feature, value);
+        && lexicalConstructionFeatureMatches(entryId, text, profile, feature, value);
   }
 }
 
@@ -84,6 +85,7 @@ export function syntaxProfileMatchesRequirements(
     "allowedUpos" | "requiredFunctions" | "requiredValencyFrames" | "requiredFeatures"
   >,
   text?: string,
+  entryId: string | undefined = profile.entryId,
 ): boolean {
   return (requirements.allowedUpos.length === 0
       || requirements.allowedUpos.includes(profile.upos))
@@ -92,6 +94,6 @@ export function syntaxProfileMatchesRequirements(
       || requirements.requiredValencyFrames.some((value) => profile.valencyFrames.includes(value)))
     && Object.entries(requirements.requiredFeatures).every(([feature, value]) =>
       value !== undefined
-      && featureMatches(profile, text, feature as SyntaxFeatureName, value)
+      && featureMatches(profile, entryId, text, feature as SyntaxFeatureName, value)
     );
 }

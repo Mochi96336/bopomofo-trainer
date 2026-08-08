@@ -1,8 +1,14 @@
+import {
+  effectiveConstituentMaximum,
+  excludedClassesForConstituent,
+  ruleAllowedByDerivationBounds,
+} from "./derivation-limits.js";
 import { DEFAULT_DERIVATION_BOUNDS } from "./features.js";
 import type {
   DerivationBounds,
   ProductionConstituent,
   ProductionRule,
+  ProductionRuleClass,
   SyntaxCategory,
 } from "./types.js";
 import { assertValidGrammar } from "./validate.js";
@@ -26,12 +32,7 @@ interface CountResult {
 }
 
 const CLAUSE_LIKE = new Set<SyntaxCategory>([
-  "Sentence",
-  "Clause",
-  "ClauseSequence",
-  "RelativeClause",
-  "ContentClause",
-  "QuotedClause",
+  "Sentence", "Clause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
 ]);
 
 function stateKey(state: BudgetState): string {
@@ -43,6 +44,10 @@ function stateKey(state: BudgetState): string {
   ].join(":");
 }
 
+function excludedKey(values: ReadonlySet<ProductionRuleClass>): string {
+  return [...values].sort().join(",");
+}
+
 function mergeCount(
   target: Map<string, CountResult>,
   state: BudgetState,
@@ -51,10 +56,7 @@ function mergeCount(
   if (count === 0n) return;
   const key = stateKey(state);
   const existing = target.get(key);
-  target.set(key, {
-    state,
-    count: (existing?.count ?? 0n) + count,
-  });
+  target.set(key, { state, count: (existing?.count ?? 0n) + count });
 }
 
 function decrementForRecursiveEdge(
@@ -72,6 +74,7 @@ function decrementForRecursiveEdge(
 
 function* countVectors(
   constituents: readonly ProductionConstituent[],
+  bounds: DerivationBounds,
   index = 0,
   current: Readonly<Record<string, number>> = {},
 ): Generator<Readonly<Record<string, number>>> {
@@ -80,8 +83,9 @@ function* countVectors(
     yield current;
     return;
   }
-  for (let count = constituent.minimum; count <= constituent.maximum; count += 1) {
-    yield* countVectors(constituents, index + 1, {
+  const maximum = effectiveConstituentMaximum(constituent, bounds);
+  for (let count = constituent.minimum; count <= maximum; count += 1) {
+    yield* countVectors(constituents, bounds, index + 1, {
       ...current,
       [constituent.key]: count,
     });
@@ -112,13 +116,14 @@ export function countStructuralDerivationShapes(
   const countCategory = (
     category: SyntaxCategory,
     inputState: BudgetState,
+    excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
   ): readonly CountResult[] => {
     let state = inputState;
     if (category === "Clause") {
       if (state.clauseCount >= bounds.maximumClausesPerSentence) return [];
       state = { ...state, clauseCount: state.clauseCount + 1 };
     }
-    const key = `${category}|${stateKey(state)}`;
+    const key = `${category}|${stateKey(state)}|${excludedKey(excludedRuleClasses)}`;
     const cached = memo.get(key);
     if (cached !== undefined) return cached;
     if (active.has(key)) {
@@ -126,9 +131,11 @@ export function countStructuralDerivationShapes(
     }
     active.add(key);
     const output = new Map<string, CountResult>();
-    for (const rule of rulesByOutput.get(category) ?? []) {
+    const candidateRules = (rulesByOutput.get(category) ?? [])
+      .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses));
+    for (const rule of candidateRules) {
       const byKey = new Map(rule.constituents.map((item) => [item.key, item]));
-      for (const vector of countVectors(rule.constituents)) {
+      for (const vector of countVectors(rule.constituents, bounds)) {
         for (const order of rule.surfaceOrders) {
           const ordered = order.constituentKeys.map((constituentKey) => {
             const constituent = byKey.get(constituentKey);
@@ -147,16 +154,18 @@ export function countStructuralDerivationShapes(
                 const afterDepth = decrementForRecursiveEdge(current.state, constituent);
                 if (afterDepth === null) continue;
                 if (constituent.category === "Lexeme") {
-                  if (afterDepth.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) {
-                    continue;
-                  }
+                  if (afterDepth.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) continue;
                   mergeCount(next, {
                     ...afterDepth,
                     lexicalCount: afterDepth.lexicalCount + 1,
                   }, current.count);
                   continue;
                 }
-                for (const child of countCategory(constituent.category, afterDepth)) {
+                for (const child of countCategory(
+                  constituent.category,
+                  afterDepth,
+                  excludedClassesForConstituent(constituent),
+                )) {
                   mergeCount(next, child.state, current.count * child.count);
                 }
               }
@@ -181,7 +190,7 @@ export function countStructuralDerivationShapes(
     clauseCount: 0,
     lexicalCount: 0,
   };
-  return countCategory(options.rootCategory, initial)
+  return countCategory(options.rootCategory, initial, new Set())
     .reduce((sum, item) => sum + item.count, 0n)
     .toString(10);
 }

@@ -6,6 +6,7 @@ import {
   COMPLEX_PRODUCTION_FIXTURES,
   COMPLEX_PRODUCTION_RULES,
 } from "./complex-rules.js";
+import { assertExecutableGrammarContract } from "./executable-contract.js";
 import type { ProductionFixture, ProductionRule } from "./types.js";
 import { assertValidGrammarBundle } from "./validate.js";
 
@@ -23,3 +24,4 @@ export { COMPLEX_PRODUCTION_FIXTURES, COMPLEX_PRODUCTION_RULES };
 export * from "./rules.js";
 
 assertValidGrammarBundle(FORMAL_SYNTAX_RULES, FORMAL_SYNTAX_FIXTURES);
+assertExecutableGrammarContract(FORMAL_SYNTAX_RULES);

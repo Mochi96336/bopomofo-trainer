@@ -33,10 +33,14 @@ function validProfile(profile: RuntimeSyntaxProfile): boolean {
     && typeof profile.dependencyEvidence.surfacePositionCounts === "object";
 }
 
-/** Fail-closed loader for the compact profiles consumed by browser generation. */
-export function applyActiveCatalogSyntaxProfilesArtifact(
+/**
+ * Validate the committed compact profile source independently from the current
+ * grammar's legality decision. Grammar evolution may make a previously legal
+ * catalog entry unreachable; that must not make its source profile artifact
+ * unreadable before the new legality set can be recomputed.
+ */
+export function loadActiveCatalogSyntaxProfilesArtifact(
   entries: readonly CatalogEntry[],
-  legalEntryIds: ReadonlySet<string>,
   artifact: ActiveCatalogSyntaxProfilesArtifact,
 ): readonly RuntimeSyntaxProfile[] {
   const { determinismDigest, ...core } = artifact;
@@ -50,20 +54,34 @@ export function applyActiveCatalogSyntaxProfilesArtifact(
   }
   const catalogEntryIds = new Set(entries.map((entry) => entry.id));
   const profileIds = new Set<string>();
-  const profiledEntryIds = new Set<string>();
   for (const profile of artifact.profiles) {
     if (!validProfile(profile)
       || profileIds.has(profile.id)
-      || !catalogEntryIds.has(profile.entryId)
-      || !legalEntryIds.has(profile.entryId)) {
+      || !catalogEntryIds.has(profile.entryId)) {
       throw new Error("active catalog syntax profiles contain an invalid identity");
     }
     profileIds.add(profile.id);
+  }
+  return artifact.profiles;
+}
+
+/** Fail-closed compatibility helper for callers that already own a legality set. */
+export function applyActiveCatalogSyntaxProfilesArtifact(
+  entries: readonly CatalogEntry[],
+  legalEntryIds: ReadonlySet<string>,
+  artifact: ActiveCatalogSyntaxProfilesArtifact,
+): readonly RuntimeSyntaxProfile[] {
+  const profiles = loadActiveCatalogSyntaxProfilesArtifact(entries, artifact);
+  const profiledEntryIds = new Set<string>();
+  for (const profile of profiles) {
+    if (!legalEntryIds.has(profile.entryId)) {
+      throw new Error("active catalog syntax profiles contain an invalid identity");
+    }
     profiledEntryIds.add(profile.entryId);
   }
   if (legalEntryIds.size !== profiledEntryIds.size
     || [...legalEntryIds].some((entryId) => !profiledEntryIds.has(entryId))) {
     throw new Error("active catalog syntax profiles do not cover every legal entry");
   }
-  return artifact.profiles;
+  return profiles;
 }
