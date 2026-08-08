@@ -1,4 +1,5 @@
 import type { RandomSource } from "../core/model.js";
+import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";
 import type { ProductionRule } from "../syntax/types.js";
 import {
   sentenceConstructionClassification,
@@ -9,35 +10,46 @@ import {
 export interface FormalSyntaxSamplingPolicy {
   readonly version: string;
   readonly sentenceKindWeights: Readonly<Record<SentenceKind, number>>;
-  readonly sentenceFamilyWeights: Readonly<Record<SentenceConstructionFamily, number>>;
+  /** Omitted families remain classified by taxonomy but are inactive in product sampling. */
+  readonly sentenceFamilyWeights: Readonly<Partial<Record<SentenceConstructionFamily, number>>>;
 }
 
 export const SENTENCE_KINDS: readonly SentenceKind[] = [
   "statement", "question", "request", "exclamative",
 ];
-export const SENTENCE_FAMILIES_BY_KIND: Readonly<Record<SentenceKind, readonly SentenceConstructionFamily[]>> = {
-  statement: ["statement.declarative", "statement.complex"],
-  question: [
-    "question.polar",
-    "question.a-not-a",
-    "question.alternative",
-    "question.constituent",
-  ],
-  request: ["request"],
-  exclamative: ["exclamative"],
-};
+
+function canonicalSentenceKindByFamily(): ReadonlyMap<SentenceConstructionFamily, SentenceKind> {
+  const result = new Map<SentenceConstructionFamily, SentenceKind>();
+  for (const rule of FORMAL_SYNTAX_RULES) {
+    if (rule.output !== "Sentence") continue;
+    const classification = sentenceConstructionClassification(rule.id);
+    if (classification === null) {
+      throw new Error(`formal syntax sampling taxonomy has no Sentence classification for ${rule.id}`);
+    }
+    const existing = result.get(classification.family);
+    if (existing !== undefined && existing !== classification.kind) {
+      throw new Error(`sentence construction family ${classification.family} spans multiple kinds`);
+    }
+    result.set(classification.family, classification.kind);
+  }
+  return result;
+}
+
+const SENTENCE_KIND_BY_FAMILY = canonicalSentenceKindByFamily();
+
+/** Canonical families come from the #154 taxonomy/grammar classification, not a second mapping. */
 export const SENTENCE_CONSTRUCTION_FAMILIES: readonly SentenceConstructionFamily[] =
-  SENTENCE_KINDS.flatMap((kind) => SENTENCE_FAMILIES_BY_KIND[kind]);
+  [...SENTENCE_KIND_BY_FAMILY.keys()];
 
 /**
  * Sentence-root training prior, not a claim about corpus sentence frequencies.
  *
- * Kinds and construction families own probability. Executable variants are
- * implementation choices inside that family and never create extra family mass
- * or extra root attempts.
+ * Only families present in sentenceFamilyWeights are active. Taxonomy may contain
+ * additional legal families that the current product derivation bounds do not
+ * activate yet.
  */
 export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy = {
-  version: "formal-syntax-family-sampling-v2",
+  version: "formal-syntax-family-sampling-v3",
   sentenceKindWeights: {
     statement: 0.64,
     question: 0.26,
@@ -45,8 +57,8 @@ export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy =
     exclamative: 0.04,
   },
   sentenceFamilyWeights: {
-    "statement.declarative": 0.85,
-    "statement.complex": 0.15,
+    // sentence.complex is intentionally inactive while product maximumClauseNesting is 1.
+    "statement.declarative": 1,
     "question.polar": 0.35,
     "question.a-not-a": 0.25,
     "question.alternative": 0.10,
@@ -69,7 +81,7 @@ function chooseIndex(random: RandomSource, size: number): number {
   return Math.min(size - 1, Math.floor(nextUnit(random) * size));
 }
 
-function assertWeightMap(
+function assertExactWeightMap(
   label: string,
   expectedKeys: readonly string[],
   weights: Readonly<Record<string, number>>,
@@ -91,10 +103,51 @@ function assertWeightMap(
   }
 }
 
+function activeSentenceFamiliesUnchecked(
+  policy: FormalSyntaxSamplingPolicy,
+): readonly SentenceConstructionFamily[] {
+  return SENTENCE_CONSTRUCTION_FAMILIES.filter((family) =>
+    policy.sentenceFamilyWeights[family] !== undefined,
+  );
+}
+
+export function activeSentenceConstructionFamilies(
+  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+): readonly SentenceConstructionFamily[] {
+  validateFormalSyntaxSamplingPolicy(policy);
+  return activeSentenceFamiliesUnchecked(policy);
+}
+
+export function sentenceConstructionKind(
+  family: SentenceConstructionFamily,
+): SentenceKind {
+  const kind = SENTENCE_KIND_BY_FAMILY.get(family);
+  if (kind === undefined) throw new Error(`unknown sentence construction family: ${family}`);
+  return kind;
+}
+
 export function validateFormalSyntaxSamplingPolicy(policy: FormalSyntaxSamplingPolicy): void {
   if (policy.version.length === 0) throw new Error("formal syntax sampling policy version is required");
-  assertWeightMap("sentence kind", SENTENCE_KINDS, policy.sentenceKindWeights);
-  assertWeightMap("sentence family", SENTENCE_CONSTRUCTION_FAMILIES, policy.sentenceFamilyWeights);
+  assertExactWeightMap("sentence kind", SENTENCE_KINDS, policy.sentenceKindWeights);
+
+  const configuredFamilies = Object.keys(policy.sentenceFamilyWeights) as SentenceConstructionFamily[];
+  const knownFamilies = new Set<string>(SENTENCE_CONSTRUCTION_FAMILIES);
+  const unknownFamilies = configuredFamilies.filter((family) => !knownFamilies.has(family));
+  if (unknownFamilies.length > 0) {
+    throw new Error(`sentence family weights contain unknown families: ${unknownFamilies.join(",")}`);
+  }
+  for (const family of configuredFamilies) {
+    const weight = policy.sentenceFamilyWeights[family];
+    if (weight === undefined || !Number.isFinite(weight) || weight <= 0) {
+      throw new Error(`sentence family weight for ${family} must be finite and positive`);
+    }
+  }
+  for (const kind of SENTENCE_KINDS) {
+    const activeForKind = configuredFamilies.filter((family) => sentenceConstructionKind(family) === kind);
+    if (activeForKind.length === 0) {
+      throw new Error(`sentence kind ${kind} has positive mass but no active construction families`);
+    }
+  }
 }
 
 function weightedPermutation<T>(
@@ -126,9 +179,9 @@ function weightedPermutation<T>(
 }
 
 function normalizedWeight(
-  keys: readonly string[],
-  weights: Readonly<Record<string, number>>,
-  selected: string,
+  keys: readonly SentenceConstructionFamily[],
+  weights: Readonly<Partial<Record<SentenceConstructionFamily, number>>>,
+  selected: SentenceConstructionFamily,
 ): number {
   const total = keys.reduce((sum, key) => sum + (weights[key] ?? 0), 0);
   return total > 0 ? (weights[selected] ?? 0) / total : 0;
@@ -138,20 +191,26 @@ function sentenceFamilyJointWeight(
   family: SentenceConstructionFamily,
   policy: FormalSyntaxSamplingPolicy,
 ): number {
-  const kind = SENTENCE_KINDS.find((candidate) =>
-    SENTENCE_FAMILIES_BY_KIND[candidate].includes(family),
+  const familyWeight = policy.sentenceFamilyWeights[family];
+  if (familyWeight === undefined) return 0;
+  const kind = sentenceConstructionKind(family);
+  const activeInKind = activeSentenceFamiliesUnchecked(policy)
+    .filter((candidate) => sentenceConstructionKind(candidate) === kind);
+  const kindTotal = SENTENCE_KINDS.reduce(
+    (sum, candidate) => sum + policy.sentenceKindWeights[candidate],
+    0,
   );
-  if (kind === undefined) throw new Error(`unknown sentence construction family: ${family}`);
-  return normalizedWeight(SENTENCE_KINDS, policy.sentenceKindWeights, kind)
-    * normalizedWeight(SENTENCE_FAMILIES_BY_KIND[kind], policy.sentenceFamilyWeights, family);
+  return policy.sentenceKindWeights[kind] / kindTotal
+    * normalizedWeight(activeInKind, policy.sentenceFamilyWeights, family);
 }
 
-/** Nominal Sentence-root prior before reachability/failover effects. */
+/** Nominal Sentence-root prior before reachability/failover effects; inactive families return zero. */
 export function sentenceConstructionFamilyPrior(
   family: SentenceConstructionFamily,
   policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
 ): number {
   validateFormalSyntaxSamplingPolicy(policy);
+  sentenceConstructionKind(family);
   return sentenceFamilyJointWeight(family, policy);
 }
 
@@ -162,9 +221,9 @@ export interface SentenceConstructionFamilyPlan {
 }
 
 /**
- * Build one weighted permutation over Sentence construction families using the
- * joint family prior P(kind) × P(family | kind). Families from the same kind do
- * not receive contiguous fallback positions merely because they share a kind.
+ * Build one weighted permutation over active Sentence construction families using
+ * the joint family prior P(kind) × P(family | kind). Legal but inactive families
+ * stay in the grammar/taxonomy and receive no product root attempts.
  */
 export function createSentenceConstructionFamilyPlan(
   candidates: readonly ProductionRule[],
@@ -172,12 +231,14 @@ export function createSentenceConstructionFamilyPlan(
   policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
 ): readonly SentenceConstructionFamilyPlan[] {
   validateFormalSyntaxSamplingPolicy(policy);
+  const activeFamilies = new Set(activeSentenceFamiliesUnchecked(policy));
   const byFamily = new Map<SentenceConstructionFamily, SentenceConstructionFamilyPlan>();
   for (const rule of candidates) {
     const classification = sentenceConstructionClassification(rule.id);
     if (classification === null) {
       throw new Error(`formal syntax sampling policy has no taxonomy for ${rule.id}`);
     }
+    if (!activeFamilies.has(classification.family)) continue;
     const existing = byFamily.get(classification.family);
     if (existing !== undefined) {
       if (existing.kind !== classification.kind) {
@@ -194,6 +255,10 @@ export function createSentenceConstructionFamilyPlan(
       family: classification.family,
       productionRuleIds: [rule.id],
     });
+  }
+  const missingActiveFamilies = [...activeFamilies].filter((family) => !byFamily.has(family));
+  if (missingActiveFamilies.length > 0) {
+    throw new Error(`active sentence construction families have no candidate rules: ${missingActiveFamilies.join(",")}`);
   }
   return weightedPermutation(
     [...byFamily.values()],
@@ -218,8 +283,8 @@ export function chooseSentenceConstructionVariant(
 }
 
 /**
- * Divide a bounded candidate-search budget across every currently available
- * root family. This is derived from the actual plan instead of assuming a fixed
+ * Divide a bounded candidate-search budget across every currently active root
+ * family. This is derived from the actual plan instead of assuming a fixed
  * family count. Fail closed if the caller cannot afford one attempt per family.
  */
 export function rootFamilyAttemptBudget(
