@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { RandomSource } from "../../src/core/model.js";
 import {
   createFormalSyntaxFamilyRuleOrderer,
+  createFormalSyntaxFamilySamplingSession,
   PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
   sentenceConstructionFamilyPrior,
   validateFormalSyntaxSamplingPolicy,
@@ -49,6 +50,29 @@ describe("formal syntax family sampling policy", () => {
       sentenceConstructionClassification(rule.id)?.family,
     );
     expect(firstTwo).toEqual(["question.a-not-a", "question.a-not-a"]);
+  });
+
+  it("reuses one root ordering across retries and redraws only after reset", () => {
+    const candidates = FORMAL_SYNTAX_RULES.filter((rule) => rule.output === "Sentence");
+    const session = createFormalSyntaxFamilySamplingSession();
+    let randomCalls = 0;
+    const random: RandomSource = {
+      next: () => {
+        randomCalls += 1;
+        return 0.42;
+      },
+    };
+    const first = session.ruleOrderer({ category: "Sentence", candidates, random });
+    expect(first).not.toBeNull();
+    const callsAfterFirst = randomCalls;
+
+    const retry = session.ruleOrderer({ category: "Sentence", candidates, random });
+    expect(retry?.map((rule) => rule.id)).toEqual(first?.map((rule) => rule.id));
+    expect(randomCalls).toBe(callsAfterFirst);
+
+    session.resetRootChoice();
+    expect(session.ruleOrderer({ category: "Sentence", candidates, random })).not.toBeNull();
+    expect(randomCalls).toBeGreaterThan(callsAfterFirst);
   });
 
   it("fails closed if an external rule orderer filters eligible grammar rules", () => {
