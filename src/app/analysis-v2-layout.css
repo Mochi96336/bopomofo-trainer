@@ -94,12 +94,6 @@
   --analysis-space-3: 14px;
   --analysis-space-4: 18px;
   --analysis-space-5: 24px;
-  --analysis-radius-s: 8px;
-  --analysis-radius-m: 12px;
-  --analysis-radius-l: 16px;
-  --analysis-border: color-mix(in srgb, currentColor 12%, transparent);
-  --analysis-surface: color-mix(in srgb, currentColor 2.5%, transparent);
-  --analysis-surface-strong: color-mix(in srgb, currentColor 5%, transparent);
   --analysis-focus: var(--accent);
 
   width: min(1180px, calc(100vw - 24px));
@@ -118,94 +112,68 @@
 }
 
 .analysis-v2-header {
-  padding: var(--analysis-space-5) var(--analysis-space-5) var(--analysis-space-4);
+  min-height: 76px;
+  padding: 18px 24px 0;
 }
 
-.analysis-v2-header-actions,
-.analysis-v2-tabs,
+.analysis-v2-header-actions {
+  gap: 22px;
+}
+
+.analysis-v2-tabs {
+  gap: 18px;
+}
+
 .analysis-v2-segments {
-  gap: var(--analysis-space-1);
+  gap: 12px;
+}
+
+.analysis-v2-tabs button,
+.analysis-v2-segments button {
+  min-height: 34px;
+  padding: 7px 3px 10px;
 }
 
 .analysis-v2-main {
-  padding: var(--analysis-space-4) var(--analysis-space-5) var(--analysis-space-5);
+  padding: 20px 24px 28px;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
 
-.analysis-v2-keyboard-wrap,
-.analysis-v2-side-detail,
-.analysis-v2-card,
-.analysis-v2-empty {
-  border-color: var(--analysis-border);
-  border-radius: var(--analysis-radius-l);
-  background: var(--analysis-surface);
+.analysis-v2-domain {
+  gap: 22px;
 }
 
-.analysis-v2-detail-card dl > div {
-  border-radius: var(--analysis-radius-s);
-  background: var(--analysis-surface-strong);
-}
-
-.analysis-v2-card-title-line {
-  gap: var(--analysis-space-3);
-}
-
-.analysis-v2-card-title-line > span {
-  flex: 0 0 auto;
-}
-
-.analysis-v2-tabs,
-.analysis-v2-segments {
-  min-width: 0;
-}
-
-.analysis-v2-tabs button,
-.analysis-v2-segments button,
 .analysis-v2-close {
   min-height: 34px;
+  padding: 7px 0 10px;
+  appearance: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-muted);
+  cursor: pointer;
+  font-size: 0.72rem;
+}
+
+.analysis-v2-close:hover {
+  color: var(--ink);
 }
 
 .analysis-v2 :where(button, [role="button"], [tabindex]):focus-visible {
   outline: 2px solid color-mix(in srgb, var(--analysis-focus) 62%, transparent);
-  outline-offset: 2px;
-}
-
-.analysis-v2-tabs button[aria-selected="true"],
-.analysis-v2-segments button[aria-pressed="true"] {
-  border-color: color-mix(in srgb, var(--accent) 36%, var(--analysis-border));
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-
-.analysis-v2-close {
-  appearance: none;
-  border: 1px solid var(--analysis-border);
-  border-radius: var(--analysis-radius-s);
-  background: transparent;
-  color: inherit;
-}
-
-.analysis-v2-close:hover {
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--analysis-border));
-  color: var(--accent);
+  outline-offset: 3px;
 }
 
 .analysis-v2-key.selected {
-  outline-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  outline-color: transparent;
 }
 
 .analysis-v2-matrix-scroll,
 .analysis-v2-confusion-scroll,
-.analysis-v2-card,
 .analysis-v2-speed-scroll {
   scrollbar-gutter: stable;
   overscroll-behavior-inline: contain;
-}
-
-.analysis-v2-matrix-scroll,
-.analysis-v2-confusion-scroll {
-  border-radius: var(--analysis-radius-m);
 }
 
 .analysis-v2-motor-table {
@@ -221,17 +189,12 @@
   overflow-x: auto;
 }
 
-.analysis-v2-motor-table th,
-.analysis-v2-matrix th,
-.analysis-v2-confusion-table th {
-  background: var(--panel);
-}
-
 .analysis-v2-matrix-scroll thead th,
 .analysis-v2-confusion-scroll thead th {
   position: sticky;
   top: 0;
   z-index: 2;
+  background: var(--panel);
 }
 
 .analysis-v2-matrix-scroll th:first-child,
@@ -240,6 +203,7 @@
   left: 0;
   z-index: 1;
   min-width: 70px;
+  background: var(--panel);
 }
 
 .analysis-v2-matrix-scroll thead th:first-child,
@@ -247,20 +211,29 @@
   z-index: 3;
 }
 
+/* One owner for this row. The base stylesheet deliberately does not redefine it. */
+.analysis-v2-card-title-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--analysis-space-3);
+  min-width: 0;
+}
+
+.analysis-v2-card-title-line > div {
+  min-width: 0;
+}
+
+.analysis-v2-card-title-line > span {
+  flex: 0 0 auto;
+  color: var(--ink-muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .analysis-v2-speed-board {
   min-width: 680px;
-  border-radius: var(--analysis-radius-m);
-  background: var(--analysis-surface);
-}
-
-.analysis-v2-empty,
-.analysis-v2-selection-empty {
-  border-radius: var(--analysis-radius-m);
-  background: var(--analysis-surface);
-}
-
-.analysis-v2-strategy-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 @media (max-width: 900px) {
@@ -275,6 +248,11 @@
     flex-direction: column;
   }
 
+  .analysis-v2-header {
+    gap: 10px;
+    padding-top: 14px;
+  }
+
   .analysis-v2-header-actions {
     width: 100%;
   }
@@ -287,10 +265,45 @@
     flex: 1 1 0;
   }
 
-  .analysis-v2-card-grid,
-  .analysis-v2-strategy-grid,
   .analysis-v2-semantic-layout {
     grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .analysis-v2-keyboard-wrap {
+    padding-right: 0;
+  }
+
+  .analysis-v2-side-detail {
+    padding: 20px 0 0;
+    border-top: 1px solid var(--hairline);
+    border-left: 0;
+  }
+
+  .analysis-v2-card-grid,
+  .analysis-v2-strategy-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analysis-v2-card-grid > .analysis-v2-card,
+  .analysis-v2-card-grid > .analysis-v2-card:nth-child(odd),
+  .analysis-v2-card-grid > .analysis-v2-card:nth-child(even),
+  .analysis-v2-card-grid > .analysis-v2-card:nth-child(3),
+  .analysis-v2-card-grid > .analysis-v2-card:nth-child(4) {
+    grid-column: auto;
+    padding-inline: 0;
+    border-left: 0;
+  }
+
+  .analysis-v2-strategy-grid > .analysis-v2-card,
+  .analysis-v2-strategy-grid > .analysis-v2-card:first-child,
+  .analysis-v2-strategy-grid > .analysis-v2-card:last-child {
+    padding-inline: 0;
+  }
+
+  .analysis-v2-strategy-grid > .analysis-v2-card + .analysis-v2-card {
+    border-top: 1px solid var(--hairline);
+    border-left: 0;
   }
 }
 
@@ -301,29 +314,38 @@
   }
 
   .analysis-v2-header {
-    gap: var(--analysis-space-3);
-    padding: var(--analysis-space-4) var(--analysis-space-3) var(--analysis-space-3);
+    min-height: auto;
+    padding: 12px 14px 0;
+  }
+
+  .analysis-v2-header h2 {
+    font-size: 1rem;
   }
 
   .analysis-v2-header-actions {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
+    align-items: end;
     gap: var(--analysis-space-2);
   }
 
   .analysis-v2-tabs {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
   }
 
   .analysis-v2-tabs button {
     min-width: 0;
-    padding-inline: var(--analysis-space-2);
+    padding-inline: 2px;
   }
 
   .analysis-v2-main {
-    padding: var(--analysis-space-3);
+    padding: 16px 14px 24px;
+  }
+
+  .analysis-v2-domain {
+    gap: 18px;
   }
 
   .analysis-v2-domain-head {
@@ -338,11 +360,28 @@
     flex: 1 1 0;
   }
 
-  .analysis-v2-keyboard-wrap,
-  .analysis-v2-side-detail,
-  .analysis-v2-card,
-  .analysis-v2-empty {
-    border-radius: var(--analysis-radius-m);
+  .analysis-v2-keyboard-wrap {
+    padding-block: 14px 18px;
+  }
+
+  .analysis-v2-key {
+    height: 35px;
+  }
+
+  .analysis-v2-key small {
+    font-size: 0.47rem;
+  }
+
+  /* The count line must never squeeze the explanatory copy to a few characters. */
+  .analysis-v2-card-title-line {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .analysis-v2-card-title-line > span {
+    flex: none;
+    white-space: normal;
   }
 
   .analysis-v2-speed-board {
@@ -359,16 +398,8 @@
 }
 
 @media (max-width: 420px) {
-  .analysis-v2-kicker {
-    display: none;
-  }
-
   .analysis-v2-header {
-    padding-top: var(--analysis-space-3);
-  }
-
-  .analysis-v2-header h2 {
-    font-size: 1.15rem;
+    padding-top: 10px;
   }
 
   .analysis-v2-speed-board {
