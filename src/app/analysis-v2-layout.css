@@ -31,15 +31,30 @@
   padding: var(--analysis-space-5) var(--analysis-space-5) var(--analysis-space-4);
 }
 
+.analysis-v2-header-actions,
+.analysis-v2-tabs,
+.analysis-v2-segments {
+  gap: var(--analysis-space-1);
+}
+
 .analysis-v2-main {
   padding: var(--analysis-space-4) var(--analysis-space-5) var(--analysis-space-5);
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
 
-.analysis-v2-card {
+.analysis-v2-keyboard-wrap,
+.analysis-v2-side-detail,
+.analysis-v2-card,
+.analysis-v2-empty {
   border-color: var(--analysis-border);
   border-radius: var(--analysis-radius-l);
+  background: var(--analysis-surface);
+}
+
+.analysis-v2-detail-card dl > div {
+  border-radius: var(--analysis-radius-s);
+  background: var(--analysis-surface-strong);
 }
 
 .analysis-v2-card-title-line {
@@ -154,8 +169,8 @@
 
 @media (max-width: 900px) {
   .analysis-v2 {
-    width: min(100vw - 16px, 900px);
-    height: min(100dvh - 16px, 900px);
+    width: min(calc(100vw - 16px), 900px);
+    height: min(calc(100dvh - 16px), 900px);
   }
 
   .analysis-v2-header,
@@ -226,7 +241,10 @@
     flex: 1 1 0;
   }
 
-  .analysis-v2-card {
+  .analysis-v2-keyboard-wrap,
+  .analysis-v2-side-detail,
+  .analysis-v2-card,
+  .analysis-v2-empty {
     border-radius: var(--analysis-radius-m);
   }
 
