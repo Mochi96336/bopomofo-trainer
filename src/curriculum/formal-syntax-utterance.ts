@@ -4,6 +4,7 @@ import type {
   GrammarCompositionResult,
   GrammarUtteranceCandidate,
 } from "../grammar/types.js";
+import type { StructuralLexicalSlot } from "../syntax/derive.js";
 import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";
 import {
   buildLexicalProfileIndex,
@@ -15,7 +16,6 @@ import type {
   DerivationBounds,
   ProductionRule,
   RuntimeSyntaxProfile,
-  StructuralLexicalSlot,
 } from "../syntax/types.js";
 
 export interface FormalSyntaxUtteranceInput {
