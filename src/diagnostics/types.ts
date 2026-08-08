@@ -25,12 +25,13 @@ export interface KeyDiagnostic {
   readonly timingSamples: number;
   readonly bestTimingMs: number | null;
   readonly timingDataState: DiagnosticDataState | null;
+  /** Null when the supplied measurement model does not preserve exclusion causes. */
   readonly excludedSamples: {
     readonly syllableStart: number;
     readonly incorrect: number;
     readonly recovery: number;
     readonly interactionNoise: number;
-  };
+  } | null;
   readonly overallDataState: DiagnosticDataState;
   readonly reinforcement: {
     readonly state: DiagnosticReinforcementState;
