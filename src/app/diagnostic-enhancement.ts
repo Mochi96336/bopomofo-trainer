@@ -168,7 +168,6 @@ export function mountDiagnosticEnhancement(
         currentAnalysisModel(),
         () => openAnalysisFromPractice(analysis, deps),
       );
-      content.querySelector(".motor-diagnostic-section")?.remove();
     },
     destroy(): void {
       topLayer?.destroy();
