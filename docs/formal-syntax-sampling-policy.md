@@ -8,7 +8,7 @@ The formal grammar and the product sampling policy are different layers.
 kind -> construction family -> production variant
 ```
 
-The product policy assigns probability above the raw production level. Variants only divide the mass already assigned to their construction family.
+The product policy assigns probability above the raw production level. Production variants are executable implementations inside one construction family; adding or splitting a variant must not create additional family mass or additional root attempts.
 
 ## Why this exists
 
@@ -45,33 +45,43 @@ So the nominal A-not-A prior is:
 0.26 × 0.25 = 0.065 = 6.5%
 ```
 
-Both A-not-A productions share that one family mass. Adding another executable A-not-A variant does not create another top-level ticket.
+Both A-not-A productions share that one family mass.
 
-Clause kinds start at 60% core predication, 20% marked, 8% complex-predicate, 7% information-structure, and 5% embedded-content. Current Clause families begin equal inside each kind; variants still divide family mass rather than create mass.
+Clause kinds start at 60% core predication, 20% marked, 8% complex-predicate, 7% information-structure, and 5% embedded-content. Current Clause families begin equal inside each kind; variants divide family mass rather than create mass.
 
-## Bounded family-local search
+## Family-local search without variant-count bias
 
 A second bias appeared after family weights were introduced. One structural attempt per family was not enough: a selected polar question or declarative could fail because one randomly chosen inner Clause expansion was unreachable, and the sampler would immediately fall through to another root family. Constructions that are short and easy to realize, including A-not-A, then absorbed that failed probability.
 
-The product therefore separates **family choice** from **search inside that family**:
+The product separates **family choice** from **search inside that family**:
 
-1. build one weighted root plan: kind → family → variants;
-2. target only the current root family while keeping all descendant grammar available;
-3. retry inner derivations within that family up to the versioned `maximumRootFamilyAttempts` budget;
-4. only then advance to the next already-ranked family;
-5. after one candidate is accepted, build a fresh root plan for the next candidate.
+1. build one weighted root plan by kind and construction family;
+2. give each root family a bounded local search budget derived from the actual number of families and the caller's global attempt budget;
+3. on each local attempt, select exactly one executable root production variant from the current family;
+4. keep the complete descendant grammar available and redraw lower Clause/Phrase choices normally;
+5. only after the current family's local budget is exhausted advance to the next already-ranked family;
+6. after one unique candidate is accepted, build a fresh root plan for the next candidate.
 
-`rootProductionRuleIds` in the structural sampler scopes only the root choice point. It does not remove descendant rules and does not change grammar legality. External rule orderers are still required to be pure permutations of the eligible rules they receive.
+The structural sampler therefore exposes a singular `rootProductionRuleId`. One local attempt cannot try every variant in a family sequentially. A family with two executable productions receives the same number of root attempts as a family with one executable production.
 
-Product-only rejection, such as the current minimum of two practice lexical entries, counts against the same family-local budget instead of causing an immediate fresh family draw.
+The local budget is not a magic constant tied to today's eight families. `rootFamilyAttemptBudget(maximumAttempts, familyCount)` derives it from the actual plan and fails closed if the caller cannot afford at least one attempt per family.
 
-Custom grammar callers keep the raw sampler behavior unless they explicitly opt into these curriculum controls.
+Product-only rejection, such as the current minimum of two practice lexical entries, lexical uniqueness failure, or a duplicate realized candidate, counts against the same family-local budget instead of causing an immediate fresh family draw.
+
+## Sampling mode
+
+`composeFormalSyntaxUtterances()` has an explicit `samplingMode`:
+
+- `product-family`: apply the curriculum family policy;
+- `raw`: keep raw structural sampling semantics.
+
+For compatibility, the composer infers `product-family` when the supplied rule IDs exactly match the complete formal grammar and `raw` for custom grammars. Therefore explicitly passing `FORMAL_SYNTAX_RULES` does not silently disable product policy. Callers can still make the mode explicit, and custom rule orderers cannot be combined with product-family mode.
 
 ## Effective-distribution guard
 
-The tests exercise the packaged practice catalog and runtime syntax profiles with the real product derivation bounds and minimum practice length. This is separate from nominal-prior unit tests: it catches distortion caused by lexical reachability, structural failover, and product filters.
+The regression calls the actual `composeFormalSyntaxUtterances()` path with the packaged practice catalog, runtime syntax profiles, real product derivation bounds, lexical selection/uniqueness, realization, and the minimum practice length. It does not reimplement a simplified family-search loop in the test.
 
-The regression requires effective A-not-A share to remain below 12% and total question share below 40% on the deterministic real-catalog sample. A failure should be investigated as sampling semantics; the threshold or A-not-A weight should not simply be relaxed to hide the mismatch.
+The deterministic guard has both lower and upper bounds for A-not-A and total questions. This catches both renewed over-representation and accidental disappearance. These are product-health bounds, not corpus-frequency claims.
 
 ## Contract
 
@@ -79,10 +89,12 @@ The regression requires effective A-not-A share to remain below 12% and total qu
 2. Sampling taxonomy and probability live outside `src/syntax` grammar definitions.
 3. Adding or splitting a controlled production requires an explicit taxonomy update.
 4. Kind and family weights belong to versioned curriculum policy.
-5. Variant count must not silently change family probability.
-6. Root-family search is bounded and family-local before fallback.
-7. Root targeting never removes descendant grammar.
-8. Learner adaptation and construction recency remain later policy layers; they do not legalize or invalidate grammar.
+5. Variant count must not create family probability or extra family-local attempts.
+6. One family-local attempt targets exactly one root production variant.
+7. Root-family budget is derived from the actual plan, not a hard-coded family count.
+8. Root targeting never removes descendant grammar.
+9. Effective-distribution tests exercise the actual product composer path.
+10. Learner adaptation and construction recency remain later policy layers; they do not legalize or invalidate grammar.
 
 Run the diagnostic with:
 
