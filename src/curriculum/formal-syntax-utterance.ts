@@ -147,8 +147,10 @@ function sameRuleIdSet(
   right: readonly ProductionRule[],
 ): boolean {
   if (left.length !== right.length) return false;
+  const leftIds = new Set(left.map((rule) => rule.id));
   const rightIds = new Set(right.map((rule) => rule.id));
-  return left.every((rule) => rightIds.has(rule.id));
+  if (leftIds.size !== left.length || rightIds.size !== right.length) return false;
+  return leftIds.size === rightIds.size && [...leftIds].every((ruleId) => rightIds.has(ruleId));
 }
 
 function inferredSamplingMode(rules: readonly ProductionRule[]): FormalSyntaxSamplingMode {
@@ -198,6 +200,7 @@ export function composeFormalSyntaxUtterances(
   let rootFamilyIndex = 0;
   let attemptsInRootFamily = 0;
   let attemptsPerRootFamily = 0;
+  let rootFamilyBudgetInsufficient = false;
 
   const currentRootFamily = (remainingAttempts: number): SentenceConstructionFamilyPlan | null => {
     if (!useProductFamilyPolicy) return null;
@@ -205,6 +208,8 @@ export function composeFormalSyntaxUtterances(
       rootFamilyPlan = createSentenceConstructionFamilyPlan(sentenceRules, input.random);
       rootFamilyIndex = 0;
       attemptsInRootFamily = 0;
+      rootFamilyBudgetInsufficient = remainingAttempts < rootFamilyPlan.length;
+      if (rootFamilyBudgetInsufficient) return null;
       attemptsPerRootFamily = rootFamilyAttemptBudget(remainingAttempts, rootFamilyPlan.length);
     }
     return rootFamilyPlan[rootFamilyIndex] ?? null;
@@ -222,6 +227,7 @@ export function composeFormalSyntaxUtterances(
     rootFamilyIndex = 0;
     attemptsInRootFamily = 0;
     attemptsPerRootFamily = 0;
+    rootFamilyBudgetInsufficient = false;
   };
 
   const candidates = new Map<string, GrammarUtteranceCandidate>();
@@ -232,7 +238,9 @@ export function composeFormalSyntaxUtterances(
     attempt += 1) {
     const rootFamily = currentRootFamily(input.maximumAttempts - attempt);
     if (useProductFamilyPolicy && rootFamily === null) {
-      fallbackReasons.add("formal-syntax-root-family-search-exhausted");
+      fallbackReasons.add(rootFamilyBudgetInsufficient
+        ? "formal-syntax-root-family-budget-insufficient"
+        : "formal-syntax-root-family-search-exhausted");
       break;
     }
     const rootProductionRuleId = rootFamily === null
