@@ -64,7 +64,7 @@ The product separates **family choice** from **search inside that family**:
 
 The structural sampler therefore exposes a singular `rootProductionRuleId`. One local attempt cannot try every variant in a family sequentially. A family with two executable productions receives the same number of root attempts as a family with one executable production.
 
-The local budget is not a magic constant tied to today's eight families. `rootFamilyAttemptBudget(maximumAttempts, familyCount)` derives it from the actual plan and fails closed if the caller cannot afford at least one attempt per family.
+The local budget is not a magic constant tied to today's eight families. `rootFamilyAttemptBudget(maximumAttempts, familyCount)` derives it from the actual plan and fails closed if the caller cannot afford at least one attempt per family. The production path currently requests one candidate with a 64-attempt budget; multi-candidate callers must provide enough remaining budget for each fresh root plan.
 
 Product-only rejection, such as the current minimum of two practice lexical entries, lexical uniqueness failure, or a duplicate realized candidate, counts against the same family-local budget instead of causing an immediate fresh family draw.
 
