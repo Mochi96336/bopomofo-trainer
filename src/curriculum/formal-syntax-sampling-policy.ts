@@ -12,6 +12,7 @@ import {
 
 export interface FormalSyntaxSamplingPolicy {
   readonly version: string;
+  readonly maximumRootFamilyAttempts: number;
   readonly sentenceKindWeights: Readonly<Record<SentenceKind, number>>;
   readonly sentenceFamilyWeights: Readonly<Record<SentenceConstructionFamily, number>>;
   readonly clauseKindWeights: Readonly<Record<ClauseKind, number>>;
@@ -86,6 +87,10 @@ const CLAUSE_FAMILIES_BY_KIND: Readonly<Record<ClauseKind, readonly ClauseConstr
  */
 export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy = {
   version: "formal-syntax-family-sampling-v1",
+  // There are eight current root construction families. Eight local attempts
+  // gives a stochastic but feasible family multiple inner-derivation chances
+  // while keeping the product's existing 64-attempt global search bounded.
+  maximumRootFamilyAttempts: 8,
   sentenceKindWeights: {
     statement: 0.64,
     question: 0.26,
@@ -172,6 +177,9 @@ function assertWeightMap(
 
 export function validateFormalSyntaxSamplingPolicy(policy: FormalSyntaxSamplingPolicy): void {
   if (policy.version.length === 0) throw new Error("formal syntax sampling policy version is required");
+  if (!Number.isInteger(policy.maximumRootFamilyAttempts) || policy.maximumRootFamilyAttempts <= 0) {
+    throw new Error("maximumRootFamilyAttempts must be a positive integer");
+  }
   const sentenceFamilies = SENTENCE_KINDS.flatMap((kind) => SENTENCE_FAMILIES_BY_KIND[kind]);
   const clauseFamilies = CLAUSE_KINDS.flatMap((kind) => CLAUSE_FAMILIES_BY_KIND[kind]);
   assertWeightMap("sentence kind", SENTENCE_KINDS, policy.sentenceKindWeights);
@@ -213,13 +221,19 @@ interface HierarchicalClassification {
   readonly family: string;
 }
 
-function hierarchicalRuleOrder(
+interface GenericFamilyPlan {
+  readonly kind: string;
+  readonly family: string;
+  readonly productionRuleIds: readonly string[];
+}
+
+function hierarchicalFamilyPlan(
   candidates: readonly ProductionRule[],
   classify: (ruleId: string) => HierarchicalClassification | null,
   kindWeights: Readonly<Record<string, number>>,
   familyWeights: Readonly<Record<string, number>>,
   random: RandomSource,
-): readonly ProductionRule[] {
+): readonly GenericFamilyPlan[] {
   const byKind = new Map<string, Map<string, ProductionRule[]>>();
   for (const rule of candidates) {
     const classification = classify(rule.id);
@@ -233,12 +247,12 @@ function hierarchicalRuleOrder(
     byKind.set(classification.kind, byFamily);
   }
 
+  const result: GenericFamilyPlan[] = [];
   const orderedKinds = weightedPermutation(
     [...byKind.keys()],
     (kind) => kindWeights[kind] ?? Number.NaN,
     random,
   );
-  const result: ProductionRule[] = [];
   for (const kind of orderedKinds) {
     const byFamily = byKind.get(kind)!;
     const orderedFamilies = weightedPermutation(
@@ -247,11 +261,57 @@ function hierarchicalRuleOrder(
       random,
     );
     for (const family of orderedFamilies) {
-      const variants = byFamily.get(family)!;
-      result.push(...weightedPermutation(variants, () => 1, random));
+      const variants = weightedPermutation(byFamily.get(family)!, () => 1, random);
+      result.push({
+        kind,
+        family,
+        productionRuleIds: variants.map((rule) => rule.id),
+      });
     }
   }
   return result;
+}
+
+export interface SentenceConstructionFamilyPlan {
+  readonly kind: SentenceKind;
+  readonly family: SentenceConstructionFamily;
+  readonly productionRuleIds: readonly string[];
+}
+
+export function createSentenceConstructionFamilyPlan(
+  candidates: readonly ProductionRule[],
+  random: RandomSource,
+  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+): readonly SentenceConstructionFamilyPlan[] {
+  validateFormalSyntaxSamplingPolicy(policy);
+  return hierarchicalFamilyPlan(
+    candidates,
+    sentenceConstructionClassification,
+    policy.sentenceKindWeights,
+    policy.sentenceFamilyWeights,
+    random,
+  ).map((item) => ({
+    kind: item.kind as SentenceKind,
+    family: item.family as SentenceConstructionFamily,
+    productionRuleIds: item.productionRuleIds,
+  }));
+}
+
+function hierarchicalRuleOrder(
+  candidates: readonly ProductionRule[],
+  classify: (ruleId: string) => HierarchicalClassification | null,
+  kindWeights: Readonly<Record<string, number>>,
+  familyWeights: Readonly<Record<string, number>>,
+  random: RandomSource,
+): readonly ProductionRule[] {
+  const byId = new Map(candidates.map((rule) => [rule.id, rule]));
+  return hierarchicalFamilyPlan(
+    candidates,
+    classify,
+    kindWeights,
+    familyWeights,
+    random,
+  ).flatMap((item) => item.productionRuleIds.map((ruleId) => byId.get(ruleId)!));
 }
 
 export function createFormalSyntaxFamilyRuleOrderer(
@@ -278,54 +338,6 @@ export function createFormalSyntaxFamilyRuleOrderer(
       );
     }
     return null;
-  };
-}
-
-export interface FormalSyntaxFamilySamplingSession {
-  readonly ruleOrderer: StructuralRuleOrderer;
-  /** Start a fresh root Sentence decision after one candidate is accepted. */
-  resetRootChoice(): void;
-}
-
-function sameRuleIdSet(
-  candidates: readonly ProductionRule[],
-  cachedRuleIds: readonly string[],
-): boolean {
-  if (candidates.length !== cachedRuleIds.length) return false;
-  const candidateIds = new Set(candidates.map((rule) => rule.id));
-  return cachedRuleIds.every((ruleId) => candidateIds.has(ruleId));
-}
-
-/**
- * Keep one root Sentence ordering stable while the composer retries a candidate.
- * Product-only rejection such as a minimum practice-length check must not redraw
- * the construction family and reward families that are easier to realize.
- * Clause and lower-category choices remain fresh on each structural attempt.
- */
-export function createFormalSyntaxFamilySamplingSession(
-  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
-): FormalSyntaxFamilySamplingSession {
-  const baseOrderer = createFormalSyntaxFamilyRuleOrderer(policy);
-  let cachedSentenceRuleIds: readonly string[] | null = null;
-
-  return {
-    ruleOrderer: (input) => {
-      if (input.category !== "Sentence") return baseOrderer(input);
-      if (cachedSentenceRuleIds === null) {
-        const ordered = baseOrderer(input);
-        if (ordered === null) throw new Error("formal syntax family orderer did not order Sentence rules");
-        cachedSentenceRuleIds = ordered.map((rule) => rule.id);
-        return ordered;
-      }
-      if (!sameRuleIdSet(input.candidates, cachedSentenceRuleIds)) {
-        throw new Error("formal syntax sampling session Sentence candidate set changed before reset");
-      }
-      const byId = new Map(input.candidates.map((rule) => [rule.id, rule]));
-      return cachedSentenceRuleIds.map((ruleId) => byId.get(ruleId)!);
-    },
-    resetRootChoice: () => {
-      cachedSentenceRuleIds = null;
-    },
   };
 }
 
