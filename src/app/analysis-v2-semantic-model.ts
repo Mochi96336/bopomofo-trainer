@@ -1,5 +1,4 @@
 import type { InputLayout, TokenId } from "../core/model.js";
-import type { FrequencyFirstUtterancePolicy } from "../curriculum/frequency-first-utterance.js";
 import type {
   CatalogSupportIndex,
   CurriculumProfile,
@@ -32,7 +31,6 @@ export interface BuildAnalysisV2SemanticModelInput {
   readonly curriculum: CurriculumProfile;
   readonly support: CatalogSupportIndex;
   readonly layout: InputLayout;
-  readonly selectionPolicy: FrequencyFirstUtterancePolicy;
   readonly progressHistory?: ProgressHistory | null;
 }
 
@@ -157,17 +155,12 @@ function keyProgress(
  *
  * This consumes Measurement V2 directly. It never converts the summary to the
  * legacy measurement shape and therefore cannot accidentally revive canonical
- * transition rows while building semantic UI evidence.
- *
- * `selectionPolicy` remains part of the input contract because the surrounding
- * Analysis composition receives the live product environment. The semantic
- * view itself does not project curriculum reinforcement: only evidence that is
- * actually rendered belongs in this model.
+ * transition rows while building semantic UI evidence. Only evidence that the
+ * Analysis surface actually exposes belongs in this projection.
  */
 export function buildAnalysisV2SemanticModel(
   input: BuildAnalysisV2SemanticModelInput,
 ): AnalysisV2SemanticModel {
-  void input.selectionPolicy;
   const codeByToken = reverseLayout(input.layout);
   const keys = buildKeys(input, codeByToken);
   const confusions = buildConfusions(input, codeByToken);
