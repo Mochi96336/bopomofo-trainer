@@ -72,7 +72,7 @@
 
 .analysis-v2-tabs button,
 .analysis-v2-segments button,
-.diagnostic-analysis-close {
+.analysis-v2-close {
   min-height: 34px;
 }
 
@@ -87,12 +87,12 @@
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
-.diagnostic-analysis-close {
+.analysis-v2-close {
   border: 1px solid var(--analysis-border);
   border-radius: var(--analysis-radius-s);
 }
 
-.diagnostic-analysis-close:hover {
+.analysis-v2-close:hover {
   border-color: color-mix(in srgb, var(--accent) 42%, var(--analysis-border));
   color: var(--accent);
 }
