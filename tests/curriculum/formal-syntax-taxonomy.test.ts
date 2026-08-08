@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   assertFormalSyntaxSamplingTaxonomyCoverage,
   auditEqualRuleTicketDistribution,
-  clauseConstructionFamily,
+  clauseConstructionClassification,
   sentenceConstructionClassification,
 } from "../../src/curriculum/formal-syntax-taxonomy.js";
 import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
 
 describe("formal syntax sampling taxonomy", () => {
-  it("covers every current Sentence and Clause production exactly through the external registry", () => {
+  it("covers every current Sentence and Clause production through the external registry", () => {
     expect(() => assertFormalSyntaxSamplingTaxonomyCoverage(FORMAL_SYNTAX_RULES)).not.toThrow();
   });
 
@@ -25,8 +25,15 @@ describe("formal syntax sampling taxonomy", () => {
       .toBe("question.constituent");
     expect(sentenceConstructionClassification("sentence.constituent-subject-question")?.family)
       .toBe("question.constituent");
-    expect(clauseConstructionFamily("clause.ba")).toBe("marked");
-    expect(clauseConstructionFamily("clause.transitive")).toBe("core-predication");
+
+    expect(clauseConstructionClassification("clause.ba")).toEqual({
+      kind: "marked",
+      family: "marked.ba",
+    });
+    expect(clauseConstructionClassification("clause.transitive")).toEqual({
+      kind: "core-predication",
+      family: "core.transitive",
+    });
   });
 
   it("makes the current equal-rule ticket bias explicit instead of treating it as policy", () => {
@@ -71,12 +78,14 @@ describe("formal syntax sampling taxonomy", () => {
     expect(audit.sentenceFamilies.find((row) => row.family === "question.constituent"))
       .toMatchObject({ ticketCount: 2, rawShare: 0.2 });
 
-    expect(audit.clauseFamilies).toEqual([
+    expect(audit.clauseKinds).toEqual([
       expect.objectContaining({ family: "complex-predicate", ticketCount: 3, rawShare: 0.15 }),
       expect.objectContaining({ family: "core-predication", ticketCount: 8, rawShare: 0.4 }),
       expect.objectContaining({ family: "information-structure", ticketCount: 3, rawShare: 0.15 }),
       expect.objectContaining({ family: "marked", ticketCount: 6, rawShare: 0.3 }),
     ]);
+    expect(audit.clauseFamilies).toHaveLength(20);
+    expect(audit.clauseFamilies.every((row) => row.ticketCount === 1)).toBe(true);
   });
 
   it("fails closed when a new controlled production is added without taxonomy", () => {
