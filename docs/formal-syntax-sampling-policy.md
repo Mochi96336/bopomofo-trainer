@@ -64,7 +64,7 @@ The product separates **family choice** from **search inside that family**:
 
 The structural sampler therefore exposes a singular `rootProductionRuleId`. One local attempt cannot try every variant in a family sequentially. A family with two executable productions receives the same number of root attempts as a family with one executable production.
 
-The local budget is not a magic constant tied to today's eight families. `rootFamilyAttemptBudget(maximumAttempts, familyCount)` derives it from the actual plan and fails closed if the caller cannot afford at least one attempt per family. The production path currently requests one candidate with a 64-attempt budget; multi-candidate callers must provide enough remaining budget for each fresh root plan.
+The local budget is not a magic constant tied to today's eight families. `rootFamilyAttemptBudget(maximumAttempts, familyCount)` derives it from the actual plan. A fresh family plan starts only when the remaining global budget can afford at least one attempt per family; otherwise candidate generation stops cleanly with `formal-syntax-root-family-budget-insufficient` instead of throwing. The production path currently requests one candidate with a 64-attempt budget.
 
 Product-only rejection, such as the current minimum of two practice lexical entries, lexical uniqueness failure, or a duplicate realized candidate, counts against the same family-local budget instead of causing an immediate fresh family draw.
 
@@ -75,7 +75,7 @@ Product-only rejection, such as the current minimum of two practice lexical entr
 - `product-family`: apply the curriculum family policy;
 - `raw`: keep raw structural sampling semantics.
 
-For compatibility, the composer infers `product-family` when the supplied rule IDs exactly match the complete formal grammar and `raw` for custom grammars. Therefore explicitly passing `FORMAL_SYNTAX_RULES` does not silently disable product policy. Callers can still make the mode explicit, and custom rule orderers cannot be combined with product-family mode.
+For compatibility, the composer infers `product-family` when the supplied rule IDs exactly match the complete formal grammar and `raw` for custom grammars. Duplicate rule IDs do not count as a complete grammar. Therefore explicitly passing `FORMAL_SYNTAX_RULES` does not silently disable product policy. Callers can still make the mode explicit, and custom rule orderers cannot be combined with product-family mode.
 
 ## Effective-distribution guard
 
@@ -92,10 +92,11 @@ The deterministic guard has both lower and upper bounds for A-not-A and total qu
 5. Variant count must not create family probability or extra family-local attempts.
 6. One family-local attempt targets exactly one root production variant.
 7. Root-family budget is derived from the actual plan, not a hard-coded family count.
-8. Root targeting never removes descendant grammar.
-9. Nested Clause families fail closed if they gain multiple variants until nested variant-neutral search exists.
-10. Effective-distribution tests exercise the actual product composer path.
-11. Learner adaptation and construction recency remain later policy layers; they do not legalize or invalidate grammar.
+8. Insufficient remaining candidate-search budget returns an explicit fallback instead of an exception.
+9. Root targeting never removes descendant grammar.
+10. Nested Clause families fail closed if they gain multiple variants until nested variant-neutral search exists.
+11. Effective-distribution tests exercise the actual product composer path.
+12. Learner adaptation and construction recency remain later policy layers; they do not legalize or invalidate grammar.
 
 Run the diagnostic with:
 
