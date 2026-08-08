@@ -1,3 +1,4 @@
+import "./motor-diagnostic-summary.css";
 import type {
   MeasurementSummaryV2,
   MotorTimingAggregate,
