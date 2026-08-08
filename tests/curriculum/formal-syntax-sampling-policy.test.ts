@@ -39,9 +39,10 @@ describe("formal syntax family sampling policy", () => {
     const ordered = orderer({
       category: "Sentence",
       candidates,
-      // First draw selects question (0.64..0.90). After the remaining kind
-      // permutation is consumed, 0.40 selects A-not-A within question.
-      random: new SequenceRandom([0.70, 0, 0, 0, 0.40, 0, 0, 0, 0, 0]),
+      // 0.80 is safely inside the question interval for the current root
+      // candidate order. After the remaining kind permutation is consumed,
+      // 0.40 selects A-not-A within the question family distribution.
+      random: new SequenceRandom([0.80, 0, 0, 0, 0.40, 0, 0, 0, 0, 0]),
     });
     expect(ordered).not.toBeNull();
     const firstTwo = ordered!.slice(0, 2).map((rule) =>
