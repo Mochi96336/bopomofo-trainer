@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import type { TokenId } from "../../src/core/model.js";
 import { aggregateMeasurementObservationsV2 } from "../../src/measurement-v2/aggregate.js";
 import {
   createFreshProgressForEnvironment,
@@ -22,7 +23,25 @@ async function openAnalysis(page: Page): Promise<void> {
   await page.waitForTimeout(340);
 }
 
-function seededSpeedProgress(): string {
+function speedPairs(count: number): readonly [TokenId, TokenId][] {
+  const tokens = [...new Set(Object.values(STANDARD_BOPOMOFO_LAYOUT.bindings)
+    .filter((token): token is TokenId => token !== undefined && token.startsWith("zhuyin:")))];
+  const result: Array<[TokenId, TokenId]> = [];
+  const seen = new Set<string>();
+  for (let index = 0; result.length < count && index < tokens.length * tokens.length; index += 1) {
+    const from = tokens[index % tokens.length]!;
+    const to = tokens[(index * 7 + 5) % tokens.length]!;
+    if (from === to) continue;
+    const id = `${from}>${to}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    result.push([from, to]);
+  }
+  if (result.length < count) throw new Error(`could only build ${result.length} speed pairs`);
+  return result;
+}
+
+function seededSpeedProgress(edgeCount = 1): string {
   const environment = createProductEnvironment({
     practice: PRACTICE_CATALOG,
     evaluation: EVALUATION_CATALOG,
@@ -35,19 +54,21 @@ function seededSpeedProgress(): string {
     STANDARD_BOPOMOFO_LAYOUT.id,
   );
   let sequence = 0;
+  const immediateTokens = speedPairs(edgeCount).flatMap(([fromToken, toToken], edgeIndex) =>
+    Array.from({ length: 5 + (edgeIndex % 8) }, (_, sampleIndex) => ({
+      traceSequence: sequence++,
+      fromToken,
+      toToken,
+      boundary: "within-syllable" as const,
+      timingMs: 92 + edgeIndex * 7 + sampleIndex * 3,
+      clean: true,
+    })));
   const measurements = aggregateMeasurementObservationsV2({
     bindings: [],
     confusions: [],
     inputOrderPositions: [],
     coordination: [],
-    immediateTokens: Array.from({ length: 5 }, (_, index) => ({
-      traceSequence: sequence++,
-      fromToken: "zhuyin:ㄅ",
-      toToken: "zhuyin:ㄆ",
-      boundary: "within-syllable" as const,
-      timingMs: 100 + index * 4,
-      clean: true,
-    })),
+    immediateTokens,
     immediateHands: [],
     sameHandRevisits: [],
     toneCommits: [],
@@ -58,11 +79,16 @@ function seededSpeedProgress(): string {
   return serializeProductProgress({ ...fresh, measurements });
 }
 
-async function installSpeedProgress(page: Page): Promise<void> {
-  const progress = seededSpeedProgress();
+async function installSpeedProgress(page: Page, edgeCount = 1): Promise<void> {
+  const progress = seededSpeedProgress(edgeCount);
   await page.addInitScript(({ key, source }) => {
     window.localStorage.setItem(key, source);
   }, { key: PROGRESS_KEY, source: progress });
+}
+
+async function openCoordination(page: Page): Promise<void> {
+  await openAnalysis(page);
+  await page.locator('[data-action="select-tab"][data-tab="coordination"]').click();
 }
 
 test("restores the original Analysis entrance choreography", async ({ page }) => {
@@ -225,8 +251,7 @@ test("uses the dialog as a full analysis workspace instead of an outer card", as
 test("keeps real speed-path endpoints on their labelled keys at desktop width", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installSpeedProgress(page);
-  await openAnalysis(page);
-  await page.locator('[data-action="select-tab"][data-tab="coordination"]').click();
+  await openCoordination(page);
 
   const analysis = page.locator("#analysis-v2");
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(1);
@@ -277,29 +302,111 @@ test("keeps real speed-path endpoints on their labelled keys at desktop width", 
   expect(geometry.toDistance).toBeLessThan(5);
 });
 
-test("stacks speed copy on phones without changing the keyboard", async ({ page }) => {
+test("makes flylines the coordination hero instead of another report card", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installSpeedProgress(page, 24);
+  await openCoordination(page);
+
+  const analysis = page.locator("#analysis-v2");
+  await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(24);
+  await expect(analysis.locator(".analysis-v2-evidence-group")).toHaveCount(4);
+  await expect(analysis.locator(".analysis-v2-evidence-group[open]")).toHaveCount(0);
+  await expect(analysis.locator(".analysis-v2-card")).toHaveCount(0);
+
+  const visual = await analysis.evaluate((host) => {
+    const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
+    const stage = host.querySelector<HTMLElement>(".analysis-v2-speed-stage")!;
+    const field = host.querySelector<HTMLElement>(".analysis-v2-speed-field")!;
+    const rail = host.querySelector<HTMLElement>(".analysis-v2-evidence-rail")!;
+    return {
+      stageShare: stage.getBoundingClientRect().height / main.getBoundingClientRect().height,
+      fieldBeforeRail: Boolean(field.compareDocumentPosition(rail) & Node.DOCUMENT_POSITION_FOLLOWING),
+      salientCount: host.querySelectorAll(".analysis-v2-speed-path.salient").length,
+    };
+  });
+
+  expect(visual.stageShare).toBeGreaterThan(0.5);
+  expect(visual.fieldBeforeRail).toBe(true);
+  expect(visual.salientCount).toBeGreaterThanOrEqual(12);
+  expect(visual.salientCount).toBeLessThanOrEqual(16);
+});
+
+test("focuses a flyline as one relation field and lets selection pin it", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installSpeedProgress(page, 12);
+  await openCoordination(page);
+
+  const paths = page.locator(".analysis-v2-speed-path");
+  const first = paths.first();
+  await first.dispatchEvent("pointerover");
+  await expect(page.locator(".analysis-v2-speed-path.is-focused")).toHaveCount(1);
+  expect(await page.locator(".analysis-v2-speed-path.is-muted").count()).toBeGreaterThan(0);
+  await expect(page.locator(".analysis-v2-speed-keyboard .analysis-v2-key.is-related")).toHaveCount(2);
+
+  await first.dispatchEvent("click");
+  await expect(page.locator(".analysis-v2-speed-path.selected")).toHaveCount(1);
+  await expect(page.locator(".analysis-v2-speed-detail")).toHaveCount(1);
+  await expect(page.locator(".analysis-v2-speed-detail dl")).toContainText("乾淨樣本");
+});
+
+test("keeps a dense flyline field visible in dark mode", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await installSpeedProgress(page, 24);
+  await openCoordination(page);
+
+  const styles = await page.locator(".analysis-v2-speed-path").evaluateAll((paths) => paths.map((path) => {
+    const style = getComputedStyle(path);
+    return { stroke: style.stroke, opacity: Number(style.strokeOpacity) };
+  }));
+  expect(styles).toHaveLength(24);
+  expect(Math.min(...styles.map((style) => style.opacity))).toBeGreaterThan(0.2);
+  expect(Math.max(...styles.map((style) => style.opacity))).toBeGreaterThan(0.6);
+  expect(styles.every((style) => style.stroke !== "rgb(0, 0, 0)" && style.stroke !== "#000000"))
+    .toBe(true);
+});
+
+test("keeps mobile horizontal overflow inside the flyline stage", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await openAnalysis(page);
-  await page.locator('[data-action="select-tab"][data-tab="coordination"]').click();
+  await installSpeedProgress(page, 18);
+  await openCoordination(page);
 
   const visual = await page.locator("#analysis-v2").evaluate((analysis) => {
-    const titleLine = analysis.querySelector<HTMLElement>(".analysis-v2-speed-card .analysis-v2-card-title-line")!;
-    const copy = titleLine.querySelector<HTMLElement>("div")!;
-    const speedCard = analysis.querySelector<HTMLElement>(".analysis-v2-speed-card")!;
-    const speedBoard = analysis.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
-    const speedKeyboard = analysis.querySelector<HTMLElement>(".analysis-v2-speed-keyboard")!;
-    const regularKey = speedKeyboard.querySelector<HTMLElement>(".analysis-v2-key[style*='--key-columns:4']")!;
+    const main = analysis.querySelector<HTMLElement>(".analysis-v2-main")!;
+    const scroll = analysis.querySelector<HTMLElement>(".analysis-v2-speed-scroll")!;
+    const board = analysis.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
+    const inspector = analysis.querySelector<HTMLElement>(".analysis-v2-speed-inspector")!;
+    const regularKey = analysis.querySelector<HTMLElement>(".analysis-v2-speed-keyboard .analysis-v2-key[style*='--key-columns:4']")!;
     return {
-      titleDirection: getComputedStyle(titleLine).flexDirection,
-      copyWidthRatio: copy.getBoundingClientRect().width / speedCard.getBoundingClientRect().width,
-      keyboardTransform: getComputedStyle(speedBoard).transform,
+      mainOverflow: main.scrollWidth - main.clientWidth,
+      speedOverflow: scroll.scrollWidth - scroll.clientWidth,
+      boardWidth: board.getBoundingClientRect().width,
+      inspectorWidth: inspector.getBoundingClientRect().width,
+      mainWidth: main.getBoundingClientRect().width,
       keyHeight: Number.parseFloat(getComputedStyle(regularKey).height),
     };
   });
 
-  expect(visual.titleDirection).toBe("column");
-  expect(visual.copyWidthRatio).toBeGreaterThan(0.8);
-  expect(visual.keyboardTransform).not.toBe("none");
+  expect(visual.mainOverflow).toBeLessThanOrEqual(1);
+  expect(visual.speedOverflow).toBeGreaterThan(100);
+  expect(visual.boardWidth).toBeGreaterThan(540);
+  expect(visual.inspectorWidth).toBeLessThanOrEqual(visual.mainWidth + 1);
   expect(visual.keyHeight).toBeGreaterThanOrEqual(22);
   expect(visual.keyHeight).toBeLessThanOrEqual(36);
+});
+
+test("keeps semantic confusion and strategy centered on one visual object", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openAnalysis(page);
+
+  await page.locator('[data-action="semantic-view"][data-value="confusion"]').click();
+  await expect(page.locator("#analysis-v2-panel-semantic .analysis-v2-keyboard")).toHaveCount(1);
+  await expect(page.locator(".analysis-v2-confusion-table")).toHaveCount(0);
+
+  await page.locator('[data-action="select-tab"][data-tab="strategy"]').click();
+  await expect(page.locator(".analysis-v2-strategy-field")).toHaveCount(1);
+  await expect(page.locator(".strategy-card")).toHaveCount(0);
+  await expect(page.locator('[data-action="strategy-size"]')).toHaveCount(3);
+  await page.locator('[data-action="strategy-size"][data-value="2"]').click();
+  await expect(page.locator(".strategy-matrix tbody tr")).toHaveCount(2);
 });
