@@ -33,14 +33,23 @@ test("contains Analysis V2 at a narrow phone viewport", async ({ page }) => {
   await expect(modal).toBeVisible();
   await expect(analysis).toBeVisible();
 
-  const viewportContainment = await page.evaluate(() => ({
-    viewportWidth: window.innerWidth,
-    documentWidth: document.documentElement.scrollWidth,
-    viewportHeight: window.innerHeight,
-    documentHeight: document.documentElement.scrollHeight,
-  }));
+  const viewportContainment = await modal.evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return {
+      viewportWidth: window.innerWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      viewportHeight: window.innerHeight,
+      left: bounds.left,
+      right: bounds.right,
+      top: bounds.top,
+      bottom: bounds.bottom,
+    };
+  });
   expect(viewportContainment.documentWidth).toBeLessThanOrEqual(viewportContainment.viewportWidth);
-  expect(viewportContainment.documentHeight).toBeLessThanOrEqual(viewportContainment.viewportHeight);
+  expect(viewportContainment.left).toBeGreaterThanOrEqual(0);
+  expect(viewportContainment.top).toBeGreaterThanOrEqual(0);
+  expect(viewportContainment.right).toBeLessThanOrEqual(viewportContainment.viewportWidth);
+  expect(viewportContainment.bottom).toBeLessThanOrEqual(viewportContainment.viewportHeight);
 
   await analysis.locator('[data-action="select-tab"][data-tab="coordination"]').click();
   const speedCard = analysis.locator(".analysis-v2-speed-card");
