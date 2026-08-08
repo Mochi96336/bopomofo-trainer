@@ -83,7 +83,7 @@ test("keeps the original analysis keyboard visual contract", async ({ page }) =>
       keyboardWidth: keyboard.getBoundingClientRect().width,
       transform: keyboardStyle.transform,
       transformOrigin: keyboardStyle.transformOrigin,
-      keyHeight: regularKey.getBoundingClientRect().height,
+      keyHeight: Number.parseFloat(regularStyle.height),
       regularRadius: regularStyle.borderTopLeftRadius,
       wideRadius: wideStyle.borderTopLeftRadius,
       metricDisplay: getComputedStyle(keyMetric).display,
@@ -140,6 +140,7 @@ test("keeps real speed-path endpoints on their labelled keys at desktop width", 
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(1);
 
   const geometry = await analysis.evaluate((host) => {
+    const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
     const keyboard = host.querySelector<HTMLElement>(".analysis-v2-speed-keyboard")!;
     const svg = host.querySelector<SVGSVGElement>(".analysis-v2-speed-svg")!;
     const path = host.querySelector<SVGPathElement>(".analysis-v2-speed-path")!;
@@ -158,15 +159,19 @@ test("keeps real speed-path endpoints on their labelled keys at desktop width", 
       if (matrix === null) throw new Error("speed path has no screen CTM");
       return point.matrixTransform(matrix);
     };
+    const productionTransform = getComputedStyle(board).transform;
+    board.style.transform = "none";
     const start = screenPoint(path.getPointAtLength(0));
     const end = screenPoint(path.getPointAtLength(path.getTotalLength()));
     const from = center(keyFor("ㄅ"));
     const to = center(keyFor("ㄆ"));
-    const distance = (left: { x: number; y: number }, right: { x: number; y: number }) =>
-      Math.hypot(left.x - right.x, left.y - right.y);
     const keyboardBox = keyboard.getBoundingClientRect();
     const svgBox = svg.getBoundingClientRect();
+    board.style.removeProperty("transform");
+    const distance = (left: { x: number; y: number }, right: { x: number; y: number }) =>
+      Math.hypot(left.x - right.x, left.y - right.y);
     return {
+      productionTransform,
       keyboardWidth: keyboardBox.width,
       svgWidth: svgBox.width,
       fromDistance: distance(start, from),
@@ -174,6 +179,7 @@ test("keeps real speed-path endpoints on their labelled keys at desktop width", 
     };
   });
 
+  expect(geometry.productionTransform).not.toBe("none");
   expect(Math.abs(geometry.keyboardWidth - geometry.svgWidth)).toBeLessThanOrEqual(2);
   expect(geometry.fromDistance).toBeLessThan(5);
   expect(geometry.toDistance).toBeLessThan(5);
