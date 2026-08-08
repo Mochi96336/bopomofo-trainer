@@ -151,7 +151,7 @@ export interface MountOptions {
    * same way here is what makes that meeting assertable rather than something
    * only the real page performs.
    */
-  readonly diagnostics?: boolean;
+  readonly analysisV2?: boolean;
   /**
    * Builds over the markup already in the document instead of laying down fresh
    * markup, so a second instance meets the very elements the first one did.
@@ -173,7 +173,7 @@ export function mountApp(options: MountOptions = {}): MountedApp {
 
   let seed = 0;
   let app: App | null = null;
-  const analysisV2 = options.diagnostics === true
+  const analysisV2 = options.analysisV2 === true
     ? mountAnalysisV2Integration({
       closePanel: () => app?.closePanel(),
       focusPractice: () => app?.focusPractice(),
