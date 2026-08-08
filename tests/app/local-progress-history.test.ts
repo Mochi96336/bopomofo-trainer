@@ -52,6 +52,12 @@ function storedHistory(lastCompletedRound: number): string {
         totalTimingSamples: 0,
       },
     },
+    motor: {
+      coordination: {},
+      immediateHands: {},
+      sameHandRevisits: {},
+      toneCommits: {},
+    },
   });
 }
 
