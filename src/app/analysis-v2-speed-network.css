@@ -26,26 +26,22 @@
   scrollbar-gutter: stable;
 }
 
-/* Keep the old keyboard-and-flyline composition: the keyboard itself is the
-   field. No rounded dashboard surface sits behind it. */
+/* The board owns one coordinate field. Responsive min-width lives in
+   analysis-v2-layout.css; this file owns only the overlay geometry. */
 .analysis-v2-speed-board {
   position: relative;
-  min-width: 720px;
   padding: 10px;
   overflow: visible;
   background: transparent;
 }
 
-.analysis-v2-speed-keyboard,
-.analysis-v2-speed-svg {
-  transform: perspective(720px) rotateX(10deg);
-  transform-origin: 50% 100%;
-}
-
 .analysis-v2-speed-keyboard {
   position: relative;
   z-index: 1;
+  width: 100%;
+  margin: 0;
   opacity: 0.9;
+  transform: none;
 }
 
 .analysis-v2-speed-keyboard .analysis-v2-key {
@@ -70,12 +66,9 @@
   height: calc(100% - 20px);
   overflow: visible;
   pointer-events: none;
+  transform: none;
 }
 
-/* The old visual language used one clearly visible line family over the keys.
-   Keep that readability, but feed it only current actual/ready evidence. Relative
-   slowness changes opacity; it does not turn the fastest edge almost black in
-   dark mode and does not use a danger colour. */
 .analysis-v2-speed-path {
   fill: none;
   stroke: color-mix(in srgb, var(--accent) 82%, var(--ink) 18%);
