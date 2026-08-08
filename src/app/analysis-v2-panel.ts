@@ -2,6 +2,10 @@ import "./analysis-v2.css";
 import "./analysis-v2-hierarchy.css";
 import type { TokenId } from "../core/model.js";
 import { physicalKeyLabel, tokenLabel } from "../diagnostics/labels.js";
+import {
+  dataStateForSamples,
+  DIAGNOSTIC_POLICY,
+} from "../diagnostics/policy.js";
 import type {
   ConfusionDiagnostic,
   DiagnosticDataState,
@@ -63,6 +67,7 @@ const SEMANTIC_SALIENT_KEY_COUNT = 4;
 const SEMANTIC_LEAD_KEY_COUNT = 3;
 const SPEED_SALIENT_EDGE_COUNT = 16;
 const SPEED_ACCENT_EDGE_COUNT = 3;
+const STRATEGY_LEAD_MIN_ROW_OBSERVATIONS = 8;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -198,11 +203,19 @@ function strongestConfusionsByToken(model: AnalysisV2Model): ReadonlyMap<TokenId
   return result;
 }
 
+function confusionKeyDataState(row: ConfusionDiagnostic | undefined): DiagnosticDataState {
+  return dataStateForSamples(
+    row?.expectedConfusionTotal ?? 0,
+    DIAGNOSTIC_POLICY.relationshipSamples,
+  );
+}
+
 function rankedConfusionKeys(model: AnalysisV2Model): readonly ConfusionDiagnostic[] {
   return [...strongestConfusionsByToken(model).values()]
-    .filter((row) => row.dataState === "sufficient" && row.expectedErrorShare > 0)
-    .sort((left, right) => right.expectedErrorShare - left.expectedErrorShare
+    .filter((row) => confusionKeyDataState(row) === "sufficient" && row.expectedConfusionTotal > 0)
+    .sort((left, right) => right.expectedConfusionTotal - left.expectedConfusionTotal
       || right.occurrences - left.occurrences
+      || right.expectedErrorShare - left.expectedErrorShare
       || left.expectedTokenId.localeCompare(right.expectedTokenId));
 }
 
@@ -217,12 +230,12 @@ function semanticLeadMarkup(model: AnalysisV2Model, view: SemanticView): string 
   }
   const rows = rankedConfusionKeys(model);
   if (rows.length === 0) {
-    return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><span>可歸因誤按</span><strong>仍在累積</strong><small>只有資料充足且方向明確的誤按才會被標記</small></div>`;
+    return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><span>可歸因誤按</span><strong>仍在累積</strong><small>原意鍵累積足夠的可歸因誤按後才會被標記</small></div>`;
   }
   const symbols = rows.slice(0, SEMANTIC_LEAD_KEY_COUNT)
     .map((row) => escapeHtml(row.expectedSymbol))
     .join("　");
-  return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><span>較常出現誤按的原意鍵</span><strong class="analysis-v2-semantic-symbols">${symbols}</strong><small>只呈現可歸因且資料充足的方向</small></div>`;
+  return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><span>可歸因誤按較多的原意鍵</span><strong class="analysis-v2-semantic-symbols">${symbols}</strong><small>依每個原意鍵累積的可歸因誤按次數排序</small></div>`;
 }
 
 function correctnessKeyboardMarkup(model: AnalysisV2Model, selectedKey: TokenId | null): string {
@@ -274,10 +287,10 @@ function confusionKeyboardMarkup(model: AnalysisV2Model, selectedKey: TokenId | 
     .map((row) => row.expectedTokenId));
   const keyboard = keyboardRowsMarkup((tokenId, key, columns) => {
     const confusion = strongestByToken.get(tokenId);
-    const state = confusion?.dataState ?? "insufficient";
+    const state = confusionKeyDataState(confusion);
     const selected = selectedKey === tokenId;
     const salient = salientTokens.has(tokenId);
-    return `<button type="button" class="analysis-v2-key ${state}${salient ? " is-salient" : ""}${selected ? " selected" : ""}" style="--key-columns:${columns}" data-action="select-key" data-token="${escapeHtml(tokenId)}" aria-pressed="${selected}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}，${confusion === undefined ? "尚無可歸因誤按" : `最常見誤按 ${escapeHtml(confusion.actualSymbol)}，${confusion.occurrences} 次`}"><strong>${escapeHtml(tokenLabel(tokenId))}</strong><small aria-hidden="true"></small></button>`;
+    return `<button type="button" class="analysis-v2-key ${state}${salient ? " is-salient" : ""}${selected ? " selected" : ""}" style="--key-columns:${columns}" data-action="select-key" data-token="${escapeHtml(tokenId)}" aria-pressed="${selected}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}，${confusion === undefined ? "尚無可歸因誤按" : `累積 ${confusion.expectedConfusionTotal} 次可歸因誤按，最常見去向 ${escapeHtml(confusion.actualSymbol)} ${confusion.occurrences} 次`}，${escapeHtml(dataStateLabel(state))}"><strong>${escapeHtml(tokenLabel(tokenId))}</strong><small aria-hidden="true"></small></button>`;
   });
   return `<div class="analysis-v2-semantic-stage${selectedKey === null ? "" : " has-selection"}">
     <section class="analysis-v2-visual-stage" aria-label="可歸因誤按鍵盤">
@@ -305,7 +318,7 @@ function semanticMarkup(
       : confusionKeyboardMarkup(model, selectedKey)}
     ${methodDetailsMarkup("資料規則", preferences.semanticView === "correctness"
       ? "少於 3 次觀察不發言，3–7 次只保留為初步資料，8 次以上才可能進入少數標記。標記只整理注意力，不把不同動作指標混成一個弱點分數。"
-      : "只顯示實際觀察到而且能歸因的誤按方向；只有資料充足的原意鍵才進入少數標記，當多個原意仍可能成立時系統不猜測。")}
+      : "只顯示實際觀察到而且能歸因的誤按方向；原意鍵的標記依累積可歸因誤按總數決定，單一去向占比只留在檢視欄，不拿來跨原意鍵排行。")}
   </section>`;
 }
 
@@ -339,7 +352,7 @@ function speedLeadMarkup(
   if (cell === undefined || cell.currentTimeToTypeMs === null) {
     return `<div class="analysis-v2-hero-readout analysis-v2-speed-readout"><span>鍵間軌跡</span><strong>仍在累積</strong><small>單一轉換累積 5 個乾淨時間樣本後才可比較</small></div>`;
   }
-  return `<div class="analysis-v2-hero-readout analysis-v2-speed-readout"><span>${selected ? "已固定的鍵間轉換" : "目前較慢的可比較轉換"}</span><strong><b>${escapeHtml(tokenLabel(cell.scope.fromToken))} → ${escapeHtml(tokenLabel(cell.scope.toToken))}</b><em>${escapeHtml(milliseconds(cell.currentTimeToTypeMs))}</em></strong><small>${cell.timingSamples} 個乾淨樣本 · 僅在同類實際鍵間轉換中比較</small></div>`;
+  return `<div class="analysis-v2-hero-readout analysis-v2-speed-readout"><span>${selected ? "已固定的鍵間轉換" : "目前畫面中較慢的可比較轉換"}</span><strong><b>${escapeHtml(tokenLabel(cell.scope.fromToken))} → ${escapeHtml(tokenLabel(cell.scope.toToken))}</b><em>${escapeHtml(milliseconds(cell.currentTimeToTypeMs))}</em></strong><small>${cell.timingSamples} 個乾淨樣本 · 僅在畫面中的同類實際鍵間轉換中比較</small></div>`;
 }
 
 function speedNetworkMarkup(model: AnalysisV2Model, selectedPathId: string | null): string {
@@ -379,14 +392,15 @@ function speedNetworkMarkup(model: AnalysisV2Model, selectedPathId: string | nul
               const cell = cellById.get(path.id);
               if (cell === undefined) return "";
               const selected = selectedPathId === path.id;
-              return `<path class="analysis-v2-speed-path${path.includesTone ? " tone" : ""}${salientIds.has(path.id) ? " salient" : ""}${accentIds.has(path.id) ? " is-slow" : ""}${selected ? " selected" : ""}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity};--relation-slowness:${path.slowness}" data-action="select-speed" data-speed-id="${escapeHtml(path.id)}" data-from-token="${escapeHtml(cell.scope.fromToken)}" data-to-token="${escapeHtml(cell.scope.toToken)}" tabindex="0" role="button" aria-pressed="${selected}" aria-label="${escapeHtml(path.label)}"><title>${escapeHtml(path.label)}</title></path>`;
+              const interaction = `data-action="select-speed" data-speed-id="${escapeHtml(path.id)}" data-from-token="${escapeHtml(cell.scope.fromToken)}" data-to-token="${escapeHtml(cell.scope.toToken)}"`;
+              return `<path class="analysis-v2-speed-hit" d="${path.path}" ${interaction} aria-hidden="true"></path><path class="analysis-v2-speed-path${path.includesTone ? " tone" : ""}${salientIds.has(path.id) ? " salient" : ""}${accentIds.has(path.id) ? " is-slow" : ""}${selected ? " selected" : ""}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity};--relation-slowness:${path.slowness}" ${interaction} tabindex="0" role="button" aria-pressed="${selected}" aria-label="${escapeHtml(path.label)}"><title>${escapeHtml(path.label)}</title></path>`;
             }).join("")}</svg>`}
         </div>
       </div>
       ${selectedCell === undefined ? "" : `<aside class="analysis-v2-speed-inspector analysis-v2-inspector" aria-live="polite">${speedInspectorMarkup(model, selectedPathId)}</aside>`}
     </div>
     <div class="analysis-v2-speed-legend" aria-label="軌跡圖例"><span>墨色是實際轉換；紅色只標較慢或選取</span><small>線粗代表樣本支持</small></div>
-    ${methodDetailsMarkup("資料規則", `只畫同一音節內實際相鄰接受且乾淨的轉換，每一條至少 5 個時間樣本。不補 canonical 結構線；最多顯示支持度較高的 ${ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES} 條。大多數軌跡使用既有墨階，紅色只保留給可見同類中較慢的少數轉換與目前互動焦點。`)}
+    ${methodDetailsMarkup("資料規則", `只畫同一音節內實際相鄰接受且乾淨的轉換，每一條至少 5 個時間樣本。不補 canonical 結構線；最多顯示支持度較高的 ${ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES} 條。畫面中的相對較慢只在目前可見的同類轉換內判讀；大多數軌跡使用既有墨階，紅色只保留給少數較慢轉換與目前互動焦點。`)}
   </section>`;
 }
 
@@ -512,22 +526,26 @@ function strategyFieldMarkup(model: AnalysisV2Model, bodySize: CoordinationBodyS
     return { canonical, values, total: values.reduce((sum, value) => sum + value, 0) };
   });
   const total = rows.reduce((sum, row) => sum + row.total, 0);
-  const deviations = rows.flatMap((row) => positions.flatMap((accepted, index) => {
+  const supportedRows = rows.filter((row) => row.total >= STRATEGY_LEAD_MIN_ROW_OBSERVATIONS);
+  const deviations = supportedRows.flatMap((row) => positions.flatMap((accepted, index) => {
     const count = row.values[index] ?? 0;
-    if (accepted === row.canonical || row.total === 0 || count === 0) return [];
+    if (accepted === row.canonical || count === 0) return [];
     return [{
       canonical: row.canonical,
       accepted,
       count,
       ratio: count / row.total,
+      rowTotal: row.total,
     }];
   })).sort((left, right) => right.ratio - left.ratio
     || right.count - left.count
     || positionLabel(left.canonical).localeCompare(positionLabel(right.canonical)));
   const lead = deviations[0];
-  const leadMarkup = lead === undefined
-    ? `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><span>順序位置</span><strong>尚無明顯偏移</strong><small>${bodySize} 成分 · ${total} 個位置觀察</small></div>`
-    : `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><span>目前較常見的順序偏移</span><strong><b>${positionLabel(lead.canonical)} → ${positionLabel(lead.accepted)}</b><em>${Math.round(lead.ratio * 100)}%</em></strong><small>${lead.count} / ${rows.find((row) => row.canonical === lead.canonical)?.total ?? 0} 個同位置觀察</small></div>`;
+  const leadMarkup = supportedRows.length === 0
+    ? `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><span>順序位置</span><strong>仍在累積</strong><small>單一結構位置累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察後才提升偏移</small></div>`
+    : lead === undefined
+      ? `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><span>順序位置</span><strong>目前以原位置完成</strong><small>${bodySize} 成分 · ${total} 個位置觀察</small></div>`
+      : `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><span>目前較常見的順序偏移</span><strong><b>${positionLabel(lead.canonical)} → ${positionLabel(lead.accepted)}</b><em>${Math.round(lead.ratio * 100)}%</em></strong><small>${lead.count} / ${lead.rowTotal} 個同位置觀察</small></div>`;
   return `<div class="analysis-v2-strategy-stage">
     ${leadMarkup}
     <div class="analysis-v2-strategy-axis"><span>結構位置</span><i aria-hidden="true">→</i><span>實際完成位置</span></div>
@@ -543,7 +561,7 @@ function strategyMarkup(model: AnalysisV2Model, bodySize: CoordinationBodySizeBu
   return `<section class="analysis-v2-domain analysis-v2-strategy-domain" aria-labelledby="analysis-v2-strategy-title">
     <div class="analysis-v2-domain-head"><div><h3 id="analysis-v2-strategy-title">策略</h3><p>${model.strategy.totalObservations} 個完成位置觀察</p></div><div class="analysis-v2-segments analysis-v2-strategy-segments" role="group" aria-label="音節成分數">${BODY_SIZES.map((size) => `<button type="button" data-action="strategy-size" data-value="${size}" aria-pressed="${bodySize === size}">${size} 成分</button>`).join("")}</div></div>
     ${strategyFieldMarkup(model, bodySize)}
-    ${methodDetailsMarkup("資料規則", "結構位置只是一組參考座標，不要求固定輸入順序。2 成分只有前／後；4+ 成分把內部位置合併成中間，讓長期資料保持 bounded。系統不保存 raw trace，也不建立 token-pair 順序分數。")}
+    ${methodDetailsMarkup("資料規則", `結構位置只是一組參考座標，不要求固定輸入順序。2 成分只有前／後；4+ 成分把內部位置合併成中間，讓長期資料保持 bounded。單一結構位置至少累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察才會提升偏移為主讀值；系統不保存 raw trace，也不建立 token-pair 順序分數。`)}
   </section>`;
 }
 
@@ -738,13 +756,15 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
 
   host.onpointerover = (event) => {
     if (!(event.target instanceof Element)) return;
-    const path = event.target.closest<SVGPathElement>(".analysis-v2-speed-path");
+    const path = event.target.closest<SVGPathElement>(
+      ".analysis-v2-speed-path, .analysis-v2-speed-hit",
+    );
     if (path !== null) applySpeedFocus(path.dataset.speedId ?? null);
   };
 
   host.onpointerout = (event) => {
     if (!(event.target instanceof Element)) return;
-    if (event.target.closest(".analysis-v2-speed-path") !== null) {
+    if (event.target.closest(".analysis-v2-speed-path, .analysis-v2-speed-hit") !== null) {
       applySpeedFocus(selectedSpeedPathId);
     }
   };
