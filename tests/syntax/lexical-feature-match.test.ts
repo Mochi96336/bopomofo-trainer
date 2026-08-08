@@ -29,7 +29,7 @@ function matches(
   valueProfile: RuntimeSyntaxProfile,
   feature: Parameters<typeof lexicalConstructionFeatureMatches>[3],
   value: Parameters<typeof lexicalConstructionFeatureMatches>[4],
-  entryId = `word:${text}:test`,
+  entryId: string | undefined = `word:${text}:test`,
 ): boolean {
   return lexicalConstructionFeatureMatches(entryId, text, valueProfile, feature, value);
 }
@@ -37,9 +37,9 @@ function matches(
 describe("lexical construction feature matching", () => {
   it("distinguishes closed-class case markers by form", () => {
     const caseAdp = profile("ADP", "case");
-    expect(matches("把", caseAdp, "voice", "disposal")).toBe(true);
+    expect(matches("把", caseAdp, "voice", "disposal", "word:把:ㄅㄚ3")).toBe(true);
     expect(matches("在", caseAdp, "voice", "disposal")).toBe(false);
-    expect(matches("比", caseAdp, "clauseType", "comparative")).toBe(true);
+    expect(matches("比", caseAdp, "clauseType", "comparative", "word:比:ㄅㄧ3")).toBe(true);
     expect(matches("從", caseAdp, "clauseType", "comparative")).toBe(false);
   });
 
@@ -72,9 +72,124 @@ describe("lexical construction feature matching", () => {
     expect(matches("了", aspectProfile, "aspect", "marked", "word:了:ㄌㄧㄠ3")).toBe(false);
   });
 
+  // UD evidence is keyed by written form, so each of these profiles is shared
+  // verbatim by every reading of its homograph in the committed artifact.
+  const homographs: readonly {
+    readonly text: string;
+    readonly licensedReading: string;
+    readonly unlicensedReading: string;
+    readonly profile: RuntimeSyntaxProfile;
+    readonly feature: Parameters<typeof lexicalConstructionFeatureMatches>[3];
+    readonly value: Parameters<typeof lexicalConstructionFeatureMatches>[4];
+  }[] = [
+    {
+      text: "的",
+      licensedReading: "ㄉㄜ5",
+      unlicensedReading: "ㄉㄧ4",
+      profile: profile("SCONJ", "mark:rel"),
+      feature: "clauseType",
+      value: "relative",
+    },
+    {
+      text: "著",
+      licensedReading: "ㄓㄜ5",
+      unlicensedReading: "ㄓㄨㄛ2",
+      profile: profile("AUX", "aux"),
+      feature: "aspect",
+      value: "marked",
+    },
+    {
+      text: "過",
+      licensedReading: "ㄍㄨㄛ4",
+      unlicensedReading: "ㄍㄨㄛ1",
+      profile: profile("AUX", "aux"),
+      feature: "aspect",
+      value: "marked",
+    },
+    {
+      text: "把",
+      licensedReading: "ㄅㄚ3",
+      unlicensedReading: "ㄅㄚ4",
+      profile: profile("ADP", "case"),
+      feature: "voice",
+      value: "disposal",
+    },
+    {
+      text: "將",
+      licensedReading: "ㄐㄧㄤ1",
+      unlicensedReading: "ㄑㄧㄤ1",
+      profile: profile("ADP", "case"),
+      feature: "voice",
+      value: "disposal",
+    },
+    {
+      text: "比",
+      licensedReading: "ㄅㄧ3",
+      unlicensedReading: "ㄅㄧ1",
+      profile: profile("ADP", "case"),
+      feature: "clauseType",
+      value: "comparative",
+    },
+    {
+      text: "嗎",
+      licensedReading: "ㄇㄚ5",
+      unlicensedReading: "ㄇㄚ3",
+      profile: profile("PART", "discourse:sp"),
+      feature: "questionType",
+      value: "polar",
+    },
+    {
+      text: "沒",
+      licensedReading: "ㄇㄟ2",
+      unlicensedReading: "ㄇㄛ4",
+      profile: profile("ADV", "advmod"),
+      feature: "polarity",
+      value: "negative",
+    },
+    {
+      text: "得",
+      licensedReading: "ㄉㄜ5",
+      unlicensedReading: "ㄉㄟ3",
+      profile: profile("PART", "compound:ext"),
+      feature: "complementType",
+      value: "potential",
+    },
+    {
+      text: "和",
+      licensedReading: "ㄏㄜ2",
+      unlicensedReading: "ㄏㄨㄛ4",
+      profile: profile("CCONJ", "cc"),
+      feature: "coordinationType",
+      value: "coordination",
+    },
+    {
+      text: "哪",
+      licensedReading: "ㄋㄚ3",
+      unlicensedReading: "ㄋㄜ2",
+      profile: profile("PRON", "det"),
+      feature: "questionType",
+      value: "constituent",
+    },
+  ];
+
+  it.each(homographs)(
+    "licenses $text only as $licensedReading, not $unlicensedReading",
+    ({ text, licensedReading, unlicensedReading, profile: entryProfile, feature, value }) => {
+      expect(matches(text, entryProfile, feature, value, `word:${text}:${licensedReading}`))
+        .toBe(true);
+      expect(matches(text, entryProfile, feature, value, `word:${text}:${unlicensedReading}`))
+        .toBe(false);
+    },
+  );
+
+  it("fails a pinned construction form closed when the identity is unknown", () => {
+    expect(matches("的", profile("SCONJ", "mark:rel"), "clauseType", "relative", undefined))
+      .toBe(false);
+  });
+
   it("licenses only the polar particle form for polar-question slots", () => {
     const sentenceParticle = profile("PART", "discourse:sp");
-    expect(matches("嗎", sentenceParticle, "questionType", "polar")).toBe(true);
+    expect(matches("嗎", sentenceParticle, "questionType", "polar", "word:嗎:ㄇㄚ5")).toBe(true);
     expect(matches("呢", sentenceParticle, "questionType", "polar")).toBe(false);
   });
 

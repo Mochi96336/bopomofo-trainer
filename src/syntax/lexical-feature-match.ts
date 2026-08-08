@@ -20,7 +20,6 @@ const ALTERNATIVE_QUESTION_CONNECTORS = new Set(["還是", "或", "或者", "或
 const POTENTIAL_LINKERS = new Set(["得", "不"]);
 const DEGREE_COMPLEMENT_MARKERS = new Set(["得"]);
 const DE_MARKERS = new Set(["的"]);
-const ASPECT_LE_ENTRY_ID = catalogEntryId("了", "ㄌㄜ5");
 
 const COORDINATION_CONNECTORS: Readonly<Record<string, ReadonlySet<string>>> = {
   coordination: new Set(["和", "與", "及", "以及", "並", "並且", "而"]),
@@ -34,6 +33,63 @@ const COORDINATION_CONNECTORS: Readonly<Record<string, ReadonlySet<string>>> = {
   purpose: new Set(["以便", "以免", "好讓"]),
   "temporal-sequence": new Set(["然後", "接著", "隨後", "再"]),
 };
+
+/**
+ * Every form this module can license, so the catalog-identity table below can
+ * be checked for completeness against real catalog readings.
+ */
+export const LICENSED_CONSTRUCTION_FORMS: ReadonlySet<string> = new Set([
+  ...NEGATORS,
+  ...ASPECT_MARKERS,
+  ...DISPOSAL_MARKERS,
+  ...PASSIVE_MARKERS,
+  ...EXISTENTIAL_PREDICATES,
+  ...COMPARATIVE_MARKERS,
+  ...REQUEST_MARKERS,
+  ...POLAR_QUESTION_PARTICLES,
+  ...CONSTITUENT_QUESTION_FORMS,
+  ...ALTERNATIVE_QUESTION_CONNECTORS,
+  ...POTENTIAL_LINKERS,
+  ...DEGREE_COMPLEMENT_MARKERS,
+  ...DE_MARKERS,
+  ...Object.values(COORDINATION_CONNECTORS).flatMap((forms) => [...forms]),
+]);
+
+/**
+ * UD evidence is keyed by written form, so `projectSyntaxProfiles` gives every
+ * reading of a homograph the same profile set. Without a reading-level gate a
+ * closed-class license leaks onto unrelated identities — the relative marker 的
+ * onto ㄉㄧˋ, aspect 著 onto ㄓㄨㄛˊ, disposal 把 onto ㄅㄚˋ — and the learner is
+ * then drilled on a reading the construction never has.
+ *
+ * These are the readings that actually realize the construction. Every other
+ * identity of the same form fails closed. Forms with a single catalog reading
+ * need no entry; `lexical-construction-identity.test.ts` pins that invariant.
+ */
+export const CONSTRUCTION_READINGS: Readonly<Record<string, readonly string[]>> = {
+  了: ["ㄌㄜ5"],
+  著: ["ㄓㄜ5"],
+  過: ["ㄍㄨㄛ4"],
+  的: ["ㄉㄜ5"],
+  得: ["ㄉㄜ5"],
+  把: ["ㄅㄚ3"],
+  將: ["ㄐㄧㄤ1"],
+  比: ["ㄅㄧ3"],
+  嗎: ["ㄇㄚ5"],
+  沒: ["ㄇㄟ2"],
+  無: ["ㄨ2"],
+  和: ["ㄏㄜ2"],
+  與: ["ㄩ3"],
+  幾: ["ㄐㄧ3"],
+  哪: ["ㄋㄚ3", "ㄋㄟ3"],
+};
+
+const CONSTRUCTION_ENTRY_IDS: ReadonlyMap<string, ReadonlySet<string>> = new Map(
+  Object.entries(CONSTRUCTION_READINGS).map(([text, readings]) => [
+    text,
+    new Set(readings.map((reading) => catalogEntryId(text, reading))),
+  ]),
+);
 
 const LICENSED_FEATURE_VALUES = new Set([
   "polarity:negative",
@@ -65,11 +121,11 @@ function featureKey(feature: SyntaxFeatureName, value: SyntaxFeatureValue): stri
 }
 
 function formMatchesIdentity(entryId: string | undefined, text: string): boolean {
-  // Written-form UD profiles are projected to every reading. The aspect 了
-  // construction is ㄌㄜ˙; compare against the canonical catalog identity
-  // without depending on the serialized ID layout inside the syntax layer.
-  if (text === "了") return entryId === ASPECT_LE_ENTRY_ID;
-  return true;
+  // Compare against canonical catalog identities so the syntax layer never
+  // parses the serialized ID layout itself.
+  const licensedEntryIds = CONSTRUCTION_ENTRY_IDS.get(text);
+  if (licensedEntryIds === undefined) return true;
+  return entryId !== undefined && licensedEntryIds.has(entryId);
 }
 
 export function supportsLexicalConstructionFeature(
