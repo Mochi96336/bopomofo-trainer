@@ -14,18 +14,18 @@ This lets later curriculum policy assign mass above the raw production level. Ad
 
 ## Current equal-rule ticket audit
 
-With the current grammar, ten `Sentence` productions are reachable at the root. If all are reachable and each production behaves like one equal ticket, the raw structural distribution is:
+The current grammar contains ten root `Sentence` productions. Treating those ten production slots as equal raw tickets gives this **inventory share before reachability/failover effects**:
 
 - statement: 2/10 = 20%
 - question: 6/10 = 60%
 - request: 1/10 = 10%
 - exclamative: 1/10 = 10%
 
-Within the root rules, `question.a-not-a` owns two tickets (20% of all root productions) because its intransitive and transitive variants are separate grammar rules. `question.constituent` has the same structural duplication.
+Within that root production inventory, `question.a-not-a` occupies two raw tickets (20% of all root productions) because its intransitive and transitive variants are separate grammar rules. `question.constituent` has the same structural duplication.
 
-This is an audit of the current sampler mechanics, not an intended language or curriculum distribution. Realized shares can differ further because lexical reachability, derivation bounds, and realization failures cause retry/failover.
+This is an audit of rule inventory and sampler mechanics, not a claim that all ten productions are reachable under every product bound or that realized output follows these percentages. Reachability, derivation bounds, lexical availability, and realization failures can all change effective shares.
 
-The same risk exists below the root. The complete grammar currently has 24 `Clause` productions, including four embedded/content-clause rules declared in `complement-rules.ts`. Their raw equal-ticket coarse-kind shares are:
+The same risk exists below the root. The complete grammar currently has 24 `Clause` productions, including four embedded/content-clause rules declared in `complement-rules.ts`. Their raw equal-ticket coarse-kind inventory shares are:
 
 - core predication: 8/24 = 33.3%
 - marked constructions: 6/24 = 25%
@@ -35,7 +35,7 @@ The same risk exists below the root. The complete grammar currently has 24 `Clau
 
 Each current Clause production also has its own specific construction family (`core.transitive`, `marked.ba`, `embedded.object-content`, and so on). That extra level matters because a future split of one construction into several executable variants should not make that construction more common inside its coarse kind.
 
-Again, the percentages above are implementation ticket counts, not desired product weights.
+Again, the percentages above are implementation inventory/ticket counts, not desired product weights or realized output frequencies.
 
 ## Contract
 
