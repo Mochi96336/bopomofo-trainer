@@ -26,11 +26,14 @@ import type {
   RuntimeSyntaxProfile,
 } from "../syntax/types.js";
 import {
+  chooseSentenceConstructionVariant,
   createFormalSyntaxFamilyRuleOrderer,
   createSentenceConstructionFamilyPlan,
-  PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+  rootFamilyAttemptBudget,
   type SentenceConstructionFamilyPlan,
 } from "./formal-syntax-sampling-policy.js";
+
+export type FormalSyntaxSamplingMode = "raw" | "product-family";
 
 export interface FormalSyntaxUtteranceInput {
   readonly eligibleEntries: readonly CatalogEntry[];
@@ -45,9 +48,12 @@ export interface FormalSyntaxUtteranceInput {
   readonly rules?: readonly ProductionRule[];
   readonly bounds?: DerivationBounds;
   /**
-   * Override curriculum rule ordering. Null explicitly keeps raw sampler order;
-   * omitted uses the product family policy only with the default formal grammar.
+   * Product-family sampling is inferred for the complete formal grammar and raw
+   * sampling for custom grammars. Callers may make that choice explicit. Passing
+   * the complete FORMAL_SYNTAX_RULES explicitly does not change the mode.
    */
+  readonly samplingMode?: FormalSyntaxSamplingMode;
+  /** Raw/research-only ordering override. It cannot be combined with product-family mode. */
   readonly ruleOrderer?: StructuralRuleOrderer | null;
 }
 
@@ -136,6 +142,19 @@ function punctuationForPath(path: readonly string[]): "。" | "！" | "？" {
   return "。";
 }
 
+function sameRuleIdSet(
+  left: readonly ProductionRule[],
+  right: readonly ProductionRule[],
+): boolean {
+  if (left.length !== right.length) return false;
+  const rightIds = new Set(right.map((rule) => rule.id));
+  return left.every((rule) => rightIds.has(rule.id));
+}
+
+function inferredSamplingMode(rules: readonly ProductionRule[]): FormalSyntaxSamplingMode {
+  return sameRuleIdSet(rules, FORMAL_SYNTAX_RULES) ? "product-family" : "raw";
+}
+
 export function composeFormalSyntaxUtterances(
   input: FormalSyntaxUtteranceInput,
 ): GrammarCompositionResult {
@@ -158,35 +177,42 @@ export function composeFormalSyntaxUtterances(
   const index = buildLexicalProfileIndex(input.eligibleEntries, eligibleProfiles);
   const entriesById = new Map(input.eligibleEntries.map((entry) => [entry.id, entry]));
   const rules = input.rules ?? FORMAL_SYNTAX_RULES;
-  const useProductFamilyPolicy = input.ruleOrderer === undefined && input.rules === undefined;
+  const samplingMode = input.samplingMode ?? inferredSamplingMode(rules);
+  const useProductFamilyPolicy = samplingMode === "product-family";
+  if (useProductFamilyPolicy && !sameRuleIdSet(rules, FORMAL_SYNTAX_RULES)) {
+    throw new Error("product-family sampling requires the complete formal syntax rule set");
+  }
+  if (useProductFamilyPolicy && input.ruleOrderer !== undefined && input.ruleOrderer !== null) {
+    throw new Error("product-family sampling cannot be combined with a custom ruleOrderer");
+  }
   const familyRuleOrderer = useProductFamilyPolicy ? createFormalSyntaxFamilyRuleOrderer() : null;
-  const ruleOrderer: StructuralRuleOrderer | undefined = input.ruleOrderer === null
-    ? undefined
-    : input.ruleOrderer ?? (familyRuleOrderer === null
-      ? undefined
-      : (orderingInput) => orderingInput.category === "Sentence"
-        ? null
-        : familyRuleOrderer(orderingInput));
+  const ruleOrderer: StructuralRuleOrderer | undefined = useProductFamilyPolicy
+    ? (orderingInput) => orderingInput.category === "Sentence"
+      ? null
+      : familyRuleOrderer!(orderingInput)
+    : input.ruleOrderer ?? undefined;
   const sentenceRules = useProductFamilyPolicy
     ? rules.filter((rule) => rule.output === "Sentence")
     : [];
   let rootFamilyPlan: readonly SentenceConstructionFamilyPlan[] | null = null;
   let rootFamilyIndex = 0;
   let attemptsInRootFamily = 0;
+  let attemptsPerRootFamily = 0;
 
-  const currentRootFamily = (): SentenceConstructionFamilyPlan | null => {
+  const currentRootFamily = (remainingAttempts: number): SentenceConstructionFamilyPlan | null => {
     if (!useProductFamilyPolicy) return null;
     if (rootFamilyPlan === null) {
       rootFamilyPlan = createSentenceConstructionFamilyPlan(sentenceRules, input.random);
       rootFamilyIndex = 0;
       attemptsInRootFamily = 0;
+      attemptsPerRootFamily = rootFamilyAttemptBudget(remainingAttempts, rootFamilyPlan.length);
     }
     return rootFamilyPlan[rootFamilyIndex] ?? null;
   };
   const recordRootFamilyFailure = (): void => {
     if (!useProductFamilyPolicy) return;
     attemptsInRootFamily += 1;
-    if (attemptsInRootFamily >= PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.maximumRootFamilyAttempts) {
+    if (attemptsInRootFamily >= attemptsPerRootFamily) {
       rootFamilyIndex += 1;
       attemptsInRootFamily = 0;
     }
@@ -195,6 +221,7 @@ export function composeFormalSyntaxUtterances(
     rootFamilyPlan = null;
     rootFamilyIndex = 0;
     attemptsInRootFamily = 0;
+    attemptsPerRootFamily = 0;
   };
 
   const candidates = new Map<string, GrammarUtteranceCandidate>();
@@ -203,11 +230,14 @@ export function composeFormalSyntaxUtterances(
   for (let attempt = 0;
     attempt < input.maximumAttempts && candidates.size < input.maximumCandidates;
     attempt += 1) {
-    const rootFamily = currentRootFamily();
+    const rootFamily = currentRootFamily(input.maximumAttempts - attempt);
     if (useProductFamilyPolicy && rootFamily === null) {
       fallbackReasons.add("formal-syntax-root-family-search-exhausted");
       break;
     }
+    const rootProductionRuleId = rootFamily === null
+      ? undefined
+      : chooseSentenceConstructionVariant(rootFamily, input.random);
     const shape = sampleStructuralDerivation({
       rootCategory: "Sentence",
       rules,
@@ -219,7 +249,7 @@ export function composeFormalSyntaxUtterances(
       },
       ...(input.bounds === undefined ? {} : { bounds: input.bounds }),
       ...(ruleOrderer === undefined ? {} : { ruleOrderer }),
-      ...(rootFamily === null ? {} : { rootProductionRuleIds: rootFamily.productionRuleIds }),
+      ...(rootProductionRuleId === undefined ? {} : { rootProductionRuleId }),
     });
     if (shape === null) {
       fallbackReasons.add("formal-syntax-structural-sampling-exhausted");
@@ -307,6 +337,7 @@ export function composeFormalSyntaxUtterances(
       .map((token) => token.value)
       .join("");
     const hasPunctuation = realization.tokens.some((token) => token.kind === "punctuation");
+    const sizeBefore = candidates.size;
     candidates.set(realization.id, {
       id: realization.id,
       kind: "formal-syntax",
@@ -316,9 +347,15 @@ export function composeFormalSyntaxUtterances(
       text,
       punctuation: hasPunctuation ? punctuation : null,
       syntaxDerivationId: realization.derivationId,
+      syntaxRootRuleId: shape.root.productionRuleId,
       syntaxProfileIds: realization.syntaxProfileIds,
     });
-    resetRootFamilySearch();
+    if (candidates.size > sizeBefore) {
+      resetRootFamilySearch();
+    } else {
+      fallbackReasons.add("formal-syntax-duplicate-candidate");
+      recordRootFamilyFailure();
+    }
   }
 
   if (candidates.size === 0) fallbackReasons.add("formal-syntax-no-candidate");
