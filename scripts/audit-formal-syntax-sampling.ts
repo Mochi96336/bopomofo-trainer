@@ -10,7 +10,7 @@ console.log(JSON.stringify({
   equalRuleTickets: auditEqualRuleTicketDistribution(FORMAL_SYNTAX_RULES),
   productPolicy: {
     version: PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version,
-    sentenceFamilyPriors: Object.fromEntries(SENTENCE_CONSTRUCTION_FAMILIES.map((family) => [
+    sentenceRootFamilyPriors: Object.fromEntries(SENTENCE_CONSTRUCTION_FAMILIES.map((family) => [
       family,
       sentenceConstructionFamilyPrior(family),
     ])),
