@@ -6,6 +6,7 @@ import {
   saveLocalProductProgress,
   type StorageLike,
 } from "../../src/app/local-progress.js";
+import { serializeProductProgress } from "../../src/product/progress.js";
 import {
   createFreshProgressForEnvironment,
   createProductEnvironment,
@@ -21,6 +22,16 @@ class MemoryStorage implements StorageLike {
 }
 
 const environment = createProductEnvironment(PRODUCT_CATALOGS);
+
+function persistedDraft(seed = "seed"): Record<string, unknown> {
+  const progress = createFreshProgressForEnvironment(
+    environment,
+    seed,
+    "guided",
+    "standard",
+  );
+  return JSON.parse(serializeProductProgress(progress)) as Record<string, unknown>;
+}
 
 describe("local progress adapter", () => {
   it("reports an empty store explicitly", () => {
@@ -47,15 +58,10 @@ describe("local progress adapter", () => {
 
   it("labels a successful legacy measurement-epoch migration separately from a normal load", () => {
     const storage = new MemoryStorage();
-    const progress = createFreshProgressForEnvironment(
-      environment,
-      "legacy-seed",
-      "guided",
-      "standard",
-    );
-    const stored = JSON.parse(JSON.stringify(progress)) as Record<string, unknown>;
+    const stored = persistedDraft("legacy-seed");
     stored.schemaVersion = PRODUCT_PROGRESS_SCHEMA_VERSION - 1;
     delete stored.measurementEpoch;
+    stored.measurements = { policyVersion: "phase-3-v2", legacy: true };
     storage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(stored));
 
     const result = loadLocalProductProgress(storage, environment, "guided", "standard");
@@ -66,13 +72,7 @@ describe("local progress adapter", () => {
 
   it("rejects an unsupported stored generation as invalid", () => {
     const storage = new MemoryStorage();
-    const progress = createFreshProgressForEnvironment(
-      environment,
-      "seed",
-      "guided",
-      "standard",
-    );
-    const stored = JSON.parse(JSON.stringify(progress)) as Record<string, unknown>;
+    const stored = persistedDraft();
     stored.schemaVersion = PRODUCT_PROGRESS_SCHEMA_VERSION - 2;
     storage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(stored));
 
@@ -84,13 +84,7 @@ describe("local progress adapter", () => {
 
   it("rejects summaries that reference unknown entries", () => {
     const storage = new MemoryStorage();
-    const progress = createFreshProgressForEnvironment(
-      environment,
-      "seed",
-      "guided",
-      "standard",
-    );
-    const stored = JSON.parse(JSON.stringify(progress)) as Record<string, unknown>;
+    const stored = persistedDraft();
     stored.recentSummaries = [{
       kind: "practice",
       exerciseId: "practice-1",
@@ -98,8 +92,6 @@ describe("local progress adapter", () => {
       entryIds: ["unknown"],
       utteranceId: "utterance:unknown",
       templateId: null,
-      frequencyStage: 1,
-      phase: "coverage",
       focusTokenId: null,
       focusEvidence: null,
       attempts: 1,
