@@ -5,6 +5,7 @@ import {
 } from "../../src/app/generated/catalog.js";
 import {
   activeSentenceConstructionFamilies,
+  PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
 } from "../../src/curriculum/formal-syntax-sampling-policy.js";
 import { createSeededRandom } from "../../src/curriculum/random.js";
 import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
@@ -126,6 +127,50 @@ describe("formal syntax effective product distribution", () => {
     });
   });
 
+  it("uses an injected product-family policy instead of the production default", () => {
+    const fourFamilyPolicy = {
+      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+      version: "formal-syntax-family-sampling-test-four-families",
+      sentenceFamilyWeights: {
+        "statement.declarative": 1,
+        "question.polar": 1,
+        request: 1,
+        exclamative: 1,
+      },
+    } as const;
+
+    const composition = composeFormalSyntaxUtterances({
+      eligibleEntries: PRACTICE_CATALOG,
+      profiles: SYNTAX_PROFILES,
+      random: createSeededRandom("formal-family-injected-policy"),
+      samplingMode: "product-family",
+      samplingPolicy: fourFamilyPolicy,
+      minimumLexicalEntries: 1,
+      maximumCandidates: 1,
+      maximumAttempts: 4,
+      bounds: PRODUCT_BOUNDS,
+    });
+
+    // The production default has seven active families and would fail this
+    // four-attempt budget before sampling. Absence of that fallback proves the
+    // injected policy reaches the composer's active-family planner.
+    expect(composition.fallbackReasons).not.toContain("formal-syntax-root-family-budget-insufficient");
+  });
+
+  it("rejects an injected policy in raw sampling mode", () => {
+    expect(() => composeFormalSyntaxUtterances({
+      eligibleEntries: PRACTICE_CATALOG,
+      profiles: SYNTAX_PROFILES,
+      random: createSeededRandom("formal-family-policy-in-raw-mode"),
+      samplingMode: "raw",
+      samplingPolicy: PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+      minimumLexicalEntries: 1,
+      maximumCandidates: 1,
+      maximumAttempts: 1,
+      bounds: PRODUCT_BOUNDS,
+    })).toThrow(/samplingPolicy requires product-family sampling mode/u);
+  });
+
   it("treats same-ID but structurally modified grammar as custom instead of canonical", () => {
     const targetIndex = FORMAL_SYNTAX_RULES.findIndex((rule) => rule.id === "sentence.declarative");
     if (targetIndex < 0) throw new Error("fixture requires sentence.declarative");
@@ -141,7 +186,6 @@ describe("formal syntax effective product distribution", () => {
       profiles: SYNTAX_PROFILES,
       random: createSeededRandom("formal-family-modified-grammar-inferred-raw"),
       rules: modifiedRules,
-      ruleOrderer: ({ candidates }) => candidates,
       minimumLexicalEntries: 1,
       maximumCandidates: 1,
       maximumAttempts: 1,
