@@ -25,6 +25,7 @@ import type {
   ProductionRule,
   RuntimeSyntaxProfile,
 } from "../syntax/types.js";
+import { createFormalSyntaxFamilyRuleOrderer } from "./formal-syntax-sampling-policy.js";
 
 export interface FormalSyntaxUtteranceInput {
   readonly eligibleEntries: readonly CatalogEntry[];
@@ -38,7 +39,11 @@ export interface FormalSyntaxUtteranceInput {
   readonly maximumAttempts: number;
   readonly rules?: readonly ProductionRule[];
   readonly bounds?: DerivationBounds;
-  readonly ruleOrderer?: StructuralRuleOrderer;
+  /**
+   * Override curriculum rule ordering. Null explicitly keeps raw sampler order;
+   * omitted uses the product family policy only with the default formal grammar.
+   */
+  readonly ruleOrderer?: StructuralRuleOrderer | null;
 }
 
 function nextUnit(random: RandomSource): number {
@@ -148,6 +153,11 @@ export function composeFormalSyntaxUtterances(
   const index = buildLexicalProfileIndex(input.eligibleEntries, eligibleProfiles);
   const entriesById = new Map(input.eligibleEntries.map((entry) => [entry.id, entry]));
   const rules = input.rules ?? FORMAL_SYNTAX_RULES;
+  const ruleOrderer = input.ruleOrderer === null
+    ? undefined
+    : input.ruleOrderer ?? (input.rules === undefined
+      ? createFormalSyntaxFamilyRuleOrderer()
+      : undefined);
   const candidates = new Map<string, GrammarUtteranceCandidate>();
   const fallbackReasons = new Set<string>();
 
@@ -164,7 +174,7 @@ export function composeFormalSyntaxUtterances(
         return compatibleProfilesForSlot(slot, index).length > 0;
       },
       ...(input.bounds === undefined ? {} : { bounds: input.bounds }),
-      ...(input.ruleOrderer === undefined ? {} : { ruleOrderer: input.ruleOrderer }),
+      ...(ruleOrderer === undefined ? {} : { ruleOrderer }),
     });
     if (shape === null) {
       fallbackReasons.add("formal-syntax-structural-sampling-exhausted");
