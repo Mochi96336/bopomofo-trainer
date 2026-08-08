@@ -164,7 +164,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     constituent("locative", "AdpositionPhrase", { minimum: 0, maximum: 1 }),
     lexical("predicate", ["VERB"], {
       requiredFunctions: ["predicate"],
-      requiredValencyFrames: ["intransitive", "ambitransitive"],
+      requiredValencyFrames: ["intransitive", "transitive", "ambitransitive"],
       requiredFeatures: { clauseType: "existential" },
     }),
     constituent("postverbalNominal", "NounPhrase"),
@@ -185,8 +185,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   ]),
   production("clause.negative", "Clause", [
     constituent("subject", "NounPhrase", { minimum: 0, maximum: 1, requiredFunctions: ["subject"] }),
-    lexical("negation", ["ADV", "PART"], {
-      requiredFunctions: ["adverbial"],
+    lexical("negation", ["ADV", "AUX", "PART", "VERB"], {
       requiredFeatures: { polarity: "negative" },
     }),
     constituent("predicate", "VerbPhrase", {
@@ -201,13 +200,12 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
       requiredFunctions: ["predicate"],
       requiredFeatures: { aspect: "marked" },
     }),
-    lexical("aspect", ["PART"], { requiredFeatures: { aspect: "marked" } }),
+    lexical("aspect", ["AUX", "PART"], { requiredFeatures: { aspect: "marked" } }),
     constituent("object", "NounPhrase", { minimum: 0, maximum: 1 }),
   ]),
   production("clause.ba", "Clause", [
     subject(),
-    lexical("marker", ["ADP", "PART"], {
-      requiredFunctions: ["marker"],
+    lexical("marker", ["ADP"], {
       requiredFeatures: { voice: "disposal" },
     }),
     object(),
@@ -215,8 +213,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   ]),
   production("clause.bei", "Clause", [
     constituent("patient", "NounPhrase", { requiredFunctions: ["subject"] }),
-    lexical("marker", ["ADP", "PART"], {
-      requiredFunctions: ["marker"],
+    lexical("marker", ["ADP", "AUX"], {
       requiredFeatures: { voice: "passive" },
     }),
     constituent("agent", "NounPhrase", { minimum: 0, maximum: 1, requiredFunctions: ["oblique"] }),
@@ -248,8 +245,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   ]),
   production("clause.comparative", "Clause", [
     subject(),
-    lexical("marker", ["ADP", "PART"], {
-      requiredFunctions: ["marker"],
+    lexical("marker", ["ADP"], {
       requiredFeatures: { clauseType: "comparative" },
     }),
     constituent("standard", "NounPhrase", { requiredFunctions: ["oblique"] }),
@@ -281,7 +277,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     constituent("punctuation", "Punctuation", { minimum: 0, maximum: 1 }),
   ]),
   production("sentence.request", "Sentence", [
-    lexical("marker", ["ADV", "AUX", "PART"], { requiredFeatures: { clauseType: "request" } }),
+    lexical("marker", ["ADV", "AUX", "PART", "VERB"], { requiredFeatures: { clauseType: "request" } }),
     constituent("clause", "Clause", { requiredFeatures: { clauseType: "request" } }),
     sentenceFinal({ clauseType: "request" }),
   ]),
@@ -299,7 +295,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   production("sentence.a-not-a-question", "Sentence", [
     constituent("subject", "NounPhrase", { minimum: 0, maximum: 1, requiredFunctions: ["subject"] }),
     constituent("positivePredicate", "VerbPhrase", { requiredFunctions: ["predicate"] }),
-    lexical("negation", ["ADV", "PART"], { requiredFeatures: { polarity: "negative" } }),
+    lexical("negation", ["ADV", "AUX", "PART"], { requiredFeatures: { polarity: "negative" } }),
     constituent("negativePredicate", "VerbPhrase", {
       requiredFunctions: ["predicate"],
       requiredFeatures: { polarity: "negative", questionType: "a-not-a" },
@@ -309,7 +305,6 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   production("sentence.alternative-question", "Sentence", [
     constituent("firstClause", "Clause"),
     lexical("connector", ["CCONJ", "PART"], {
-      requiredFunctions: ["coordinator"],
       requiredFeatures: { questionType: "alternative" },
     }),
     constituent("secondClause", "Clause"),

@@ -1,6 +1,10 @@
 import { sha256Canonical } from "../reference/importers/canonical-json.js";
 import { FORMAL_GRAMMAR_VERSION } from "./features.js";
-import { syntaxProfileMatchesRequirements, unsupportedProfileFeatureNames } from "./profile-match.js";
+import {
+  syntaxProfileMatchesRequirements,
+  unsupportedLexicalFeatureNames,
+  unsupportedProfileFeatureNames,
+} from "./profile-match.js";
 import type {
   ProductionConstituent,
   ProductionRule,
@@ -136,20 +140,25 @@ export function productionHeadConstituentKeys(
 function profilesMatching(
   profiles: readonly SyntaxProfile[],
   constituent: ProductionConstituent,
+  textByEntryId: ReadonlyMap<string, string>,
 ): readonly SyntaxProfile[] {
-  return profiles.filter((profile) =>
-    syntaxProfileMatchesRequirements(profile, requirementsFor(constituent))
-  );
+  return profiles.filter((profile) => {
+    const text = textByEntryId.get(profile.entryId);
+    return text !== undefined
+      && syntaxProfileMatchesRequirements(profile, requirementsFor(constituent), text);
+  });
 }
 
 function constituentUnsupportedFeatures(
   constituent: ProductionConstituent,
 ): readonly string[] {
-  return unsupportedProfileFeatureNames(constituent.requiredFeatures);
+  return constituent.category === "Lexeme"
+    ? unsupportedLexicalFeatureNames(constituent.requiredFeatures)
+    : unsupportedProfileFeatureNames(constituent.requiredFeatures);
 }
 
 function evidenceBackedRequirements(constituent: ProductionConstituent) {
-  const unsupported = new Set(constituentUnsupportedFeatures(constituent));
+  const unsupported = new Set<string>(unsupportedProfileFeatureNames(constituent.requiredFeatures));
   return {
     ...requirementsFor(constituent),
     requiredFeatures: Object.fromEntries(
@@ -170,6 +179,7 @@ export function buildSyntaxRuleIndex(input: {
   const rules = [...input.rules].sort((left, right) => compareText(left.id, right.id));
   const profiles = [...input.profiles].sort((left, right) => compareText(left.id, right.id));
   const lexemeIds = new Set(lexemes.map((item) => item.id));
+  const textByEntryId = new Map(lexemes.map((item) => [item.id, item.text]));
   if (lexemeIds.size !== lexemes.length) throw new Error("syntax rule index requires unique lexeme IDs");
   if (lexemes.some((item) => !item.text || !Number.isInteger(item.generalRank) || item.generalRank <= 0)) {
     throw new Error("syntax rule index requires non-empty text and positive integer ranks");
@@ -192,7 +202,7 @@ export function buildSyntaxRuleIndex(input: {
     for (const constituent of rule.constituents) {
       if (constituent.category !== "Lexeme" || isSyntheticPunctuation(constituent)) continue;
       const positionId = `${rule.id}:${constituent.key}`;
-      for (const profile of profilesMatching(profiles, constituent)) {
+      for (const profile of profilesMatching(profiles, constituent, textByEntryId)) {
         const positions = directPositionsByEntry.get(profile.entryId) ?? new Set<string>();
         positions.add(positionId);
         directPositionsByEntry.set(profile.entryId, positions);
@@ -210,7 +220,9 @@ export function buildSyntaxRuleIndex(input: {
   const profilesById = new Map(profiles.map((profile) => [profile.id, profile]));
 
   const candidateProfilesForConstituent = (constituent: ProductionConstituent): readonly SyntaxProfile[] => {
-    if (constituent.category === "Lexeme") return profilesMatching(profiles, constituent);
+    if (constituent.category === "Lexeme") {
+      return profilesMatching(profiles, constituent, textByEntryId);
+    }
     return [...(headProfileIdsByCategory.get(constituent.category) ?? [])]
       .map((id) => profilesById.get(id))
       .filter((profile): profile is SyntaxProfile => profile !== undefined)
