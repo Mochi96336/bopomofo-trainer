@@ -50,11 +50,12 @@ export interface StructuralSamplingOptions {
   readonly isLexicalSlotReachable?: (slot: StructuralLexicalSlot) => boolean;
   readonly ruleOrderer?: StructuralRuleOrderer;
   /**
-   * Restrict only the root choice point to these existing production IDs.
-   * Descendants still see the complete grammar. This is a generation target,
-   * not a grammar-legality filter.
+   * Target exactly one existing production at the root choice point. Descendant
+   * categories still see the complete grammar. Restricting this API to one root
+   * rule prevents a family with more executable variants from receiving extra
+   * root-rule fallback opportunities inside one structural attempt.
    */
-  readonly rootProductionRuleIds?: readonly string[];
+  readonly rootProductionRuleId?: string;
 }
 
 interface State {
@@ -189,7 +190,7 @@ function sampleCategory(
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
   ruleOrderer: StructuralRuleOrderer | undefined,
-  rootProductionRuleIds: ReadonlySet<string> | undefined,
+  rootProductionRuleId: string | undefined,
   isRoot: boolean,
 ): Sampled | null {
   let state = inputState;
@@ -199,7 +200,7 @@ function sampleCategory(
   }
   const eligibleRules = (rulesByOutput.get(category) ?? [])
     .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))
-    .filter((rule) => !isRoot || rootProductionRuleIds === undefined || rootProductionRuleIds.has(rule.id));
+    .filter((rule) => !isRoot || rootProductionRuleId === undefined || rule.id === rootProductionRuleId);
   const candidates = orderedRulesForCategory(category, eligibleRules, random, ruleOrderer);
   for (const rule of candidates) {
     const order = rule.surfaceOrders[chooseIndex(random, rule.surfaceOrders.length)];
@@ -264,7 +265,7 @@ function sampleCategory(
           isLexicalSlotReachable,
           excludedClassesForConstituent(constituent),
           ruleOrderer,
-          rootProductionRuleIds,
+          rootProductionRuleId,
           false,
         );
         if (child === null) {
@@ -298,25 +299,14 @@ function sampleCategory(
   return null;
 }
 
-function rootRuleIdSet(
-  options: StructuralSamplingOptions,
-): ReadonlySet<string> | undefined {
-  if (options.rootProductionRuleIds === undefined) return undefined;
-  if (options.rootProductionRuleIds.length === 0) {
-    throw new Error("rootProductionRuleIds must contain at least one production ID");
+function validatedRootRuleId(options: StructuralSamplingOptions): string | undefined {
+  const ruleId = options.rootProductionRuleId;
+  if (ruleId === undefined) return undefined;
+  const rule = options.rules.find((candidate) => candidate.id === ruleId);
+  if (rule === undefined || rule.output !== options.rootCategory) {
+    throw new Error(`rootProductionRuleId references non-root production: ${ruleId}`);
   }
-  const requested = new Set<string>();
-  for (const ruleId of options.rootProductionRuleIds) {
-    if (requested.has(ruleId)) {
-      throw new Error(`rootProductionRuleIds contains duplicate production: ${ruleId}`);
-    }
-    const rule = options.rules.find((candidate) => candidate.id === ruleId);
-    if (rule === undefined || rule.output !== options.rootCategory) {
-      throw new Error(`rootProductionRuleIds references non-root production: ${ruleId}`);
-    }
-    requested.add(ruleId);
-  }
-  return requested;
+  return ruleId;
 }
 
 export function sampleStructuralDerivation(
@@ -328,7 +318,7 @@ export function sampleStructuralDerivation(
     throw new Error("maximumAttempts must be a positive integer");
   }
   assertValidGrammar(options.rules, bounds);
-  const requestedRootRuleIds = rootRuleIdSet(options);
+  const requestedRootRuleId = validatedRootRuleId(options);
   const rulesByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();
   for (const rule of options.rules) {
     rulesByOutput.set(rule.output, [...(rulesByOutput.get(rule.output) ?? []), rule]);
@@ -350,7 +340,7 @@ export function sampleStructuralDerivation(
       options.isLexicalSlotReachable,
       new Set(),
       options.ruleOrderer,
-      requestedRootRuleIds,
+      requestedRootRuleId,
       true,
     );
     if (sampled === null || sampled.element.kind !== "syntax-node") continue;
