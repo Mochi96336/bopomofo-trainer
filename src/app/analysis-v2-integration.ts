@@ -1,5 +1,4 @@
 import "./analysis-v2-modal.css";
-import "./analysis-v2-layout.css";
 import { buildDiagnosticModel } from "../diagnostics/build-model.js";
 import { createEmptyMeasurementSummaryV2 } from "../measurement-v2/aggregate.js";
 import { legacySelectionMeasurementView } from "../measurement-v2/legacy-selection-view.js";
@@ -20,6 +19,7 @@ import {
   type AnalysisV2Controller,
   type AnalysisV2PreferenceStorage,
 } from "./analysis-v2-panel.js";
+import "./analysis-v2-layout.css";
 import { buildAnalysisV2Model } from "./analysis-v2-model.js";
 import type { AnalysisV2Snapshot } from "./analysis-v2-snapshot.js";
 import {
