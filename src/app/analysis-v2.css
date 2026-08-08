@@ -124,14 +124,6 @@
   padding: 28px 34px 24px 4px;
 }
 
-/* Semantic analysis may choose a readable centered width. The shared keyboard
-   primitive itself never owns a width, so overlay consumers can use their own
-   coordinate field without being silently rescaled. */
-.analysis-v2-keyboard-wrap > .analysis-v2-keyboard {
-  width: min(820px, 100%);
-  margin-inline: auto;
-}
-
 .analysis-v2-keyboard-wrap > .analysis-v2-note {
   width: min(760px, 100%);
   margin: 22px auto 0;
@@ -143,12 +135,21 @@
   border-left: 1px solid var(--hairline);
 }
 
+/* Keyboard visual contract: this is intentionally the original analysis
+   keyboard. Analysis V2 can change evidence around it, not its geometry. */
 .analysis-v2-keyboard {
+  position: relative;
   display: grid;
+  width: min(760px, 92%);
+  margin-inline: auto;
   gap: clamp(3px, 0.55vw, 6px);
+  transform: perspective(520px) rotateX(19deg);
+  transform-origin: 50% 100%;
 }
 
 .analysis-v2-keyboard-row {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(60, minmax(0, 1fr));
   gap: clamp(3px, 0.55vw, 6px);
@@ -159,19 +160,51 @@
   isolation: isolate;
   display: grid;
   min-width: 0;
-  height: clamp(34px, 4.25vw, 52px);
-  padding: 3px 1px;
+  height: clamp(23px, 3.7vw, 35px);
+  padding: 0;
   grid-column: span var(--key-columns);
   place-items: center;
-  overflow: hidden;
   border: 1px solid var(--key-border);
-  border-radius: 5px;
-  background: transparent;
+  border-radius: 38% 44% 40% 46% / 42% 38% 46% 40%;
+  background: linear-gradient(
+    color-mix(in srgb, var(--ink) calc(var(--analysis-strength, 0) * 9%), transparent),
+    color-mix(in srgb, var(--ink) calc(var(--analysis-strength, 0) * 3%), transparent)
+  );
   box-shadow:
     inset 0 -1px 0 var(--key-shadow-inset),
     0 1px 0 var(--key-shadow-highlight);
   color: var(--ink-muted);
   cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.analysis-v2-key:nth-child(3n) {
+  border-radius: 44% 38% 46% 40% / 38% 45% 39% 46%;
+}
+
+.analysis-v2-key:is(
+  [style*="--key-columns:5"],
+  [style*="--key-columns:6"],
+  [style*="--key-columns:7"],
+  [style*="--key-columns:8"],
+  [style*="--key-columns:9"],
+  [style*="--key-columns:11"],
+  [style*="--key-columns:28"]
+) {
+  border-radius: 999px;
+}
+
+.analysis-v2-keyboard-row:nth-child(3) > .analysis-v2-key:nth-child(5)::after,
+.analysis-v2-keyboard-row:nth-child(3) > .analysis-v2-key:nth-child(8)::after {
+  position: absolute;
+  bottom: 18%;
+  left: 50%;
+  width: 26%;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--key-notch);
+  content: "";
+  transform: translateX(-50%);
 }
 
 .analysis-v2-key::before,
@@ -181,61 +214,43 @@
   inset: 0;
   background: currentColor;
   content: "";
-  opacity: calc(0.018 + var(--analysis-strength, 0) * 0.24);
+  opacity: 0;
   pointer-events: none;
 }
 
-.analysis-v2-key.insufficient::before {
-  opacity: 0.018;
-}
-
-.analysis-v2-key.preliminary::before {
-  opacity: calc(0.018 + var(--analysis-strength, 0) * 0.11);
-}
-
-.analysis-v2-key.sufficient::before {
-  opacity: calc(0.018 + var(--analysis-strength, 0) * 0.24);
-}
-
-.analysis-v2-key strong,
-.analysis-v2-key small {
-  display: block;
-  max-width: 100%;
+button.analysis-v2-key:hover,
+button.analysis-v2-key:focus-visible {
+  z-index: 2;
+  outline: none;
+  border-color: color-mix(in srgb, var(--ink) 48%, var(--key-border));
+  color: var(--ink);
 }
 
 .analysis-v2-key strong {
-  color: var(--ink);
-  font-size: clamp(0.68rem, 0.88vw, 0.82rem);
+  color: inherit;
+  font-size: clamp(7px, 0.85vw, 10px);
+  font-weight: 680;
   line-height: 1;
 }
 
+/* The original keyboard showed the symbol only. Precision belongs in the
+   inspector/accessible label, not inside the keycap. */
 .analysis-v2-key small {
-  margin-top: 3px;
-  overflow: hidden;
-  color: var(--ink-muted);
-  font-size: clamp(0.48rem, 0.58vw, 0.61rem);
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  text-overflow: clip;
-  white-space: nowrap;
-}
-
-.analysis-v2-key.insufficient small {
-  opacity: 0.5;
+  display: none;
 }
 
 .analysis-v2-key.selected {
   z-index: 3;
-  border-color: var(--key-current-border);
-  background: var(--key-current-bg);
+  border-color: color-mix(in srgb, var(--ink) 58%, var(--key-border));
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
   box-shadow:
-    inset 0 -1px 0 var(--key-current-shadow-1),
-    0 0 0 2px var(--key-current-shadow-2);
+    inset 0 -1px 0 color-mix(in srgb, var(--ink) 10%, transparent),
+    0 0 0 2px color-mix(in srgb, var(--ink) 5%, transparent);
   color: var(--ink);
 }
 
 .analysis-v2-key.unmapped {
-  opacity: 0.3;
+  opacity: 0.33;
   cursor: default;
 }
 
@@ -356,6 +371,10 @@
   position: relative;
   isolation: isolate;
   min-width: 42px;
+}
+
+.analysis-v2-matrix td::before {
+  opacity: calc(0.018 + var(--analysis-strength, 0) * 0.24);
 }
 
 .analysis-v2-confusion-table {
