@@ -1,7 +1,9 @@
 .analysis-v2-speed-field {
   display: grid;
+  width: 100%;
   min-width: 0;
-  gap: 10px;
+  margin-inline: auto;
+  gap: 16px;
 }
 
 .analysis-v2-speed-meta {
@@ -21,20 +23,24 @@
 .analysis-v2-speed-meta span,
 .analysis-v2-speed-meta small {
   color: var(--ink-muted);
-  font-size: 0.66rem;
+  font-size: 0.72rem;
 }
 
 .analysis-v2-speed-meta strong {
-  font-size: 0.74rem;
+  font-size: 0.82rem;
   font-weight: 680;
   font-variant-numeric: tabular-nums;
 }
 
 .analysis-v2-speed-stage {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 270px);
+  grid-template-columns: minmax(0, 1fr);
   min-height: clamp(430px, 60dvh, 610px);
   align-items: stretch;
+}
+
+.analysis-v2-speed-stage.has-selection {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 240px);
 }
 
 .analysis-v2-speed-scroll {
@@ -44,7 +50,7 @@
   overflow-x: auto;
   overflow-y: visible;
   align-items: center;
-  padding: 18px 0 28px;
+  padding: 24px 0 34px;
   overscroll-behavior-inline: contain;
   scrollbar-gutter: stable;
 }
@@ -68,11 +74,12 @@
   z-index: 1;
   width: 100%;
   margin: 0;
-  opacity: 0.9;
+  opacity: 0.82;
+  pointer-events: none;
   transform: none;
 }
 
-.analysis-v2-speed-keyboard .analysis-v2-key {
+.analysis-v2-speed-keyboard * {
   pointer-events: none;
 }
 
@@ -99,11 +106,23 @@
   transform: none;
 }
 
+/* Hit geometry is deliberately wider than the visible stroke. It never changes
+   the visual weight of the evidence field, but gives mouse/pen input a humane
+   target instead of requiring a 1.4–2px pixel-perfect hit. */
+.analysis-v2-speed-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 10px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
 .analysis-v2-speed-path {
   fill: none;
-  stroke: color-mix(in srgb, var(--accent) 84%, var(--ink) 16%);
+  stroke: var(--ink-faint);
   stroke-width: var(--relation-width);
-  stroke-opacity: calc(var(--relation-opacity) * 0.56);
+  stroke-opacity: 1;
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
@@ -116,7 +135,13 @@
 }
 
 .analysis-v2-speed-path.salient {
-  stroke-opacity: var(--relation-opacity);
+  stroke: var(--ink-upcoming);
+  stroke-opacity: 0.94;
+}
+
+.analysis-v2-speed-path.is-slow {
+  stroke: color-mix(in srgb, var(--accent) 78%, var(--ink) 22%);
+  stroke-opacity: 0.86;
 }
 
 .analysis-v2-speed-path:hover,
@@ -130,7 +155,7 @@
 }
 
 .analysis-v2-speed-path.is-muted {
-  stroke-opacity: 0.08;
+  stroke-opacity: 0.18;
 }
 
 .analysis-v2-speed-path.tone {
@@ -168,37 +193,25 @@
 }
 
 .analysis-v2-speed-legend {
-  display: grid;
-  grid-template-columns: auto minmax(120px, 220px) auto minmax(0, 1fr);
-  align-items: center;
-  gap: 9px;
+  display: flex;
   min-width: 0;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 18px;
   color: var(--ink-muted);
-  font-size: 0.66rem;
-}
-
-.analysis-v2-speed-legend i {
-  height: 2px;
-  border-radius: 999px;
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--accent) 48%, transparent),
-    var(--accent)
-  );
+  font-size: 0.7rem;
 }
 
 .analysis-v2-speed-legend small {
-  min-width: 0;
-  justify-self: end;
   color: var(--ink-muted);
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   text-align: right;
 }
 
-@media (max-width: 900px) {
-  .analysis-v2-speed-stage {
+@media (max-width: 1120px) {
+  .analysis-v2-speed-stage,
+  .analysis-v2-speed-stage.has-selection {
     grid-template-columns: minmax(0, 1fr);
-    min-height: 0;
   }
 
   .analysis-v2-speed-inspector {
@@ -206,16 +219,6 @@
     padding: 18px 0 0;
     border-top: 1px solid var(--hairline);
     border-left: 0;
-  }
-
-  .analysis-v2-speed-legend {
-    grid-template-columns: auto minmax(80px, 1fr) auto;
-  }
-
-  .analysis-v2-speed-legend small {
-    grid-column: 1 / -1;
-    justify-self: start;
-    text-align: left;
   }
 }
 
@@ -231,6 +234,12 @@
   }
 
   .analysis-v2-speed-legend {
-    grid-template-columns: auto minmax(64px, 1fr) auto;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .analysis-v2-speed-legend small {
+    text-align: left;
   }
 }
