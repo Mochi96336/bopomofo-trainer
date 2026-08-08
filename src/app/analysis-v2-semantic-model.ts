@@ -16,12 +16,10 @@ import {
   tokenLabel,
 } from "../diagnostics/labels.js";
 import {
-  conservativeDataState,
   dataStateForSamples,
   DIAGNOSTIC_POLICY,
 } from "../diagnostics/policy.js";
 import { buildProgressTrendIndex } from "../diagnostics/progress-trends.js";
-import { selectionInfluence } from "../diagnostics/selection-influence.js";
 import type {
   ConfusionDiagnostic,
   KeyDiagnostic,
@@ -81,9 +79,6 @@ function buildKeys(
     const timingDataState = timingAvailable
       ? dataStateForSamples(timingSamples, DIAGNOSTIC_POLICY.timingSamples)
       : null;
-    const overallDataState = timingDataState === null
-      ? errorDataState
-      : conservativeDataState(errorDataState, timingDataState);
 
     return {
       tokenId,
@@ -93,22 +88,11 @@ function buildKeys(
       attempts,
       errors,
       displayedErrorRatio: attempts === 0 ? null : errors / attempts,
-      errorMetricLabel: "錯誤觀察比例",
       errorDataState,
       timingAvailability,
       timingMs: aggregate?.currentTimeToTypeMs ?? null,
       timingSamples,
-      bestTimingMs: aggregate?.bestTimeToTypeMs ?? null,
       timingDataState,
-      // Measurement V2 keeps eligible timing totals but intentionally does not
-      // persist a synthetic breakdown of why non-samples were excluded.
-      excludedSamples: null,
-      overallDataState,
-      reinforcement: selectionInfluence(
-        aggregate,
-        timingAvailable,
-        input.selectionPolicy,
-      ),
     };
   });
 }
@@ -174,10 +158,16 @@ function keyProgress(
  * This consumes Measurement V2 directly. It never converts the summary to the
  * legacy measurement shape and therefore cannot accidentally revive canonical
  * transition rows while building semantic UI evidence.
+ *
+ * `selectionPolicy` remains part of the input contract because the surrounding
+ * Analysis composition receives the live product environment. The semantic
+ * view itself does not project curriculum reinforcement: only evidence that is
+ * actually rendered belongs in this model.
  */
 export function buildAnalysisV2SemanticModel(
   input: BuildAnalysisV2SemanticModelInput,
 ): AnalysisV2SemanticModel {
+  void input.selectionPolicy;
   const codeByToken = reverseLayout(input.layout);
   const keys = buildKeys(input, codeByToken);
   const confusions = buildConfusions(input, codeByToken);
