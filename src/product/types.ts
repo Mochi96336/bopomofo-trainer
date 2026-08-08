@@ -11,11 +11,12 @@ import type {
   FrequencyFirstUtterancePolicy,
   FrequencyFirstUtteranceSelection,
 } from "../curriculum/frequency-first-utterance.js";
-import type { MeasurementPolicy, MeasurementSummary } from "../measurement/types.js";
-import type { InteractionSessionState } from "../practice/interaction-session.js";
+import type { MeasurementSummaryV2 } from "../measurement-v2/aggregate.js";
+import type { InteractionSessionStateV2 } from "../practice/interaction-session-v2.js";
 import type { RuntimeSyntaxProfile } from "../syntax/types.js";
 
-export const PRODUCT_PROGRESS_SCHEMA_VERSION = 6 as const;
+export const PRODUCT_PROGRESS_SCHEMA_VERSION = 7 as const;
+export const PRODUCT_MEASUREMENT_EPOCH = "coordination-v1" as const;
 
 export type ProductRoundKind = "practice" | "evaluation";
 
@@ -48,10 +49,12 @@ export interface ProductRoundSummary {
 
 export interface ProductProgress {
   readonly schemaVersion: typeof PRODUCT_PROGRESS_SCHEMA_VERSION;
+  /** Separates evidence gathered under incompatible interaction semantics. */
+  readonly measurementEpoch: typeof PRODUCT_MEASUREMENT_EPOCH;
   readonly seed: string;
   readonly mode: PracticeMode;
   readonly layoutId: string;
-  readonly measurements: MeasurementSummary;
+  readonly measurements: MeasurementSummaryV2;
   readonly curriculumPolicyVersion: string;
   readonly curriculum: CurriculumProfile;
   readonly selection: FrequencyFirstSelectionState;
@@ -63,7 +66,6 @@ export interface ProductEnvironment {
   readonly catalogs: ProductCatalogs;
   readonly practiceSupport: CatalogSupportIndex;
   readonly evaluationSupport: CatalogSupportIndex;
-  readonly measurementPolicy: MeasurementPolicy;
   readonly curriculumPolicy: CurriculumPolicy;
   readonly utterancePolicy: FrequencyFirstUtterancePolicy;
 }
@@ -71,6 +73,6 @@ export interface ProductEnvironment {
 export interface ProductState {
   readonly progress: ProductProgress;
   readonly round: ProductRound;
-  readonly session: InteractionSessionState;
+  readonly session: InteractionSessionStateV2;
   readonly summary: ProductRoundSummary | null;
 }
