@@ -4,7 +4,7 @@ import {
   SYNTAX_PROFILES,
 } from "../../src/app/generated/catalog.js";
 import { createSeededRandom } from "../../src/curriculum/random.js";
-import { createFormalSyntaxFamilyRuleOrderer } from "../../src/curriculum/formal-syntax-sampling-policy.js";
+import { createFormalSyntaxFamilySamplingSession } from "../../src/curriculum/formal-syntax-sampling-policy.js";
 import { sentenceConstructionClassification } from "../../src/curriculum/formal-syntax-taxonomy.js";
 import type { StructuralLexicalSlot } from "../../src/syntax/derive.js";
 import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
@@ -22,7 +22,6 @@ function isPracticeLexicalSlot(slot: StructuralLexicalSlot): boolean {
 describe("formal syntax effective product distribution", () => {
   it("keeps A-not-A bounded after real-catalog reachability and product length filtering", () => {
     const index = buildLexicalProfileIndex(PRACTICE_CATALOG, SYNTAX_PROFILES);
-    const orderer = createFormalSyntaxFamilyRuleOrderer();
     const sampleCount = 128;
     const familyCounts = new Map<string, number>();
     let questions = 0;
@@ -30,6 +29,7 @@ describe("formal syntax effective product distribution", () => {
 
     for (let round = 0; round < sampleCount; round += 1) {
       const random = createSeededRandom(`formal-family-distribution:${round}`);
+      const samplingSession = createFormalSyntaxFamilySamplingSession();
       let acceptedRootRuleId: string | null = null;
       for (let attempt = 0; attempt < 64 && acceptedRootRuleId === null; attempt += 1) {
         totalAttempts += 1;
@@ -38,7 +38,7 @@ describe("formal syntax effective product distribution", () => {
           rules: FORMAL_SYNTAX_RULES,
           random,
           maximumAttempts: 1,
-          ruleOrderer: orderer,
+          ruleOrderer: samplingSession.ruleOrderer,
           isLexicalSlotReachable: (slot) => {
             if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") return true;
             return compatibleProfilesForSlot(slot, index).length > 0;
