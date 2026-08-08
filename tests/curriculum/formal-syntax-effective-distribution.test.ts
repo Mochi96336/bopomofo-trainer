@@ -91,4 +91,39 @@ describe("formal syntax effective product distribution", () => {
       syntaxRootRuleId: omitted.candidates[0]!.syntaxRootRuleId,
     });
   });
+
+  it("returns a fallback instead of throwing when a fresh family plan cannot fit the budget", () => {
+    const composition = composeFormalSyntaxUtterances({
+      eligibleEntries: PRACTICE_CATALOG,
+      profiles: SYNTAX_PROFILES,
+      random: createSeededRandom("formal-family-insufficient-budget"),
+      samplingMode: "product-family",
+      minimumLexicalEntries: 1,
+      maximumCandidates: 2,
+      maximumAttempts: 7,
+      bounds: PRODUCT_BOUNDS,
+    });
+
+    expect(composition.candidates).toEqual([]);
+    expect(composition.fallbackReasons).toContain("formal-syntax-root-family-budget-insufficient");
+    expect(composition.fallbackReasons).toContain("formal-syntax-no-candidate");
+  });
+
+  it("rejects a duplicate-ID rule list as an incomplete product grammar", () => {
+    const malformedRules = [
+      ...FORMAL_SYNTAX_RULES.slice(0, -1),
+      FORMAL_SYNTAX_RULES[0]!,
+    ];
+    expect(() => composeFormalSyntaxUtterances({
+      eligibleEntries: PRACTICE_CATALOG,
+      profiles: SYNTAX_PROFILES,
+      random: createSeededRandom("formal-family-duplicate-rule-ids"),
+      rules: malformedRules,
+      samplingMode: "product-family",
+      minimumLexicalEntries: 1,
+      maximumCandidates: 1,
+      maximumAttempts: 64,
+      bounds: PRODUCT_BOUNDS,
+    })).toThrow(/requires the complete formal syntax rule set/u);
+  });
 });
