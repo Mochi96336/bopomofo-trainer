@@ -279,7 +279,7 @@ button.analysis-v2-key:focus-visible {
 
 .analysis-v2-detail-heading span {
   color: var(--ink-muted);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
 }
 
 .analysis-v2-inspector-content dl {
@@ -297,14 +297,16 @@ button.analysis-v2-key:focus-visible {
   border-bottom: 1px solid var(--hairline);
 }
 
+/* Inspector labels are body copy, not footnotes. Keep them one clear step
+   above evidence annotations so selected-key detail does not feel compressed. */
 .analysis-v2-inspector-content dt {
   color: var(--ink-muted);
-  font-size: 0.7rem;
+  font-size: 0.75rem;
 }
 
 .analysis-v2-inspector-content dd {
   margin: 0;
-  font-size: 0.76rem;
+  font-size: 0.82rem;
   font-weight: 680;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -319,7 +321,7 @@ button.analysis-v2-key:focus-visible {
 
 .analysis-v2-inspector-empty strong {
   color: var(--ink);
-  font-size: 0.76rem;
+  font-size: 0.8rem;
   font-weight: 650;
 }
 
@@ -358,11 +360,11 @@ button.analysis-v2-key:focus-visible {
 .analysis-v2-confusion-list span,
 .analysis-v2-confusion-list small {
   color: var(--ink-muted);
-  font-size: 0.66rem;
+  font-size: 0.72rem;
 }
 
 .analysis-v2-confusion-list b {
-  font-size: 0.78rem;
+  font-size: 0.84rem;
   font-variant-numeric: tabular-nums;
 }
 
@@ -418,7 +420,7 @@ button.analysis-v2-key:focus-visible {
 .analysis-v2-motor-table th {
   background: transparent;
   color: var(--ink-muted);
-  font-size: 0.68rem;
+  font-size: 0.74rem;
   font-weight: 650;
 }
 
@@ -437,14 +439,14 @@ button.analysis-v2-key:focus-visible {
 }
 
 .analysis-v2-motor-cell strong {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   font-weight: 680;
 }
 
 .analysis-v2-motor-cell small,
 .analysis-v2-motor-cell span {
   color: var(--ink-muted);
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   line-height: 1.4;
 }
 
@@ -578,7 +580,7 @@ button.analysis-v2-key:focus-visible {
   min-height: 1em;
   margin-top: 3px;
   color: var(--ink-muted);
-  font-size: 0.64rem;
+  font-size: 0.7rem;
 }
 
 .analysis-v2-strategy-total {
