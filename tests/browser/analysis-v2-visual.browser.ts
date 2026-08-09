@@ -106,7 +106,7 @@ async function measureHiddenPracticeKeyboard(page: Page): Promise<{ x: number; y
   });
 }
 
-test("translates the analysis keyboard from the main-page keyboard origin", async ({ page }) => {
+test("translates the analysis keyboard from the main-page keyboard origin without scaling it", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.addInitScript(() => {
     const originalAnimate = Element.prototype.animate;
@@ -117,8 +117,10 @@ test("translates the analysis keyboard from the main-page keyboard origin", asyn
       if (this instanceof HTMLElement
         && (this.classList.contains("analysis-v2-keyboard")
           || this.classList.contains("analysis-v2-speed-board"))) {
+        const rect = this.getBoundingClientRect();
         const frames = Array.isArray(keyframes)
           ? keyframes.map((frame) => ({
+            translate: typeof frame.translate === "string" ? frame.translate : "",
             transform: typeof frame.transform === "string" ? frame.transform : "",
             opacity: typeof frame.opacity === "number" ? frame.opacity : Number(frame.opacity),
           }))
@@ -128,11 +130,18 @@ test("translates the analysis keyboard from the main-page keyboard origin", asyn
           : { duration: Number(options?.duration ?? 0), easing: options?.easing ?? "" };
         (window as typeof window & {
           __analysisKeyboardRise?: {
-            frames: Array<{ transform: string; opacity: number }>;
+            frames: Array<{ translate: string; transform: string; opacity: number }>;
             duration: number;
             easing: string;
+            target: { x: number; y: number };
+            baseTransform: string;
           };
-        }).__analysisKeyboardRise = { frames, ...timing };
+        }).__analysisKeyboardRise = {
+          frames,
+          ...timing,
+          target: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 },
+          baseTransform: getComputedStyle(this).transform,
+        };
       }
       return originalAnimate.call(this, keyframes, options);
     };
@@ -147,9 +156,11 @@ test("translates the analysis keyboard from the main-page keyboard origin", asyn
   const captured = await page.evaluate(() => (
     window as typeof window & {
       __analysisKeyboardRise?: {
-        frames: Array<{ transform: string; opacity: number }>;
+        frames: Array<{ translate: string; transform: string; opacity: number }>;
         duration: number;
         easing: string;
+        target: { x: number; y: number };
+        baseTransform: string;
       };
     }
   ).__analysisKeyboardRise ?? null);
@@ -157,22 +168,20 @@ test("translates the analysis keyboard from the main-page keyboard origin", asyn
   expect(captured?.duration).toBe(320);
   expect(captured?.easing).toBe("cubic-bezier(.2, .75, .25, 1)");
   expect(captured?.frames).toHaveLength(2);
-  expect(captured?.frames[0]?.transform).toContain("scale(1, 1)");
-  expect(captured?.frames[0]?.transform).toContain("perspective(520px) rotateX(19deg)");
+  expect(captured?.baseTransform).not.toBe("none");
+  expect(captured?.frames[0]?.transform).toBe("");
+  expect(captured?.frames[1]?.transform).toBe("");
+  expect(captured?.frames[0]?.translate).not.toBe("");
+  expect(captured?.frames[1]?.translate).toBe("0px 0px");
   expect(captured?.frames[0]?.opacity).toBe(0.25);
-  expect(captured?.frames[1]?.transform).toBe("perspective(520px) rotateX(19deg)");
   expect(captured?.frames[1]?.opacity).toBe(1);
 
-  const match = captured?.frames[0]?.transform.match(/translate\((-?[\d.]+)px, (-?[\d.]+)px\)/);
+  const match = captured?.frames[0]?.translate.match(/(-?[\d.]+)px\s+(-?[\d.]+)px/);
   expect(match).not.toBeNull();
   const dx = Number(match?.[1]);
   const dy = Number(match?.[2]);
-  const target = await page.locator(".analysis-v2-speed-board").evaluate((board) => {
-    const rect = board.getBoundingClientRect();
-    return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-  });
-  expect(Math.abs(target.x + dx - origin.x)).toBeLessThan(2);
-  expect(Math.abs(target.y + dy - origin.y)).toBeLessThan(2);
+  expect(Math.abs((captured?.target.x ?? 0) + dx - origin.x)).toBeLessThan(0.5);
+  expect(Math.abs((captured?.target.y ?? 0) + dy - origin.y)).toBeLessThan(0.5);
 
   await page.waitForTimeout(200);
   const stage = await page.evaluate(() => {
@@ -361,13 +370,15 @@ test("keeps a dense flyline field distinguishable in dark mode", async ({ page }
     )!;
     const slow = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-slow")!;
     return {
-      normal: getComputedStyle(normal).stroke,
-      slow: getComputedStyle(slow).stroke,
+      normalOpacity: Number(getComputedStyle(normal).strokeOpacity),
       slowOpacity: Number(getComputedStyle(slow).strokeOpacity),
+      slowStroke: getComputedStyle(slow).stroke,
+      ink: getComputedStyle(host).color,
     };
   });
-  expect(palette.normal).not.toBe(palette.slow);
-  expect(palette.slowOpacity).toBeGreaterThan(0.7);
+  expect(palette.normalOpacity).toBeLessThan(palette.slowOpacity);
+  expect(palette.slowOpacity).toBe(1);
+  expect(palette.slowStroke).toBe(palette.ink);
 });
 
 test("keeps mobile horizontal overflow inside the flyline stage", async ({ page }) => {
