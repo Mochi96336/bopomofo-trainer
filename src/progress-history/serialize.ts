@@ -32,6 +32,7 @@ import {
 const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_2 = 2;
 const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_3 = 3;
 const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_4 = 4;
+const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_5 = 5;
 export const PROGRESS_HISTORY_KEY_LIMIT = 128;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -339,6 +340,7 @@ function parseMotorProgressHistory(
   policy: ProgressHistoryPolicy,
   lastCompletedRound: number,
   coordinationSchema: "current" | "legacy-4" | "legacy-3",
+  sameHandSchema: "current" | "legacy",
 ): MotorProgressHistory | null {
   if (!isRecord(value)) return null;
 
@@ -370,7 +372,7 @@ function parseMotorProgressHistory(
     policy,
     lastCompletedRound,
   );
-  const sameHandRevisits = parseMotorFamily(
+  const parsedSameHandRevisits = parseMotorFamily(
     value.sameHandRevisits,
     parseSameHandScope,
     sameHandRevisitAggregateKey,
@@ -378,6 +380,7 @@ function parseMotorProgressHistory(
     policy,
     lastCompletedRound,
   );
+  const sameHandRevisits = sameHandSchema === "current" ? parsedSameHandRevisits : {};
   const toneCommits = parseMotorFamily(
     value.toneCommits,
     (scope) => parseToneScope(scope, validTokens),
@@ -387,7 +390,7 @@ function parseMotorProgressHistory(
     lastCompletedRound,
   );
   if (coordination === null || immediateHands === null
-    || sameHandRevisits === null || toneCommits === null) return null;
+    || parsedSameHandRevisits === null || toneCommits === null) return null;
   return { coordination, immediateHands, sameHandRevisits, toneCommits };
 }
 
@@ -413,6 +416,7 @@ export function parseProgressHistory(
   const schemaVersion = parsed.schemaVersion;
   if (
     schemaVersion !== PROGRESS_HISTORY_SCHEMA_VERSION
+    && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_5
     && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_4
     && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_3
     && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_2
@@ -445,16 +449,21 @@ export function parseProgressHistory(
     motor = emptyMotorProgressHistory();
   } else {
     const coordinationSchema = schemaVersion === PROGRESS_HISTORY_SCHEMA_VERSION
+      || schemaVersion === LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_5
       ? "current"
       : schemaVersion === LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_4
         ? "legacy-4"
         : "legacy-3";
+    const sameHandSchema = schemaVersion === PROGRESS_HISTORY_SCHEMA_VERSION
+      ? "current"
+      : "legacy";
     motor = parseMotorProgressHistory(
       parsed.motor,
       validTokens,
       policy,
       parsed.lastCompletedRound as number,
       coordinationSchema,
+      sameHandSchema,
     );
   }
   if (motor === null) return null;
