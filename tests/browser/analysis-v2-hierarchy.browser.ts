@@ -85,7 +85,7 @@ async function installSpeedProgress(page: Page, edgeCount: number): Promise<void
   }, { key: PROGRESS_KEY, value: source });
 }
 
-test("gives the keyboard most of the desktop stage while the readout stays nearby", async ({ page }) => {
+test("keeps a medium keyboard while using desktop space to separate the reading", async ({ page }) => {
   await page.setViewportSize({ width: 2000, height: 1100 });
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
@@ -110,17 +110,17 @@ test("gives the keyboard most of the desktop stage while the readout stays nearb
     };
   });
 
-  expect(metrics.domainWidth).toBeLessThanOrEqual(1180.5);
-  expect(metrics.stageWidth).toBeLessThanOrEqual(1180.5);
-  expect(metrics.stageHeight).toBeLessThanOrEqual(520.5);
-  expect(metrics.keyboardWidth).toBeGreaterThanOrEqual(1039);
-  expect(metrics.keyboardWidth).toBeLessThanOrEqual(1040.5);
-  expect(metrics.keyboardShare).toBeGreaterThan(0.86);
-  expect(metrics.keyboardShare).toBeLessThan(0.9);
+  expect(metrics.domainWidth).toBeLessThanOrEqual(1080.5);
+  expect(metrics.stageWidth).toBeLessThanOrEqual(1080.5);
+  expect(metrics.stageHeight).toBeLessThanOrEqual(480.5);
+  expect(metrics.keyboardWidth).toBeGreaterThanOrEqual(759);
+  expect(metrics.keyboardWidth).toBeLessThanOrEqual(760.5);
+  expect(metrics.keyboardShare).toBeGreaterThan(0.69);
+  expect(metrics.keyboardShare).toBeLessThan(0.72);
   expect(metrics.leadFont).toBeGreaterThanOrEqual(24);
   expect(metrics.leadFont).toBeLessThanOrEqual(29.5);
-  expect(metrics.leadGap).toBeGreaterThanOrEqual(18);
-  expect(metrics.leadGap).toBeLessThanOrEqual(80);
+  expect(metrics.leadGap).toBeGreaterThanOrEqual(45);
+  expect(metrics.leadGap).toBeLessThanOrEqual(130);
 });
 
 test("keeps Semantic and Coordination keyboards at one fixed screen position and scale", async ({ page }) => {
@@ -143,7 +143,7 @@ test("keeps Semantic and Coordination keyboards at one fixed screen position and
   });
   expect(Math.abs(coordinationAfter.top - coordinationBefore.top)).toBeLessThan(0.5);
   expect(coordinationAfter.width).toBe(coordinationBefore.width);
-  expect(coordinationBefore.width).toBe(1040);
+  expect(coordinationBefore.width).toBe(760);
 
   await analysis.locator('[data-tab="semantic"]').click();
   const semanticBoard = analysis.locator(".analysis-v2-keyboard");
@@ -210,10 +210,10 @@ test("keeps exactly one red flyline and never turns Analysis text red on hover",
   expect(palette.accentStroke).toBe(palette.accent);
   expect(palette.neutralSlowStroke).toBe(palette.ink);
   expect(palette.neutralSlowStroke).not.toBe(palette.accent);
-  expect(palette.stageHeight).toBeLessThanOrEqual(450.5);
+  expect(palette.stageHeight).toBeLessThanOrEqual(430.5);
   expect(palette.boardTopInsideStage).toBeGreaterThan(8);
-  expect(palette.readoutGap).toBeGreaterThanOrEqual(18);
-  expect(palette.readoutGap).toBeLessThanOrEqual(80);
+  expect(palette.readoutGap).toBeGreaterThanOrEqual(45);
+  expect(palette.readoutGap).toBeLessThanOrEqual(130);
   expect(palette.captionBelowReadout).toBe(true);
 
   await analysis.evaluate((host) => {
