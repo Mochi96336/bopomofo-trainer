@@ -20,6 +20,18 @@ describe("formal phrase production inventory", () => {
     expect([...reachable].sort()).toEqual([...UPOS_VALUES].sort());
   });
 
+  it("licenses classifiers through UD NOUN + clf evidence rather than PART", () => {
+    const rule = PHRASE_PRODUCTION_RULES.find(
+      (item) => item.id === "phrase.numeral.classifier",
+    );
+    const classifier = rule?.constituents.find((item) => item.key === "classifier");
+    expect(classifier).toMatchObject({
+      allowedUpos: ["NOUN"],
+      requiredFunctions: ["classifier"],
+    });
+    expect(classifier?.allowedUpos).not.toContain("PART");
+  });
+
   it("locks phrase repetition to the declared termination bounds", () => {
     const noun = PHRASE_PRODUCTION_RULES.find(
       (rule) => rule.id === "phrase.noun.expanded",
