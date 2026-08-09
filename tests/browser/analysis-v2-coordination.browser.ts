@@ -18,25 +18,26 @@ test("surfaces motor evidence through the integrated Analysis V2 summary", async
   const analysis = page.locator("#analysis-v2");
   await expect(analysis.locator("#analysis-v2-title")).toHaveText("分析");
   await expect(analysis.locator('[data-tab="coordination"]')).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator("#analysis-v2-coordination-title")).toHaveText("協調");
   await expect(page.locator(".analysis-v2-speed-field")).toBeVisible();
   await expect(page.locator(".analysis-v2-speed-board")).toBeVisible();
   await expect(page.locator(".analysis-v2-speed-svg marker")).toHaveCount(0);
 
-  const evidence = page.locator(".analysis-v2-evidence-group");
+  const evidence = page.locator('[data-action="evidence-family"]');
   await expect(evidence).toHaveCount(4);
-  await expect(evidence.locator("summary")).toHaveText([
+  await expect(evidence).toContainText([
     /手別轉換/,
     /同側再出手/,
     /音節跨度/,
     /聲調收尾/,
   ]);
-  await expect(page.locator(".analysis-v2-evidence-group[open]")).toHaveCount(0);
+  await expect(analysis.locator('[data-action="evidence-family"][aria-expanded="true"]')).toHaveCount(0);
+  await expect(analysis.locator("#analysis-v2-evidence-detail")).toBeHidden();
 
-  await evidence.first().locator("summary").click();
-  await expect(evidence.first()).toHaveAttribute("open", "");
-  await expect(evidence.first()).toContainText("依標準指法的鍵位分工推定");
-  await expect(evidence.first()).toContainText("不代表偵測到你實際使用哪隻手");
+  await evidence.first().click();
+  await expect(analysis.locator('[data-action="evidence-family"][aria-expanded="true"]')).toHaveCount(1);
+  await expect(analysis.locator('[data-family="hands"]')).toHaveAttribute("aria-expanded", "true");
+  await expect(analysis.locator("#analysis-v2-evidence-detail")).toContainText("依標準指法的鍵位分工推定");
+  await expect(analysis.locator("#analysis-v2-evidence-detail")).toContainText("不代表偵測到你實際使用哪隻手");
 });
 
 test("retires canonical transition diagnostics from every production navigation path", async ({ page }) => {
