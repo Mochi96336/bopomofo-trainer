@@ -83,6 +83,11 @@ export interface ImmediateHandObservation {
   readonly clean: boolean;
 }
 
+/**
+ * Reappearance of the same conventional hand assignment inside one word body.
+ * Tone keys and cross-word/syllable predecessors are deliberately excluded;
+ * tone completion is owned by ToneCommitObservation instead.
+ */
 export interface SameHandRevisitObservation {
   readonly traceSequence: number;
   readonly hand: ExplicitHand;
