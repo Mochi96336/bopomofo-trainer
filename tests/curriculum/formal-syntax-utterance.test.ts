@@ -246,6 +246,8 @@ describe("frequency-first formal syntax compatibility composer", () => {
     const keep = new Set([
       "sentence.declarative",
       "clause.transitive",
+      "argument.subject.noun",
+      "argument.object.noun",
       "phrase.noun.bare",
       "phrase.nominal-head.noun",
       "predicate.verb.lexical",
