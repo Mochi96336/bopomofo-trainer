@@ -101,7 +101,7 @@
 .analysis-v2-speed-field,
 .analysis-v2-speed-stage,
 .analysis-v2-strategy-stage,
-.analysis-v2-evidence-rail,
+.analysis-v2-movement-view,
 .analysis-v2-semantic-rail {
   min-width: 0;
 }
@@ -241,8 +241,8 @@
   scrollbar-gutter: stable;
 }
 
-/* The protected board can overflow only inside its dedicated horizontal scroller
-   on narrow viewports. Desktop keeps the exact 760px geometry. */
+/* Desktop keeps the exact protected board width. Phone layouts opt out of this
+   minimum so Coordination follows Semantic and fits the whole keyboard at once. */
 .analysis-v2-speed-board {
   min-width: 680px;
 }
@@ -336,15 +336,8 @@
   }
 
   .analysis-v2-speed-board {
-    min-width: 600px;
-  }
-
-  .analysis-v2-motor-table {
-    min-width: 460px;
-  }
-
-  .analysis-v2-motor-table.wide {
-    min-width: 600px;
+    width: 100%;
+    min-width: 0;
   }
 
   .analysis-v2-method {
@@ -365,12 +358,6 @@
 
   .strategy-matrix {
     min-width: 360px;
-  }
-}
-
-@media (max-width: 420px) {
-  .analysis-v2-speed-board {
-    min-width: 560px;
   }
 }
 
