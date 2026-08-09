@@ -13,8 +13,9 @@ import type {
 } from "./types.js";
 
 export const LEGACY_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-1" as const;
-export const PREVIOUS_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-2" as const;
-export const MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-3" as const;
+export const HANDSHAPE_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-2" as const;
+export const PREVIOUS_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-3" as const;
+export const MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-4" as const;
 const SMOOTHING_ALPHA = 0.25;
 
 /**
