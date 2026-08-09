@@ -84,21 +84,27 @@ async function installSemanticLeadProgress(page: Page): Promise<void> {
   }, { key: PROGRESS_KEY, value: source });
 }
 
-test("keeps the Analysis title away from the viewport edge and header hairline", async ({ page }) => {
+test("keeps the Analysis title inset while joining the active tab to the header divider", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const analysis = await openAnalysis(page);
   const geometry = await analysis.evaluate((host) => {
     const header = host.querySelector<HTMLElement>(".analysis-v2-header")!;
     const title = header.querySelector<HTMLElement>("h2")!;
+    const activeTab = header.querySelector<HTMLElement>('.analysis-v2-tabs button[aria-selected="true"]')!;
     const headerRect = header.getBoundingClientRect();
     const titleRect = title.getBoundingClientRect();
+    const activeRect = activeTab.getBoundingClientRect();
+    const indicator = getComputedStyle(activeTab, "::after");
+    const indicatorBottom = activeRect.bottom - Number.parseFloat(indicator.bottom);
     return {
       leftInset: titleRect.left - headerRect.left,
       lineGap: headerRect.bottom - titleRect.bottom,
+      indicatorDividerGap: Math.abs(headerRect.bottom - indicatorBottom),
     };
   });
   expect(geometry.leftInset).toBeGreaterThanOrEqual(24);
   expect(geometry.lineGap).toBeGreaterThanOrEqual(8);
+  expect(geometry.indicatorDividerGap).toBeLessThanOrEqual(1.5);
 });
 
 test("does not expose a desktop horizontal scroller while the keyboard enters", async ({ page }) => {
@@ -140,40 +146,62 @@ test("keeps empty-state explanation out of the keyboard object", async ({ page }
   await expect(analysis.locator(".analysis-v2-hero-readout")).toContainText("仍在累積");
 });
 
-test("swaps Coordination family details inside reserved space", async ({ page }) => {
+test("lets Coordination evidence use page flow and desktop horizontal room", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const analysis = await openAnalysis(page);
-  const main = analysis.locator(".analysis-v2-main");
-  const rail = analysis.locator(".analysis-v2-evidence-rail");
-  const before = await rail.boundingBox();
-  const scrollHeightBefore = await main.evaluate((element) => element.scrollHeight);
+  const nav = analysis.locator(".analysis-v2-evidence-nav");
+  const before = await nav.evaluate((node) =>
+    [...node.querySelectorAll<HTMLElement>('[data-action="evidence-family"]')].map((button) => {
+      const rect = button.getBoundingClientRect();
+      return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+    }));
 
   await analysis.locator('[data-action="evidence-family"][data-family="hands"]').click();
-  await expect(analysis.locator("#analysis-v2-evidence-detail")).toBeVisible();
+  const detail = analysis.locator("#analysis-v2-evidence-detail");
+  await expect(detail).toBeVisible();
 
-  const after = await rail.boundingBox();
-  const scrollHeightAfter = await main.evaluate((element) => element.scrollHeight);
-  expect(before).not.toBeNull();
-  expect(after).not.toBeNull();
-  expect(Math.abs((after?.height ?? 0) - (before?.height ?? 0))).toBeLessThanOrEqual(1);
-  expect(Math.abs(scrollHeightAfter - scrollHeightBefore)).toBeLessThanOrEqual(1);
+  const after = await nav.evaluate((node) =>
+    [...node.querySelectorAll<HTMLElement>('[data-action="evidence-family"]')].map((button) => {
+      const rect = button.getBoundingClientRect();
+      return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+    }));
+  expect(after).toEqual(before);
+
+  const flow = await detail.evaluate((node) => {
+    const body = node.querySelector<HTMLElement>(".analysis-v2-evidence-body")!;
+    const copy = body.querySelector<HTMLElement>(":scope > p")!;
+    const table = body.querySelector<HTMLElement>(".analysis-v2-table-scroll")!;
+    const copyRect = copy.getBoundingClientRect();
+    const tableRect = table.getBoundingClientRect();
+    const detailStyle = getComputedStyle(node);
+    return {
+      overflowY: detailStyle.overflowY,
+      maxHeight: detailStyle.maxHeight,
+      columns: getComputedStyle(body).gridTemplateColumns,
+      usesHorizontalRoom: tableRect.left > copyRect.right,
+    };
+  });
+  expect(flow.overflowY).toBe("visible");
+  expect(flow.maxHeight).toBe("none");
+  expect(flow.columns).not.toBe("none");
+  expect(flow.usesHorizontalRoom).toBe(true);
 });
 
-test("opens data rules without increasing the page height", async ({ page }) => {
+test("lets data rules join normal page flow instead of a fixed scroll well", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const analysis = await openAnalysis(page);
-  const main = analysis.locator(".analysis-v2-main");
   const method = analysis.locator(".analysis-v2-method");
   const heightBefore = await method.evaluate((element) => element.getBoundingClientRect().height);
-  const scrollHeightBefore = await main.evaluate((element) => element.scrollHeight);
 
   await method.locator("summary").click();
   await expect(method).toHaveAttribute("open", "");
 
-  const heightAfter = await method.evaluate((element) => element.getBoundingClientRect().height);
-  const scrollHeightAfter = await main.evaluate((element) => element.scrollHeight);
-  expect(Math.abs(heightAfter - heightBefore)).toBeLessThanOrEqual(1);
-  expect(Math.abs(scrollHeightAfter - scrollHeightBefore)).toBeLessThanOrEqual(1);
+  const after = await method.evaluate((element) => ({
+    height: element.getBoundingClientRect().height,
+    overflowY: getComputedStyle(element).overflowY,
+  }));
+  expect(after.height).toBeGreaterThan(heightBefore);
+  expect(after.overflowY).toBe("visible");
 });
 
 test("gives Semantic a second summary level instead of ending at the lead keys", async ({ page }) => {
