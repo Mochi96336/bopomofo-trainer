@@ -118,12 +118,17 @@ function fixturesForRule(rule: ProductionRule): readonly ProductionFixture[] {
  * Clause/argument constructions that already own their arguments use this
  * category so a nested VerbPhrase cannot silently add another object. Legacy
  * VerbPhrase remains executable for callers that have not migrated yet.
- * Marking and complement constituents intentionally remain here for behavior
- * parity until their own v2 axes become executable.
+ *
+ * Predicate heads inherit lexical valency requirements but deliberately do not
+ * inherit the enclosing structural `predicate` function. In the current UD
+ * projection that function is evidence that this written form was observed as
+ * `root`; it is not a complete lexical-capability inventory. Marking and
+ * complement constituents intentionally remain here for behavior parity until
+ * their own v2 axes become executable.
  */
 export const PREDICATE_PRODUCTION_RULES: readonly ProductionRule[] = [
   production("predicate.verb.lexical", [
-    lexical("head", ["VERB"], { inheritFunctions: true, inheritValencyFrames: true }),
+    lexical("head", ["VERB"], { inheritValencyFrames: true }),
   ]),
   production("predicate.verb.expanded", [
     lexical("negation", ["ADV", "AUX", "PART", "VERB"], {
@@ -137,7 +142,7 @@ export const PREDICATE_PRODUCTION_RULES: readonly ProductionRule[] = [
       maximum: 3,
       cardinalityBound: "consecutive-modifiers",
     }),
-    lexical("head", ["VERB"], { inheritFunctions: true, inheritValencyFrames: true }),
+    lexical("head", ["VERB"], { inheritValencyFrames: true }),
     constituent("complement", "Complement", {
       minimum: 0,
       maximum: 2,
