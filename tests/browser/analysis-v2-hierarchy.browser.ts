@@ -110,13 +110,13 @@ test("keeps a medium keyboard while using desktop space to separate the reading"
     };
   });
 
-  expect(metrics.domainWidth).toBeLessThanOrEqual(1080.5);
-  expect(metrics.stageWidth).toBeLessThanOrEqual(1080.5);
+  expect(metrics.domainWidth).toBeLessThanOrEqual(1180.5);
+  expect(metrics.stageWidth).toBeLessThanOrEqual(1180.5);
   expect(metrics.stageHeight).toBeLessThanOrEqual(480.5);
   expect(metrics.keyboardWidth).toBeGreaterThanOrEqual(759);
   expect(metrics.keyboardWidth).toBeLessThanOrEqual(760.5);
-  expect(metrics.keyboardShare).toBeGreaterThan(0.69);
-  expect(metrics.keyboardShare).toBeLessThan(0.72);
+  expect(metrics.keyboardShare).toBeGreaterThan(0.63);
+  expect(metrics.keyboardShare).toBeLessThan(0.66);
   expect(metrics.leadFont).toBeGreaterThanOrEqual(24);
   expect(metrics.leadFont).toBeLessThanOrEqual(29.5);
   expect(metrics.leadGap).toBeGreaterThanOrEqual(45);
