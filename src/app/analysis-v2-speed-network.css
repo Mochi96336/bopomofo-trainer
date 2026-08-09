@@ -18,8 +18,7 @@
 }
 
 /* Desktop does not need a horizontal scroller for the protected 760px board.
-   Clipping here prevents the entrance translation from flashing a scrollbar;
-   narrow layouts opt back into deliberate horizontal scrolling below. */
+   Clipping here prevents the entrance translation from flashing a scrollbar. */
 .analysis-v2-speed-scroll {
   display: grid;
   width: 100%;
@@ -44,9 +43,11 @@
   transform-origin: 50% 100%;
 }
 
+/* Key borders and glyphs paint above the flylines. Keycaps stay transparent, so
+   paths remain readable through the board without cutting across the labels. */
 .analysis-v2-speed-keyboard {
   position: relative;
-  z-index: 1;
+  z-index: 3;
   width: 100%;
   margin: 0;
   opacity: 0.82;
@@ -221,6 +222,10 @@
 }
 
 @media (max-width: 640px) {
+  .analysis-v2-speed-scroll {
+    overflow-x: clip;
+  }
+
   .analysis-v2-speed-caption,
   .analysis-v2-speed-legend,
   .analysis-v2-speed-inspector {
