@@ -119,6 +119,10 @@ function open(): HTMLElement {
   return controller.host;
 }
 
+function selectTab(host: HTMLElement, tab: "coordination" | "semantic" | "strategy"): void {
+  host.querySelector<HTMLButtonElement>(`[data-action="select-tab"][data-tab="${tab}"]`)?.click();
+}
+
 afterEach(() => {
   controller?.destroy();
   controller = null;
@@ -128,6 +132,7 @@ afterEach(() => {
 describe("Analysis V2 visual hierarchy", () => {
   it("marks only a bounded sufficient-data semantic set and gives it a typographic lead", () => {
     const host = open();
+    selectTab(host, "semantic");
     const marked = [...host.querySelectorAll<HTMLElement>(".analysis-v2-key.is-salient")];
     expect(marked).toHaveLength(4);
     expect(marked.map((node) => node.dataset.token)).toEqual([
@@ -147,14 +152,11 @@ describe("Analysis V2 visual hierarchy", () => {
 
   it("shows a timing anchor before interaction and keeps accent flylines rare", () => {
     const host = open();
-    host.querySelector<HTMLButtonElement>(
-      '[data-action="select-tab"][data-tab="coordination"]',
-    )?.click();
-
     const readout = host.querySelector(".analysis-v2-speed-readout");
     expect(readout?.textContent).toContain("ㄍ → ㄎ");
     expect(readout?.textContent).toContain("180 ms");
     expect(host.querySelectorAll(".analysis-v2-speed-path.is-slow")).toHaveLength(3);
+    expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
     expect(host.querySelector(".analysis-v2-speed-stage")?.classList.contains("has-selection"))
       .toBe(false);
     expect(host.querySelector(".analysis-v2-speed-inspector")).toBeNull();
@@ -166,13 +168,14 @@ describe("Analysis V2 visual hierarchy", () => {
       .toBe(true);
     expect(host.querySelector(".analysis-v2-speed-inspector")?.textContent).toContain("100 ms");
     expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toContain("100 ms");
+    expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
+    expect(host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-accent")?.dataset.speedId)
+      .toBe("e1");
   });
 
   it("gives strategy one supported deviation anchor without changing its bounded matrix", () => {
     const host = open();
-    host.querySelector<HTMLButtonElement>(
-      '[data-action="select-tab"][data-tab="strategy"]',
-    )?.click();
+    selectTab(host, "strategy");
     const lead = host.querySelector(".analysis-v2-strategy-readout");
     expect(lead?.textContent).toContain("後 → 前");
     expect(lead?.textContent).toContain("40%");
