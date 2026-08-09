@@ -35,6 +35,30 @@ test("does not expose a desktop horizontal scroller while the keyboard enters", 
   expect(overflow).toBe("clip");
 });
 
+test("keeps the wide flyline hit target fully invisible", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const analysis = await openAnalysis(page);
+  const hitStyle = await analysis.evaluate((host) => {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.classList.add("analysis-v2-speed-hit");
+    path.setAttribute("d", "M0,0 L20,20");
+    svg.append(path);
+    host.append(svg);
+    const style = getComputedStyle(path);
+    const result = {
+      strokeOpacity: style.strokeOpacity,
+      strokeWidth: style.strokeWidth,
+      pointerEvents: style.pointerEvents,
+    };
+    svg.remove();
+    return result;
+  });
+  expect(Number(hitStyle.strokeOpacity)).toBe(0);
+  expect(Number.parseFloat(hitStyle.strokeWidth)).toBe(10);
+  expect(hitStyle.pointerEvents).toBe("stroke");
+});
+
 test("keeps empty-state explanation out of the keyboard object", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const analysis = await openAnalysis(page);
@@ -76,6 +100,17 @@ test("opens data rules without increasing the page height", async ({ page }) => 
   const scrollHeightAfter = await main.evaluate((element) => element.scrollHeight);
   expect(Math.abs(heightAfter - heightBefore)).toBeLessThanOrEqual(1);
   expect(Math.abs(scrollHeightAfter - scrollHeightBefore)).toBeLessThanOrEqual(1);
+});
+
+test("gives Semantic a second summary level instead of ending at the lead keys", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const analysis = await openAnalysis(page);
+  await analysis.locator('[data-tab="semantic"]').click();
+  const rail = analysis.locator(".analysis-v2-semantic-rail");
+  await expect(rail).toBeVisible();
+  await expect(rail.locator(":scope > div")).toHaveCount(2);
+  await expect(rail).toContainText("按鍵資料");
+  await expect(rail).toContainText("誤按資料");
 });
 
 test("removes the generic Semantic lead once a key is selected", async ({ page }) => {
