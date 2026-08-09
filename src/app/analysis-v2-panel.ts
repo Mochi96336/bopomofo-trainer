@@ -10,6 +10,7 @@ import type {
   ConfusionDiagnostic,
   DiagnosticDataState,
   KeyDiagnostic,
+  ProgressSeriesPoint,
 } from "../diagnostics/types.js";
 import type {
   CoordinationAggregateScope,
@@ -23,14 +24,16 @@ import { STANDARD_BOPOMOFO_LAYOUT } from "../scheme/standard-layout.js";
 import { KEYBOARD_GEOMETRY_ROWS, keyboardColumnSpan } from "./keyboard-geometry.js";
 import { escapeHtml } from "./html.js";
 import type { AnalysisV2Model, AnalysisV2MotorCell } from "./analysis-v2-model.js";
+import { sparklinePoints } from "./practice-sparkline.js";
 import {
   ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES,
   ANALYSIS_V2_SPEED_VIEWBOX,
   buildAnalysisV2SpeedPaths,
 } from "./analysis-v2-speed-network.js";
 
-export type AnalysisV2Tab = "semantic" | "coordination" | "strategy";
+export type AnalysisV2Tab = "coordination" | "semantic" | "strategy";
 type SemanticView = "correctness" | "confusion";
+type EvidenceFamily = "hands" | "revisit" | "span" | "tone";
 
 interface AnalysisV2Preferences {
   readonly activeTab: AnalysisV2Tab;
@@ -56,25 +59,38 @@ export interface AnalysisV2Options {
 }
 
 const PREFERENCES_KEY = "bopomofo-trainer.analysis-v2.v1";
-const TABS: readonly AnalysisV2Tab[] = ["semantic", "coordination", "strategy"];
+const TABS: readonly AnalysisV2Tab[] = ["coordination", "semantic", "strategy"];
 const DEFAULT_PREFERENCES: AnalysisV2Preferences = {
-  activeTab: "semantic",
+  activeTab: "coordination",
   semanticView: "correctness",
 };
-const BODY_SIZES: readonly CoordinationBodySizeBucket[] = ["2", "3", "4+"];
+const BODY_SIZES: readonly CoordinationBodySizeBucket[] = ["2", "3"];
 const POSITIONS = ["first", "middle", "last"] as const;
 const SEMANTIC_SALIENT_KEY_COUNT = 4;
 const SEMANTIC_LEAD_KEY_COUNT = 3;
 const SPEED_SALIENT_EDGE_COUNT = 16;
-const SPEED_ACCENT_EDGE_COUNT = 3;
+const SPEED_SLOW_EDGE_COUNT = 3;
 const STRATEGY_LEAD_MIN_ROW_OBSERVATIONS = 8;
+const TREND_WIDTH = 168;
+const TREND_HEIGHT = 40;
+const TREND_PAD = 4;
+const MOTOR_TREND_WIDTH = 104;
+const MOTOR_TREND_HEIGHT = 24;
+const MOTOR_TREND_PAD = 2;
+
+const EVIDENCE_FAMILIES: readonly { readonly id: EvidenceFamily; readonly label: string }[] = [
+  { id: "hands", label: "手別轉換" },
+  { id: "revisit", label: "同側再出手" },
+  { id: "span", label: "音節跨度" },
+  { id: "tone", label: "聲調收尾" },
+];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isTab(value: unknown): value is AnalysisV2Tab {
-  return value === "semantic" || value === "coordination" || value === "strategy";
+  return value === "coordination" || value === "semantic" || value === "strategy";
 }
 
 function isSemanticView(value: unknown): value is SemanticView {
@@ -82,7 +98,11 @@ function isSemanticView(value: unknown): value is SemanticView {
 }
 
 function isBodySize(value: unknown): value is CoordinationBodySizeBucket {
-  return value === "2" || value === "3" || value === "4+";
+  return value === "2" || value === "3";
+}
+
+function isEvidenceFamily(value: unknown): value is EvidenceFamily {
+  return value === "hands" || value === "revisit" || value === "span" || value === "tone";
 }
 
 function loadPreferences(storage: AnalysisV2PreferenceStorage): AnalysisV2Preferences {
@@ -90,10 +110,11 @@ function loadPreferences(storage: AnalysisV2PreferenceStorage): AnalysisV2Prefer
     const source = storage.getItem(PREFERENCES_KEY);
     if (source === null) return DEFAULT_PREFERENCES;
     const value = JSON.parse(source) as unknown;
-    if (!isRecord(value) || !isTab(value.activeTab) || !isSemanticView(value.semanticView)) {
-      return DEFAULT_PREFERENCES;
-    }
-    return { activeTab: value.activeTab, semanticView: value.semanticView };
+    if (!isRecord(value) || !isSemanticView(value.semanticView)) return DEFAULT_PREFERENCES;
+    return {
+      activeTab: isTab(value.activeTab) ? value.activeTab : "coordination",
+      semanticView: value.semanticView,
+    };
   } catch {
     return DEFAULT_PREFERENCES;
   }
@@ -133,6 +154,10 @@ function dataStateLabel(state: DiagnosticDataState): string {
   return "樣本不足";
 }
 
+function methodDetailsMarkup(label: string, body: string): string {
+  return `<details class="analysis-v2-method"><summary>${escapeHtml(label)}</summary><p>${escapeHtml(body)}</p></details>`;
+}
+
 function keyByToken(model: AnalysisV2Model): ReadonlyMap<TokenId, KeyDiagnostic> {
   return new Map(model.semantic.keys.map((row) => [row.tokenId, row]));
 }
@@ -143,17 +168,38 @@ function timingEvidenceLabel(row: KeyDiagnostic): string {
   return `${dataStateLabel(row.timingDataState)} · ${row.timingSamples} 個乾淨樣本`;
 }
 
+function trendChartMarkup(
+  label: string,
+  points: readonly ProgressSeriesPoint[],
+  scale: (value: number) => number,
+  format: (value: number) => string,
+): string {
+  if (points.length < 2) return "";
+  const values = points.slice(-10).map((point) => scale(point.value));
+  const plotted = sparklinePoints(values, TREND_WIDTH, TREND_HEIGHT, TREND_PAD);
+  const path = plotted
+    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(1)},${point.y.toFixed(1)}`)
+    .join(" ");
+  const last = plotted.at(-1)!;
+  return `<div class="analysis-v2-trend-chart">
+    <div class="analysis-v2-trend-heading"><span>${escapeHtml(label)}</span><strong>${escapeHtml(format(values.at(-1)!))}</strong></div>
+    <svg viewBox="0 0 ${TREND_WIDTH} ${TREND_HEIGHT}" preserveAspectRatio="none" aria-hidden="true">
+      <line x1="${TREND_PAD}" y1="${TREND_HEIGHT - TREND_PAD}" x2="${TREND_WIDTH - TREND_PAD}" y2="${TREND_HEIGHT - TREND_PAD}"></line>
+      <path d="${path}"></path>
+      <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="2.5"></circle>
+    </svg>
+  </div>`;
+}
+
 function keyDetailMarkup(model: AnalysisV2Model, tokenId: TokenId | null): string {
   if (tokenId === null) return "";
   const row = model.semantic.keys.find((candidate) => candidate.tokenId === tokenId);
   if (row === undefined) return "";
   const progress = model.semantic.keyProgress[tokenId];
-  const correctness = progress?.correctness.points
-    .slice(-5)
-    .map((point) => `${Math.round(point.value * 100)}%`) ?? [];
-  const timing = progress?.timing.points
-    .slice(-5)
-    .map((point) => `${Math.round(point.value)} ms`) ?? [];
+  const trends = progress === undefined ? "" : [
+    trendChartMarkup("錯誤觀察", progress.correctness.points, (value) => value * 100, (value) => `${Math.round(value)}%`),
+    trendChartMarkup("鍵間時間", progress.timing.points, (value) => value, (value) => `${Math.round(value)} ms`),
+  ].filter(Boolean).join("");
   return `<article class="analysis-v2-inspector-content">
     <div class="analysis-v2-detail-heading"><strong>${escapeHtml(row.symbol)}</strong><span>${escapeHtml(row.physicalKey)}</span></div>
     <dl>
@@ -162,13 +208,16 @@ function keyDetailMarkup(model: AnalysisV2Model, tokenId: TokenId | null): strin
       <div><dt>有效鍵間時間</dt><dd>${escapeHtml(milliseconds(row.timingMs))}</dd></div>
       <div><dt>時間資料</dt><dd>${escapeHtml(timingEvidenceLabel(row))}</dd></div>
     </dl>
-    <p>錯誤趨勢 ${correctness.length === 0 ? "—" : escapeHtml(correctness.join(" → "))}</p>
-    <p>時間趨勢 ${timing.length === 0 ? "—" : escapeHtml(timing.join(" → "))}</p>
+    ${trends === "" ? "" : `<section class="analysis-v2-trends" aria-label="${escapeHtml(row.symbol)} 的歷史趨勢">${trends}</section>`}
   </article>`;
 }
 
 function keyboardRowsMarkup(
-  keyMarkup: (tokenId: TokenId, key: (typeof KEYBOARD_GEOMETRY_ROWS)[number][number], columns: number) => string,
+  keyMarkup: (
+    tokenId: TokenId,
+    key: (typeof KEYBOARD_GEOMETRY_ROWS)[number][number],
+    columns: number,
+  ) => string,
 ): string {
   return KEYBOARD_GEOMETRY_ROWS.map((row) => `<div class="analysis-v2-keyboard-row">${row.map((key) => {
     const columns = keyboardColumnSpan(key);
@@ -223,19 +272,26 @@ function semanticLeadMarkup(model: AnalysisV2Model, view: SemanticView): string 
   if (view === "correctness") {
     const rows = rankedSemanticKeys(model);
     if (rows.length === 0) {
-      return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><span>按鍵觀察</span><strong>仍在累積</strong><small>資料充足後才標記少數值得注意的鍵</small></div>`;
+      return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><strong>仍在累積</strong><small>資料充足後才標記值得注意的鍵</small></div>`;
     }
     const symbols = rows.slice(0, SEMANTIC_LEAD_KEY_COUNT).map((row) => escapeHtml(row.symbol)).join("　");
-    return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><span>錯誤觀察較高的可比較按鍵</span><strong class="analysis-v2-semantic-symbols">${symbols}</strong><small>鍵盤只標記前 ${Math.min(SEMANTIC_SALIENT_KEY_COUNT, rows.length)} 個；其餘數值留在檢視欄</small></div>`;
+    return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><strong class="analysis-v2-semantic-symbols">${symbols}</strong><small>錯誤觀察較高的可比較按鍵</small></div>`;
   }
   const rows = rankedConfusionKeys(model);
   if (rows.length === 0) {
-    return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><span>可歸因誤按</span><strong>仍在累積</strong><small>原意鍵累積足夠的可歸因誤按後才會被標記</small></div>`;
+    return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><strong>仍在累積</strong><small>可歸因誤按累積足夠後才標記</small></div>`;
   }
   const symbols = rows.slice(0, SEMANTIC_LEAD_KEY_COUNT)
     .map((row) => escapeHtml(row.expectedSymbol))
     .join("　");
-  return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><span>可歸因誤按較多的原意鍵</span><strong class="analysis-v2-semantic-symbols">${symbols}</strong><small>依每個原意鍵累積的可歸因誤按次數排序</small></div>`;
+  return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><strong class="analysis-v2-semantic-symbols">${symbols}</strong><small>可歸因誤按較多的原意鍵</small></div>`;
+}
+
+function primaryStageMarkup(object: string, readout: string, extraClass: string): string {
+  return `<section class="analysis-v2-primary-stage analysis-v2-visual-stage ${extraClass}">
+    <div class="analysis-v2-primary-object-slot">${object}</div>
+    ${readout}
+  </section>`;
 }
 
 function correctnessKeyboardMarkup(model: AnalysisV2Model, selectedKey: TokenId | null): string {
@@ -250,12 +306,10 @@ function correctnessKeyboardMarkup(model: AnalysisV2Model, selectedKey: TokenId 
     const salient = salientTokens.has(tokenId);
     return `<button type="button" class="analysis-v2-key ${state}${salient ? " is-salient" : ""}${selected ? " selected" : ""}" style="--key-columns:${columns}" data-action="select-key" data-token="${escapeHtml(tokenId)}" aria-pressed="${selected}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}，錯誤觀察比例 ${escapeHtml(percent(diagnostic?.displayedErrorRatio ?? null))}，${escapeHtml(dataStateLabel(state))}，${diagnostic?.attempts ?? 0} 次觀察"><strong>${escapeHtml(tokenLabel(tokenId))}</strong><small aria-hidden="true"></small></button>`;
   });
+  const object = `<div class="analysis-v2-keyboard">${keyboard}</div>`;
   return `<div class="analysis-v2-semantic-stage${selectedKey === null ? "" : " has-selection"}">
-    <section class="analysis-v2-visual-stage" aria-label="按鍵錯誤觀察比例">
-      ${semanticLeadMarkup(model, "correctness")}
-      <div class="analysis-v2-keyboard">${keyboard}</div>
-    </section>
-    <aside class="analysis-v2-inspector" aria-live="polite">${keyDetailMarkup(model, selectedKey)}</aside>
+    ${primaryStageMarkup(object, semanticLeadMarkup(model, "correctness"), "analysis-v2-semantic-primary")}
+    ${selectedKey === null ? "" : `<aside class="analysis-v2-inspector" aria-live="polite">${keyDetailMarkup(model, selectedKey)}</aside>`}
   </div>`;
 }
 
@@ -290,19 +344,13 @@ function confusionKeyboardMarkup(model: AnalysisV2Model, selectedKey: TokenId | 
     const state = confusionKeyDataState(confusion);
     const selected = selectedKey === tokenId;
     const salient = salientTokens.has(tokenId);
-    return `<button type="button" class="analysis-v2-key ${state}${salient ? " is-salient" : ""}${selected ? " selected" : ""}" style="--key-columns:${columns}" data-action="select-key" data-token="${escapeHtml(tokenId)}" aria-pressed="${selected}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}，${confusion === undefined ? "尚無可歸因誤按" : `累積 ${confusion.expectedConfusionTotal} 次可歸因誤按，最常見去向 ${escapeHtml(confusion.actualSymbol)} ${confusion.occurrences} 次`}，${escapeHtml(dataStateLabel(state))}"><strong>${escapeHtml(tokenLabel(tokenId))}</strong><small aria-hidden="true"></small></button>`;
+    return `<button type="button" class="analysis-v2-key ${state}${salient ? " is-salient" : ""}${selected ? " selected" : ""}" style="--key-columns:${columns}" data-action="select-key" data-token="${escapeHtml(tokenId)}" aria-pressed="${selected}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}，可歸因誤按 ${confusion?.expectedConfusionTotal ?? 0} 次，${escapeHtml(dataStateLabel(state))}"><strong>${escapeHtml(tokenLabel(tokenId))}</strong><small aria-hidden="true"></small></button>`;
   });
+  const object = `<div class="analysis-v2-keyboard">${keyboard}</div>`;
   return `<div class="analysis-v2-semantic-stage${selectedKey === null ? "" : " has-selection"}">
-    <section class="analysis-v2-visual-stage" aria-label="可歸因誤按鍵盤">
-      ${semanticLeadMarkup(model, "confusion")}
-      <div class="analysis-v2-keyboard">${keyboard}</div>
-    </section>
-    <aside class="analysis-v2-inspector" aria-live="polite">${confusionDetailMarkup(model, selectedKey)}</aside>
+    ${primaryStageMarkup(object, semanticLeadMarkup(model, "confusion"), "analysis-v2-semantic-primary")}
+    ${selectedKey === null ? "" : `<aside class="analysis-v2-inspector" aria-live="polite">${confusionDetailMarkup(model, selectedKey)}</aside>`}
   </div>`;
-}
-
-function methodDetailsMarkup(summary: string, body: string): string {
-  return `<details class="analysis-v2-method"><summary>${escapeHtml(summary)}</summary><p>${escapeHtml(body)}</p></details>`;
 }
 
 function semanticMarkup(
@@ -310,15 +358,20 @@ function semanticMarkup(
   preferences: AnalysisV2Preferences,
   selectedKey: TokenId | null,
 ): string {
-  return `<section class="analysis-v2-domain analysis-v2-semantic-domain" aria-labelledby="analysis-v2-semantic-title">
-    <div class="analysis-v2-domain-head"><div><h3 id="analysis-v2-semantic-title">語意</h3><p>${model.semantic.keysWithData} 個按鍵已有可用觀察</p></div>
-      <div class="analysis-v2-segments" role="group" aria-label="語意分析視圖"><button type="button" data-action="semantic-view" data-value="correctness" aria-pressed="${preferences.semanticView === "correctness"}">按鍵</button><button type="button" data-action="semantic-view" data-value="confusion" aria-pressed="${preferences.semanticView === "confusion"}">誤按</button></div></div>
+  return `<section class="analysis-v2-domain analysis-v2-semantic-domain" aria-labelledby="analysis-v2-tab-semantic">
+    <div class="analysis-v2-domain-controls"><div class="analysis-v2-segments" role="group" aria-label="語意觀察方式">
+      <button type="button" data-action="semantic-view" data-value="correctness" aria-pressed="${preferences.semanticView === "correctness"}">按鍵</button>
+      <button type="button" data-action="semantic-view" data-value="confusion" aria-pressed="${preferences.semanticView === "confusion"}">誤按</button>
+    </div></div>
     ${preferences.semanticView === "correctness"
       ? correctnessKeyboardMarkup(model, selectedKey)
       : confusionKeyboardMarkup(model, selectedKey)}
-    ${methodDetailsMarkup("資料規則", preferences.semanticView === "correctness"
-      ? "少於 3 次觀察不發言，3–7 次只保留為初步資料，8 次以上才可能進入少數標記。標記只整理注意力，不把不同動作指標混成一個弱點分數。"
-      : "只顯示實際觀察到而且能歸因的誤按方向；原意鍵的標記依累積可歸因誤按總數決定，單一去向占比只留在檢視欄，不拿來跨原意鍵排行。")}
+    ${methodDetailsMarkup(
+      "資料規則",
+      preferences.semanticView === "correctness"
+        ? "錯誤觀察比例只來自可歸因按鍵觀察；樣本不足不做視覺判讀。時間描述前一個已接受事件到目前按鍵，不是能力分數。"
+        : "只顯示實際觀察到而且能歸因的誤按方向；原意鍵依累積可歸因誤按總數判讀。",
+    )}
   </section>`;
 }
 
@@ -341,82 +394,38 @@ function speedInspectorMarkup(
       <div><dt>累積觀察</dt><dd>${cell.observations}</dd></div>
       <div><dt>資料狀態</dt><dd>${cell.ready ? "可比較" : "樣本中"}</dd></div>
     </dl>
-    <p>這裡只描述同一類實際鍵間轉換，不和其他協調範圍混成一個分數。</p>
+    <p>同一類實際鍵間轉換，不和其他協調範圍混成分數。</p>
   </article>`;
 }
 
-function speedLeadMarkup(
-  cell: AnalysisV2MotorCell<ImmediateTokenAggregateScope> | undefined,
-  selected: boolean,
-): string {
+function speedLeadMarkup(cell: AnalysisV2MotorCell<ImmediateTokenAggregateScope> | undefined): string {
   if (cell === undefined || cell.currentTimeToTypeMs === null) {
-    return `<div class="analysis-v2-hero-readout analysis-v2-speed-readout"><span>鍵間軌跡</span><strong>仍在累積</strong><small>單一轉換累積 5 個乾淨時間樣本後才可比較</small></div>`;
+    return `<div class="analysis-v2-hero-readout analysis-v2-speed-readout"><strong>仍在累積</strong><small>單一轉換累積 5 個乾淨時間樣本後可比較</small></div>`;
   }
-  return `<div class="analysis-v2-hero-readout analysis-v2-speed-readout"><span>${selected ? "已固定的鍵間轉換" : "目前畫面中較慢的可比較轉換"}</span><strong><b>${escapeHtml(tokenLabel(cell.scope.fromToken))} → ${escapeHtml(tokenLabel(cell.scope.toToken))}</b><em>${escapeHtml(milliseconds(cell.currentTimeToTypeMs))}</em></strong><small>${cell.timingSamples} 個乾淨樣本 · 僅在畫面中的同類實際鍵間轉換中比較</small></div>`;
+  return `<div class="analysis-v2-hero-readout analysis-v2-speed-readout"><strong><b>${escapeHtml(tokenLabel(cell.scope.fromToken))} → ${escapeHtml(tokenLabel(cell.scope.toToken))}</b><em>${escapeHtml(milliseconds(cell.currentTimeToTypeMs))}</em></strong><small>${cell.timingSamples} 個乾淨樣本 · 僅在畫面中的同類實際鍵間轉換中比較</small></div>`;
 }
 
-function speedNetworkMarkup(model: AnalysisV2Model, selectedPathId: string | null): string {
-  const readyCells = model.coordination.immediateTokens.filter((cell) => cell.ready);
-  const paths = buildAnalysisV2SpeedPaths(model.coordination.immediateTokens);
-  const cellById = new Map(model.coordination.immediateTokens.map((cell) => [cell.id, cell]));
-  const salientIds = new Set(paths
-    .map((path) => ({ path, cell: cellById.get(path.id) }))
-    .sort((left, right) => (right.cell?.timingSamples ?? 0) - (left.cell?.timingSamples ?? 0)
-      || (right.cell?.observations ?? 0) - (left.cell?.observations ?? 0)
-      || left.path.id.localeCompare(right.path.id))
-    .slice(0, SPEED_SALIENT_EDGE_COUNT)
-    .map(({ path }) => path.id));
-  const accentIds = new Set(paths.slice(-SPEED_ACCENT_EDGE_COUNT).map((path) => path.id));
-  const selectedCell = selectedPathId === null ? undefined : cellById.get(selectedPathId);
-  const slowestVisibleCell = paths.length === 0 ? undefined : cellById.get(paths[paths.length - 1]!.id);
-  const leadCell = selectedCell ?? slowestVisibleCell;
-  const allSamples = model.coordination.immediateTokens.reduce(
-    (sum, cell) => sum + cell.timingSamples,
-    0,
-  );
-  const readySamples = readyCells.reduce((sum, cell) => sum + cell.timingSamples, 0);
-  const viewBox = ANALYSIS_V2_SPEED_VIEWBOX;
-  const displayCount = readyCells.length > ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES
-    ? `${paths.length} / ${readyCells.length} 條`
-    : `${readyCells.length} 條`;
-  return `<section class="analysis-v2-speed-field" aria-labelledby="analysis-v2-speed-title">
-    <div class="analysis-v2-speed-meta"><div><span id="analysis-v2-speed-title">鍵間軌跡</span><strong>${displayCount}可比較</strong></div><small>${readySamples} 個乾淨樣本</small></div>
-    ${speedLeadMarkup(leadCell, selectedCell !== undefined)}
-    <div class="analysis-v2-speed-stage${selectedCell === undefined ? "" : " has-selection"}">
-      <div class="analysis-v2-speed-scroll" tabindex="0" aria-label="鍵間軌跡，可水平捲動">
-        <div class="analysis-v2-speed-board">
-          ${speedKeyboardMarkup()}
-          ${paths.length === 0
-            ? `<div class="analysis-v2-speed-empty">目前有 ${allSamples} 個鍵間乾淨樣本，但還沒有任何單一轉換累積到 5 個。</div>`
-            : `<svg class="analysis-v2-speed-svg" viewBox="${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}" preserveAspectRatio="none" role="group" aria-label="可比較的實際鍵間軌跡">${paths.map((path) => {
-              const cell = cellById.get(path.id);
-              if (cell === undefined) return "";
-              const selected = selectedPathId === path.id;
-              const interaction = `data-action="select-speed" data-speed-id="${escapeHtml(path.id)}" data-from-token="${escapeHtml(cell.scope.fromToken)}" data-to-token="${escapeHtml(cell.scope.toToken)}"`;
-              return `<path class="analysis-v2-speed-hit" d="${path.path}" ${interaction} aria-hidden="true"></path><path class="analysis-v2-speed-path${path.includesTone ? " tone" : ""}${salientIds.has(path.id) ? " salient" : ""}${accentIds.has(path.id) ? " is-slow" : ""}${selected ? " selected" : ""}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity};--relation-slowness:${path.slowness}" ${interaction} tabindex="0" role="button" aria-pressed="${selected}" aria-label="${escapeHtml(path.label)}"><title>${escapeHtml(path.label)}</title></path>`;
-            }).join("")}</svg>`}
-        </div>
-      </div>
-      ${selectedCell === undefined ? "" : `<aside class="analysis-v2-speed-inspector analysis-v2-inspector" aria-live="polite">${speedInspectorMarkup(model, selectedPathId)}</aside>`}
-    </div>
-    <div class="analysis-v2-speed-legend" aria-label="軌跡圖例"><span>墨色是實際轉換；紅色只標較慢或選取</span><small>線粗代表樣本支持</small></div>
-    ${methodDetailsMarkup("資料規則", `只畫同一音節內實際相鄰接受且乾淨的轉換，每一條至少 5 個時間樣本。不補 canonical 結構線；最多顯示支持度較高的 ${ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES} 條。畫面中的相對較慢只在目前可見的同類轉換內判讀；大多數軌跡使用既有墨階，紅色只保留給少數較慢轉換與目前互動焦點。`)}
-  </section>`;
-}
-
-function trendText<Scope>(cell: AnalysisV2MotorCell<Scope> | undefined): string {
-  if (cell === undefined || cell.history.length === 0) return "尚無歷史點";
-  return cell.history
-    .slice(-5)
-    .map((point) => `${Math.round(point.representativeTimingMs)} ms`)
-    .join(" → ");
+function motorSparklineMarkup<Scope>(cell: AnalysisV2MotorCell<Scope>): string {
+  if (cell.history.length < 2) {
+    return cell.history.length === 0
+      ? '<span class="analysis-v2-motor-history-empty">尚無歷史點</span>'
+      : `<span class="analysis-v2-motor-history-empty">1 個歷史點</span>`;
+  }
+  const values = cell.history.slice(-10).map((point) => point.representativeTimingMs);
+  const points = sparklinePoints(values, MOTOR_TREND_WIDTH, MOTOR_TREND_HEIGHT, MOTOR_TREND_PAD);
+  const path = points
+    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(1)},${point.y.toFixed(1)}`)
+    .join(" ");
+  const last = points.at(-1)!;
+  const summary = values.map((value) => `${Math.round(value)} ms`).join(" → ");
+  return `<span class="analysis-v2-motor-sparkline" aria-label="歷史時間 ${escapeHtml(summary)}"><svg viewBox="0 0 ${MOTOR_TREND_WIDTH} ${MOTOR_TREND_HEIGHT}" preserveAspectRatio="none" aria-hidden="true"><path d="${path}"></path><circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="2"></circle></svg></span>`;
 }
 
 function motorCellMarkup<Scope>(cell: AnalysisV2MotorCell<Scope> | undefined): string {
   if (cell === undefined) {
     return '<div class="analysis-v2-motor-cell empty"><strong>—</strong><small>尚無觀察</small></div>';
   }
-  return `<div class="analysis-v2-motor-cell ${cell.ready ? "ready" : "sampling"}"><strong>${escapeHtml(milliseconds(cell.currentTimeToTypeMs))}</strong><small>${cell.timingSamples} 個乾淨樣本 · ${cell.observations} 次</small><span>${escapeHtml(trendText(cell))}</span></div>`;
+  return `<div class="analysis-v2-motor-cell ${cell.ready ? "ready" : "sampling"}"><strong>${escapeHtml(milliseconds(cell.currentTimeToTypeMs))}</strong><small>${cell.timingSamples} 個乾淨樣本 · ${cell.observations} 次</small>${motorSparklineMarkup(cell)}</div>`;
 }
 
 function familyStatus<Scope>(cells: readonly AnalysisV2MotorCell<Scope>[]): string {
@@ -438,7 +447,7 @@ function findImmediate(
 function immediateHandEvidence(model: AnalysisV2Model): string {
   const hands = ["left", "right"] as const;
   const label = (hand: "left" | "right") => hand === "left" ? "左側" : "右側";
-  return `<details class="analysis-v2-evidence-group"><summary><span>手別轉換</span><small>${familyStatus(model.coordination.immediateHands)}</small></summary><div class="analysis-v2-evidence-body"><p>依標準指法的鍵位分工推定，不代表偵測到你實際使用哪隻手。</p><div class="analysis-v2-table-scroll"><table class="analysis-v2-motor-table"><thead><tr><th>前一鍵 ↓ / 下一鍵 →</th>${hands.map((hand) => `<th>${label(hand)}</th>`).join("")}</tr></thead><tbody>${hands.map((from) => `<tr><th>${label(from)}</th>${hands.map((to) => `<td>${motorCellMarkup(findImmediate(model, from, to))}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div></details>`;
+  return `<div class="analysis-v2-evidence-body"><p>依標準指法的鍵位分工推定，不代表偵測到你實際使用哪隻手。</p><div class="analysis-v2-table-scroll"><table class="analysis-v2-motor-table"><thead><tr><th>前一鍵 ↓ / 下一鍵 →</th>${hands.map((hand) => `<th>${label(hand)}</th>`).join("")}</tr></thead><tbody>${hands.map((from) => `<tr><th>${label(from)}</th>${hands.map((to) => `<td>${motorCellMarkup(findImmediate(model, from, to))}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`;
 }
 
 function findCoordination(
@@ -464,7 +473,7 @@ function coordinationEvidence(model: AnalysisV2Model): string {
     mixed: "跨側",
     unknown: "未知",
   };
-  return `<details class="analysis-v2-evidence-group"><summary><span>音節跨度</span><small>${familyStatus(model.coordination.coordination)}</small></summary><div class="analysis-v2-evidence-body"><p>從第一個已接受的 body 成分到最後一個 body 成分；不同成分數分開看。</p><div class="analysis-v2-table-scroll"><table class="analysis-v2-motor-table wide"><thead><tr><th>body 成分</th>${shapes.map((shape) => `<th>${labels[shape]}</th>`).join("")}</tr></thead><tbody>${BODY_SIZES.map((size) => `<tr><th>${size}</th>${shapes.map((shape) => `<td>${motorCellMarkup(findCoordination(model, size, shape))}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div></details>`;
+  return `<div class="analysis-v2-evidence-body"><p>從第一個已接受的注音到最後一個注音；只有 2、3 個注音的音節有首尾跨度。</p><div class="analysis-v2-table-scroll"><table class="analysis-v2-motor-table wide"><thead><tr><th>注音數</th>${shapes.map((shape) => `<th>${labels[shape]}</th>`).join("")}</tr></thead><tbody>${BODY_SIZES.map((size) => `<tr><th>${size}</th>${shapes.map((shape) => `<td>${motorCellMarkup(findCoordination(model, size, shape))}</td>`).join("")}</tr>`).join("")}</tbody></table></div></div>`;
 }
 
 function findRevisit(
@@ -479,20 +488,96 @@ function findRevisit(
 
 function revisitEvidence(model: AnalysisV2Model): string {
   const hands = ["left", "right"] as const;
-  return `<details class="analysis-v2-evidence-group"><summary><span>同側再出手</span><small>${familyStatus(model.coordination.sameHandRevisits)}</small></summary><div class="analysis-v2-evidence-body"><p>比較同一標準指法側再次出現時，中間是否曾出現另一側鍵位。</p><div class="analysis-v2-table-scroll"><table class="analysis-v2-motor-table"><thead><tr><th>鍵位側</th><th>連續同側</th><th>中間有另一側</th></tr></thead><tbody>${hands.map((hand) => `<tr><th>${hand === "left" ? "左側" : "右側"}</th><td>${motorCellMarkup(findRevisit(model, hand, false))}</td><td>${motorCellMarkup(findRevisit(model, hand, true))}</td></tr>`).join("")}</tbody></table></div></div></details>`;
+  return `<div class="analysis-v2-evidence-body"><p>比較同一標準指法側再次出現時，中間是否曾出現另一側鍵位。</p><div class="analysis-v2-table-scroll"><table class="analysis-v2-motor-table"><thead><tr><th>鍵位側</th><th>連續同側</th><th>中間有另一側</th></tr></thead><tbody>${hands.map((hand) => `<tr><th>${hand === "left" ? "左側" : "右側"}</th><td>${motorCellMarkup(findRevisit(model, hand, false))}</td><td>${motorCellMarkup(findRevisit(model, hand, true))}</td></tr>`).join("")}</tbody></table></div></div>`;
 }
 
 function toneEvidence(model: AnalysisV2Model): string {
   const cells = [...model.coordination.toneCommits]
     .sort((a, b) => a.scope.toneToken.localeCompare(b.scope.toneToken));
-  return `<details class="analysis-v2-evidence-group"><summary><span>聲調收尾</span><small>${familyStatus(cells)}</small></summary><div class="analysis-v2-evidence-body"><p>最後一個 body 成分到聲調鍵的乾淨時間，各聲調分開看。</p><div class="analysis-v2-tone-grid">${cells.length === 0 ? '<div class="analysis-v2-empty compact">尚無聲調完成資料。</div>' : cells.map((cell) => `<div class="analysis-v2-tone-cell"><b>${escapeHtml(tokenLabel(cell.scope.toneToken))}</b>${motorCellMarkup(cell)}</div>`).join("")}</div></div></details>`;
+  return `<div class="analysis-v2-evidence-body"><p>最後一個注音到聲調鍵的乾淨時間，各聲調分開看。</p><div class="analysis-v2-tone-grid">${cells.length === 0 ? '<div class="analysis-v2-empty compact">尚無聲調完成資料。</div>' : cells.map((cell) => `<div class="analysis-v2-tone-cell"><b>${escapeHtml(tokenLabel(cell.scope.toneToken))}</b>${motorCellMarkup(cell)}</div>`).join("")}</div></div>`;
 }
 
-function coordinationMarkup(model: AnalysisV2Model, selectedPathId: string | null): string {
-  return `<section class="analysis-v2-domain analysis-v2-coordination-domain" aria-labelledby="analysis-v2-coordination-title">
-    <div class="analysis-v2-domain-head"><div><h3 id="analysis-v2-coordination-title">協調</h3><p>${model.coordination.readyTokenTransitions} 條實際鍵間轉換已有足夠樣本</p></div></div>
-    ${speedNetworkMarkup(model, selectedPathId)}
-    <div class="analysis-v2-evidence-rail" aria-label="其他協調觀察">${immediateHandEvidence(model)}${revisitEvidence(model)}${coordinationEvidence(model)}${toneEvidence(model)}</div>
+function evidenceStatus(model: AnalysisV2Model, family: EvidenceFamily): string {
+  if (family === "hands") return familyStatus(model.coordination.immediateHands);
+  if (family === "revisit") return familyStatus(model.coordination.sameHandRevisits);
+  if (family === "span") return familyStatus(model.coordination.coordination);
+  return familyStatus(model.coordination.toneCommits);
+}
+
+function evidenceBody(model: AnalysisV2Model, family: EvidenceFamily): string {
+  if (family === "hands") return immediateHandEvidence(model);
+  if (family === "revisit") return revisitEvidence(model);
+  if (family === "span") return coordinationEvidence(model);
+  return toneEvidence(model);
+}
+
+function evidenceRailMarkup(model: AnalysisV2Model, openFamily: EvidenceFamily | null): string {
+  return `<section class="analysis-v2-evidence-rail" aria-label="其他協調觀察">
+    <div class="analysis-v2-evidence-nav">${EVIDENCE_FAMILIES.map(({ id, label }) => `<button type="button" class="analysis-v2-evidence-group${openFamily === id ? " is-open" : ""}" data-action="evidence-family" data-family="${id}" aria-expanded="${openFamily === id}" aria-controls="analysis-v2-evidence-detail"><span>${label}</span><small>${escapeHtml(evidenceStatus(model, id))}</small><i aria-hidden="true">${openFamily === id ? "−" : "+"}</i></button>`).join("")}</div>
+    <div id="analysis-v2-evidence-detail" class="analysis-v2-evidence-detail"${openFamily === null ? " hidden" : ""}>${openFamily === null ? "" : evidenceBody(model, openFamily)}</div>
+  </section>`;
+}
+
+function speedNetworkMarkup(
+  model: AnalysisV2Model,
+  selectedPathId: string | null,
+  openEvidenceFamily: EvidenceFamily | null,
+): string {
+  const readyCells = model.coordination.immediateTokens.filter((cell) => cell.ready);
+  const paths = buildAnalysisV2SpeedPaths(model.coordination.immediateTokens);
+  const cellById = new Map(model.coordination.immediateTokens.map((cell) => [cell.id, cell]));
+  const salientIds = new Set(paths
+    .map((path) => ({ path, cell: cellById.get(path.id) }))
+    .sort((left, right) => (right.cell?.timingSamples ?? 0) - (left.cell?.timingSamples ?? 0)
+      || (right.cell?.observations ?? 0) - (left.cell?.observations ?? 0)
+      || left.path.id.localeCompare(right.path.id))
+    .slice(0, SPEED_SALIENT_EDGE_COUNT)
+    .map(({ path }) => path.id));
+  const slowIds = new Set(paths.slice(-SPEED_SLOW_EDGE_COUNT).map((path) => path.id));
+  const selectedCell = selectedPathId === null ? undefined : cellById.get(selectedPathId);
+  const slowestVisibleCell = paths.length === 0 ? undefined : cellById.get(paths[paths.length - 1]!.id);
+  const leadCell = selectedCell ?? slowestVisibleCell;
+  const accentId = selectedCell?.id ?? slowestVisibleCell?.id ?? null;
+  const allSamples = model.coordination.immediateTokens.reduce(
+    (sum, cell) => sum + cell.timingSamples,
+    0,
+  );
+  const displayCount = readyCells.length > ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES
+    ? `${paths.length} / ${readyCells.length} 條可比較`
+    : `${readyCells.length} 條可比較`;
+  const viewBox = ANALYSIS_V2_SPEED_VIEWBOX;
+  const board = `<div class="analysis-v2-speed-scroll" tabindex="0" aria-label="鍵間軌跡，可水平捲動"><div class="analysis-v2-speed-board">
+    ${speedKeyboardMarkup()}
+    ${paths.length === 0
+      ? `<div class="analysis-v2-speed-empty">目前有 ${allSamples} 個鍵間乾淨樣本，但還沒有單一轉換累積到 5 個。</div>`
+      : `<svg class="analysis-v2-speed-svg" viewBox="${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}" preserveAspectRatio="none" role="group" aria-label="可比較的實際鍵間軌跡">${paths.map((path) => {
+        const cell = cellById.get(path.id);
+        if (cell === undefined) return "";
+        const selected = selectedPathId === path.id;
+        const interaction = `data-action="select-speed" data-speed-id="${escapeHtml(path.id)}" data-from-token="${escapeHtml(cell.scope.fromToken)}" data-to-token="${escapeHtml(cell.scope.toToken)}"`;
+        return `<path class="analysis-v2-speed-hit" d="${path.path}" ${interaction} aria-hidden="true"></path><path class="analysis-v2-speed-path${path.includesTone ? " tone" : ""}${salientIds.has(path.id) ? " salient" : ""}${slowIds.has(path.id) ? " is-slow" : ""}${accentId === path.id ? " is-accent" : ""}${selected ? " selected" : ""}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity};--relation-slowness:${path.slowness}" ${interaction} tabindex="0" role="button" aria-pressed="${selected}" aria-label="${escapeHtml(path.label)}"><title>${escapeHtml(path.label)}</title></path>`;
+      }).join("")}</svg>`}
+  </div></div>`;
+  const primary = primaryStageMarkup(board, speedLeadMarkup(leadCell), "analysis-v2-speed-primary");
+  return `<section class="analysis-v2-speed-field" aria-label="鍵間軌跡">
+    <div class="analysis-v2-speed-stage${selectedCell === undefined ? "" : " has-selection"}">
+      ${primary}
+      ${selectedCell === undefined ? "" : `<aside class="analysis-v2-speed-inspector analysis-v2-inspector" aria-live="polite">${speedInspectorMarkup(model, selectedPathId)}</aside>`}
+    </div>
+    <div class="analysis-v2-speed-caption"><strong>${displayCount}</strong><span>線粗代表樣本支持；紅線對應目前主讀值</span></div>
+    ${evidenceRailMarkup(model, openEvidenceFamily)}
+    ${methodDetailsMarkup("資料規則", `只畫同一音節內實際相鄰接受且乾淨的轉換，每一條至少 5 個時間樣本。最多顯示支持度較高的 ${ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES} 條；紅線只連結目前主讀值，不代表錯誤。`)}
+  </section>`;
+}
+
+function coordinationMarkup(
+  model: AnalysisV2Model,
+  selectedPathId: string | null,
+  openEvidenceFamily: EvidenceFamily | null,
+): string {
+  return `<section class="analysis-v2-domain analysis-v2-coordination-domain" aria-labelledby="analysis-v2-tab-coordination">
+    <div class="analysis-v2-domain-controls" aria-hidden="true"></div>
+    ${speedNetworkMarkup(model, selectedPathId, openEvidenceFamily)}
   </section>`;
 }
 
@@ -542,26 +627,22 @@ function strategyFieldMarkup(model: AnalysisV2Model, bodySize: CoordinationBodyS
     || positionLabel(left.canonical).localeCompare(positionLabel(right.canonical)));
   const lead = deviations[0];
   const leadMarkup = supportedRows.length === 0
-    ? `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><span>順序位置</span><strong>仍在累積</strong><small>單一結構位置累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察後才提升偏移</small></div>`
+    ? `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><strong>仍在累積</strong><small>單一結構位置累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察後才提升偏移</small></div>`
     : lead === undefined
-      ? `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><span>順序位置</span><strong>目前以原位置完成</strong><small>${bodySize} 成分 · ${total} 個位置觀察</small></div>`
-      : `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><span>目前較常見的順序偏移</span><strong><b>${positionLabel(lead.canonical)} → ${positionLabel(lead.accepted)}</b><em>${Math.round(lead.ratio * 100)}%</em></strong><small>${lead.count} / ${lead.rowTotal} 個同位置觀察</small></div>`;
-  return `<div class="analysis-v2-strategy-stage">
-    ${leadMarkup}
-    <div class="analysis-v2-strategy-axis"><span>結構位置</span><i aria-hidden="true">→</i><span>實際完成位置</span></div>
-    <div class="analysis-v2-strategy-field"><table class="analysis-v2-matrix strategy-matrix"><caption class="analysis-v2-visually-hidden">列是結構位置，欄是實際被接受的位置。</caption><thead><tr><th scope="col">位置</th>${positions.map((position) => `<th scope="col">${positionLabel(position)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr><th scope="row">${positionLabel(row.canonical)}</th>${row.values.map((count) => {
-      const ratio = row.total === 0 ? 0 : count / row.total;
-      return `<td style="--analysis-strength:${ratio}"><strong>${count === 0 ? "·" : count}</strong><small>${row.total === 0 ? "" : `${Math.round(ratio * 100)}%`}</small></td>`;
-    }).join("")}</tr>`).join("")}</tbody></table></div>
-    <p class="analysis-v2-strategy-total">${bodySize} 成分 · ${total} 個位置觀察</p>
-  </div>`;
+      ? `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><strong>目前以原位置完成</strong><small>${bodySize} 個注音 · ${total} 個位置觀察</small></div>`
+      : `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><strong><b>${positionLabel(lead.canonical)} → ${positionLabel(lead.accepted)}</b><em>${Math.round(lead.ratio * 100)}%</em></strong><small>${lead.count} / ${lead.rowTotal} 個同位置觀察</small></div>`;
+  const object = `<div class="analysis-v2-strategy-object"><div class="analysis-v2-strategy-axis"><span>結構位置</span><i aria-hidden="true">→</i><span>實際完成位置</span></div><div class="analysis-v2-strategy-field"><table class="analysis-v2-matrix strategy-matrix"><caption class="analysis-v2-visually-hidden">列是結構位置，欄是實際被接受的位置。</caption><thead><tr><th scope="col">位置</th>${positions.map((position) => `<th scope="col">${positionLabel(position)}</th>`).join("")}</tr></thead><tbody>${rows.map((row) => `<tr><th scope="row">${positionLabel(row.canonical)}</th>${row.values.map((count) => {
+    const ratio = row.total === 0 ? 0 : count / row.total;
+    return `<td style="--analysis-strength:${ratio}"><strong>${count === 0 ? "·" : count}</strong><small>${row.total === 0 ? "" : `${Math.round(ratio * 100)}%`}</small></td>`;
+  }).join("")}</tr>`).join("")}</tbody></table></div></div>`;
+  return `${primaryStageMarkup(object, leadMarkup, "analysis-v2-strategy-stage")}<p class="analysis-v2-strategy-total">${bodySize} 個注音 · ${total} 個位置觀察</p>`;
 }
 
 function strategyMarkup(model: AnalysisV2Model, bodySize: CoordinationBodySizeBucket): string {
-  return `<section class="analysis-v2-domain analysis-v2-strategy-domain" aria-labelledby="analysis-v2-strategy-title">
-    <div class="analysis-v2-domain-head"><div><h3 id="analysis-v2-strategy-title">策略</h3><p>${model.strategy.totalObservations} 個完成位置觀察</p></div><div class="analysis-v2-segments analysis-v2-strategy-segments" role="group" aria-label="音節成分數">${BODY_SIZES.map((size) => `<button type="button" data-action="strategy-size" data-value="${size}" aria-pressed="${bodySize === size}">${size} 成分</button>`).join("")}</div></div>
+  return `<section class="analysis-v2-domain analysis-v2-strategy-domain" aria-labelledby="analysis-v2-tab-strategy">
+    <div class="analysis-v2-domain-controls"><div class="analysis-v2-segments analysis-v2-strategy-segments" role="group" aria-label="音節內注音成分數，不含聲調">${BODY_SIZES.map((size) => `<button type="button" data-action="strategy-size" data-value="${size}" aria-pressed="${bodySize === size}" title="音節本體有 ${size} 個注音，不含聲調">${size} 個注音</button>`).join("")}</div></div>
     ${strategyFieldMarkup(model, bodySize)}
-    ${methodDetailsMarkup("資料規則", `結構位置只是一組參考座標，不要求固定輸入順序。2 成分只有前／後；4+ 成分把內部位置合併成中間，讓長期資料保持 bounded。單一結構位置至少累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察才會提升偏移為主讀值；系統不保存 raw trace，也不建立 token-pair 順序分數。`)}
+    ${methodDetailsMarkup("資料規則", `只有 2、3 個注音的音節有輸入順序可以比較；1 個注音沒有順序差異。結構位置只是一組參考座標，不要求固定輸入順序；單一位置至少累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察才提升偏移。`)}
   </section>`;
 }
 
@@ -572,8 +653,9 @@ function bodyMarkup(
   selectedKey: TokenId | null,
   selectedPathId: string | null,
   strategyBodySize: CoordinationBodySizeBucket,
+  openEvidenceFamily: EvidenceFamily | null,
 ): string {
-  if (tab === "coordination") return coordinationMarkup(model, selectedPathId);
+  if (tab === "coordination") return coordinationMarkup(model, selectedPathId, openEvidenceFamily);
   if (tab === "strategy") return strategyMarkup(model, strategyBodySize);
   return semanticMarkup(model, preferences, selectedKey);
 }
@@ -585,7 +667,7 @@ export function renderAnalysisV2Summary(
 ): void {
   section.className = "panel-section analysis-v2-summary";
   section.removeAttribute("data-analysis-v2-summary-slot");
-  section.innerHTML = `<div class="analysis-v2-summary-heading"><div><h3>學習分析</h3><p>${model.semantic.keysWithData} 鍵有語意資料 · ${model.coordination.readyScopes} 類協調觀察已可比較 · ${model.strategy.totalObservations} 個順序位置觀察</p></div><button type="button" class="analysis-v2-open">進入分析</button></div><div class="analysis-v2-summary-signals" aria-label="學習分析摘要"><div><span>語意</span><strong>${model.semantic.keysWithData} 鍵</strong><small>${model.semantic.repeatedConfusions} 組重複誤按</small></div><div><span>協調</span><strong>${model.coordination.readyScopes} 類</strong><small>${model.coordination.cleanTimingSamples} 個乾淨樣本</small></div><div><span>策略</span><strong>${model.strategy.totalObservations}</strong><small>${model.strategy.bodySizeBucketsWithData} 種 body 尺度有資料</small></div></div>`;
+  section.innerHTML = `<div class="analysis-v2-summary-heading"><div><h3>分析</h3><p>${model.semantic.keysWithData} 鍵有語意資料 · ${model.coordination.readyScopes} 類協調觀察可比較 · ${model.strategy.totalObservations} 個順序位置觀察</p></div><button type="button" class="analysis-v2-open">進入分析</button></div><div class="analysis-v2-summary-signals" aria-label="分析摘要"><div><span>語意</span><strong>${model.semantic.keysWithData} 鍵</strong><small>${model.semantic.repeatedConfusions} 組重複誤按</small></div><div><span>協調</span><strong>${model.coordination.readyScopes} 類</strong><small>${model.coordination.cleanTimingSamples} 個乾淨樣本</small></div><div><span>策略</span><strong>${model.strategy.totalObservations}</strong><small>${model.strategy.bodySizeBucketsWithData} 種注音數有資料</small></div></div>`;
   section.querySelector<HTMLButtonElement>(".analysis-v2-open")
     ?.addEventListener("click", openAnalysis);
 }
@@ -605,6 +687,7 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
   let selectedKey: TokenId | null = null;
   let selectedSpeedPathId: string | null = null;
   let strategyBodySize: CoordinationBodySizeBucket = "3";
+  let openEvidenceFamily: EvidenceFamily | null = null;
   let openFrame: number | null = null;
   const persist = () => savePreferences(options.storage, preferences);
 
@@ -632,6 +715,12 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
       ?.focus();
   };
 
+  const focusEvidenceFamily = (family: EvidenceFamily): void => {
+    host.querySelector<HTMLButtonElement>(
+      `[data-action="evidence-family"][data-family="${family}"]`,
+    )?.focus();
+  };
+
   const applySpeedFocus = (pathId: string | null): void => {
     const paths = [...host.querySelectorAll<SVGPathElement>(".analysis-v2-speed-path")];
     const focused = pathId === null
@@ -656,7 +745,7 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
     const scrollTop = preserveScroll ? previousMain?.scrollTop ?? 0 : 0;
     const scrollLeft = preserveScroll ? previousMain?.scrollLeft ?? 0 : 0;
     const activeTab = preferences.activeTab;
-    host.innerHTML = `<div class="analysis-v2-shell"><header class="analysis-v2-header"><div><p class="analysis-v2-kicker">Analysis V2</p><h2 id="analysis-v2-title">學習分析</h2></div><div class="analysis-v2-header-actions"><div class="analysis-v2-tabs" role="tablist" aria-label="分析類型">${TABS.map((tab) => `<button id="${tabId(tab)}" type="button" role="tab" data-action="select-tab" data-tab="${tab}" aria-controls="${tabPanelId(tab)}" aria-selected="${activeTab === tab}" tabindex="${activeTab === tab ? 0 : -1}">${tabLabel(tab)}</button>`).join("")}</div><button type="button" class="analysis-v2-close" data-action="close-analysis" aria-label="Esc，返回練習">Esc</button></div></header><main class="analysis-v2-main">${TABS.map((tab) => `<section id="${tabPanelId(tab)}" role="tabpanel" aria-labelledby="${tabId(tab)}"${activeTab === tab ? "" : " hidden"}>${activeTab === tab ? bodyMarkup(model, tab, preferences, selectedKey, selectedSpeedPathId, strategyBodySize) : ""}</section>`).join("")}</main></div>`;
+    host.innerHTML = `<div class="analysis-v2-shell"><header class="analysis-v2-header"><div><h2 id="analysis-v2-title">分析</h2></div><div class="analysis-v2-header-actions"><div class="analysis-v2-tabs" role="tablist" aria-label="分析類型">${TABS.map((tab) => `<button id="${tabId(tab)}" type="button" role="tab" data-action="select-tab" data-tab="${tab}" aria-controls="${tabPanelId(tab)}" aria-selected="${activeTab === tab}" tabindex="${activeTab === tab ? 0 : -1}">${tabLabel(tab)}</button>`).join("")}</div><button type="button" class="analysis-v2-close" data-action="close-analysis" aria-label="Esc，返回練習">Esc</button></div></header><main class="analysis-v2-main">${TABS.map((tab) => `<section id="${tabPanelId(tab)}" role="tabpanel" aria-labelledby="${tabId(tab)}"${activeTab === tab ? "" : " hidden"}>${activeTab === tab ? bodyMarkup(model, tab, preferences, selectedKey, selectedSpeedPathId, strategyBodySize, openEvidenceFamily) : ""}</section>`).join("")}</main></div>`;
     const nextMain = host.querySelector<HTMLElement>(".analysis-v2-main");
     if (nextMain !== null) {
       nextMain.scrollTop = scrollTop;
@@ -669,6 +758,7 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
     preferences = { ...preferences, activeTab: tab };
     selectedKey = null;
     selectedSpeedPathId = null;
+    openEvidenceFamily = null;
     persist();
     render(false);
     if (focus) {
@@ -689,11 +779,15 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
     cancelOpenFrame();
     model = options.getModel();
     const loaded = loadPreferences(options.storage);
-    preferences = initialTab === undefined
-      ? loaded
-      : { ...loaded, activeTab: initialTab };
+    preferences = {
+      ...loaded,
+      // Enter through the flyline field every time. The last Semantic subview is
+      // still remembered, but it never steals the first visual on reopen.
+      activeTab: initialTab ?? "coordination",
+    };
     selectedKey = null;
     selectedSpeedPathId = null;
+    openEvidenceFamily = null;
     host.hidden = false;
     render(false);
     openFrame = window.requestAnimationFrame(() => {
@@ -750,6 +844,15 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
         strategyBodySize = value;
         render(false);
         host.querySelector<HTMLButtonElement>(`[data-action="strategy-size"][data-value="${value}"]`)?.focus();
+      }
+      return;
+    }
+    if (target.dataset.action === "evidence-family") {
+      const family = target.dataset.family;
+      if (isEvidenceFamily(family)) {
+        openEvidenceFamily = openEvidenceFamily === family ? null : family;
+        render();
+        focusEvidenceFamily(family);
       }
     }
   };
