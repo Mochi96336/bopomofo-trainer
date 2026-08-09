@@ -62,41 +62,26 @@
   width: var(--analysis-board-width);
 }
 
-/* Coordination paths keep the keyboard in the upper reading zone and put all
-   textual interpretation at the lower edge. The footer is one editorial line:
-   evidence note on the left, methodology disclosure on the right. */
+/* Coordination keeps exactly the same stage geometry as Semantic. Only its
+   text is visually dropped toward the viewport edge, so the keyboard never
+   moves when switching domains. */
 .analysis-v2 .analysis-v2-speed-field {
+  --analysis-speed-text-drop: max(0px, calc(100dvh - 700px));
   width: min(900px, 92%);
-  min-height: max(500px, calc(100dvh - 150px));
   grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: minmax(0, 1fr) auto;
-  align-items: end;
   column-gap: 24px;
   row-gap: 12px;
 }
 
 .analysis-v2 .analysis-v2-speed-stage {
-  height: 100%;
-  min-height: 0;
   grid-column: 1 / -1;
 }
 
-.analysis-v2 .analysis-v2-primary-stage.analysis-v2-speed-primary {
-  height: 100%;
-  min-height: 0;
-  padding-top: 14px;
-  grid-template-rows: var(--analysis-object-slot-height) auto;
-  align-content: space-between;
-  gap: 0;
-}
-
 .analysis-v2 .analysis-v2-hero-readout.analysis-v2-speed-readout {
-  width: 100%;
-  margin: 0;
-  align-content: end;
+  margin-inline: auto;
   justify-items: start;
   text-align: left;
-  transform: none;
+  transform: translateY(calc(8px + var(--analysis-speed-text-drop)));
 }
 
 .analysis-v2 .analysis-v2-hero-readout.analysis-v2-speed-readout > strong {
@@ -110,10 +95,11 @@
   grid-row: 2;
   justify-content: flex-start;
   text-align: left;
+  transform: translateY(var(--analysis-speed-text-drop));
 }
 
-/* Methodology is a right-edge disclosure. The popup opens upward, so the
-   closed marker points up; once open it points down to indicate collapse. */
+/* Methodology is the right-hand item on the same lower rail. Its panel opens
+   upward, so the closed marker points up; open points down to mean collapse. */
 .analysis-v2 .analysis-v2-method {
   width: auto;
   margin: 6px 0 0;
@@ -126,6 +112,7 @@
   grid-column: 2;
   grid-row: 2;
   align-self: end;
+  transform: translateY(var(--analysis-speed-text-drop));
 }
 
 .analysis-v2 .analysis-v2-method summary {
@@ -281,10 +268,9 @@
   }
 
   .analysis-v2 .analysis-v2-speed-field {
+    --analysis-speed-text-drop: 0px;
     width: 100%;
-    min-height: 0;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto auto;
     row-gap: 10px;
   }
 
@@ -293,20 +279,14 @@
   .analysis-v2 .analysis-v2-speed-field > .analysis-v2-method {
     grid-column: 1;
     grid-row: auto;
-  }
-
-  .analysis-v2 .analysis-v2-primary-stage.analysis-v2-speed-primary {
-    height: auto;
-    min-height: var(--analysis-primary-stage-height);
-    grid-template-rows: var(--analysis-object-slot-height) auto;
-    align-content: center;
-    gap: 20px;
+    transform: none;
   }
 
   .analysis-v2 .analysis-v2-hero-readout.analysis-v2-speed-readout {
     width: 100%;
     justify-items: center;
     text-align: center;
+    transform: none;
   }
 
   .analysis-v2 .analysis-v2-hero-readout.analysis-v2-speed-readout > strong {
