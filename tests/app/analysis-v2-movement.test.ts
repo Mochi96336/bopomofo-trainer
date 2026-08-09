@@ -131,7 +131,7 @@ describe("Analysis V2 Movement ranking", () => {
     ]);
     expect(structureRows[0]?.textContent).toContain("240 ms");
     expect(structureRows[1]?.textContent).toContain("170 ms");
-    expect(structureRows[2]).toHaveClass("sampling");
+    expect(structureRows[2]?.classList.contains("sampling")).toBe(true);
     expect(structureRows[2]?.textContent).toContain("樣本中");
     expect(structureRows[2]?.querySelector("strong")?.textContent).toBe("—");
     expect(structure.querySelectorAll(".analysis-v2-motor-sparkline")).toHaveLength(2);
