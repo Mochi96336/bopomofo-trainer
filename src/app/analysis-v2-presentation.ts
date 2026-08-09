@@ -70,6 +70,20 @@ function relabelStrategySegments(host: HTMLElement): void {
   }
 }
 
+function normalizeCoordinationCopy(host: HTMLElement): void {
+  setText(
+    host.querySelector(".analysis-v2-speed-legend span"),
+    "深色標記較慢或目前選取",
+  );
+  const method = host.querySelector<HTMLElement>(".analysis-v2-coordination-domain .analysis-v2-method p");
+  if (method !== null) {
+    setText(
+      method,
+      "只畫同一音節內實際相鄰接受且乾淨的轉換，每條至少 5 個時間樣本。最多顯示支持度較高的 36 條；較深墨色只表示目前畫面中的相對較慢或互動焦點，不代表錯誤。",
+    );
+  }
+}
+
 function semanticTrends(host: HTMLElement, model: AnalysisV2Model): void {
   const selected = host.querySelector<HTMLElement>('.analysis-v2-semantic-stage [data-action="select-key"].selected');
   const inspector = host.querySelector<HTMLElement>(".analysis-v2-semantic-stage .analysis-v2-inspector-content");
@@ -127,6 +141,7 @@ function normalizeAnalysis(host: HTMLElement, model: AnalysisV2Model): void {
   setText(host.querySelector("#analysis-v2-title"), "分析");
   reorderTabs(host);
   relabelStrategySegments(host);
+  normalizeCoordinationCopy(host);
   semanticTrends(host, model);
   speedTrend(host, model);
 }
