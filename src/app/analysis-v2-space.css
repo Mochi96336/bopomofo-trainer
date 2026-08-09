@@ -1,0 +1,198 @@
+/* Analysis breathing-space ownership.
+   Keep the keyboard as a medium-sized reference object and use the remaining
+   viewport for separation between object, reading, and methodology. This file
+   intentionally owns scale/spacing only; evidence paint and path semantics stay
+   in their existing modules. */
+.analysis-v2 {
+  --analysis-board-width: min(760px, 92%);
+  --analysis-primary-stage-height: clamp(430px, 54dvh, 480px);
+  --analysis-object-slot-height: 240px;
+}
+
+.analysis-v2 .analysis-v2-domain {
+  width: min(1080px, 100%);
+}
+
+.analysis-v2 .analysis-v2-domain-controls {
+  width: min(860px, 92%);
+}
+
+.analysis-v2 .analysis-v2-primary-stage,
+.analysis-v2 .analysis-v2-visual-stage {
+  min-height: var(--analysis-primary-stage-height);
+  padding-top: 14px;
+  grid-template-rows: var(--analysis-object-slot-height) auto;
+  gap: 50px;
+}
+
+.analysis-v2 .analysis-v2-semantic-primary .analysis-v2-keyboard,
+.analysis-v2 .analysis-v2-speed-board {
+  width: var(--analysis-board-width);
+  transform: perspective(520px) rotateX(19deg);
+}
+
+.analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key,
+.analysis-v2 .analysis-v2-speed-board .analysis-v2-key {
+  height: clamp(23px, 3.7vw, 35px);
+}
+
+.analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key strong,
+.analysis-v2 .analysis-v2-speed-board .analysis-v2-key strong {
+  font-size: clamp(7px, 0.85vw, 10px);
+}
+
+.analysis-v2 .analysis-v2-hero-readout {
+  min-height: 58px;
+  transform: translateY(8px);
+}
+
+.analysis-v2 .analysis-v2-speed-caption,
+.analysis-v2 .analysis-v2-speed-legend,
+.analysis-v2 .analysis-v2-speed-readout,
+.analysis-v2 .analysis-v2-semantic-rail,
+.analysis-v2 .analysis-v2-semantic-stage > .analysis-v2-inspector,
+.analysis-v2 .analysis-v2-speed-inspector {
+  width: var(--analysis-board-width);
+}
+
+/* Movement keeps the explanatory schematic as the primary object. Historical
+   lines are deliberately tiny annotations; a 100px trend should never read as
+   a half-page chart. */
+.analysis-v2 .analysis-v2-movement-view {
+  width: min(900px, 92%);
+  margin-top: clamp(48px, 7dvh, 72px);
+  gap: 28px;
+}
+
+.analysis-v2 .analysis-v2-movement-grid {
+  gap: 42px 64px;
+}
+
+.analysis-v2 .analysis-v2-movement-family {
+  gap: 10px;
+}
+
+.analysis-v2 .analysis-v2-movement-family::before {
+  display: grid;
+  min-height: 58px;
+  margin: 2px 0 8px;
+  place-items: center;
+  color: var(--ink-muted);
+  content: "";
+  font-size: 18px;
+  font-weight: 560;
+  letter-spacing: .08em;
+  line-height: 1;
+}
+
+.analysis-v2 .analysis-v2-movement-family:nth-child(1)::before {
+  content: "左   ⇄   右";
+}
+
+.analysis-v2 .analysis-v2-movement-family:nth-child(2)::before {
+  content: "左   →   右   →   左";
+}
+
+.analysis-v2 .analysis-v2-movement-family:nth-child(3)::before {
+  content: "①   ─   ②   ─   ③";
+}
+
+.analysis-v2 .analysis-v2-movement-family:nth-child(4)::before {
+  content: "注音   →   ˊ";
+}
+
+.analysis-v2 .analysis-v2-movement-stat {
+  min-height: 32px;
+  grid-template-columns: minmax(72px, auto) 104px auto;
+  justify-content: start;
+  gap: 12px;
+}
+
+.analysis-v2 .analysis-v2-motor-sparkline {
+  width: 104px;
+  height: 24px;
+  justify-self: start;
+}
+
+.analysis-v2 .analysis-v2-motor-sparkline-empty {
+  width: 104px;
+  justify-self: start;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .analysis-v2 {
+    --analysis-board-width: min(760px, 92%);
+    --analysis-primary-stage-height: clamp(390px, 50dvh, 440px);
+    --analysis-object-slot-height: 220px;
+  }
+
+  .analysis-v2 .analysis-v2-primary-stage,
+  .analysis-v2 .analysis-v2-visual-stage {
+    gap: 38px;
+  }
+
+  .analysis-v2 .analysis-v2-movement-view {
+    width: min(820px, 94%);
+    margin-top: 38px;
+  }
+}
+
+@media (max-width: 760px) {
+  .analysis-v2 .analysis-v2-movement-family::before {
+    min-height: 46px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .analysis-v2 {
+    --analysis-board-width: 100%;
+    --analysis-primary-stage-height: 320px;
+    --analysis-object-slot-height: 190px;
+  }
+
+  .analysis-v2 .analysis-v2-domain-controls {
+    width: 100%;
+  }
+
+  .analysis-v2 .analysis-v2-primary-stage,
+  .analysis-v2 .analysis-v2-visual-stage {
+    gap: 20px;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-keyboard,
+  .analysis-v2 .analysis-v2-speed-board {
+    width: 100%;
+    transform: perspective(420px) rotateX(12deg);
+  }
+
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key,
+  .analysis-v2 .analysis-v2-speed-board .analysis-v2-key {
+    height: 19px;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key strong,
+  .analysis-v2 .analysis-v2-speed-board .analysis-v2-key strong {
+    font-size: 7px;
+  }
+
+  .analysis-v2 .analysis-v2-hero-readout {
+    transform: none;
+  }
+
+  .analysis-v2 .analysis-v2-movement-view {
+    width: 100%;
+    margin-top: 20px;
+  }
+
+  .analysis-v2 .analysis-v2-movement-stat {
+    grid-template-columns: minmax(64px, auto) 92px auto;
+    gap: 8px;
+  }
+
+  .analysis-v2 .analysis-v2-motor-sparkline,
+  .analysis-v2 .analysis-v2-motor-sparkline-empty {
+    width: 92px;
+  }
+}
