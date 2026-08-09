@@ -38,11 +38,13 @@ function canonicalTransitiveSlots() {
 }
 
 describe("Clause-model v2 structural nominal argument roles", () => {
-  it("represents subject, object, and indirect object as wrapper categories", () => {
+  it("represents ordinary and construction-specific argument roles as wrapper categories", () => {
     expect(ARGUMENT_PRODUCTION_RULES.map((rule) => [rule.id, rule.output])).toEqual([
       ["argument.subject.noun", "Subject"],
       ["argument.object.noun", "Object"],
       ["argument.indirect-object.noun", "IndirectObject"],
+      ["argument.disposal-patient.noun", "DisposalPatient"],
+      ["argument.passive-agent.noun", "PassiveAgent"],
     ]);
     for (const rule of ARGUMENT_PRODUCTION_RULES) {
       expect(rule.constituents).toEqual([
