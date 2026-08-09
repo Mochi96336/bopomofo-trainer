@@ -380,7 +380,6 @@ function parseMotorProgressHistory(
     policy,
     lastCompletedRound,
   );
-  const sameHandRevisits = sameHandSchema === "current" ? parsedSameHandRevisits : {};
   const toneCommits = parseMotorFamily(
     value.toneCommits,
     (scope) => parseToneScope(scope, validTokens),
@@ -391,6 +390,7 @@ function parseMotorProgressHistory(
   );
   if (coordination === null || immediateHands === null
     || parsedSameHandRevisits === null || toneCommits === null) return null;
+  const sameHandRevisits = sameHandSchema === "current" ? parsedSameHandRevisits : {};
   return { coordination, immediateHands, sameHandRevisits, toneCommits };
 }
 
