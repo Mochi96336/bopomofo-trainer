@@ -544,12 +544,26 @@ function simpleMovementDiagram(label: string): string {
   return `<div class="analysis-v2-movement-diagram" aria-hidden="true"><div class="analysis-v2-movement-diagram-line">${label}</div></div>`;
 }
 
+function revisitMovementDiagram(): string {
+  return `<div class="analysis-v2-movement-diagram" aria-label="同側再次出現；中間可能連續，也可能穿插另一側">
+    <div class="analysis-v2-movement-diagram-line"><span>同側</span><i>→</i><span>同側</span></div>
+    <div class="analysis-v2-movement-diagram-line"><span>同側</span><i>→</i><span>另一側</span><i>→</i><span>同側</span></div>
+  </div>`;
+}
+
 function wordStructureDiagram(): string {
   return `<div class="analysis-v2-movement-diagram analysis-v2-word-structure" aria-label="字內結構示意：聲母、介音、韻母；例：家，ㄐㄧㄚ">
     <div class="analysis-v2-word-structure-labels"><span>聲母</span><span>介音</span><span>韻母</span></div>
     <div class="analysis-v2-word-structure-example"><span>ㄐ</span><span>ㄧ</span><span>ㄚ</span></div>
     <small>例：家</small>
   </div>`;
+}
+
+function bodyShapeLabel(shape: AnalysisV2Model["coordination"]["coordination"][number]["scope"]["bodyShape"]): string {
+  if (shape === "initial-medial-final") return "聲母＋介音＋韻母";
+  if (shape === "initial-medial") return "聲母＋介音";
+  if (shape === "initial-final") return "聲母＋韻母";
+  return "介音＋韻母";
 }
 
 function findImmediate(
@@ -562,14 +576,10 @@ function findImmediate(
   );
 }
 
-function findRevisit(
-  model: AnalysisV2Model,
-  hand: "left" | "right",
-  opposite: boolean,
-): AnalysisV2MotorCell<SameHandRevisitAggregateScope> | undefined {
-  return model.coordination.sameHandRevisits.find(
-    (cell) => cell.scope.hand === hand && cell.scope.oppositeHandIntervened === opposite,
-  );
+function revisitLabel(cell: AnalysisV2MotorCell<SameHandRevisitAggregateScope>): string {
+  const hand = cell.scope.hand === "left" ? "左" : "右";
+  if (!cell.scope.oppositeHandIntervened) return `${hand} · 連續`;
+  return `${hand} · 隔${cell.scope.hand === "left" ? "右" : "左"}側`;
 }
 
 function movementFamiliesMarkup(model: AnalysisV2Model): string {
@@ -580,14 +590,24 @@ function movementFamiliesMarkup(model: AnalysisV2Model): string {
     { label: "右 → 右", cell: findImmediate(model, "right", "right") },
   ]).map(({ label, cell }) => movementStatMarkup(label, cell));
 
-  const revisitStats = sortedMovementRows([
-    { label: "左 · 連續", cell: findRevisit(model, "left", false) },
-    { label: "左 · 隔另一側", cell: findRevisit(model, "left", true) },
-    { label: "右 · 連續", cell: findRevisit(model, "right", false) },
-    { label: "右 · 隔另一側", cell: findRevisit(model, "right", true) },
-  ]).map(({ label, cell }) => movementStatMarkup(label, cell));
+  const observedRevisits = model.coordination.sameHandRevisits.filter((cell) => cell.observations > 0);
+  const revisitRows = sortedMovementRows(
+    observedRevisits.map((cell) => ({ label: revisitLabel(cell), cell })),
+  );
+  const revisitStats = revisitRows.length === 0
+    ? ['<div class="analysis-v2-movement-empty">尚無字內同側再出手資料</div>']
+    : revisitRows.map(({ label, cell }) => movementStatMarkup(label, cell));
+
+  const observedStructures = model.coordination.coordination.filter((cell) => cell.observations > 0);
+  const structureRows = sortedMovementRows(
+    observedStructures.map((cell) => ({ label: bodyShapeLabel(cell.scope.bodyShape), cell })),
+  );
+  const structureStats = structureRows.length === 0
+    ? ['<div class="analysis-v2-movement-empty">尚無字內結構時間資料</div>']
+    : structureRows.map(({ label, cell }) => movementStatMarkup(label, cell));
 
   const toneCells = [...model.coordination.toneCommits]
+    .filter((cell) => cell.observations > 0)
     .sort((left, right) => (right.currentTimeToTypeMs ?? -1) - (left.currentTimeToTypeMs ?? -1)
       || left.scope.toneToken.localeCompare(right.scope.toneToken));
   const toneStats = toneCells.length === 0
@@ -595,38 +615,38 @@ function movementFamiliesMarkup(model: AnalysisV2Model): string {
     : toneCells.map((cell) => movementStatMarkup(tokenLabel(cell.scope.toneToken), cell));
 
   return `<section class="analysis-v2-movement-view" aria-label="動作觀察">
-    <div class="analysis-v2-movement-intro"><strong>動作觀察</strong><span>diagram 先說明動作；折線只看近期變化，毫秒是同一家族內的輔助讀值。</span></div>
+    <div class="analysis-v2-movement-intro"><strong>動作觀察</strong><span>diagram 先說明動作；折線只看近期變化，毫秒與排列只在同一家族內比較。</span></div>
     <div class="analysis-v2-movement-grid">
       ${movementFamilyMarkup(
         "手別轉換",
         familyStatus(model.coordination.immediateHands),
-        "依標準指法鍵位分側，不代表偵測到實際使用哪隻手。",
+        "依標準指法鍵位分側，不代表偵測到實際使用哪隻手；有資料時依目前代表時間由慢到快排列。",
         simpleMovementDiagram('<span>左</span><i>⇄</i><span>右</span>'),
         handStats,
       )}
       ${movementFamilyMarkup(
         "同側再出手",
-        familyStatus(model.coordination.sameHandRevisits),
-        "比較同一側再次出現時，中間是否曾穿插另一側鍵位。",
-        simpleMovementDiagram('<span>左</span><i>→</i><span>右</span><i>→</i><span>左</span>'),
+        familyStatus(observedRevisits),
+        "只比較同一個字內的注音成分；聲調與跨字事件不列入。有資料時依目前代表時間由慢到快排列。",
+        revisitMovementDiagram(),
         revisitStats,
       )}
       ${movementFamilyMarkup(
         "字內結構",
-        "結構示意",
-        "聲母、介音、韻母由左向右呈現；手別資料只留在前兩個家族。",
+        familyStatus(observedStructures),
+        "以聲母、介音、韻母的結構組合比較字內注音完成時間；依目前代表時間由慢到快排列。",
         wordStructureDiagram(),
-        [],
+        structureStats,
       )}
       ${movementFamilyMarkup(
         "聲調收尾",
         familyStatus(model.coordination.toneCommits),
-        "最後一個字內注音到聲調鍵的乾淨時間。",
+        "最後一個字內注音到聲調鍵的乾淨時間；有資料時依目前代表時間由慢到快排列。",
         simpleMovementDiagram('<span>字內注音</span><i>→</i><span>聲調</span>'),
         toneStats,
       )}
     </div>
-    ${methodDetailsMarkup("資料規則", "折線是各動作家族自己的歷史，不跨家族合成分數；字內結構目前只呈現正確結構，不再顯示舊的左右手切分。")}
+    ${methodDetailsMarkup("資料規則", "折線只表示各家族自己的近期變化；毫秒與排序只在同一家族內比較。字內結構按聲母、介音、韻母組合聚合；同側再出手只看同一字內的注音成分，不含聲調或跨字事件。")}
   </section>`;
 }
 
