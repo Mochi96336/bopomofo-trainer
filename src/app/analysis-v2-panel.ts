@@ -518,8 +518,12 @@ function sortedMovementRows<Scope>(
   rows: readonly { readonly label: string; readonly cell: AnalysisV2MotorCell<Scope> | undefined }[],
 ): readonly { readonly label: string; readonly cell: AnalysisV2MotorCell<Scope> | undefined }[] {
   return [...rows].sort((left, right) => {
-    const leftMs = left.cell?.currentTimeToTypeMs ?? -1;
-    const rightMs = right.cell?.currentTimeToTypeMs ?? -1;
+    const leftReady = left.cell?.ready === true;
+    const rightReady = right.cell?.ready === true;
+    if (leftReady !== rightReady) return leftReady ? -1 : 1;
+    if (!leftReady) return left.label.localeCompare(right.label, "zh-Hant");
+    const leftMs = left.cell?.currentTimeToTypeMs ?? 0;
+    const rightMs = right.cell?.currentTimeToTypeMs ?? 0;
     if (leftMs !== rightMs) return rightMs - leftMs;
     return left.label.localeCompare(right.label, "zh-Hant");
   });
@@ -583,12 +587,13 @@ function revisitLabel(cell: AnalysisV2MotorCell<SameHandRevisitAggregateScope>):
 }
 
 function movementFamiliesMarkup(model: AnalysisV2Model): string {
-  const handStats = sortedMovementRows([
+  const handRows = sortedMovementRows([
     { label: "左 → 左", cell: findImmediate(model, "left", "left") },
     { label: "左 → 右", cell: findImmediate(model, "left", "right") },
     { label: "右 → 左", cell: findImmediate(model, "right", "left") },
     { label: "右 → 右", cell: findImmediate(model, "right", "right") },
-  ]).map(({ label, cell }) => movementStatMarkup(label, cell));
+  ]);
+  const handStats = handRows.map(({ label, cell }) => movementStatMarkup(label, cell));
 
   const observedRevisits = model.coordination.sameHandRevisits.filter((cell) => cell.observations > 0);
   const revisitRows = sortedMovementRows(
@@ -606,47 +611,48 @@ function movementFamiliesMarkup(model: AnalysisV2Model): string {
     ? ['<div class="analysis-v2-movement-empty">尚無字內結構時間資料</div>']
     : structureRows.map(({ label, cell }) => movementStatMarkup(label, cell));
 
-  const toneCells = [...model.coordination.toneCommits]
-    .filter((cell) => cell.observations > 0)
-    .sort((left, right) => (right.currentTimeToTypeMs ?? -1) - (left.currentTimeToTypeMs ?? -1)
-      || left.scope.toneToken.localeCompare(right.scope.toneToken));
-  const toneStats = toneCells.length === 0
+  const toneRows = sortedMovementRows(
+    model.coordination.toneCommits
+      .filter((cell) => cell.observations > 0)
+      .map((cell) => ({ label: tokenLabel(cell.scope.toneToken), cell })),
+  );
+  const toneStats = toneRows.length === 0
     ? ['<div class="analysis-v2-movement-empty">尚無聲調完成資料</div>']
-    : toneCells.map((cell) => movementStatMarkup(tokenLabel(cell.scope.toneToken), cell));
+    : toneRows.map(({ label, cell }) => movementStatMarkup(label, cell));
 
   return `<section class="analysis-v2-movement-view" aria-label="動作觀察">
-    <div class="analysis-v2-movement-intro"><strong>動作觀察</strong><span>diagram 先說明動作；折線只看近期變化，毫秒與排列只在同一家族內比較。</span></div>
+    <div class="analysis-v2-movement-intro"><strong>動作觀察</strong><span>diagram 先說明動作；折線只看近期變化。只有累積至少 5 個乾淨時間樣本的列才參與家族內慢→快排列；樣本中的列固定留在其後。</span></div>
     <div class="analysis-v2-movement-grid">
       ${movementFamilyMarkup(
         "手別轉換",
         familyStatus(model.coordination.immediateHands),
-        "依標準指法鍵位分側，不代表偵測到實際使用哪隻手；有資料時依目前代表時間由慢到快排列。",
+        "依標準指法鍵位分側，不代表偵測到實際使用哪隻手；可比較資料依目前代表時間由慢到快排列。",
         simpleMovementDiagram('<span>左</span><i>⇄</i><span>右</span>'),
         handStats,
       )}
       ${movementFamilyMarkup(
         "同側再出手",
         familyStatus(observedRevisits),
-        "只比較同一個字內的注音成分；聲調與跨字事件不列入。有資料時依目前代表時間由慢到快排列。",
+        "只比較同一個字內的注音成分；聲調與跨字事件不列入。可比較資料依目前代表時間由慢到快排列。",
         revisitMovementDiagram(),
         revisitStats,
       )}
       ${movementFamilyMarkup(
         "字內結構",
         familyStatus(observedStructures),
-        "以聲母、介音、韻母的結構組合比較字內注音完成時間；依目前代表時間由慢到快排列。",
+        "以聲母、介音、韻母的結構組合比較字內注音完成時間；可比較資料依目前代表時間由慢到快排列。",
         wordStructureDiagram(),
         structureStats,
       )}
       ${movementFamilyMarkup(
         "聲調收尾",
         familyStatus(model.coordination.toneCommits),
-        "最後一個字內注音到聲調鍵的乾淨時間；有資料時依目前代表時間由慢到快排列。",
+        "最後一個字內注音到聲調鍵的乾淨時間；可比較資料依目前代表時間由慢到快排列。",
         simpleMovementDiagram('<span>字內注音</span><i>→</i><span>聲調</span>'),
         toneStats,
       )}
     </div>
-    ${methodDetailsMarkup("資料規則", "折線只表示各家族自己的近期變化；毫秒與排序只在同一家族內比較。字內結構按聲母、介音、韻母組合聚合；同側再出手只看同一字內的注音成分，不含聲調或跨字事件。")}
+    ${methodDetailsMarkup("資料規則", "折線只表示各家族自己的近期變化；至少 5 個乾淨時間樣本後，毫秒才進入家族內排序。樣本中的列不參與排名，只固定列在可比較資料之後。字內結構按聲母、介音、韻母組合聚合；同側再出手只看同一字內的注音成分，不含聲調或跨字事件。")}
   </section>`;
 }
 
