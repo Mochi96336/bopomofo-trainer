@@ -369,16 +369,25 @@ test("keeps a dense flyline field distinguishable in dark mode", async ({ page }
       ".analysis-v2-speed-path:not(.is-slow):not(.salient)",
     )!;
     const slow = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-slow")!;
+    const probe = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    host.append(probe);
+    probe.style.stroke = "var(--ink)";
+    const ink = getComputedStyle(probe).stroke;
+    probe.style.stroke = "var(--accent)";
+    const accent = getComputedStyle(probe).stroke;
+    probe.remove();
     return {
       normalOpacity: Number(getComputedStyle(normal).strokeOpacity),
       slowOpacity: Number(getComputedStyle(slow).strokeOpacity),
       slowStroke: getComputedStyle(slow).stroke,
-      ink: getComputedStyle(host).color,
+      ink,
+      accent,
     };
   });
   expect(palette.normalOpacity).toBeLessThan(palette.slowOpacity);
   expect(palette.slowOpacity).toBe(1);
   expect(palette.slowStroke).toBe(palette.ink);
+  expect(palette.slowStroke).not.toBe(palette.accent);
 });
 
 test("keeps mobile horizontal overflow inside the flyline stage", async ({ page }) => {
