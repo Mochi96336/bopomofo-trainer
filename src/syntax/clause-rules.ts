@@ -137,6 +137,13 @@ const aNotALexeme = (
 });
 
 export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
+  production("phrase.passive.short", "PassivePhrase", [
+    lexical("marker", ["AUX"], { requiredFeatures: { voice: "passive" } }),
+  ]),
+  production("phrase.passive.long", "PassivePhrase", [
+    lexical("marker", ["ADP"], { requiredFeatures: { voice: "passive" } }),
+    constituent("agent", "NounPhrase", { requiredFunctions: ["oblique"] }),
+  ]),
   production("clause.nominal-predicate", "Clause", [
     subject(),
     constituent("predicate", "NounPhrase", { requiredFunctions: ["predicate"] }),
@@ -208,8 +215,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   ]),
   production("clause.bei", "Clause", [
     constituent("patient", "NounPhrase", { requiredFunctions: ["subject"] }),
-    lexical("marker", ["ADP", "AUX"], { requiredFeatures: { voice: "passive" } }),
-    constituent("agent", "NounPhrase", { minimum: 0, maximum: 1, requiredFunctions: ["oblique"] }),
+    constituent("passive", "PassivePhrase"),
     corePredicate(["transitive", "ambitransitive"]),
   ]),
   production("clause.causative", "Clause", [
