@@ -101,7 +101,8 @@
 .analysis-v2-speed-field,
 .analysis-v2-speed-stage,
 .analysis-v2-strategy-stage,
-.analysis-v2-evidence-rail {
+.analysis-v2-evidence-rail,
+.analysis-v2-semantic-rail {
   min-width: 0;
 }
 
@@ -174,6 +175,56 @@
 .analysis-v2-semantic-stage.has-selection .analysis-v2-semantic-readout {
   visibility: hidden;
   pointer-events: none;
+}
+
+/* Semantic gets a second information level instead of ending immediately after
+   three lead keys. It is deliberately quieter than the keyboard and does not
+   pretend to be another dashboard. */
+.analysis-v2-semantic-rail {
+  display: grid;
+  width: 100%;
+  min-height: 58px;
+  margin-top: clamp(22px, 3dvh, 34px);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.analysis-v2-semantic-rail > div {
+  display: grid;
+  min-width: 0;
+  min-height: 58px;
+  padding: 9px 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  align-content: center;
+  column-gap: 16px;
+}
+
+.analysis-v2-semantic-rail > div + div {
+  border-left: 1px solid var(--hairline);
+}
+
+.analysis-v2-semantic-rail span {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.analysis-v2-semantic-rail strong {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 680;
+  white-space: nowrap;
+}
+
+.analysis-v2-semantic-rail small {
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .analysis-v2-table-scroll {
@@ -259,6 +310,19 @@
 
   .analysis-v2-segments button {
     flex: 1 1 0;
+  }
+
+  .analysis-v2-semantic-rail > div {
+    padding-inline: 10px;
+    column-gap: 8px;
+  }
+
+  .analysis-v2-semantic-rail strong {
+    font-size: 12px;
+  }
+
+  .analysis-v2-semantic-rail small {
+    font-size: 10px;
   }
 
   .analysis-v2-speed-board {
