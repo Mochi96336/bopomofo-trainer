@@ -121,11 +121,14 @@
   cursor: pointer;
 }
 
+/* All analytical states use neutral ink. Hierarchy is carried primarily by
+   opacity so light and dark themes stay legible even when two ink variables
+   resolve to the same RGB value. */
 .analysis-v2-speed-path {
   fill: none;
   stroke: var(--ink-faint);
   stroke-width: var(--relation-width);
-  stroke-opacity: 1;
+  stroke-opacity: 0.58;
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
@@ -139,14 +142,13 @@
 
 .analysis-v2-speed-path.salient {
   stroke: var(--ink-upcoming);
-  stroke-opacity: 0.94;
+  stroke-opacity: 0.82;
 }
 
-/* Slow is an analytical distinction, not an error. Use a deeper neutral ink
-   instead of the product's red accent/danger family. */
+/* Slow is an analytical distinction, not an error. */
 .analysis-v2-speed-path.is-slow {
   stroke: var(--ink);
-  stroke-opacity: 0.78;
+  stroke-opacity: 1;
 }
 
 .analysis-v2-speed-path:hover,
@@ -160,7 +162,7 @@
 }
 
 .analysis-v2-speed-path.is-muted {
-  stroke-opacity: 0.16;
+  stroke-opacity: 0.12;
 }
 
 .analysis-v2-speed-path.tone {
