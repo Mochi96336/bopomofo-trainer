@@ -89,7 +89,7 @@
   border-color: color-mix(in srgb, var(--ink) var(--semantic-border, 18%), var(--key-border));
   background: linear-gradient(
     color-mix(in srgb, var(--ink) var(--semantic-fill, 0%), transparent),
-    color-mix(in srgb, var(--ink) calc(var(--semantic-fill, 0%) * 0.42), transparent)
+    transparent
   );
   color: color-mix(in srgb, var(--ink) var(--semantic-text, 44%), var(--ink-faint));
 }
