@@ -259,7 +259,8 @@ describe("Analysis V2 panel", () => {
     expect(detail?.textContent).toContain("88 ms");
     expect(detail?.querySelector(".analysis-v2-motor-sparkline svg")).not.toBeNull();
 
-    buttons[2]?.click();
+    const rerenderedButtons = [...host.querySelectorAll<HTMLButtonElement>('[data-action="evidence-family"]')];
+    rerenderedButtons[2]?.click();
     expect(host.querySelectorAll('[data-action="evidence-family"][aria-expanded="true"]')).toHaveLength(1);
     expect(host.querySelector("#analysis-v2-evidence-detail")?.textContent).toContain("只有 2、3 個注音");
   });
