@@ -131,9 +131,17 @@ describe("Analysis V2 Movement ranking", () => {
     ]);
     expect(structureRows[0]?.textContent).toContain("240 ms");
     expect(structureRows[1]?.textContent).toContain("170 ms");
+    expect(structureRows[0]?.querySelector(".analysis-v2-movement-reading small")?.textContent)
+      .toBe("· 10 個樣本");
+    expect(structureRows[1]?.querySelector(".analysis-v2-movement-reading small")?.textContent)
+      .toBe("· 10 個樣本");
+    expect(structureRows[0]?.getAttribute("aria-label")).toContain("10 個乾淨樣本，10 次觀察");
+    expect(structureRows[0]?.textContent).not.toContain("次觀察");
     expect(structureRows[2]?.classList.contains("sampling")).toBe(true);
     expect(structureRows[2]?.textContent).toContain("樣本中");
     expect(structureRows[2]?.querySelector("strong")?.textContent).toBe("—");
+    expect(structureRows[2]?.querySelector(".analysis-v2-movement-reading small")?.textContent)
+      .toBe("· 樣本中 · 3 個樣本");
     expect(structure.querySelectorAll(".analysis-v2-motor-sparkline")).toHaveLength(2);
     expect(host.querySelector(".analysis-v2-movement-intro")?.textContent)
       .toContain("只有累積至少 5 個乾淨時間樣本的列才參與家族內慢→快排列");
