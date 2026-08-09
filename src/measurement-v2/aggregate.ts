@@ -10,6 +10,7 @@ import type {
   CoordinationBodyShape,
   ExplicitHand,
   MeasurementObservationsV2,
+  ThreePartInputOrderPermutation,
 } from "./types.js";
 
 export const LEGACY_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-1" as const;
@@ -50,6 +51,16 @@ export interface InputOrderPositionAggregateScope {
 
 export interface InputOrderPositionAggregate {
   readonly scope: InputOrderPositionAggregateScope;
+  readonly observations: number;
+}
+
+export interface InputOrderPermutationAggregateScope {
+  readonly bodySize: "3";
+  readonly permutation: ThreePartInputOrderPermutation;
+}
+
+export interface InputOrderPermutationAggregate {
+  readonly scope: InputOrderPermutationAggregateScope;
   readonly observations: number;
 }
 
@@ -96,6 +107,8 @@ export interface MeasurementSummaryV2 {
   };
   readonly strategy: {
     readonly inputOrderPositions: Readonly<Record<string, InputOrderPositionAggregate>>;
+    /** Additive bounded joint-order channel; older persisted summaries may omit it. */
+    readonly inputOrderPermutations?: Readonly<Record<string, InputOrderPermutationAggregate>>;
   };
   readonly motor: {
     readonly coordination: Readonly<Record<string, MotorTimingAggregate<CoordinationAggregateScope>>>;
@@ -180,6 +193,16 @@ export function inputOrderPositionAggregateKey(scope: InputOrderPositionAggregat
   ]);
 }
 
+export function inputOrderPermutationAggregateKey(
+  scope: InputOrderPermutationAggregateScope,
+): string {
+  return JSON.stringify([
+    "input-order-permutation",
+    scope.bodySize,
+    scope.permutation,
+  ]);
+}
+
 export function coordinationAggregateKey(scope: CoordinationAggregateScope): string {
   return JSON.stringify(["coordination", scope.bodyShape]);
 }
@@ -212,6 +235,7 @@ export function createEmptyMeasurementSummaryV2(): MeasurementSummaryV2 {
     },
     strategy: {
       inputOrderPositions: {},
+      inputOrderPermutations: {},
     },
     motor: {
       coordination: {},
@@ -313,6 +337,20 @@ export function aggregateMeasurementObservationsV2(
     });
   }
 
+  const inputOrderPermutations = seedMap(prior.strategy.inputOrderPermutations ?? {});
+  for (const observation of observations.inputOrderPermutations ?? []) {
+    const scope: InputOrderPermutationAggregateScope = {
+      bodySize: "3",
+      permutation: observation.permutation,
+    };
+    const key = inputOrderPermutationAggregateKey(scope);
+    const previous = inputOrderPermutations.get(key);
+    inputOrderPermutations.set(key, {
+      scope,
+      observations: (previous?.observations ?? 0) + 1,
+    });
+  }
+
   const coordination = seedMap(prior.motor.coordination);
   for (const observation of observations.coordination) {
     const scope: CoordinationAggregateScope = { bodyShape: observation.bodyShape };
@@ -378,6 +416,7 @@ export function aggregateMeasurementObservationsV2(
     },
     strategy: {
       inputOrderPositions: sortedRecord(inputOrderPositions),
+      inputOrderPermutations: sortedRecord(inputOrderPermutations),
     },
     motor: {
       coordination: sortedRecord(coordination),
