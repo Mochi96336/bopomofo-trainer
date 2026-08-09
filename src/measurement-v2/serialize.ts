@@ -1,5 +1,6 @@
 import type { PracticeMode } from "../core/model.js";
 import {
+  HANDSHAPE_MEASUREMENT_V2_POLICY_VERSION,
   LEGACY_MEASUREMENT_V2_POLICY_VERSION,
   MEASUREMENT_V2_POLICY_VERSION,
   PREVIOUS_MEASUREMENT_V2_POLICY_VERSION,
@@ -31,11 +32,11 @@ import type {
   ExplicitHand,
 } from "./types.js";
 
-const CURRENT_STRATEGY_KEY_LIMIT = 13; // 2-part 2×2 + 3-part 3×3.
+const CURRENT_STRATEGY_KEY_LIMIT = 13;
 const LEGACY_STRATEGY_KEY_LIMIT = 27;
 const CURRENT_COORDINATION_KEY_LIMIT = 4;
-const PREVIOUS_COORDINATION_KEY_LIMIT = 8; // 2 body sizes × 4 legacy hand shapes.
-const LEGACY_COORDINATION_KEY_LIMIT = 12; // aggregate-1 also admitted 4+.
+const PREVIOUS_COORDINATION_KEY_LIMIT = 8;
+const LEGACY_COORDINATION_KEY_LIMIT = 12;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -294,7 +295,6 @@ function parseRecord<T>(
   return Object.fromEntries(entries.sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0));
 }
 
-/** Aggregate-1 admitted a structurally impossible 4+ strategy bucket. */
 function migrateLegacyStrategyRecord(
   value: unknown,
 ): Readonly<Record<string, unknown>> | null {
@@ -331,6 +331,7 @@ export function parseMeasurementSummaryV2(
   if (!isRecord(value)
     || (value.policyVersion !== MEASUREMENT_V2_POLICY_VERSION
       && value.policyVersion !== PREVIOUS_MEASUREMENT_V2_POLICY_VERSION
+      && value.policyVersion !== HANDSHAPE_MEASUREMENT_V2_POLICY_VERSION
       && value.policyVersion !== LEGACY_MEASUREMENT_V2_POLICY_VERSION)
     || !isRecord(value.semantic)
     || !isRecord(value.motor)
@@ -339,7 +340,10 @@ export function parseMeasurementSummaryV2(
     || !isNonNegativeInteger(value.semantic.prematureTones)) return null;
 
   const aggregate1 = value.policyVersion === LEGACY_MEASUREMENT_V2_POLICY_VERSION;
-  const previousCoordination = value.policyVersion !== MEASUREMENT_V2_POLICY_VERSION;
+  const legacyHandshapeCoordination = aggregate1
+    || value.policyVersion === HANDSHAPE_MEASUREMENT_V2_POLICY_VERSION;
+  const legacySameHandRevisit = value.policyVersion !== MEASUREMENT_V2_POLICY_VERSION;
+
   const bindings = parseRecord(
     value.semantic.bindings,
     (candidate) => parseBinding(candidate, mode, layoutId, validTokens),
@@ -365,9 +369,9 @@ export function parseMeasurementSummaryV2(
     : strategy.inputOrderPositions;
   if (strategySource === null) return null;
 
-  if (previousCoordination
+  if (legacyHandshapeCoordination
     && !validateLegacyCoordinationRecord(value.motor.coordination, aggregate1)) return null;
-  const coordinationSource = previousCoordination ? {} : value.motor.coordination;
+  const coordinationSource = legacyHandshapeCoordination ? {} : value.motor.coordination;
 
   const inputOrderPositions = parseRecord(
     strategySource,
@@ -397,12 +401,13 @@ export function parseMeasurementSummaryV2(
     (aggregate) => immediateHandAggregateKey(aggregate.scope),
     4,
   );
-  const sameHandRevisits = parseRecord(
-    value.motor.sameHandRevisits,
+  const parsedSameHandRevisits = parseRecord(
+    value.motor.sameHandRevisits ?? {},
     (candidate) => parseMotor(candidate, parseSameHandScope),
     (aggregate) => sameHandRevisitAggregateKey(aggregate.scope),
     4,
   );
+  const sameHandRevisits = legacySameHandRevisit ? {} : parsedSameHandRevisits;
   const toneCommits = parseRecord(
     value.motor.toneCommits,
     (candidate) => parseMotor(candidate, (scope) => parseToneScope(scope, validTokens)),
@@ -410,7 +415,7 @@ export function parseMeasurementSummaryV2(
   );
   if (bindings === null || confusions === null || inputOrderPositions === null
     || coordination === null || immediateTokens === null || immediateHands === null
-    || sameHandRevisits === null || toneCommits === null) return null;
+    || parsedSameHandRevisits === null || toneCommits === null) return null;
 
   return {
     policyVersion: MEASUREMENT_V2_POLICY_VERSION,
