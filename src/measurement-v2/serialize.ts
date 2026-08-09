@@ -407,7 +407,6 @@ export function parseMeasurementSummaryV2(
     (aggregate) => sameHandRevisitAggregateKey(aggregate.scope),
     4,
   );
-  const sameHandRevisits = legacySameHandRevisit ? {} : parsedSameHandRevisits;
   const toneCommits = parseRecord(
     value.motor.toneCommits,
     (candidate) => parseMotor(candidate, (scope) => parseToneScope(scope, validTokens)),
@@ -416,6 +415,7 @@ export function parseMeasurementSummaryV2(
   if (bindings === null || confusions === null || inputOrderPositions === null
     || coordination === null || immediateTokens === null || immediateHands === null
     || parsedSameHandRevisits === null || toneCommits === null) return null;
+  const sameHandRevisits = legacySameHandRevisit ? {} : parsedSameHandRevisits;
 
   return {
     policyVersion: MEASUREMENT_V2_POLICY_VERSION,
