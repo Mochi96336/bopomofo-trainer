@@ -1,4 +1,19 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import type { TokenId } from "../../src/core/model.js";
+import { aggregateMeasurementObservationsV2 } from "../../src/measurement-v2/aggregate.js";
+import { serializeProductProgress } from "../../src/product/progress.js";
+import {
+  createFreshProgressForEnvironment,
+  createProductEnvironment,
+} from "../../src/product/session.js";
+import { STANDARD_BOPOMOFO_LAYOUT } from "../../src/scheme/standard-layout.js";
+import {
+  EVALUATION_CATALOG,
+  PRACTICE_CATALOG,
+  SYNTAX_PROFILES,
+} from "../../src/app/generated/catalog.js";
+
+const PROGRESS_KEY = "bopomofo-trainer.progress.v4";
 
 async function openAnalysis(page: Page): Promise<Locator> {
   await page.goto("/");
@@ -8,6 +23,65 @@ async function openAnalysis(page: Page): Promise<Locator> {
   await expect(analysis).toBeVisible();
   await page.waitForTimeout(340);
   return analysis;
+}
+
+function physicalCodeFor(tokenId: TokenId): string {
+  return Object.entries(STANDARD_BOPOMOFO_LAYOUT.bindings)
+    .find(([, candidate]) => candidate === tokenId)?.[0] ?? "Space";
+}
+
+function seededSemanticLeadProgress(): string {
+  const environment = createProductEnvironment({
+    practice: PRACTICE_CATALOG,
+    evaluation: EVALUATION_CATALOG,
+    syntaxProfiles: SYNTAX_PROFILES,
+  });
+  const fresh = createFreshProgressForEnvironment(
+    environment,
+    "analysis-v2-feedback-semantic-data",
+    "guided",
+    STANDARD_BOPOMOFO_LAYOUT.id,
+  );
+  let sequence = 0;
+  const tokens = ["zhuyin:ㄅ", "zhuyin:ㄆ", "zhuyin:ㄇ", "zhuyin:ㄈ"] as const;
+  const bindings = tokens.flatMap((tokenId, tokenIndex) => {
+    const errorCount = 4 - tokenIndex;
+    return Array.from({ length: 8 }, (_, sampleIndex) => {
+      const correct = sampleIndex >= errorCount;
+      return {
+        traceSequence: sequence++,
+        scope: {
+          mode: "guided" as const,
+          layoutId: STANDARD_BOPOMOFO_LAYOUT.id,
+          tokenId,
+        },
+        physicalCode: physicalCodeFor(tokenId),
+        correct,
+        timingMs: correct ? 120 + tokenIndex * 10 + sampleIndex : null,
+      };
+    });
+  });
+  const measurements = aggregateMeasurementObservationsV2({
+    bindings,
+    confusions: [],
+    inputOrderPositions: [],
+    coordination: [],
+    immediateTokens: [],
+    immediateHands: [],
+    sameHandRevisits: [],
+    toneCommits: [],
+    ambiguousErrorCount: 0,
+    duplicateComponentCount: 0,
+    prematureToneCount: 0,
+  });
+  return serializeProductProgress({ ...fresh, measurements });
+}
+
+async function installSemanticLeadProgress(page: Page): Promise<void> {
+  const source = seededSemanticLeadProgress();
+  await page.addInitScript(({ key, value }) => {
+    window.localStorage.setItem(key, value);
+  }, { key: PROGRESS_KEY, value: source });
 }
 
 test("keeps the Analysis title away from the viewport edge and header hairline", async ({ page }) => {
@@ -111,6 +185,23 @@ test("gives Semantic a second summary level instead of ending at the lead keys",
   await expect(rail.locator(":scope > div")).toHaveCount(2);
   await expect(rail).toContainText("按鍵資料");
   await expect(rail).toContainText("誤按資料");
+});
+
+test("uses the same three Semantic leads in the readout and on the keyboard", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installSemanticLeadProgress(page);
+  const analysis = await openAnalysis(page);
+  await analysis.locator('[data-tab="semantic"]').click();
+
+  const readoutSymbols = await analysis.locator(".analysis-v2-semantic-symbols")
+    .textContent();
+  const readoutCount = [...(readoutSymbols ?? "").replaceAll("　", "")].length;
+  const salient = analysis.locator('[data-action="select-key"].is-salient');
+  await expect(salient).toHaveCount(3);
+  expect(readoutCount).toBe(3);
+
+  const leadTokens = await salient.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-token")));
+  expect(leadTokens).toEqual(["zhuyin:ㄅ", "zhuyin:ㄆ", "zhuyin:ㄇ"]);
 });
 
 test("removes the generic Semantic lead once a key is selected", async ({ page }) => {
