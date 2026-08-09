@@ -7,21 +7,20 @@ import {
   toneCommitTimingSample,
 } from "./timing-eligibility.js";
 import type {
-  CoordinationHandShape,
+  CoordinationBodyShape,
   ExplicitHand,
   MeasurementObservationsV2,
 } from "./types.js";
 
 export const LEGACY_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-1" as const;
-export const MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-2" as const;
+export const PREVIOUS_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-2" as const;
+export const MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-3" as const;
 const SMOOTHING_ALPHA = 0.25;
 
 /**
- * Body-size-dependent evidence only exists when there are at least two body
- * components: one component has no input order and no first-to-last span.
+ * Input-order strategy only exists for words with at least two body components.
  * Standard Bopomofo has at most initial + medial + final, so 2 and 3 are the
- * complete product domain. Anything else is an invalid observation, not a
- * catch-all bucket.
+ * complete strategy domain. Coordination itself now keys by actual body shape.
  */
 export type CoordinationBodySizeBucket = "2" | "3";
 export type BodyPositionBucket = "first" | "middle" | "last";
@@ -63,8 +62,7 @@ export interface MotorTimingAggregate<Scope> {
 }
 
 export interface CoordinationAggregateScope {
-  readonly bodySize: CoordinationBodySizeBucket;
-  readonly handShape: CoordinationHandShape;
+  readonly bodyShape: CoordinationBodyShape;
 }
 
 /** Exact pair of actually accepted tokens, never canonical adjacency. */
@@ -183,7 +181,7 @@ export function inputOrderPositionAggregateKey(scope: InputOrderPositionAggregat
 }
 
 export function coordinationAggregateKey(scope: CoordinationAggregateScope): string {
-  return JSON.stringify(["coordination", scope.bodySize, scope.handShape]);
+  return JSON.stringify(["coordination", scope.bodyShape]);
 }
 
 export function immediateTokenAggregateKey(scope: ImmediateTokenAggregateScope): string {
@@ -317,10 +315,7 @@ export function aggregateMeasurementObservationsV2(
 
   const coordination = seedMap(prior.motor.coordination);
   for (const observation of observations.coordination) {
-    const scope: CoordinationAggregateScope = {
-      bodySize: coordinationBodySizeBucket(observation.bodySize),
-      handShape: observation.handShape,
-    };
+    const scope: CoordinationAggregateScope = { bodyShape: observation.bodyShape };
     const key = coordinationAggregateKey(scope);
     const previous = coordination.get(key);
     const timing = addTiming(timingStateOf(previous), coordinationTimingSample(observation));
