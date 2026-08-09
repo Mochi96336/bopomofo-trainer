@@ -168,6 +168,18 @@
   outline-color: transparent;
 }
 
+/* Once a Semantic key is explicitly selected, the generic ranked lead is no
+   longer the thing the user is reading. Keep the keyboard stage stable but
+   remove that competing sentence/symbol group. */
+.analysis-v2-semantic-stage.has-selection .analysis-v2-semantic-readout {
+  display: none;
+}
+
+.analysis-v2-semantic-stage.has-selection .analysis-v2-semantic-primary {
+  grid-template-rows: var(--analysis-object-slot-height);
+  gap: 0;
+}
+
 .analysis-v2-table-scroll {
   overflow-x: auto;
   overscroll-behavior-inline: contain;
