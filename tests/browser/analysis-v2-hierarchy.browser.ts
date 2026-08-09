@@ -112,8 +112,6 @@ test("keeps the protected keyboard primary while the readout stays nearby", asyn
 
   expect(metrics.domainWidth).toBeLessThanOrEqual(1080.5);
   expect(metrics.stageWidth).toBeLessThanOrEqual(1080.5);
-  // The feedback pass deliberately gives the protected keyboard a little more
-  // vertical air on tall desktops while keeping the stage bounded.
   expect(metrics.stageHeight).toBeLessThanOrEqual(430.5);
   expect(metrics.keyboardWidth).toBeLessThanOrEqual(760.5);
   expect(metrics.keyboardShare).toBeGreaterThan(0.68);
@@ -216,8 +214,6 @@ test("keeps exactly one red flyline and never turns Analysis text red on hover",
   expect(palette.readoutGap).toBeLessThanOrEqual(70);
   expect(palette.captionBelowReadout).toBe(true);
 
-  /* Relation hover is owned by the 10px transparent hit layer, not by asking
-     Playwright to guess a point on the 1–2px curved visual stroke. */
   await analysis.evaluate((host) => {
     const visual = host.querySelector<SVGPathElement>(".analysis-v2-speed-path:not(.is-accent)")!;
     const id = visual.dataset.speedId;
@@ -227,8 +223,8 @@ test("keeps exactly one red flyline and never turns Analysis text red on hover",
   });
   await expect(analysis.locator(".analysis-v2-speed-path.is-accent")).toHaveCount(1);
 
-  /* Real pointer hover on text-bearing controls must stay neutral. */
-  await analysis.locator('[data-action="evidence-family"]').first().hover();
+  /* Current text-bearing Coordination subview controls and top tabs must stay neutral. */
+  await analysis.locator('[data-action="coordination-view"]').first().hover();
   await analysis.locator('[data-tab="semantic"]').hover();
   const redText = await analysis.evaluate((host) => {
     const probe = document.createElement("span");
