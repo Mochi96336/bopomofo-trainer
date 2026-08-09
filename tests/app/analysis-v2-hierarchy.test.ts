@@ -130,20 +130,21 @@ afterEach(() => {
 });
 
 describe("Analysis V2 visual hierarchy", () => {
-  it("marks the same bounded three-key Semantic lead that it names in the readout", () => {
+  it("keeps a bounded three-key Semantic summary while grading every observed key", () => {
     const host = open();
     selectTab(host, "semantic");
-    const marked = [...host.querySelectorAll<HTMLElement>(".analysis-v2-key.is-salient")];
-    expect(marked).toHaveLength(3);
-    expect(marked.map((node) => node.dataset.token)).toEqual([
-      "zhuyin:ㄅ",
-      "zhuyin:ㄆ",
-      "zhuyin:ㄇ",
-    ]);
-    expect(host.querySelector('[data-token="zhuyin:ㄈ"]')?.classList.contains("is-salient"))
-      .toBe(false);
-    expect(host.querySelector('[data-token="zhuyin:ㄊ"]')?.classList.contains("is-salient"))
-      .toBe(false);
+
+    expect(host.querySelectorAll(".analysis-v2-key.is-salient")).toHaveLength(0);
+    const graded = [...host.querySelectorAll<HTMLElement>(".analysis-v2-key.has-data")];
+    expect(graded).toHaveLength(6);
+    expect(graded.every((node) => Number.parseFloat(
+      node.style.getPropertyValue("--analysis-strength"),
+    ) > 0)).toBe(true);
+    const b = host.querySelector<HTMLElement>('[data-token="zhuyin:ㄅ"]')!;
+    const f = host.querySelector<HTMLElement>('[data-token="zhuyin:ㄈ"]')!;
+    expect(Number.parseFloat(b.style.getPropertyValue("--analysis-strength")))
+      .toBeGreaterThan(Number.parseFloat(f.style.getPropertyValue("--analysis-strength")));
+
     const lead = host.querySelector(".analysis-v2-semantic-readout");
     expect(lead?.textContent).toContain("ㄅ");
     expect(lead?.textContent).toContain("ㄆ");
