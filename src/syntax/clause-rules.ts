@@ -147,7 +147,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   ]),
   production("phrase.passive.long", "PassivePhrase", [
     lexical("marker", ["ADP"], { requiredFeatures: { voice: "passive" } }),
-    constituent("agent", "NounPhrase", { requiredFunctions: ["oblique"] }),
+    constituent("agent", "PassiveAgent"),
   ]),
   production("clause.nominal-predicate", "Clause", [
     subject(),
@@ -215,7 +215,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   production("clause.ba", "Clause", [
     subject(),
     lexical("marker", ["ADP"], { requiredFeatures: { voice: "disposal" } }),
-    object(),
+    constituent("patient", "DisposalPatient"),
     corePredicate(["transitive", "ambitransitive", "resultative"]),
   ]),
   production("clause.bei", "Clause", [
