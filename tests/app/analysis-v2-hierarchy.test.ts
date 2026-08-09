@@ -153,7 +153,7 @@ describe("Analysis V2 visual hierarchy", () => {
     expect(lead?.textContent).not.toContain("ㄊ");
   });
 
-  it("shows a timing anchor before interaction and keeps accent flylines rare", () => {
+  it("pins the selected relation in the hero without opening a metadata panel", () => {
     const host = open();
     const readout = host.querySelector(".analysis-v2-speed-readout");
     expect(readout?.textContent).toContain("ㄍ → ㄎ");
@@ -169,8 +169,7 @@ describe("Analysis V2 visual hierarchy", () => {
     );
     expect(host.querySelector(".analysis-v2-speed-stage")?.classList.contains("has-selection"))
       .toBe(true);
-    expect(host.querySelector(".analysis-v2-speed-inspector")?.textContent).toContain("累積觀察");
-    expect(host.querySelector(".analysis-v2-speed-inspector")?.textContent).toContain("資料狀態");
+    expect(host.querySelector(".analysis-v2-speed-inspector")).toBeNull();
     expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toContain("100 ms");
     expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
     expect(host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-accent")?.dataset.speedId)
