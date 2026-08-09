@@ -163,8 +163,8 @@
   content: "▾";
 }
 
-/* Movement remains a quiet 2×2 reading surface, but each family gets one small
-   line diagram that explains the motion before the numbers. */
+/* Movement remains a 2×2 reading surface. Each family gets a compact explanatory
+   diagram first; real history lines remain short annotations below it. */
 .analysis-v2 .analysis-v2-movement-view {
   width: min(900px, 92%);
   margin: clamp(44px, 6dvh, 64px) auto 0;
@@ -180,83 +180,22 @@
 }
 
 .analysis-v2 .analysis-v2-movement-diagram {
-  position: relative;
-  isolation: isolate;
   display: grid;
-  min-height: 96px;
+  min-height: 68px;
   margin: 2px 0 6px;
-  padding-top: 69px;
-  align-content: start;
-  justify-items: center;
+  place-items: center;
   color: var(--ink-muted);
-}
-
-.analysis-v2 .analysis-v2-movement-diagram::before,
-.analysis-v2 .analysis-v2-movement-diagram::after {
-  position: absolute;
-  pointer-events: none;
-  content: "";
-}
-
-/* Hand-based families share a schematic keyboard: a trapezoid outline, key grid,
-   and centre split. Keeping this in CSS makes the diagram theme-aware and tiny. */
-.analysis-v2 .analysis-v2-movement-family:nth-child(-n + 2) .analysis-v2-movement-diagram::before {
-  top: 5px;
-  left: 50%;
-  width: min(230px, 70%);
-  height: 57px;
-  border: 1px solid color-mix(in srgb, var(--ink-muted) 34%, transparent);
-  border-radius: 4px;
-  background:
-    linear-gradient(90deg, transparent calc(50% - .5px), var(--hairline) calc(50% - .5px), var(--hairline) calc(50% + .5px), transparent calc(50% + .5px)),
-    repeating-linear-gradient(90deg, transparent 0 19px, var(--hairline) 19px 20px),
-    repeating-linear-gradient(0deg, transparent 0 13px, var(--hairline) 13px 14px);
-  clip-path: polygon(4% 0, 96% 0, 100% 100%, 0 100%);
-  opacity: .9;
-  transform: translateX(-50%);
-}
-
-/* Hand switch: a broad arc crosses the centre seam. */
-.analysis-v2 .analysis-v2-movement-family:nth-child(1) .analysis-v2-movement-diagram::after {
-  top: 18px;
-  left: 50%;
-  width: 102px;
-  height: 28px;
-  border-top: 1.5px solid var(--ink-muted);
-  border-radius: 50% 50% 0 0;
-  opacity: .72;
-  transform: translateX(-50%);
-}
-
-/* Same-side revisit: a smaller loop stays visually anchored to one half. */
-.analysis-v2 .analysis-v2-movement-family:nth-child(2) .analysis-v2-movement-diagram::after {
-  top: 14px;
-  left: calc(50% - 48px);
-  width: 54px;
-  height: 34px;
-  border: 1.5px solid var(--ink-muted);
-  border-left-color: transparent;
-  border-radius: 50%;
-  opacity: .72;
-  transform: rotate(-13deg);
 }
 
 .analysis-v2 .analysis-v2-movement-diagram-line {
-  position: relative;
-  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 16px;
   color: var(--ink-muted);
-  font-size: 10px;
+  font-size: 17px;
   font-weight: 560;
-  letter-spacing: .04em;
-  line-height: 1.35;
-}
-
-.analysis-v2 .analysis-v2-movement-diagram-line + .analysis-v2-movement-diagram-line {
-  margin-top: 3px;
+  letter-spacing: .05em;
 }
 
 .analysis-v2 .analysis-v2-movement-diagram-line i {
@@ -265,10 +204,7 @@
   font-weight: 400;
 }
 
-/* Structure becomes three linked keycaps rather than three floating syllables. */
 .analysis-v2 .analysis-v2-word-structure {
-  min-height: 96px;
-  padding-top: 0;
   align-content: center;
   gap: 7px;
 }
@@ -276,89 +212,40 @@
 .analysis-v2 .analysis-v2-word-structure-labels,
 .analysis-v2 .analysis-v2-word-structure-example {
   display: grid;
-  width: min(250px, 78%);
+  width: min(330px, 100%);
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
-  justify-items: center;
   text-align: center;
 }
 
 .analysis-v2 .analysis-v2-word-structure-labels {
   color: var(--ink-faint);
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .analysis-v2 .analysis-v2-word-structure-example {
-  position: relative;
   color: var(--ink-muted);
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 560;
 }
 
-.analysis-v2 .analysis-v2-word-structure-example::before {
+.analysis-v2 .analysis-v2-word-structure-example span {
+  position: relative;
+}
+
+.analysis-v2 .analysis-v2-word-structure-example span:not(:last-child)::after {
   position: absolute;
-  z-index: -1;
   top: 50%;
-  right: 15%;
-  left: 15%;
+  left: calc(50% + 19px);
+  width: calc(100% - 38px);
   height: 1px;
   background: var(--hairline);
   content: "";
 }
 
-.analysis-v2 .analysis-v2-word-structure-example span {
-  position: relative;
-  display: grid;
-  width: 42px;
-  height: 32px;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--ink-muted) 42%, transparent);
-  border-radius: 5px;
-  background: var(--panel);
-}
-
-.analysis-v2 .analysis-v2-word-structure-example span:not(:last-child)::after {
-  display: none;
-}
-
 .analysis-v2 .analysis-v2-word-structure small {
   color: var(--ink-faint);
   font-size: 9px;
-}
-
-/* Tone commit: three linked input keycells, then one separated tone key. */
-.analysis-v2 .analysis-v2-movement-family:nth-child(4) .analysis-v2-movement-diagram::before {
-  top: 20px;
-  left: calc(50% - 64px);
-  width: 92px;
-  height: 28px;
-  border: 1px solid color-mix(in srgb, var(--ink-muted) 42%, transparent);
-  border-radius: 4px;
-  background: repeating-linear-gradient(90deg, transparent 0 29px, var(--hairline) 29px 30px);
-}
-
-.analysis-v2 .analysis-v2-movement-family:nth-child(4) .analysis-v2-movement-diagram::after {
-  top: 17px;
-  left: calc(50% + 52px);
-  display: grid;
-  width: 48px;
-  height: 34px;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--ink-muted) 48%, transparent);
-  border-radius: 5px;
-  color: var(--ink-muted);
-  content: "ˊ ˇ ˋ ˙";
-  font-size: 9px;
-  letter-spacing: 1px;
-  white-space: nowrap;
-}
-
-.analysis-v2 .analysis-v2-movement-family:nth-child(4) .analysis-v2-movement-diagram-line i {
-  position: absolute;
-  top: -48px;
-  left: 50%;
-  font-size: 17px;
-  transform: translateX(10px);
 }
 
 .analysis-v2 .analysis-v2-movement-stat {
@@ -417,16 +304,12 @@
 
 @media (max-width: 760px) {
   .analysis-v2 .analysis-v2-movement-diagram {
-    min-height: 88px;
-    padding-top: 63px;
+    min-height: 54px;
   }
 
-  .analysis-v2 .analysis-v2-word-structure {
-    padding-top: 0;
-  }
-
-  .analysis-v2 .analysis-v2-movement-family:nth-child(-n + 2) .analysis-v2-movement-diagram::before {
-    width: min(220px, 78%);
+  .analysis-v2 .analysis-v2-movement-diagram-line,
+  .analysis-v2 .analysis-v2-word-structure-example {
+    font-size: 15px;
   }
 }
 
