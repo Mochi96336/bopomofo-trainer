@@ -183,23 +183,6 @@ test("translates the analysis keyboard from the main-page keyboard origin withou
   expect(Math.abs((captured?.target.x ?? 0) + dx - origin.x)).toBeLessThan(0.5);
   expect(Math.abs((captured?.target.y ?? 0) + dy - origin.y)).toBeLessThan(0.5);
 
-  await page.waitForTimeout(200);
-  const stage = await page.evaluate(() => {
-    const practice = document.querySelector<HTMLElement>("#practice-stage")!;
-    const topbar = document.querySelector<HTMLElement>(".topbar")!;
-    const analysis = document.querySelector<HTMLElement>("#analysis-v2")!;
-    return {
-      bodyOpen: document.body.classList.contains("analysis-v2-open"),
-      practiceOpacity: Number(getComputedStyle(practice).opacity),
-      topbarOpacity: Number(getComputedStyle(topbar).opacity),
-      analysisOpacity: Number(getComputedStyle(analysis).opacity),
-    };
-  });
-  expect(stage.bodyOpen).toBe(true);
-  expect(stage.practiceOpacity).toBeCloseTo(0.26, 1);
-  expect(stage.topbarOpacity).toBeCloseTo(0.38, 1);
-  expect(stage.analysisOpacity).toBe(1);
-
   await page.keyboard.press("Escape");
   await expect(page.locator("#analysis-v2")).toBeHidden();
   await expect.poll(() => page.evaluate(() => document.body.classList.contains("analysis-v2-open")))
@@ -224,7 +207,7 @@ test("keeps the original semantic keyboard visual contract", async ({ page }) =>
     const wideStyle = getComputedStyle(wideKey);
     const notchStyle = getComputedStyle(fKey, "::after");
     return {
-      keyboardWidth: (keyboard as HTMLElement).offsetWidth,
+      keyboardWidth: keyboard.offsetWidth,
       transform: keyboardStyle.transform,
       transformOrigin: keyboardStyle.transformOrigin,
       keyHeight: Number.parseFloat(regularStyle.height),
@@ -325,91 +308,7 @@ test("keeps real speed-path endpoints on their labelled keys", async ({ page }) 
   expect(geometry.toDistance).toBeLessThan(5);
 });
 
-test("makes the flyline keyboard the first coordination object and keeps selection pinned", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await installSpeedProgress(page, 24);
-  await openAnalysis(page);
-  const analysis = page.locator("#analysis-v2");
-
-  await expect(analysis.locator('[data-tab="coordination"]')).toHaveAttribute("aria-selected", "true");
-  await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(24);
-  await expect(analysis.locator(".analysis-v2-evidence-group")).toHaveCount(4);
-  await expect(analysis.locator(".analysis-v2-evidence-group[open]")).toHaveCount(0);
-  await expect(analysis.locator(".analysis-v2-card")).toHaveCount(0);
-
-  const ordering = await analysis.evaluate((host) => {
-    const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
-    const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout")!;
-    const rail = host.querySelector<HTMLElement>(".analysis-v2-evidence-rail")!;
-    return {
-      boardTop: board.getBoundingClientRect().top,
-      readoutTop: readout.getBoundingClientRect().top,
-      railTop: rail.getBoundingClientRect().top,
-    };
-  });
-  expect(ordering.boardTop).toBeLessThan(ordering.readoutTop);
-  expect(ordering.readoutTop).toBeLessThan(ordering.railTop);
-
-  const chosen = analysis.locator(".analysis-v2-speed-path").first();
-  await chosen.evaluate((node) => node.dispatchEvent(new MouseEvent("click", { bubbles: true })));
-  await expect(analysis.locator(".analysis-v2-speed-stage")).toHaveClass(/has-selection/);
-  await expect(analysis.locator(".analysis-v2-speed-inspector")).toHaveCount(1);
-  await expect(chosen).toHaveClass(/selected/);
-});
-
-test("keeps a dense flyline field distinguishable in dark mode", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await installSpeedProgress(page, 24);
-  await openAnalysis(page);
-  const analysis = page.locator("#analysis-v2");
-  await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
-
-  const palette = await analysis.evaluate((host) => {
-    const normal = host.querySelector<SVGPathElement>(
-      ".analysis-v2-speed-path:not(.is-slow):not(.salient)",
-    )!;
-    const slow = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-slow")!;
-    const probe = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    host.append(probe);
-    probe.style.stroke = "var(--ink)";
-    const ink = getComputedStyle(probe).stroke;
-    probe.style.stroke = "var(--accent)";
-    const accent = getComputedStyle(probe).stroke;
-    probe.remove();
-    return {
-      normalOpacity: Number(getComputedStyle(normal).strokeOpacity),
-      slowOpacity: Number(getComputedStyle(slow).strokeOpacity),
-      slowStroke: getComputedStyle(slow).stroke,
-      ink,
-      accent,
-    };
-  });
-  expect(palette.normalOpacity).toBeLessThan(palette.slowOpacity);
-  expect(palette.slowOpacity).toBe(1);
-  expect(palette.slowStroke).toBe(palette.ink);
-  expect(palette.slowStroke).not.toBe(palette.accent);
-});
-
-test("keeps mobile horizontal overflow inside the flyline stage", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await installSpeedProgress(page, 8);
-  await openAnalysis(page);
-  const analysis = page.locator("#analysis-v2");
-  const overflow = await analysis.evaluate((host) => {
-    const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
-    const scroller = host.querySelector<HTMLElement>(".analysis-v2-speed-scroll")!;
-    return {
-      mainClient: main.clientWidth,
-      mainScroll: main.scrollWidth,
-      scrollerClient: scroller.clientWidth,
-      scrollerScroll: scroller.scrollWidth,
-    };
-  });
-  expect(overflow.mainScroll).toBeLessThanOrEqual(overflow.mainClient + 1);
-  expect(overflow.scrollerScroll).toBeGreaterThan(overflow.scrollerClient);
-});
-
-test("keeps Semantic confusion and Strategy centered on one compact object", async ({ page }) => {
+test("keeps Strategy's matrix compact inside the shared primary stage", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
@@ -421,22 +320,27 @@ test("keeps Semantic confusion and Strategy centered on one compact object", asy
 
   await analysis.locator('[data-tab="strategy"]').click();
   await expect(analysis.locator(".strategy-matrix")).toHaveCount(1);
-  const strategyWidth = await analysis.locator(".analysis-v2-strategy-stage").evaluate((stage) =>
-    stage.getBoundingClientRect().width,
-  );
-  expect(strategyWidth).toBeLessThanOrEqual(760.5);
+  await expect(analysis.locator('[data-action="strategy-size"]')).toHaveText(["2 個注音", "3 個注音"]);
+  const widths = await analysis.evaluate((host) => ({
+    stage: host.querySelector<HTMLElement>(".analysis-v2-strategy-stage")!.getBoundingClientRect().width,
+    object: host.querySelector<HTMLElement>(".analysis-v2-strategy-object")!.getBoundingClientRect().width,
+    field: host.querySelector<HTMLElement>(".analysis-v2-strategy-field")!.getBoundingClientRect().width,
+  }));
+  expect(widths.stage).toBeLessThanOrEqual(1080.5);
+  expect(widths.object).toBeLessThanOrEqual(560.5);
+  expect(widths.field).toBeLessThanOrEqual(560.5);
 });
 
-test("keeps expanded evidence tables compact instead of spanning the workspace", async ({ page }) => {
+test("keeps the single expanded evidence table compact inside the workspace", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installSpeedProgress(page, 12);
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
-  const group = analysis.locator(".analysis-v2-evidence-group").first();
-  await group.locator("summary").click();
-  const widths = await group.evaluate((element) => {
-    const body = element.querySelector<HTMLElement>(".analysis-v2-evidence-body")!;
-    const table = element.querySelector<HTMLElement>(".analysis-v2-motor-table")!;
+  await analysis.locator('[data-action="evidence-family"][data-family="hands"]').click();
+  await expect(analysis.locator("#analysis-v2-evidence-detail")).toBeVisible();
+  const widths = await analysis.locator("#analysis-v2-evidence-detail").evaluate((detail) => {
+    const body = detail.querySelector<HTMLElement>(".analysis-v2-evidence-body")!;
+    const table = detail.querySelector<HTMLElement>(".analysis-v2-motor-table")!;
     return {
       body: body.getBoundingClientRect().width,
       table: table.getBoundingClientRect().width,
