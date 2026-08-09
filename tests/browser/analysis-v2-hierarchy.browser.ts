@@ -172,7 +172,7 @@ test("uses neutral ink for the dense flyline field instead of error-red semantic
   await expect(analysis.locator(".analysis-v2-speed-legend")).toContainText("深色標記較慢或目前選取");
   await expect(analysis.locator(".analysis-v2-speed-legend i")).toHaveCount(0);
 
-  const palette = await analysis.evaluate((host) => {
+  const readPalette = () => analysis.evaluate((host) => {
     const background = host.querySelector<SVGPathElement>(
       ".analysis-v2-speed-path:not(.salient):not(.is-slow)",
     )!;
@@ -180,35 +180,36 @@ test("uses neutral ink for the dense flyline field instead of error-red semantic
       ".analysis-v2-speed-path.salient:not(.is-slow)",
     )!;
     const slow = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-slow")!;
+    const probe = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    host.append(probe);
+    probe.style.stroke = "var(--ink)";
+    const ink = getComputedStyle(probe).stroke;
+    probe.style.stroke = "var(--accent)";
+    const accent = getComputedStyle(probe).stroke;
+    probe.remove();
     return {
-      hostInk: getComputedStyle(host).color,
       backgroundOpacity: Number(getComputedStyle(background).strokeOpacity),
       salientOpacity: Number(getComputedStyle(salient).strokeOpacity),
       slowStroke: getComputedStyle(slow).stroke,
       slowOpacity: Number(getComputedStyle(slow).strokeOpacity),
+      ink,
+      accent,
     };
   });
+
+  const palette = await readPalette();
   expect(palette.backgroundOpacity).toBeLessThan(palette.salientOpacity);
   expect(palette.salientOpacity).toBeLessThan(palette.slowOpacity);
   expect(palette.slowOpacity).toBe(1);
-  expect(palette.slowStroke).toBe(palette.hostInk);
+  expect(palette.slowStroke).toBe(palette.ink);
+  expect(palette.slowStroke).not.toBe(palette.accent);
 
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
-  const dark = await analysis.evaluate((host) => {
-    const background = host.querySelector<SVGPathElement>(
-      ".analysis-v2-speed-path:not(.salient):not(.is-slow)",
-    )!;
-    const slow = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-slow")!;
-    return {
-      hostInk: getComputedStyle(host).color,
-      backgroundOpacity: Number(getComputedStyle(background).strokeOpacity),
-      slowStroke: getComputedStyle(slow).stroke,
-      slowOpacity: Number(getComputedStyle(slow).strokeOpacity),
-    };
-  });
+  const dark = await readPalette();
   expect(dark.backgroundOpacity).toBeLessThan(dark.slowOpacity);
   expect(dark.slowOpacity).toBe(1);
-  expect(dark.slowStroke).toBe(dark.hostInk);
+  expect(dark.slowStroke).toBe(dark.ink);
+  expect(dark.slowStroke).not.toBe(dark.accent);
 
   const chosen = analysis.locator(".analysis-v2-speed-path").first();
   await chosen.evaluate((node) => node.dispatchEvent(new MouseEvent("click", { bubbles: true })));
