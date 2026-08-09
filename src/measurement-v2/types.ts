@@ -20,6 +20,19 @@ export type CoordinationBodyShape =
   | "medial-final"
   | "initial-medial-final";
 
+/**
+ * Complete accepted order of a three-part Bopomofo body, expressed in canonical
+ * position labels. Unlike the position marginals, one value represents one
+ * completed word and therefore preserves whether the whole word was reordered.
+ */
+export type ThreePartInputOrderPermutation =
+  | "first-middle-last"
+  | "middle-first-last"
+  | "first-last-middle"
+  | "middle-last-first"
+  | "last-first-middle"
+  | "last-middle-first";
+
 export interface BindingObservationV2 {
   readonly traceSequence: number;
   readonly scope: BindingSkillScope;
@@ -47,6 +60,16 @@ export interface InputOrderPositionObservation {
   readonly bodySize: number;
   readonly canonicalBodyIndex: number;
   readonly acceptedBodyIndex: number;
+}
+
+/**
+ * One completed three-part word projected into its complete accepted-order
+ * permutation. This is the bounded joint strategy channel used to answer
+ * whether the learner completed the word in structural order or a reordered one.
+ */
+export interface InputOrderPermutationObservation {
+  readonly syllableOrdinal: number;
+  readonly permutation: ThreePartInputOrderPermutation;
 }
 
 /**
@@ -103,6 +126,8 @@ export interface MeasurementObservationsV2 {
   readonly bindings: readonly BindingObservationV2[];
   readonly confusions: readonly ConfusionObservationV2[];
   readonly inputOrderPositions: readonly InputOrderPositionObservation[];
+  /** Additive channel; older test/adapter producers may omit it. */
+  readonly inputOrderPermutations?: readonly InputOrderPermutationObservation[];
   readonly coordination: readonly CoordinationObservation[];
   readonly immediateTokens: readonly ImmediateTokenObservation[];
   readonly immediateHands: readonly ImmediateHandObservation[];
