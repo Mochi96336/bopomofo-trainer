@@ -90,6 +90,7 @@ test("keeps the protected keyboard width stable when a semantic inspector opens"
   await openAnalysis(page);
 
   const analysis = page.locator("#analysis-v2");
+  await analysis.locator('[data-tab="semantic"]').click();
   const keyboard = analysis.locator(".analysis-v2-keyboard");
   const before = await keyboard.evaluate((node) => (node as HTMLElement).offsetWidth);
   await analysis.locator('[data-action="select-key"]').first().click();
@@ -105,7 +106,6 @@ test("keeps flyline width stable on selection and exposes a wider pointer target
   await installSpeedProgress(page, 24);
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
-  await analysis.locator('[data-action="select-tab"][data-tab="coordination"]').click();
 
   const board = analysis.locator(".analysis-v2-speed-board");
   const before = await board.evaluate((node) => (node as HTMLElement).offsetWidth);
@@ -134,7 +134,6 @@ test("describes dense speed ranking as visible-only and keeps an expanded eviden
   await installSpeedProgress(page, requestedEdges);
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
-  await analysis.locator('[data-action="select-tab"][data-tab="coordination"]').click();
 
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(36);
   await expect(analysis.locator(".analysis-v2-speed-meta"))
