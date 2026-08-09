@@ -84,6 +84,24 @@ function pathFor(
   return `M ${from.x.toFixed(2)} ${from.y.toFixed(2)} C ${from.x.toFixed(2)} ${controlY.toFixed(2)}, ${to.x.toFixed(2)} ${controlY.toFixed(2)}, ${to.x.toFixed(2)} ${to.y.toFixed(2)}`;
 }
 
+/**
+ * Shared keyboard-space curve geometry for overlays that connect two mapped
+ * Bopomofo tokens. Coordination and Semantic confusion use the same physical
+ * keyboard coordinates so their endpoints cannot drift apart visually.
+ */
+export function analysisV2KeyboardCurvePath(
+  id: string,
+  fromToken: TokenId,
+  toToken: TokenId,
+): string | null {
+  const points = keyboardPoints();
+  const from = points.get(fromToken);
+  const to = points.get(toToken);
+  if (from === undefined || to === undefined) return null;
+  const includesTone = fromToken.startsWith("tone:") || toToken.startsWith("tone:");
+  return pathFor(id, from, to, includesTone);
+}
+
 function sampleWidth(samples: number): number {
   if (samples >= 12) return 2;
   if (samples >= 8) return 1.7;
