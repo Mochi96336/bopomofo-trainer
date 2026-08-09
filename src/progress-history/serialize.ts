@@ -9,7 +9,11 @@ import {
   type SameHandRevisitAggregateScope,
   type ToneCommitAggregateScope,
 } from "../measurement-v2/aggregate.js";
-import type { CoordinationHandShape, ExplicitHand } from "../measurement-v2/types.js";
+import type {
+  CoordinationBodyShape,
+  CoordinationHandShape,
+  ExplicitHand,
+} from "../measurement-v2/types.js";
 import {
   PROGRESS_HISTORY_POLICY,
   validateProgressHistoryPolicy,
@@ -27,6 +31,7 @@ import {
 
 const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_2 = 2;
 const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_3 = 3;
+const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_4 = 4;
 export const PROGRESS_HISTORY_KEY_LIMIT = 128;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -211,10 +216,35 @@ function handShape(value: unknown): value is CoordinationHandShape {
     || value === "unknown";
 }
 
+function bodyShape(value: unknown): value is CoordinationBodyShape {
+  return value === "initial-medial"
+    || value === "initial-final"
+    || value === "medial-final"
+    || value === "initial-medial-final";
+}
+
 function parseCoordinationScope(value: unknown): CoordinationAggregateScope | null {
-  if (!isRecord(value)) return null;
-  if ((value.bodySize !== "2" && value.bodySize !== "3") || !handShape(value.handShape)) return null;
+  if (!isRecord(value) || !bodyShape(value.bodyShape)) return null;
+  return { bodyShape: value.bodyShape };
+}
+
+interface LegacyCoordinationScope {
+  readonly bodySize: "2" | "3" | "4+";
+  readonly handShape: CoordinationHandShape;
+}
+
+function parseLegacyCoordinationScope(
+  value: unknown,
+  allowFourPlus: boolean,
+): LegacyCoordinationScope | null {
+  if (!isRecord(value) || !handShape(value.handShape)) return null;
+  if (value.bodySize !== "2" && value.bodySize !== "3"
+    && !(allowFourPlus && value.bodySize === "4+")) return null;
   return { bodySize: value.bodySize, handShape: value.handShape };
+}
+
+function legacyCoordinationKey(scope: LegacyCoordinationScope): string {
+  return JSON.stringify(["coordination", scope.bodySize, scope.handShape]);
 }
 
 function parseImmediateHandScope(value: unknown): ImmediateHandAggregateScope | null {
@@ -275,36 +305,23 @@ function parseMotorFamily<Scope>(
   );
 }
 
-function migrateSchema3Coordination(
+function validateLegacyCoordination(
   value: unknown,
   policy: ProgressHistoryPolicy,
   lastCompletedRound: number,
-): Readonly<Record<string, MotorTimingProgressHistory<CoordinationAggregateScope>>> | null {
-  if (!isRecord(value)) return null;
+  allowFourPlus: boolean,
+): boolean {
+  if (!isRecord(value)) return false;
   const entries = Object.entries(value);
-  if (entries.length > 12) return null;
-  const kept: Record<string, unknown> = {};
+  const maximum = allowFourPlus ? 12 : 8;
+  if (entries.length > maximum) return false;
   for (const [storedKey, candidate] of entries) {
-    if (!isRecord(candidate) || !isRecord(candidate.scope)) return null;
-    if (candidate.scope.bodySize !== "4+") {
-      kept[storedKey] = candidate;
-      continue;
-    }
-    if (!handShape(candidate.scope.handShape)) return null;
-    const legacyScope = { bodySize: "4+", handShape: candidate.scope.handShape } as const;
-    if (storedKey !== JSON.stringify(["coordination", "4+", legacyScope.handShape])) return null;
-    // Validate the discarded history too; migration never turns malformed data
-    // into a valid record merely because its scope is obsolete.
-    if (parseMotorTimingHistory(candidate, legacyScope, policy, lastCompletedRound) === null) return null;
+    if (!isRecord(candidate)) return false;
+    const scope = parseLegacyCoordinationScope(candidate.scope, allowFourPlus);
+    if (scope === null || legacyCoordinationKey(scope) !== storedKey) return false;
+    if (parseMotorTimingHistory(candidate, scope, policy, lastCompletedRound) === null) return false;
   }
-  return parseMotorFamily(
-    kept,
-    parseCoordinationScope,
-    coordinationAggregateKey,
-    8,
-    policy,
-    lastCompletedRound,
-  );
+  return true;
 }
 
 function emptyMotorProgressHistory(): MotorProgressHistory {
@@ -321,19 +338,30 @@ function parseMotorProgressHistory(
   validTokens: ReadonlySet<string>,
   policy: ProgressHistoryPolicy,
   lastCompletedRound: number,
-  legacySchema3: boolean,
+  coordinationSchema: "current" | "legacy-4" | "legacy-3",
 ): MotorProgressHistory | null {
   if (!isRecord(value)) return null;
-  const coordination = legacySchema3
-    ? migrateSchema3Coordination(value.coordination, policy, lastCompletedRound)
-    : parseMotorFamily(
-        value.coordination,
-        parseCoordinationScope,
-        coordinationAggregateKey,
-        8,
-        policy,
-        lastCompletedRound,
-      );
+
+  let coordination: MotorProgressHistory["coordination"] | null;
+  if (coordinationSchema === "current") {
+    coordination = parseMotorFamily(
+      value.coordination,
+      parseCoordinationScope,
+      coordinationAggregateKey,
+      4,
+      policy,
+      lastCompletedRound,
+    );
+  } else {
+    const validLegacy = validateLegacyCoordination(
+      value.coordination,
+      policy,
+      lastCompletedRound,
+      coordinationSchema === "legacy-3",
+    );
+    coordination = validLegacy ? {} : null;
+  }
+
   const immediateHands = parseMotorFamily(
     value.immediateHands,
     parseImmediateHandScope,
@@ -385,6 +413,7 @@ export function parseProgressHistory(
   const schemaVersion = parsed.schemaVersion;
   if (
     schemaVersion !== PROGRESS_HISTORY_SCHEMA_VERSION
+    && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_4
     && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_3
     && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_2
   ) return null;
@@ -411,15 +440,23 @@ export function parseProgressHistory(
     keys.push([tokenId, entry]);
   }
 
-  const motor = schemaVersion === LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_2
-    ? emptyMotorProgressHistory()
-    : parseMotorProgressHistory(
-        parsed.motor,
-        validTokens,
-        policy,
-        parsed.lastCompletedRound as number,
-        schemaVersion === LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_3,
-      );
+  let motor: MotorProgressHistory | null;
+  if (schemaVersion === LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_2) {
+    motor = emptyMotorProgressHistory();
+  } else {
+    const coordinationSchema = schemaVersion === PROGRESS_HISTORY_SCHEMA_VERSION
+      ? "current"
+      : schemaVersion === LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_4
+        ? "legacy-4"
+        : "legacy-3";
+    motor = parseMotorProgressHistory(
+      parsed.motor,
+      validTokens,
+      policy,
+      parsed.lastCompletedRound as number,
+      coordinationSchema,
+    );
+  }
   if (motor === null) return null;
 
   return {
