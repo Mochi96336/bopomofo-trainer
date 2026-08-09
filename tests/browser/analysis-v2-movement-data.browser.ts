@@ -187,25 +187,33 @@ test("ranks only comparable word structures and keeps populated Movement geometr
   await expect(rows.nth(0).locator("strong")).toHaveText("320 ms");
   await expect(rows.nth(1).locator("strong")).toHaveText("220 ms");
   await expect(rows.nth(2).locator("strong")).toHaveText("180 ms");
+  await expect(rows.nth(0).locator(".analysis-v2-movement-reading small")).toHaveText("· 10 個樣本");
+  await expect(rows.nth(1).locator(".analysis-v2-movement-reading small")).toHaveText("· 10 個樣本");
+  await expect(rows.nth(2).locator(".analysis-v2-movement-reading small")).toHaveText("· 10 個樣本");
+  await expect(rows.nth(0)).not.toContainText("次觀察");
   await expect(rows.nth(3)).toHaveClass(/sampling/);
   await expect(rows.nth(3).locator("strong")).toHaveText("—");
-  await expect(rows.nth(3)).toContainText("樣本中");
+  await expect(rows.nth(3).locator(".analysis-v2-movement-reading small"))
+    .toHaveText("· 樣本中 · 3 個樣本");
   await expect(family.locator(".analysis-v2-motor-sparkline")).toHaveCount(3);
 
   const geometry = await family.evaluate((node) => {
     const diagram = node.querySelector<HTMLElement>(".analysis-v2-movement-diagram")!;
     const stats = node.querySelector<HTMLElement>(".analysis-v2-movement-stats")!;
     const rows = [...node.querySelectorAll<HTMLElement>(".analysis-v2-movement-stat")];
+    const readings = [...node.querySelectorAll<HTMLElement>(".analysis-v2-movement-reading")];
     const familyRect = node.getBoundingClientRect();
     const diagramRect = diagram.getBoundingClientRect();
     const statsRect = stats.getBoundingClientRect();
     const rowRects = rows.map((row) => row.getBoundingClientRect());
+    const readingRects = readings.map((reading) => reading.getBoundingClientRect());
     return {
       diagramBottom: diagramRect.bottom,
       statsTop: statsRect.top,
       familyLeft: familyRect.left,
       familyRight: familyRect.right,
       rows: rowRects.map((rect) => ({ left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom })),
+      readings: readingRects.map((rect) => ({ left: rect.left, right: rect.right })),
       sparklineWidths: [...node.querySelectorAll<SVGSVGElement>(".analysis-v2-motor-sparkline")]
         .map((svg) => svg.getBoundingClientRect().width),
     };
@@ -214,6 +222,10 @@ test("ranks only comparable word structures and keeps populated Movement geometr
   for (const row of geometry.rows) {
     expect(row.left).toBeGreaterThanOrEqual(geometry.familyLeft - 1);
     expect(row.right).toBeLessThanOrEqual(geometry.familyRight + 1);
+  }
+  for (const reading of geometry.readings) {
+    expect(reading.left).toBeGreaterThanOrEqual(geometry.familyLeft - 1);
+    expect(reading.right).toBeLessThanOrEqual(geometry.familyRight + 1);
   }
   for (let index = 1; index < geometry.rows.length; index += 1) {
     expect(geometry.rows[index]!.top).toBeGreaterThanOrEqual(geometry.rows[index - 1]!.bottom - 1);
