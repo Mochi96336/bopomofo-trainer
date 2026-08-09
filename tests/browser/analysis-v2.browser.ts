@@ -170,9 +170,9 @@ test("renders evidence thresholds through the production Analysis V2 mount", asy
 
   await analysis.locator('[data-tab="coordination"]').click();
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(1);
-  await expect(analysis.locator(".analysis-v2-speed-meta")).toContainText("1 條可比較");
-  await expect(analysis.locator(".analysis-v2-speed-meta")).toContainText("5 個乾淨樣本");
-  await expect(analysis.locator(".analysis-v2-evidence-group[open]")).toHaveCount(0);
+  await expect(analysis.locator(".analysis-v2-speed-caption")).toContainText("1 條可比較");
+  await expect(analysis.locator(".analysis-v2-speed-readout")).toContainText("5 個乾淨樣本");
+  await expect(analysis.locator('[data-action="evidence-family"][aria-expanded="true"]')).toHaveCount(0);
 });
 
 test("opens Analysis V2 on flylines without reviving the legacy transition network", async ({ page }) => {
@@ -194,25 +194,25 @@ test("opens Analysis V2 on flylines without reviving the legacy transition netwo
   await expect(page.locator('[data-action="toggle-network"]')).toHaveCount(0);
   await expect(page.locator(".diagnostic-relationship-svg")).toHaveCount(0);
 
-  const handEvidence = page.locator(".analysis-v2-evidence-group").first();
-  await expect(handEvidence.locator("summary")).toContainText("手別轉換");
-  await handEvidence.locator("summary").click();
-  await expect(handEvidence).toContainText("不代表偵測到你實際使用哪隻手");
+  const handEvidence = page.locator('[data-action="evidence-family"][data-family="hands"]');
+  await expect(handEvidence).toContainText("手別轉換");
+  await handEvidence.click();
+  await expect(page.locator("#analysis-v2-evidence-detail")).toContainText("不代表偵測到你實際使用哪隻手");
+  await expect(page.locator('[data-action="evidence-family"][aria-expanded="true"]')).toHaveCount(1);
 
   await page.locator('[data-tab="strategy"]').click();
-  await expect(page.locator("#analysis-v2-strategy-title")).toHaveText("策略");
+  await expect(page.locator('[data-tab="strategy"]')).toHaveAttribute("aria-selected", "true");
   await expect(page.locator(".strategy-matrix")).toHaveCount(1);
   await expect(page.locator('[data-action="strategy-size"]')).toHaveText([
     "2 個注音",
     "3 個注音",
-    "4+ 個注音",
   ]);
   await expect(page.locator(".analysis-v2-strategy-segments"))
     .toHaveAttribute("aria-label", "音節內注音成分數，不含聲調");
   const method = page.locator(".analysis-v2-method");
   await expect(method.locator("summary")).toHaveText("資料規則");
   await method.locator("summary").click();
-  await expect(method).toContainText("結構位置只是一組參考座標");
+  await expect(method).toContainText("1 個注音沒有順序差異");
 });
 
 test("contains Analysis V2 at a narrow phone viewport with overflow owned by the flyline stage", async ({ page }) => {
@@ -251,8 +251,8 @@ test("contains Analysis V2 at a narrow phone viewport with overflow owned by the
     const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
     const field = host.querySelector<HTMLElement>(".analysis-v2-speed-field")!;
     const scroller = host.querySelector<HTMLElement>(".analysis-v2-speed-scroll")!;
-    const meta = host.querySelector<HTMLElement>(".analysis-v2-speed-meta")!;
-    const legend = host.querySelector<HTMLElement>(".analysis-v2-speed-legend")!;
+    const caption = host.querySelector<HTMLElement>(".analysis-v2-speed-caption")!;
+    const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout")!;
     return {
       mainClient: main.clientWidth,
       mainScroll: main.scrollWidth,
@@ -260,16 +260,16 @@ test("contains Analysis V2 at a narrow phone viewport with overflow owned by the
       fieldScroll: field.scrollWidth,
       scrollerClient: scroller.clientWidth,
       scrollerScroll: scroller.scrollWidth,
-      metaRight: meta.getBoundingClientRect().right,
-      legendRight: legend.getBoundingClientRect().right,
+      captionRight: caption.getBoundingClientRect().right,
+      readoutRight: readout.getBoundingClientRect().right,
       fieldRight: field.getBoundingClientRect().right,
     };
   });
   expect(overflow.mainScroll).toBeLessThanOrEqual(overflow.mainClient + 1);
   expect(overflow.fieldScroll).toBeLessThanOrEqual(overflow.fieldClient + 1);
   expect(overflow.scrollerScroll).toBeGreaterThan(overflow.scrollerClient);
-  expect(overflow.metaRight).toBeLessThanOrEqual(overflow.fieldRight + 1);
-  expect(overflow.legendRight).toBeLessThanOrEqual(overflow.fieldRight + 1);
+  expect(overflow.captionRight).toBeLessThanOrEqual(overflow.fieldRight + 1);
+  expect(overflow.readoutRight).toBeLessThanOrEqual(overflow.fieldRight + 1);
   await expect(speedScroll).toHaveAttribute("tabindex", "0");
 
   await expect(analysis.locator('[role="tab"]')).toHaveCount(3);
