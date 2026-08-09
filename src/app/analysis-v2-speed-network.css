@@ -81,9 +81,14 @@
   transform: none;
 }
 
+/* Keep the wide pointer target as a real painted stroke for SVG hit testing,
+   but make that paint fully transparent via stroke-opacity. This avoids the
+   occasional Chromium 3D-compositing artifact produced by `stroke: transparent`.
+   Pointer geometry remains 10px while the visible path stays 1–2px. */
 .analysis-v2-speed-hit {
   fill: none;
-  stroke: transparent;
+  stroke: var(--ink);
+  stroke-opacity: 0;
   stroke-width: 10px;
   vector-effect: non-scaling-stroke;
   pointer-events: stroke;
