@@ -164,7 +164,7 @@ describe("Analysis V2 evidence honesty", () => {
     const lead = host.querySelector(".analysis-v2-semantic-symbols");
     expect(lead?.textContent?.trim().startsWith("ㄆ")).toBe(true);
     expect(host.querySelector(".analysis-v2-semantic-readout")?.textContent)
-      .toContain("可歸因誤按較多");
+      .toContain("較常發生誤按的按鍵");
     expect(host.querySelector('[data-token="zhuyin:ㄆ"]')?.classList.contains("is-salient"))
       .toBe(true);
   });
