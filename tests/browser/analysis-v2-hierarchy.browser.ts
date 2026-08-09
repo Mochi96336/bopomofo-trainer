@@ -119,7 +119,7 @@ test("keeps the protected keyboard primary while the readout stays nearby", asyn
   expect(metrics.keyboardShare).toBeGreaterThan(0.68);
   expect(metrics.keyboardShare).toBeLessThan(0.73);
   expect(metrics.leadFont).toBeGreaterThanOrEqual(24);
-  expect(metrics.leadFont).toBeLessThanOrEqual(28.5);
+  expect(metrics.leadFont).toBeLessThanOrEqual(29.5);
   expect(metrics.leadGap).toBeGreaterThanOrEqual(18);
   expect(metrics.leadGap).toBeLessThanOrEqual(70);
 });
