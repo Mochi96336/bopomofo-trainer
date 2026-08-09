@@ -195,8 +195,11 @@ test("moves aggregate Coordination families into a separate compact Movement vie
   await expect(movement.locator(".analysis-v2-movement-family")).toHaveCount(4);
   await expect(movement).toContainText("手別轉換");
   await expect(movement).toContainText("同側再出手");
-  await expect(movement).toContainText("音節跨度");
+  await expect(movement).toContainText("字內結構");
   await expect(movement).toContainText("聲調收尾");
+  await expect(movement.locator(".analysis-v2-word-structure")).toContainText("聲母");
+  await expect(movement.locator(".analysis-v2-word-structure")).toContainText("介音");
+  await expect(movement.locator(".analysis-v2-word-structure")).toContainText("韻母");
   await expect(movement.locator("table")).toHaveCount(0);
   await expect(movement.locator(".analysis-v2-motor-sparkline")).toHaveCount(0);
 });
