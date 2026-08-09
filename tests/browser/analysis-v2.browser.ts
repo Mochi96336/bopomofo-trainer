@@ -114,6 +114,7 @@ test("renders the information-panel Analysis V2 summary as a structured three-co
 
   const summary = page.locator(".analysis-v2-summary");
   await expect(summary).toBeVisible();
+  await expect(summary.locator(".analysis-v2-summary-heading h3")).toHaveText("分析");
   const layout = await summary.evaluate((element) => {
     const signals = element.querySelector<HTMLElement>(".analysis-v2-summary-signals")!;
     const cells = [...signals.children] as HTMLElement[];
@@ -142,6 +143,8 @@ test("renders evidence thresholds through the production Analysis V2 mount", asy
   await page.locator(".analysis-v2-open").click();
 
   const analysis = page.locator("#analysis-v2");
+  await expect(analysis.locator('[data-tab="coordination"]')).toHaveAttribute("aria-selected", "true");
+  await analysis.locator('[data-tab="semantic"]').click();
   const insufficient = analysis.locator('[data-action="select-key"][data-token="zhuyin:ㄅ"]');
   const sufficient = analysis.locator('[data-action="select-key"][data-token="zhuyin:ㄆ"]');
   await expect(insufficient).toHaveClass(/insufficient/);
@@ -165,14 +168,14 @@ test("renders evidence thresholds through the production Analysis V2 mount", asy
   await expect(analysis.locator(".analysis-v2-confusion-list li")).toHaveCount(1);
   await expect(analysis.locator(".analysis-v2-confusion-list")).toContainText("初步");
 
-  await analysis.locator('[data-action="select-tab"][data-tab="coordination"]').click();
+  await analysis.locator('[data-tab="coordination"]').click();
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(1);
   await expect(analysis.locator(".analysis-v2-speed-meta")).toContainText("1 條可比較");
   await expect(analysis.locator(".analysis-v2-speed-meta")).toContainText("5 個乾淨樣本");
   await expect(analysis.locator(".analysis-v2-evidence-group[open]")).toHaveCount(0);
 });
 
-test("opens Analysis V2 without reviving the legacy transition network", async ({ page }) => {
+test("opens Analysis V2 on flylines without reviving the legacy transition network", async ({ page }) => {
   await page.goto("/");
   await page.locator("#open-information").click();
   await page.locator(".analysis-v2-open").click();
@@ -180,7 +183,9 @@ test("opens Analysis V2 without reviving the legacy transition network", async (
   await expect(page.locator("#analysis-v2")).toBeVisible();
 
   const tabs = page.locator('#analysis-v2 [role="tab"]');
-  await expect(tabs).toHaveText(["語意", "協調", "策略"]);
+  await expect(tabs).toHaveText(["協調", "語意", "策略"]);
+  await expect(page.locator('#analysis-v2 [data-tab="coordination"]')).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".analysis-v2-speed-field")).toBeVisible();
   for (let index = 0; index < 3; index += 1) {
     const panelId = await tabs.nth(index).getAttribute("aria-controls");
     expect(panelId).not.toBeNull();
@@ -189,18 +194,21 @@ test("opens Analysis V2 without reviving the legacy transition network", async (
   await expect(page.locator('[data-action="toggle-network"]')).toHaveCount(0);
   await expect(page.locator(".diagnostic-relationship-svg")).toHaveCount(0);
 
-  await page.locator('[data-action="select-tab"][data-tab="coordination"]').click();
-  await expect(page.locator("#analysis-v2-coordination-title")).toHaveText("協調");
-  await expect(page.locator(".analysis-v2-speed-field")).toBeVisible();
   const handEvidence = page.locator(".analysis-v2-evidence-group").first();
   await expect(handEvidence.locator("summary")).toContainText("手別轉換");
   await handEvidence.locator("summary").click();
   await expect(handEvidence).toContainText("不代表偵測到你實際使用哪隻手");
 
-  await page.locator('[data-action="select-tab"][data-tab="strategy"]').click();
+  await page.locator('[data-tab="strategy"]').click();
   await expect(page.locator("#analysis-v2-strategy-title")).toHaveText("策略");
   await expect(page.locator(".strategy-matrix")).toHaveCount(1);
-  await expect(page.locator('[data-action="strategy-size"]')).toHaveCount(3);
+  await expect(page.locator('[data-action="strategy-size"]')).toHaveText([
+    "2 個注音",
+    "3 個注音",
+    "4+ 個注音",
+  ]);
+  await expect(page.locator(".analysis-v2-strategy-segments"))
+    .toHaveAttribute("aria-label", "音節內注音成分數，不含聲調");
   const method = page.locator(".analysis-v2-method");
   await expect(method.locator("summary")).toHaveText("資料規則");
   await method.locator("summary").click();
@@ -236,7 +244,6 @@ test("contains Analysis V2 at a narrow phone viewport with overflow owned by the
   expect(viewportContainment.right).toBeLessThanOrEqual(viewportContainment.viewportWidth);
   expect(viewportContainment.bottom).toBeLessThanOrEqual(viewportContainment.viewportHeight);
 
-  await analysis.locator('[data-action="select-tab"][data-tab="coordination"]').click();
   const speedField = analysis.locator(".analysis-v2-speed-field");
   const speedScroll = analysis.locator(".analysis-v2-speed-scroll");
   await expect(speedField).toBeVisible();
