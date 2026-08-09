@@ -480,10 +480,11 @@ function movementFamiliesMarkup(model: AnalysisV2Model): string {
     "right-only",
     "mixed",
   ];
-  const shapeLabel: Record<(typeof shapes)[number], string> = {
+  const shapeLabel: Record<CoordinationAggregateScope["handShape"], string> = {
     "left-only": "左",
     "right-only": "右",
     mixed: "跨側",
+    unknown: "未知",
   };
   const spanStats = BODY_SIZES.flatMap((size) => shapes.map((shape) =>
     movementStatMarkup(`${size} · ${shapeLabel[shape]}`, findCoordination(model, size, shape))));
