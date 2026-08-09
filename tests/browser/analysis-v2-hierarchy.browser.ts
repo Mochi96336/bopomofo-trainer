@@ -85,7 +85,7 @@ async function installSpeedProgress(page: Page, edgeCount: number): Promise<void
   }, { key: PROGRESS_KEY, value: source });
 }
 
-test("keeps the protected keyboard primary while the readout stays nearby", async ({ page }) => {
+test("gives the keyboard most of the desktop stage while the readout stays nearby", async ({ page }) => {
   await page.setViewportSize({ width: 2000, height: 1100 });
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
@@ -110,19 +110,20 @@ test("keeps the protected keyboard primary while the readout stays nearby", asyn
     };
   });
 
-  expect(metrics.domainWidth).toBeLessThanOrEqual(1080.5);
-  expect(metrics.stageWidth).toBeLessThanOrEqual(1080.5);
-  expect(metrics.stageHeight).toBeLessThanOrEqual(430.5);
-  expect(metrics.keyboardWidth).toBeLessThanOrEqual(760.5);
-  expect(metrics.keyboardShare).toBeGreaterThan(0.68);
-  expect(metrics.keyboardShare).toBeLessThan(0.73);
+  expect(metrics.domainWidth).toBeLessThanOrEqual(1180.5);
+  expect(metrics.stageWidth).toBeLessThanOrEqual(1180.5);
+  expect(metrics.stageHeight).toBeLessThanOrEqual(520.5);
+  expect(metrics.keyboardWidth).toBeGreaterThanOrEqual(1039);
+  expect(metrics.keyboardWidth).toBeLessThanOrEqual(1040.5);
+  expect(metrics.keyboardShare).toBeGreaterThan(0.86);
+  expect(metrics.keyboardShare).toBeLessThan(0.9);
   expect(metrics.leadFont).toBeGreaterThanOrEqual(24);
   expect(metrics.leadFont).toBeLessThanOrEqual(29.5);
   expect(metrics.leadGap).toBeGreaterThanOrEqual(18);
-  expect(metrics.leadGap).toBeLessThanOrEqual(70);
+  expect(metrics.leadGap).toBeLessThanOrEqual(80);
 });
 
-test("keeps Semantic and Coordination keyboards at one fixed screen position", async ({ page }) => {
+test("keeps Semantic and Coordination keyboards at one fixed screen position and scale", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installSpeedProgress(page, 24);
   await openAnalysis(page);
@@ -142,6 +143,7 @@ test("keeps Semantic and Coordination keyboards at one fixed screen position", a
   });
   expect(Math.abs(coordinationAfter.top - coordinationBefore.top)).toBeLessThan(0.5);
   expect(coordinationAfter.width).toBe(coordinationBefore.width);
+  expect(coordinationBefore.width).toBe(1040);
 
   await analysis.locator('[data-tab="semantic"]').click();
   const semanticBoard = analysis.locator(".analysis-v2-keyboard");
@@ -208,10 +210,10 @@ test("keeps exactly one red flyline and never turns Analysis text red on hover",
   expect(palette.accentStroke).toBe(palette.accent);
   expect(palette.neutralSlowStroke).toBe(palette.ink);
   expect(palette.neutralSlowStroke).not.toBe(palette.accent);
-  expect(palette.stageHeight).toBeLessThanOrEqual(390.5);
-  expect(palette.boardTopInsideStage).toBeGreaterThan(12);
+  expect(palette.stageHeight).toBeLessThanOrEqual(450.5);
+  expect(palette.boardTopInsideStage).toBeGreaterThan(8);
   expect(palette.readoutGap).toBeGreaterThanOrEqual(18);
-  expect(palette.readoutGap).toBeLessThanOrEqual(70);
+  expect(palette.readoutGap).toBeLessThanOrEqual(80);
   expect(palette.captionBelowReadout).toBe(true);
 
   await analysis.evaluate((host) => {
@@ -223,7 +225,6 @@ test("keeps exactly one red flyline and never turns Analysis text red on hover",
   });
   await expect(analysis.locator(".analysis-v2-speed-path.is-accent")).toHaveCount(1);
 
-  /* Current text-bearing Coordination subview controls and top tabs must stay neutral. */
   await analysis.locator('[data-action="coordination-view"]').first().hover();
   await analysis.locator('[data-tab="semantic"]').hover();
   const redText = await analysis.evaluate((host) => {
