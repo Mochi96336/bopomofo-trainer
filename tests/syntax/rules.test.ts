@@ -84,9 +84,10 @@ describe("formal phrase production inventory", () => {
     }
   });
 
-  it("keeps oblique on the locative phrase without pushing it onto the noun", () => {
+  it("keeps oblique on the locative phrase without pushing it onto either noun", () => {
     const keep = new Set([
       "clause.locative",
+      "argument.subject.noun",
       "phrase.adposition.preposed",
       "phrase.noun.bare",
       "phrase.nominal-head.noun",
@@ -97,8 +98,6 @@ describe("formal phrase production inventory", () => {
     })].flatMap((shape) => shape.lexicalSlots);
     const nounSlots = slots.filter((slot) => slot.allowedUpos.includes("NOUN"));
     expect(nounSlots.length).toBeGreaterThan(0);
-    // The subject noun still carries its own subject requirement; no noun
-    // anywhere in the derivation is forced to be an oblique dependent.
     expect(nounSlots.some((slot) => slot.requiredFunctions.includes("oblique")))
       .toBe(false);
   });
