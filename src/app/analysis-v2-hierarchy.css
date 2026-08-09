@@ -127,8 +127,9 @@
   border-left: 0;
 }
 
-/* Analysis salience remains neutral ink for this pass. Accent continues to mean
-   the single Coordination relation described by the current readout. */
+/* Ranked Semantic salience stays neutral. Accent is reserved for one active
+   focus: the explicitly selected Semantic key or the single Coordination line
+   described by the readout. */
 .analysis-v2 button.analysis-v2-key {
   --analysis-strength: 0;
   background: transparent;
@@ -151,8 +152,11 @@
 }
 
 .analysis-v2 button.analysis-v2-key.selected {
-  border-color: color-mix(in srgb, var(--ink) 58%, var(--key-border));
-  background: color-mix(in srgb, var(--ink) 9%, transparent);
+  border-color: var(--key-current-border);
+  background: var(--key-current-bg);
+  box-shadow:
+    inset 0 -1px 0 var(--key-current-shadow-1),
+    0 0 0 2px var(--key-current-shadow-2);
   color: var(--ink);
 }
 
