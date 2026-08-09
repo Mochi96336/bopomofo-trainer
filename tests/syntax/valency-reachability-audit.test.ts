@@ -72,16 +72,19 @@ describe("valency reachability audit", () => {
       });
   });
 
-  it("reports the packaged audit for review", () => {
+  it("keeps the packaged audit reproducible", () => {
     const audit = auditValencyReachability(FORMAL_SYNTAX_RULES, SYNTAX_PROFILES);
-    const diagnostic = {
-      profileCount: audit.profileCount,
-      entryCount: audit.entryCount,
-      supportEntryCountByFrame: audit.supportEntryCountByFrame,
+    console.info(`VALENCY_REACHABILITY_AUDIT ${JSON.stringify({
       zeroSupportFrames: audit.zeroSupportFrames,
       zeroSupportSlots: audit.zeroSupportSlots,
       mixedSupportSlots: audit.mixedSupportSlots,
-    };
-    throw new Error(`VALENCY_REACHABILITY_AUDIT ${JSON.stringify(diagnostic)}`);
+    })}`);
+    expect(audit.profileCount).toBe(SYNTAX_PROFILES.length);
+    expect(audit.entryCount).toBeGreaterThan(0);
+    expect(audit.zeroSupportFrames).toEqual(["serial-verb", "causative", "resultative"]);
+    expect(audit.zeroSupportSlots.map((slot) => [slot.ruleId, slot.constituentKey])).toEqual([
+      ["clause.causative", "predicate"],
+      ["complement.result", "result"],
+    ]);
   });
 });
