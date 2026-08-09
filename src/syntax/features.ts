@@ -11,6 +11,8 @@ export const SYNTAX_CATEGORIES = [
   "Predicate",
   "Object",
   "IndirectObject",
+  "DisposalPatient",
+  "PassiveAgent",
   "Complement",
   "Adjunct",
   "Nominal",
