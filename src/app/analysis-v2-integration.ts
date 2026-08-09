@@ -7,6 +7,7 @@ import {
   type AnalysisV2PreferenceStorage,
 } from "./analysis-v2-panel.js";
 import "./analysis-v2-layout.css";
+import "./analysis-v2-space.css";
 import { buildAnalysisV2Model } from "./analysis-v2-model.js";
 import { buildAnalysisV2SemanticModel } from "./analysis-v2-semantic-model.js";
 import type { AnalysisV2Snapshot } from "./analysis-v2-snapshot.js";
