@@ -123,6 +123,10 @@ function open(source: AnalysisV2Model): HTMLElement {
   return controller.host;
 }
 
+function selectTab(host: HTMLElement, tab: "coordination" | "semantic" | "strategy"): void {
+  host.querySelector<HTMLButtonElement>(`[data-action="select-tab"][data-tab="${tab}"]`)?.click();
+}
+
 afterEach(() => {
   controller?.destroy();
   controller = null;
@@ -152,6 +156,7 @@ describe("Analysis V2 evidence honesty", () => {
       },
     });
     const host = open(source);
+    selectTab(host, "semantic");
     host.querySelector<HTMLButtonElement>(
       '[data-action="semantic-view"][data-value="confusion"]',
     )?.click();
@@ -178,9 +183,7 @@ describe("Analysis V2 evidence honesty", () => {
       },
     });
     const host = open(source);
-    host.querySelector<HTMLButtonElement>(
-      '[data-action="select-tab"][data-tab="strategy"]',
-    )?.click();
+    selectTab(host, "strategy");
 
     const lead = host.querySelector(".analysis-v2-strategy-readout");
     expect(lead?.textContent).toContain("仍在累積");
@@ -205,9 +208,7 @@ describe("Analysis V2 evidence honesty", () => {
       },
     });
     const host = open(source);
-    host.querySelector<HTMLButtonElement>(
-      '[data-action="select-tab"][data-tab="strategy"]',
-    )?.click();
+    selectTab(host, "strategy");
 
     const lead = host.querySelector(".analysis-v2-strategy-readout");
     expect(lead?.textContent).toContain("後 → 前");
@@ -215,14 +216,12 @@ describe("Analysis V2 evidence honesty", () => {
     expect(lead?.textContent).toContain("4 / 10");
   });
 
-  it("states that the speed lead is visible-family relative and provides wider hit geometry", () => {
+  it("keeps visible-family scope explicit without adding copy above the keyboard", () => {
     const host = open(model());
-    host.querySelector<HTMLButtonElement>(
-      '[data-action="select-tab"][data-tab="coordination"]',
-    )?.click();
-
     expect(host.querySelector(".analysis-v2-speed-readout")?.textContent)
-      .toContain("目前畫面中較慢");
+      .toContain("僅在畫面中的同類實際鍵間轉換中比較");
+    expect(host.querySelector(".analysis-v2-speed-caption")?.textContent)
+      .toContain("2 條可比較");
     expect(host.querySelectorAll(".analysis-v2-speed-hit")).toHaveLength(2);
     expect(host.querySelectorAll(".analysis-v2-speed-path")).toHaveLength(2);
     expect(host.querySelector(".analysis-v2-speed-hit")?.getAttribute("aria-hidden")).toBe("true");
