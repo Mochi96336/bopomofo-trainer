@@ -8,6 +8,7 @@ import type {
   CoordinationBodyShape,
   ExplicitHand,
   MeasurementObservationsV2,
+  ThreePartInputOrderPermutation,
 } from "./types.js";
 
 const INITIAL_SET = new Set<string>(INITIALS);
@@ -66,6 +67,29 @@ export function coordinationBodyShape(
   return null;
 }
 
+export function threePartInputOrderPermutation(
+  canonicalIndicesInAcceptedOrder: readonly number[],
+): ThreePartInputOrderPermutation | null {
+  if (canonicalIndicesInAcceptedOrder.length !== 3) return null;
+  if (new Set(canonicalIndicesInAcceptedOrder).size !== 3) return null;
+  if (canonicalIndicesInAcceptedOrder.some((index) => index < 0 || index > 2)) return null;
+  const labels = canonicalIndicesInAcceptedOrder.map((index) => (
+    index === 0 ? "first" : index === 1 ? "middle" : "last"
+  ));
+  const candidate = labels.join("-");
+  switch (candidate) {
+    case "first-middle-last":
+    case "middle-first-last":
+    case "first-last-middle":
+    case "middle-last-first":
+    case "last-first-middle":
+    case "last-middle-first":
+      return candidate;
+    default:
+      return null;
+  }
+}
+
 function isAccepted(trace: InteractionTraceV2): boolean {
   return trace.outcome === "accepted-component" || trace.outcome === "accepted-tone";
 }
@@ -92,6 +116,7 @@ export function deriveMeasurementObservationsV2(
   const bindings: MeasurementObservationsV2["bindings"][number][] = [];
   const confusions: MeasurementObservationsV2["confusions"][number][] = [];
   const inputOrderPositions: MeasurementObservationsV2["inputOrderPositions"][number][] = [];
+  const inputOrderPermutations: NonNullable<MeasurementObservationsV2["inputOrderPermutations"]>[number][] = [];
   const coordination: MeasurementObservationsV2["coordination"][number][] = [];
   const immediateTokens: MeasurementObservationsV2["immediateTokens"][number][] = [];
   const immediateHands: MeasurementObservationsV2["immediateHands"][number][] = [];
@@ -203,6 +228,18 @@ export function deriveMeasurementObservationsV2(
 
     if (trace.outcome === "accepted-tone") {
       const events = bodyEvents.get(trace.syllableOrdinal) ?? [];
+      if (events.length === 3) {
+        const canonicalIndices = events.map((event) => event.canonicalTokenIndex);
+        if (canonicalIndices.every((index): index is number => index !== null)) {
+          const permutation = threePartInputOrderPermutation(canonicalIndices);
+          if (permutation !== null) {
+            inputOrderPermutations.push({
+              syllableOrdinal: trace.syllableOrdinal,
+              permutation,
+            });
+          }
+        }
+      }
       const bodyShape = expectedBodyShape.get(trace.syllableOrdinal) ?? null;
       if (events.length >= 2 && bodyShape !== null) {
         coordination.push({
@@ -297,6 +334,7 @@ export function deriveMeasurementObservationsV2(
     bindings,
     confusions,
     inputOrderPositions,
+    inputOrderPermutations,
     coordination,
     immediateTokens,
     immediateHands,
