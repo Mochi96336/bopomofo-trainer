@@ -8,6 +8,9 @@ import {
 import { validateGrammarBundle } from "../../src/syntax/validate.js";
 
 const REQUIRED_CONSTRUCTIONS = [
+  "argument.subject.noun",
+  "argument.object.noun",
+  "argument.indirect-object.noun",
   "phrase.passive.short",
   "phrase.passive.long",
   "clause.nominal-predicate",
@@ -75,7 +78,7 @@ describe("formal clause and question production inventory", () => {
     });
 
     expect(bei?.constituents.map((item) => [item.key, item.category])).toEqual([
-      ["patient", "NounPhrase"],
+      ["patient", "Subject"],
       ["passive", "PassivePhrase"],
       ["predicate", "Predicate"],
     ]);
@@ -84,6 +87,7 @@ describe("formal clause and question production inventory", () => {
   it("has exactly two minimal passive shapes without AUX-agent or bare-ADP crossovers", () => {
     const keep = new Set([
       "clause.bei",
+      "argument.subject.noun",
       "phrase.passive.short",
       "phrase.passive.long",
       "predicate.verb.lexical",
