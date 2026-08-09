@@ -176,6 +176,19 @@
   font-size: 12px;
 }
 
+/* The hero already names the selected pair, its timing, clean-sample count and
+   comparison scope. The inspector should add secondary evidence, not repeat the
+   same facts a second and third time. */
+.analysis-v2-speed-detail {
+  gap: 0;
+}
+
+.analysis-v2-speed-detail > .analysis-v2-speed-pair,
+.analysis-v2-speed-detail > dl > div:nth-child(-n + 2),
+.analysis-v2-speed-detail > p {
+  display: none;
+}
+
 .analysis-v2-speed-caption,
 .analysis-v2-speed-legend {
   display: flex;
