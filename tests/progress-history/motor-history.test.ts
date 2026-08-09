@@ -67,7 +67,7 @@ describe("bounded motor progress history", () => {
       });
     }
 
-    const coordinationKey = coordinationAggregateKey({ bodySize: "3", handShape: "mixed" });
+    const coordinationKey = coordinationAggregateKey({ bodyShape: "initial-medial-final" });
     const coordination = history.motor.coordination[coordinationKey]!;
     expect(coordination.timing).toEqual([{
       endingSample: 5,
@@ -123,6 +123,35 @@ describe("bounded motor progress history", () => {
         toneCommits: {},
       },
     });
+  });
+
+  it("drops only obsolete schema-4 coordination history while preserving other motor families", () => {
+    let history = createEmptyProgressHistory("guided", "zhuyin-standard");
+    history = appendRoundToProgressHistory({
+      history,
+      exercise,
+      traces: traces(1000),
+      completedRound: 1,
+    });
+    const legacy = JSON.parse(serializeProgressHistory(history)) as Record<string, any>;
+    legacy.schemaVersion = 4;
+    legacy.motor.coordination = {
+      '["coordination","3","mixed"]': {
+        scope: { bodySize: "3", handShape: "mixed" },
+        timing: [],
+        partialTiming: { samples: [70] },
+        totalTimingSamples: 1,
+      },
+    };
+    const migrated = parseProgressHistory(
+      JSON.stringify(legacy),
+      "guided",
+      "zhuyin-standard",
+      validTokens,
+    );
+    expect(migrated?.motor.coordination).toEqual({});
+    expect(migrated?.motor.immediateHands).toEqual(history.motor.immediateHands);
+    expect(migrated?.motor.toneCommits).toEqual(history.motor.toneCommits);
   });
 
   it("bounds every motor timing series to the existing completed-point limit", () => {
