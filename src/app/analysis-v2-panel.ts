@@ -75,6 +75,9 @@ const STRATEGY_LEAD_MIN_ROW_OBSERVATIONS = 8;
 const TREND_WIDTH = 168;
 const TREND_HEIGHT = 40;
 const TREND_PAD = 4;
+const MOTOR_TREND_WIDTH = 168;
+const MOTOR_TREND_HEIGHT = 30;
+const MOTOR_TREND_PAD = 3;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -210,6 +213,23 @@ function trendChartMarkup(
       <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="2.5"></circle>
     </svg>
   </div>`;
+}
+
+function motorTrendMarkup<Scope>(cell: AnalysisV2MotorCell<Scope>): string {
+  const values = cell.history.slice(-10).map((point) => point.representativeTimingMs);
+  if (values.length < 2) {
+    return '<span class="analysis-v2-motor-sparkline-empty" aria-hidden="true">—</span>';
+  }
+  const plotted = sparklinePoints(values, MOTOR_TREND_WIDTH, MOTOR_TREND_HEIGHT, MOTOR_TREND_PAD);
+  const path = plotted
+    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(1)},${point.y.toFixed(1)}`)
+    .join(" ");
+  const last = plotted.at(-1)!;
+  return `<svg class="analysis-v2-motor-sparkline" viewBox="0 0 ${MOTOR_TREND_WIDTH} ${MOTOR_TREND_HEIGHT}" preserveAspectRatio="none" aria-hidden="true">
+    <line x1="${MOTOR_TREND_PAD}" y1="${MOTOR_TREND_HEIGHT - MOTOR_TREND_PAD}" x2="${MOTOR_TREND_WIDTH - MOTOR_TREND_PAD}" y2="${MOTOR_TREND_HEIGHT - MOTOR_TREND_PAD}"></line>
+    <path d="${path}"></path>
+    <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="2"></circle>
+  </svg>`;
 }
 
 function keyDetailMarkup(model: AnalysisV2Model, tokenId: TokenId | null): string {
@@ -500,11 +520,11 @@ function movementStatMarkup<Scope>(
   cell: AnalysisV2MotorCell<Scope> | undefined,
 ): string {
   if (cell === undefined || cell.observations === 0) {
-    return `<div class="analysis-v2-movement-stat empty"><span>${escapeHtml(label)}</span><strong>—</strong></div>`;
+    return `<div class="analysis-v2-movement-stat empty"><span>${escapeHtml(label)}</span><span class="analysis-v2-motor-sparkline-empty" aria-hidden="true">—</span><strong>—</strong></div>`;
   }
   const value = milliseconds(cell.currentTimeToTypeMs);
   const support = `${cell.timingSamples} 個乾淨樣本，${cell.observations} 次觀察`;
-  return `<div class="analysis-v2-movement-stat${cell.ready ? "" : " sampling"}" aria-label="${escapeHtml(label)}，${escapeHtml(value)}，${escapeHtml(support)}"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong>${cell.ready ? "" : "<small>樣本中</small>"}</div>`;
+  return `<div class="analysis-v2-movement-stat${cell.ready ? "" : " sampling"}" aria-label="${escapeHtml(label)}，${escapeHtml(value)}，${escapeHtml(support)}"><span>${escapeHtml(label)}</span>${motorTrendMarkup(cell)}<strong>${escapeHtml(value)}</strong>${cell.ready ? "" : "<small>樣本中</small>"}</div>`;
 }
 
 function movementFamilyMarkup(
@@ -587,14 +607,14 @@ function movementFamiliesMarkup(model: AnalysisV2Model): string {
     : toneCells.map((cell) => movementStatMarkup(tokenLabel(cell.scope.toneToken), cell));
 
   return `<section class="analysis-v2-movement-view" aria-label="動作觀察">
-    <div class="analysis-v2-movement-intro"><strong>動作觀察</strong><span>把鍵間資料聚成較大的動作範圍；畫面只保留代表時間，樣本數仍留在無障礙說明。</span></div>
+    <div class="analysis-v2-movement-intro"><strong>動作觀察</strong><span>折線看近期完成時間如何變化；毫秒只保留作輔助讀值，且只在同一動作切面內比較。</span></div>
     <div class="analysis-v2-movement-grid">
       ${movementFamilyMarkup("手別轉換", familyStatus(model.coordination.immediateHands), "依標準指法鍵位分側，不代表偵測到實際使用哪隻手。", handStats)}
       ${movementFamilyMarkup("同側再出手", familyStatus(model.coordination.sameHandRevisits), "比較同一側再次出現時，中間是否曾穿插另一側鍵位。", revisitStats)}
       ${movementFamilyMarkup("音節跨度", familyStatus(model.coordination.coordination), "比較 2、3 個注音從第一個到最後一個的完成跨度。", spanStats)}
       ${movementFamilyMarkup("聲調收尾", familyStatus(model.coordination.toneCommits), "最後一個注音到聲調鍵的乾淨時間。", toneStats)}
     </div>
-    ${methodDetailsMarkup("資料規則", "這些數值是協調資料的聚合切面，只在同一小格自己的定義內比較；不跨家族合成分數。手別來自標準鍵位分工，不代表手部追蹤。")}
+    ${methodDetailsMarkup("資料規則", "這些折線是協調資料各自切面的歷史，不跨家族合成分數。手別來自標準鍵位分工，不代表手部追蹤。")}
   </section>`;
 }
 
@@ -639,10 +659,7 @@ function speedNetworkMarkup(
   </div></div>`;
   const primary = primaryStageMarkup(board, speedLeadMarkup(leadCell), "analysis-v2-speed-primary");
   return `<section class="analysis-v2-speed-field" aria-label="鍵間軌跡">
-    <div class="analysis-v2-speed-stage${selectedCell === undefined ? "" : " has-selection"}">
-      ${primary}
-      ${selectedCell === undefined ? "" : `<aside class="analysis-v2-speed-inspector analysis-v2-inspector" aria-live="polite">${speedInspectorMarkup(model, selectedPathId)}</aside>`}
-    </div>
+    <div class="analysis-v2-speed-stage${selectedCell === undefined ? "" : " has-selection"}">${primary}</div>
     <div class="analysis-v2-speed-caption"><strong>${displayCount}</strong><span>線粗代表樣本支持；紅線對應目前主讀值</span></div>
     ${methodDetailsMarkup("資料規則", `只畫同一音節內實際相鄰接受且乾淨的轉換，每一條至少 5 個時間樣本。最多顯示支持度較高的 ${ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES} 條；紅線只連結目前主讀值，不代表錯誤。`)}
   </section>`;
