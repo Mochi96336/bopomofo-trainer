@@ -202,7 +202,7 @@ describe("Analysis V2 panel", () => {
     expect(host.querySelector(".analysis-v2-confusion-list")?.textContent).toContain("初步");
   });
 
-  it("keeps semantic focus/scroll and renders persisted key history directly", () => {
+  it("keeps semantic focus/scroll and renders compact persisted key history directly", () => {
     const host = open();
     selectTab(host, "semantic");
     const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
@@ -220,8 +220,11 @@ describe("Analysis V2 panel", () => {
     expect(host.querySelector<HTMLElement>(".analysis-v2-main")?.scrollTop).toBe(120);
     expect(host.textContent).toContain("錯誤資料");
     expect(host.textContent).toContain("可比較 · 10 次");
-    expect(host.textContent).toContain("時間資料");
-    expect(host.textContent).toContain("可比較 · 8 個乾淨樣本");
+    expect(host.textContent).toContain("有效鍵間時間");
+    expect(host.textContent).toContain("100 ms · 可比較 · 8 個乾淨樣本");
+    expect(host.textContent).not.toContain("時間資料");
+    expect(host.textContent).toContain("近期錯誤觀察");
+    expect(host.textContent).toContain("近期鍵間時間");
     expect(host.querySelectorAll(".analysis-v2-trends svg")).toHaveLength(2);
   });
 
