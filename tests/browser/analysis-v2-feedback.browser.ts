@@ -78,6 +78,19 @@ test("opens data rules without increasing the page height", async ({ page }) => 
   expect(Math.abs(scrollHeightAfter - scrollHeightBefore)).toBeLessThanOrEqual(1);
 });
 
+test("removes the generic Semantic lead once a key is selected", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const analysis = await openAnalysis(page);
+  await analysis.locator('[data-tab="semantic"]').click();
+  const readout = analysis.locator(".analysis-v2-semantic-readout");
+  await expect(readout).toBeVisible();
+
+  await analysis.locator('[data-action="select-key"]').first().click();
+  await expect(analysis.locator(".analysis-v2-semantic-stage")).toHaveClass(/has-selection/);
+  await expect(readout).toBeHidden();
+  await expect(analysis.locator(".analysis-v2-inspector")).toBeVisible();
+});
+
 test("keeps the Strategy readout below the matrix instead of colliding with cells", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const analysis = await openAnalysis(page);
