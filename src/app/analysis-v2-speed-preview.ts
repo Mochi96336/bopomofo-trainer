@@ -68,9 +68,10 @@ export function mountAnalysisV2SpeedPreview(
   ): boolean => {
     if (cell.currentTimeToTypeMs === null) return false;
     const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout");
-    const strong = readout?.querySelector<HTMLElement>("strong");
-    const small = readout?.querySelector<HTMLElement>("small");
-    if (readout === null || strong === null || small === null) return false;
+    if (readout === null) return false;
+    const strong = readout.querySelector<HTMLElement>("strong");
+    const small = readout.querySelector<HTMLElement>("small");
+    if (strong === null || small === null) return false;
 
     const pair = document.createElement("b");
     pair.textContent = `${tokenLabel(cell.scope.fromToken)} → ${tokenLabel(cell.scope.toToken)}`;
