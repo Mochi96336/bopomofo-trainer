@@ -511,7 +511,10 @@ function movementStatMarkup<Scope>(
   }
   const value = milliseconds(cell.currentTimeToTypeMs);
   const support = `${cell.timingSamples} 個乾淨樣本，${cell.observations} 次觀察`;
-  return `<div class="analysis-v2-movement-stat${cell.ready ? "" : " sampling"}" aria-label="${escapeHtml(label)}，${escapeHtml(value)}，${escapeHtml(support)}"><span>${escapeHtml(label)}</span>${motorTrendMarkup(cell)}<strong>${escapeHtml(value)}</strong>${cell.ready ? "" : "<small>樣本中</small>"}</div>`;
+  const visibleSupport = cell.ready
+    ? `· ${cell.timingSamples} 個樣本`
+    : `· 樣本中 · ${cell.timingSamples} 個樣本`;
+  return `<div class="analysis-v2-movement-stat${cell.ready ? "" : " sampling"}" aria-label="${escapeHtml(label)}，${escapeHtml(value)}，${escapeHtml(support)}"><span>${escapeHtml(label)}</span>${motorTrendMarkup(cell)}<div class="analysis-v2-movement-reading"><strong>${escapeHtml(value)}</strong><small>${escapeHtml(visibleSupport)}</small></div></div>`;
 }
 
 function sortedMovementRows<Scope>(
