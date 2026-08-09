@@ -112,7 +112,9 @@ test("keeps the protected keyboard primary while the readout stays nearby", asyn
 
   expect(metrics.domainWidth).toBeLessThanOrEqual(1080.5);
   expect(metrics.stageWidth).toBeLessThanOrEqual(1080.5);
-  expect(metrics.stageHeight).toBeLessThanOrEqual(390.5);
+  // The feedback pass deliberately gives the protected keyboard a little more
+  // vertical air on tall desktops while keeping the stage bounded.
+  expect(metrics.stageHeight).toBeLessThanOrEqual(430.5);
   expect(metrics.keyboardWidth).toBeLessThanOrEqual(760.5);
   expect(metrics.keyboardShare).toBeGreaterThan(0.68);
   expect(metrics.keyboardShare).toBeLessThan(0.73);
