@@ -113,7 +113,7 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* Inspectors always live below the immutable primary stage; selection never
+/* Inspectors normally live below the immutable primary stage; selection never
    steals width or shifts the keyboard. */
 .analysis-v2 .analysis-v2-semantic-stage > .analysis-v2-inspector,
 .analysis-v2 .analysis-v2-speed-inspector {
@@ -124,6 +124,108 @@
   overflow: visible;
   border-top: 1px solid var(--hairline);
   border-left: 0;
+}
+
+/* Semantic selection is replacement content, not another block inserted into
+   the page. The generic hero readout already keeps its track, and the summary
+   rail already owns another 58px below the stage. Reuse that combined area for
+   selected-key detail so the keyboard, summary boundary and methodology do not
+   jump downward when a key is clicked. */
+.analysis-v2 .analysis-v2-semantic-stage.has-selection {
+  position: relative;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector {
+  position: absolute;
+  z-index: 4;
+  right: auto;
+  bottom: calc(-58px - clamp(22px, 3dvh, 34px));
+  left: 50%;
+  width: min(760px, 92%);
+  margin: 0;
+  padding: 10px 0 0;
+  overflow: visible;
+  border-top: 1px solid var(--hairline);
+  transform: translateX(-50%);
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection + .analysis-v2-semantic-rail {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content {
+  display: grid;
+  grid-template-columns: 74px minmax(300px, 1.15fr) minmax(220px, 0.85fr);
+  align-items: start;
+  gap: 18px;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-detail-heading {
+  display: grid;
+  align-content: start;
+  gap: 3px;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-detail-heading strong {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-detail-heading span {
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dl {
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+  border-top: 0;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dl > div {
+  min-width: 0;
+  padding: 5px 0;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 0;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dt {
+  font-size: 11px;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dd {
+  font-size: 12px;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trends {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 0;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trend-heading {
+  margin-bottom: 2px;
+  font-size: 10px;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trend-heading strong {
+  font-size: 11px;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trend-chart svg {
+  height: 28px;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-confusion-list,
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-empty {
+  grid-column: 2 / -1;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-confusion-list li {
+  padding: 6px 0;
 }
 
 /* Ranked Semantic salience stays neutral. Accent is reserved for one active
@@ -437,6 +539,15 @@
   .analysis-v2 .analysis-v2-movement-view {
     margin-top: 28px;
   }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 12px 16px;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trends {
+    grid-column: 1 / -1;
+  }
 }
 
 @media (max-width: 760px) {
@@ -488,6 +599,18 @@
   .analysis-v2 .analysis-v2-hero-readout > small,
   .analysis-v2 .analysis-v2-hero-readout > span {
     font-size: 11px;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector {
+    width: 100%;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trends {
+    display: none;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dl {
+    column-gap: 10px;
   }
 
   .analysis-v2 .analysis-v2-movement-view {
