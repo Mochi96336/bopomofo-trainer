@@ -8,11 +8,6 @@ import {
 } from "./analysis-v2-panel.js";
 import "./analysis-v2-layout.css";
 import { buildAnalysisV2Model } from "./analysis-v2-model.js";
-import {
-  mountAnalysisV2Presentation,
-  normalizeAnalysisV2Summary,
-  type AnalysisV2Presentation,
-} from "./analysis-v2-presentation.js";
 import { buildAnalysisV2SemanticModel } from "./analysis-v2-semantic-model.js";
 import type { AnalysisV2Snapshot } from "./analysis-v2-snapshot.js";
 
@@ -84,11 +79,9 @@ function animateKeyboardRise(board: HTMLElement, origin: DOMRect | null): void {
   const dx = (origin.left + origin.width / 2) - (target.left + target.width / 2);
   const dy = (origin.top + origin.height / 2) - (target.top + target.height / 2);
 
-  // Motion and object geometry are deliberately separate. The keyboard keeps its
-  // protected perspective/rotateX transform for the whole animation; only the
-  // independent CSS translate property moves that already-tilted object from the
-  // practice keyboard's screen-space position to the Analysis slot. No scale is
-  // involved, so the object reads as the same keyboard travelling between views.
+  // Motion and object geometry stay separate. The protected keyboard keeps its
+  // perspective/rotateX transform while the independent translate property moves
+  // that same object from the practice position into the shared Analysis slot.
   board.animate([
     { translate: `${dx}px ${dy}px`, opacity: 0.25 },
     { translate: "0px 0px", opacity: 1 },
@@ -97,18 +90,13 @@ function animateKeyboardRise(board: HTMLElement, origin: DOMRect | null): void {
 
 function openAnalysisFromPractice(
   analysis: AnalysisV2Controller,
-  presentation: AnalysisV2Presentation,
   deps: AnalysisV2IntegrationDependencies,
 ): void {
-  // Capture the practice keyboard before the drawer closes or the practice stage
-  // recedes. The analysis keyboard then translates from that exact screen-space
-  // origin instead of being synthesized from a lower-stage fallback.
   const origin = keyboardFlipOrigin();
   deps.closePanel();
   deps.focusPractice();
   document.body.classList.add("analysis-v2-open");
   analysis.open("coordination");
-  presentation.refresh();
   window.requestAnimationFrame(() => {
     if (analysis.host.hidden) return;
     const board = visibleAnalysisKeyboardBoard(analysis.host);
@@ -161,13 +149,10 @@ export function mountAnalysisV2Integration(
     storage: deps.storage,
     onClose: () => {
       document.body.classList.remove("analysis-v2-open");
-      // Close the browser top layer before focusing practice. A still-open modal
-      // owns focus containment and would otherwise reclaim focus.
       topLayer?.close();
       deps.focusPractice();
     },
   });
-  const presentation = mountAnalysisV2Presentation(analysis.host, currentAnalysisModel);
   topLayer = mountAnalysisTopLayer(analysis.host);
 
   return {
@@ -177,13 +162,11 @@ export function mountAnalysisV2Integration(
       renderAnalysisV2Summary(
         section,
         currentAnalysisModel(),
-        () => openAnalysisFromPractice(analysis, presentation, deps),
+        () => openAnalysisFromPractice(analysis, deps),
       );
-      normalizeAnalysisV2Summary(section);
     },
     destroy(): void {
       document.body.classList.remove("analysis-v2-open");
-      presentation.destroy();
       topLayer?.destroy();
       analysis.destroy();
     },
