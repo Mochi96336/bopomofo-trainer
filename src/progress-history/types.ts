@@ -6,11 +6,13 @@ import type {
   ToneCommitAggregateScope,
 } from "../measurement-v2/aggregate.js";
 
-// Schema 4 narrows Bopomofo body-size-dependent motor history to the complete
-// product domain: 2 or 3 body components. Schema 3 remains migratable by
-// preserving valid 2/3 coordination histories and dropping only the impossible
-// legacy 4+ bucket. Schema 2 still migrates with empty motor series.
-export const PROGRESS_HISTORY_SCHEMA_VERSION = 4 as const;
+// Schema 5 changes the coordination identity from the obsolete
+// `body-size × hand-shape` product to canonical Bopomofo word-body structure
+// (initial / medial / final combinations). Schema 4/3 remain readable, but their
+// old coordination series are intentionally discarded because they cannot be
+// truthfully converted; key, hand, revisit, tone, and strategy histories remain.
+// Schema 2 still migrates with empty motor series.
+export const PROGRESS_HISTORY_SCHEMA_VERSION = 5 as const;
 
 /**
  * One completed slice of correctness observations for a single expected token.
