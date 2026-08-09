@@ -5,7 +5,6 @@
   --analysis-primary-stage-height: clamp(360px, 51dvh, 430px);
   --analysis-object-slot-height: 245px;
   --analysis-strategy-object-slot-height: 330px;
-  --analysis-evidence-well-height: clamp(138px, 18dvh, 176px);
   --analysis-focus: var(--ink);
   color: var(--ink);
 }
@@ -174,19 +173,21 @@
   color: var(--ink-muted);
 }
 
-/* One stable four-item navigation row + one shared detail well. The rail always
-   reserves the well, so opening a family swaps content inside existing space
-   instead of increasing the page's total height. */
+/* The four family controls are a stable navigation strip, not a miniature
+   viewport. Collapsed state reserves only the strip itself. Opening a family
+   lets evidence join the page's normal vertical flow; the outer Analysis main
+   owns vertical scrolling. */
 .analysis-v2 .analysis-v2-evidence-rail {
   position: relative;
   display: grid;
   width: 100%;
-  min-height: calc(52px + var(--analysis-evidence-well-height));
-  margin-top: clamp(22px, 3dvh, 34px);
+  min-height: 52px;
+  margin-top: clamp(40px, 7dvh, 72px);
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: 52px var(--analysis-evidence-well-height);
+  grid-template-rows: auto auto;
   align-items: start;
   border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
 }
 
 .analysis-v2 .analysis-v2-evidence-nav {
@@ -195,7 +196,6 @@
   grid-row: 1;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   align-self: start;
-  border-bottom: 1px solid var(--hairline);
 }
 
 .analysis-v2 .analysis-v2-evidence-group {
@@ -245,38 +245,51 @@
   grid-row: 2;
   width: 100%;
   min-width: 0;
-  max-height: var(--analysis-evidence-well-height);
-  align-self: stretch;
-  overflow: auto;
-  overscroll-behavior: contain;
+  align-self: start;
+  overflow: visible;
+  border-top: 1px solid var(--hairline);
 }
 
+/* On useful desktop widths the evidence explanation and the actual table/chart
+   share one row. This spends horizontal room before asking for more vertical
+   room and removes the old nested vertical scrollbar entirely. */
 .analysis-v2 .analysis-v2-evidence-body {
-  width: min(760px, 100%);
+  display: grid;
+  width: min(960px, 100%);
   margin-inline: auto;
-  padding: 16px 0 18px;
+  padding: 18px 0 22px;
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+  align-items: start;
+  gap: 24px;
 }
 
 .analysis-v2 .analysis-v2-evidence-body > p {
-  margin: 0 0 10px;
+  grid-column: 1;
+  margin: 0;
   color: var(--ink-muted);
   font-size: 12px;
   line-height: 1.55;
 }
 
+.analysis-v2 .analysis-v2-evidence-body > .analysis-v2-table-scroll,
+.analysis-v2 .analysis-v2-evidence-body > .analysis-v2-tone-grid,
+.analysis-v2 .analysis-v2-evidence-body > .analysis-v2-empty {
+  grid-column: 2;
+}
+
 .analysis-v2 .analysis-v2-table-scroll {
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
-  margin-inline: auto;
+  margin: 0;
 }
 
 .analysis-v2 .analysis-v2-motor-table {
-  width: max-content;
+  width: 100%;
 }
 
 .analysis-v2 .analysis-v2-tone-grid {
-  width: min(760px, 100%);
-  margin-inline: auto;
+  width: 100%;
+  margin: 0;
 }
 
 /* Strategy shares the same overall rhythm but its matrix is physically taller
@@ -326,14 +339,14 @@
   text-align: center;
 }
 
-/* Methodology is a reserved footer well. Opening it reveals copy inside the
-   same allocation instead of making the whole Analysis page taller. */
+/* Methodology is disclosure copy, not another viewport. It stays compact while
+   closed and joins normal page flow when opened. */
 .analysis-v2 .analysis-v2-method {
   width: min(760px, 100%);
-  height: 72px;
+  min-height: 20px;
   margin-top: 6px;
   justify-self: end;
-  overflow: auto;
+  overflow: visible;
   color: var(--ink-muted);
   font-size: 11px;
 }
@@ -428,16 +441,10 @@
     --analysis-primary-stage-height: clamp(330px, 48dvh, 390px);
     --analysis-object-slot-height: 220px;
     --analysis-strategy-object-slot-height: 310px;
-    --analysis-evidence-well-height: 150px;
   }
 
   .analysis-v2 .analysis-v2-evidence-nav {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .analysis-v2 .analysis-v2-evidence-rail {
-    min-height: calc(104px + var(--analysis-evidence-well-height));
-    grid-template-rows: 104px var(--analysis-evidence-well-height);
   }
 
   .analysis-v2 .analysis-v2-evidence-group:nth-child(3) {
@@ -450,12 +457,27 @@
   }
 }
 
+@media (max-width: 760px) {
+  .analysis-v2 .analysis-v2-evidence-body {
+    width: min(760px, 100%);
+    padding: 16px 0 20px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .analysis-v2 .analysis-v2-evidence-body > p,
+  .analysis-v2 .analysis-v2-evidence-body > .analysis-v2-table-scroll,
+  .analysis-v2 .analysis-v2-evidence-body > .analysis-v2-tone-grid,
+  .analysis-v2 .analysis-v2-evidence-body > .analysis-v2-empty {
+    grid-column: 1;
+  }
+}
+
 @media (max-width: 640px) {
   .analysis-v2 {
     --analysis-primary-stage-height: 320px;
     --analysis-object-slot-height: 200px;
     --analysis-strategy-object-slot-height: 290px;
-    --analysis-evidence-well-height: 160px;
   }
 
   .analysis-v2 .analysis-v2-domain-controls,
@@ -485,11 +507,6 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .analysis-v2 .analysis-v2-evidence-rail {
-    min-height: calc(208px + var(--analysis-evidence-well-height));
-    grid-template-rows: 208px var(--analysis-evidence-well-height);
-  }
-
   .analysis-v2 .analysis-v2-evidence-group + .analysis-v2-evidence-group,
   .analysis-v2 .analysis-v2-evidence-group:nth-child(3),
   .analysis-v2 .analysis-v2-evidence-group:nth-child(4) {
@@ -502,9 +519,5 @@
   .analysis-v2 .analysis-v2-tone-grid,
   .analysis-v2 .analysis-v2-method {
     width: 100%;
-  }
-
-  .analysis-v2 .analysis-v2-method {
-    height: 86px;
   }
 }
