@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  LEGACY_MEASUREMENT_V2_POLICY_VERSION,
   createEmptyMeasurementSummaryV2,
   immediateHandAggregateKey,
   immediateTokenAggregateKey,
@@ -76,6 +77,65 @@ describe("measurement v2 persistence validation", () => {
         immediateTokens: {},
       },
     });
+  });
+
+  it("migrates aggregate-1 by preserving 2/3 evidence and dropping only recognized 4+ buckets", () => {
+    const current = summaryWithImmediateHands(1);
+    const legacy = structuredClone(current) as unknown as Record<string, unknown>;
+    legacy.policyVersion = LEGACY_MEASUREMENT_V2_POLICY_VERSION;
+    legacy.strategy = {
+      inputOrderPositions: {
+        '["input-order-position","3","first","last"]': {
+          scope: { bodySize: "3", canonicalPosition: "first", acceptedPosition: "last" },
+          observations: 9,
+        },
+        '["input-order-position","4+","first","last"]': {
+          scope: { bodySize: "4+", canonicalPosition: "first", acceptedPosition: "last" },
+          observations: 11,
+        },
+      },
+    };
+    const motor = legacy.motor as Record<string, unknown>;
+    motor.coordination = {
+      '["coordination","2","mixed"]': {
+        scope: { bodySize: "2", handShape: "mixed" },
+        observations: 6,
+        timingSamples: 5,
+        currentTimeToTypeMs: 140,
+        bestTimeToTypeMs: 120,
+      },
+      '["coordination","4+","mixed"]': {
+        scope: { bodySize: "4+", handShape: "mixed" },
+        observations: 8,
+        timingSamples: 5,
+        currentTimeToTypeMs: 180,
+        bestTimeToTypeMs: 150,
+      },
+    };
+
+    const migrated = parseMeasurementSummaryV2(legacy, "guided", "zhuyin-standard", TOKENS);
+    expect(migrated?.policyVersion).toBe(createEmptyMeasurementSummaryV2().policyVersion);
+    expect(Object.keys(migrated?.strategy.inputOrderPositions ?? {})).toEqual([
+      '["input-order-position","3","first","last"]',
+    ]);
+    expect(Object.keys(migrated?.motor.coordination ?? {})).toEqual([
+      '["coordination","2","mixed"]',
+    ]);
+    expect(migrated?.motor.immediateHands).toEqual(current.motor.immediateHands);
+  });
+
+  it("rejects 4+ in the current aggregate policy instead of silently dropping it", () => {
+    const current = createEmptyMeasurementSummaryV2();
+    const invalid = structuredClone(current) as unknown as Record<string, unknown>;
+    invalid.strategy = {
+      inputOrderPositions: {
+        '["input-order-position","4+","first","last"]': {
+          scope: { bodySize: "4+", canonicalPosition: "first", acceptedPosition: "last" },
+          observations: 4,
+        },
+      },
+    };
+    expect(parseMeasurementSummaryV2(invalid, "guided", "zhuyin-standard", TOKENS)).toBeNull();
   });
 
   it("rejects an exact-token edge whose scope contains a token outside the layout", () => {
