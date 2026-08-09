@@ -17,14 +17,15 @@
   width: 100%;
 }
 
-/* The scroll viewport owns only the keyboard object slot. Readout and captions
-   stay in normal flow beneath it. */
+/* Desktop does not need a horizontal scroller for the protected 760px board.
+   Clipping here prevents the entrance translation from flashing a scrollbar;
+   narrow layouts opt back into deliberate horizontal scrolling below. */
 .analysis-v2-speed-scroll {
   display: grid;
   width: 100%;
   min-width: 0;
   min-height: 100%;
-  overflow-x: auto;
+  overflow-x: clip;
   overflow-y: visible;
   place-items: center;
   padding: 0;
@@ -75,7 +76,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  overflow: visible;
+  overflow: hidden;
   pointer-events: none;
   transform: none;
 }
@@ -147,18 +148,10 @@
   stroke-dasharray: 3 2;
 }
 
+/* Empty-state meaning already lives in the hero readout. Do not print a second
+   explanatory sentence over the keyboard itself. */
 .analysis-v2-speed-empty {
-  position: absolute;
-  z-index: 3;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 20px;
-  color: var(--ink-muted);
-  font-size: 11px;
-  line-height: 1.55;
-  text-align: center;
-  pointer-events: none;
+  display: none;
 }
 
 .analysis-v2-speed-pair {
@@ -188,19 +181,25 @@
   justify-content: center;
   gap: 14px;
   color: var(--ink-muted);
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .analysis-v2-speed-caption strong {
   color: var(--ink-muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 620;
   font-variant-numeric: tabular-nums;
 }
 
 .analysis-v2-speed-caption span {
   color: var(--ink-muted);
+}
+
+@media (max-width: 900px) {
+  .analysis-v2-speed-scroll {
+    overflow-x: auto;
+  }
 }
 
 @media (max-width: 640px) {
