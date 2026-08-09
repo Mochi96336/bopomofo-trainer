@@ -180,27 +180,18 @@ test("uses neutral ink for the dense flyline field instead of error-red semantic
       ".analysis-v2-speed-path.salient:not(.is-slow)",
     )!;
     const slow = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-slow")!;
-    const rootStyle = getComputedStyle(host);
     return {
-      backgroundStroke: getComputedStyle(background).stroke,
-      salientStroke: getComputedStyle(salient).stroke,
-      slowStroke: getComputedStyle(slow).stroke,
-      accent: rootStyle.getPropertyValue("--accent").trim(),
+      hostInk: getComputedStyle(host).color,
       backgroundOpacity: Number(getComputedStyle(background).strokeOpacity),
+      salientOpacity: Number(getComputedStyle(salient).strokeOpacity),
+      slowStroke: getComputedStyle(slow).stroke,
       slowOpacity: Number(getComputedStyle(slow).strokeOpacity),
     };
   });
-  expect(palette.backgroundStroke).not.toBe(palette.slowStroke);
-  expect(palette.salientStroke).not.toBe(palette.slowStroke);
-  expect(palette.slowStroke).not.toBe(palette.accent);
-  expect(palette.backgroundOpacity).toBeGreaterThan(0.8);
-  expect(palette.slowOpacity).toBeGreaterThan(0.7);
-
-  const chosen = analysis.locator(".analysis-v2-speed-path").first();
-  await chosen.evaluate((node) => node.dispatchEvent(new MouseEvent("click", { bubbles: true })));
-  await expect(analysis.locator(".analysis-v2-speed-stage")).toHaveClass(/has-selection/);
-  await expect(analysis.locator(".analysis-v2-speed-inspector")).toHaveCount(1);
-  await expect(analysis.locator(".analysis-v2-speed-inspector")).toContainText("ms");
+  expect(palette.backgroundOpacity).toBeLessThan(palette.salientOpacity);
+  expect(palette.salientOpacity).toBeLessThan(palette.slowOpacity);
+  expect(palette.slowOpacity).toBe(1);
+  expect(palette.slowStroke).toBe(palette.hostInk);
 
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
   const dark = await analysis.evaluate((host) => {
@@ -209,9 +200,19 @@ test("uses neutral ink for the dense flyline field instead of error-red semantic
     )!;
     const slow = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-slow")!;
     return {
-      backgroundStroke: getComputedStyle(background).stroke,
+      hostInk: getComputedStyle(host).color,
+      backgroundOpacity: Number(getComputedStyle(background).strokeOpacity),
       slowStroke: getComputedStyle(slow).stroke,
+      slowOpacity: Number(getComputedStyle(slow).strokeOpacity),
     };
   });
-  expect(dark.backgroundStroke).not.toBe(dark.slowStroke);
+  expect(dark.backgroundOpacity).toBeLessThan(dark.slowOpacity);
+  expect(dark.slowOpacity).toBe(1);
+  expect(dark.slowStroke).toBe(dark.hostInk);
+
+  const chosen = analysis.locator(".analysis-v2-speed-path").first();
+  await chosen.evaluate((node) => node.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  await expect(analysis.locator(".analysis-v2-speed-stage")).toHaveClass(/has-selection/);
+  await expect(analysis.locator(".analysis-v2-speed-inspector")).toHaveCount(1);
+  await expect(analysis.locator(".analysis-v2-speed-inspector")).toContainText("ms");
 });
