@@ -250,9 +250,31 @@
 
 .analysis-v2 .analysis-v2-movement-stat {
   min-height: 32px;
-  grid-template-columns: minmax(72px, auto) 104px auto;
+  grid-template-columns: minmax(72px, auto) 104px minmax(0, auto);
   justify-content: start;
   gap: 12px;
+}
+
+.analysis-v2 .analysis-v2-movement-reading {
+  display: inline-flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.analysis-v2 .analysis-v2-movement-reading > strong {
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 560;
+  font-variant-numeric: tabular-nums;
+}
+
+.analysis-v2 .analysis-v2-movement-reading > small {
+  color: var(--ink-faint);
+  font-size: 9px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .analysis-v2 .analysis-v2-motor-sparkline {
@@ -368,7 +390,7 @@
   }
 
   .analysis-v2 .analysis-v2-movement-stat {
-    grid-template-columns: minmax(64px, auto) 92px auto;
+    grid-template-columns: minmax(64px, auto) 92px minmax(0, auto);
     gap: 8px;
   }
 
