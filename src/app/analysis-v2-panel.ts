@@ -412,7 +412,7 @@ function confusionFlylinesMarkup(
 
 function confusionKeyboardMarkup(model: AnalysisV2Model, selectedKey: TokenId | null): string {
   const strongestByToken = strongestConfusionsByToken(model);
-  const maximum = Math.max(0, ...strongestByToken.values().map((row) => row.expectedConfusionTotal));
+  const maximum = Math.max(0, ...[...strongestByToken.values()].map((row) => row.expectedConfusionTotal));
   const keyboard = keyboardRowsMarkup((tokenId, key, columns) => {
     const confusion = strongestByToken.get(tokenId);
     const state = confusionKeyDataState(confusion);
