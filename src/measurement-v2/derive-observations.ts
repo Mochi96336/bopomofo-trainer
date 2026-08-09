@@ -45,25 +45,25 @@ export function coordinationBodyShape(
   let final = false;
   for (const tokenId of bodyTokens) {
     const symbol = bopomofoSymbol(tokenId);
-    if (symbol === null) throw new Error(`non-Bopomofo body token ${tokenId}`);
+    if (symbol === null) return null;
     if (INITIAL_SET.has(symbol)) {
-      if (initial) throw new Error(`duplicate initial in word body: ${symbol}`);
+      if (initial) return null;
       initial = true;
     } else if (MEDIAL_SET.has(symbol)) {
-      if (medial) throw new Error(`duplicate medial in word body: ${symbol}`);
+      if (medial) return null;
       medial = true;
     } else if (FINAL_SET.has(symbol)) {
-      if (final) throw new Error(`duplicate final in word body: ${symbol}`);
+      if (final) return null;
       final = true;
     } else {
-      throw new Error(`unknown Bopomofo body token ${tokenId}`);
+      return null;
     }
   }
   if (initial && medial && final) return "initial-medial-final";
   if (initial && medial) return "initial-medial";
   if (initial && final) return "initial-final";
   if (medial && final) return "medial-final";
-  throw new Error(`unsupported multi-part word body: ${bodyTokens.join(",")}`);
+  return null;
 }
 
 function isAccepted(trace: InteractionTraceV2): boolean {
