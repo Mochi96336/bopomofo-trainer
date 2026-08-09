@@ -122,7 +122,7 @@ test("uses current-key accent only for the explicitly selected Semantic key", as
   expect(palette.color).not.toBe(palette.border);
 });
 
-test("keeps the Coordination family rail below the primary readout", async ({ page }) => {
+test("keeps aggregate movement families out of the default Coordination viewport", async ({ page }) => {
   await page.setViewportSize({ width: 1064, height: 665 });
   await page.goto("/");
   await page.locator("#open-information").click();
@@ -131,20 +131,17 @@ test("keeps the Coordination family rail below the primary readout", async ({ pa
   await expect(analysis).toBeVisible();
   await page.waitForTimeout(340);
 
-  const geometry = await analysis.evaluate((host) => {
-    const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout")!;
-    const rail = host.querySelector<HTMLElement>(".analysis-v2-evidence-rail")!;
-    const readoutRect = readout.getBoundingClientRect();
-    const railRect = rail.getBoundingClientRect();
-    return {
-      gap: railRect.top - readoutRect.bottom,
-      railTop: railRect.top,
-      viewportHeight: window.innerHeight,
-    };
-  });
+  await expect(analysis.locator(".analysis-v2-speed-board")).toBeVisible();
+  await expect(analysis.locator(".analysis-v2-movement-view")).toHaveCount(0);
+  const overflow = await analysis.locator(".analysis-v2-main").evaluate((main) => ({
+    scrollHeight: main.scrollHeight,
+    clientHeight: main.clientHeight,
+  }));
+  expect(overflow.scrollHeight - overflow.clientHeight).toBeLessThanOrEqual(2);
 
-  expect(geometry.gap).toBeGreaterThanOrEqual(28);
-  expect(geometry.railTop).toBeGreaterThan(geometry.viewportHeight * 0.68);
+  await analysis.locator('[data-action="coordination-view"][data-value="movement"]').click();
+  await expect(analysis.locator(".analysis-v2-movement-view")).toBeVisible();
+  await expect(analysis.locator(".analysis-v2-speed-board")).toHaveCount(0);
 });
 
 test("keeps a populated Strategy lead below the matrix", async ({ page }) => {
