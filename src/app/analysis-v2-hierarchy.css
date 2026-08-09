@@ -2,8 +2,10 @@
    Keyboard geometry remains owned by analysis-v2.css. Speed path paint and
    hit geometry remain owned by analysis-v2-speed-network.css. */
 .analysis-v2 {
-  --analysis-primary-stage-height: clamp(310px, 48dvh, 390px);
-  --analysis-object-slot-height: 215px;
+  --analysis-primary-stage-height: clamp(360px, 51dvh, 430px);
+  --analysis-object-slot-height: 245px;
+  --analysis-strategy-object-slot-height: 330px;
+  --analysis-evidence-well-height: clamp(138px, 18dvh, 176px);
   --analysis-focus: var(--ink);
   color: var(--ink);
 }
@@ -30,9 +32,9 @@
   font-size: 12px;
 }
 
-/* Primary object + readout are one visual group. The old layout put the keyboard
-   at the top of a 430px+ box and the readout at its bottom, creating hundreds of
-   pixels of dead air on short desktop viewports. */
+/* Primary object + readout are one visual group. The keyboard owns more room
+   than the previous pass so it reads as the page's subject rather than a header
+   illustration. */
 .analysis-v2 .analysis-v2-primary-stage,
 .analysis-v2 .analysis-v2-visual-stage,
 .analysis-v2 .analysis-v2-strategy-stage {
@@ -40,11 +42,11 @@
   width: 100%;
   min-height: var(--analysis-primary-stage-height);
   margin: 0;
-  padding: 0;
+  padding: 14px 0 0;
   grid-template-rows: var(--analysis-object-slot-height) auto;
   align-content: center;
   justify-items: stretch;
-  gap: 24px;
+  gap: 28px;
 }
 
 .analysis-v2 .analysis-v2-primary-object-slot {
@@ -63,10 +65,10 @@
    a real typographic anchor. */
 .analysis-v2 .analysis-v2-hero-readout {
   display: grid;
-  min-height: 58px;
+  min-height: 62px;
   align-content: start;
   justify-items: center;
-  gap: 5px;
+  gap: 6px;
   color: var(--ink);
   text-align: center;
 }
@@ -74,8 +76,8 @@
 .analysis-v2 .analysis-v2-hero-readout > span,
 .analysis-v2 .analysis-v2-hero-readout > small {
   color: var(--ink-muted);
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .analysis-v2 .analysis-v2-hero-readout > strong {
@@ -84,7 +86,7 @@
   justify-content: center;
   gap: 13px;
   color: var(--ink);
-  font-size: clamp(24px, 2.15vw, 28px);
+  font-size: clamp(24px, 2.15vw, 29px);
   font-weight: 620;
   letter-spacing: -0.015em;
   line-height: 1.05;
@@ -118,15 +120,15 @@
 .analysis-v2 .analysis-v2-speed-inspector {
   width: min(760px, 92%);
   min-height: 0;
-  margin: 4px auto 0;
+  margin: 8px auto 0;
   padding: 18px 0 8px;
   overflow: visible;
   border-top: 1px solid var(--hairline);
   border-left: 0;
 }
 
-/* Analysis salience is neutral ink. Red is reserved for the single flyline that
-   the Coordination readout is currently describing. */
+/* Analysis salience remains neutral ink for this pass. Accent continues to mean
+   the single Coordination relation described by the current readout. */
 .analysis-v2 button.analysis-v2-key {
   --analysis-strength: 0;
   background: transparent;
@@ -168,17 +170,19 @@
   color: var(--ink-muted);
 }
 
-/* One stable four-item navigation row + one shared detail well. Opening a
-   family swaps content below the row instead of reordering the four entries. */
+/* One stable four-item navigation row + one shared detail well. The rail always
+   reserves the well, so opening a family swaps content inside existing space
+   instead of increasing the page's total height. */
 .analysis-v2 .analysis-v2-evidence-rail {
+  position: relative;
   display: grid;
   width: 100%;
-  margin-top: 8px;
+  min-height: calc(52px + var(--analysis-evidence-well-height));
+  margin-top: clamp(22px, 3dvh, 34px);
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto;
+  grid-template-rows: 52px var(--analysis-evidence-well-height);
   align-items: start;
   border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
 }
 
 .analysis-v2 .analysis-v2-evidence-nav {
@@ -187,6 +191,7 @@
   grid-row: 1;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   align-self: start;
+  border-bottom: 1px solid var(--hairline);
 }
 
 .analysis-v2 .analysis-v2-evidence-group {
@@ -234,21 +239,24 @@
 .analysis-v2 .analysis-v2-evidence-detail {
   grid-column: 1;
   grid-row: 2;
+  width: 100%;
   min-width: 0;
-  align-self: start;
-  border-top: 1px solid var(--hairline);
+  max-height: var(--analysis-evidence-well-height);
+  align-self: stretch;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .analysis-v2 .analysis-v2-evidence-body {
   width: min(760px, 100%);
   margin-inline: auto;
-  padding: 14px 0 18px;
+  padding: 16px 0 18px;
 }
 
 .analysis-v2 .analysis-v2-evidence-body > p {
   margin: 0 0 10px;
   color: var(--ink-muted);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.55;
 }
 
@@ -267,10 +275,16 @@
   margin-inline: auto;
 }
 
-/* Strategy uses the same object slot and readout baseline as both keyboard
-   domains, so switching tabs does not feel like entering a different page. */
+/* Strategy shares the same overall rhythm but its matrix is physically taller
+   than the keyboard. Give the object its real height so the readout can never
+   collide with table cells. */
 .analysis-v2 .analysis-v2-strategy-stage {
-  min-height: var(--analysis-primary-stage-height);
+  min-height: clamp(430px, 56dvh, 500px);
+  grid-template-rows: minmax(var(--analysis-strategy-object-slot-height), max-content) auto;
+}
+
+.analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot {
+  min-height: var(--analysis-strategy-object-slot-height);
 }
 
 .analysis-v2 .analysis-v2-strategy-object {
@@ -278,7 +292,7 @@
   width: min(560px, 100%);
   margin-inline: auto;
   align-self: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .analysis-v2 .analysis-v2-strategy-axis {
@@ -287,7 +301,7 @@
   align-items: center;
   gap: 12px;
   color: var(--ink-muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .analysis-v2 .analysis-v2-strategy-axis i {
@@ -302,21 +316,33 @@
 }
 
 .analysis-v2 .analysis-v2-strategy-total {
-  margin: 0;
+  margin: 2px 0 0;
   color: var(--ink-muted);
-  font-size: 11px;
+  font-size: 12px;
   text-align: center;
 }
 
+/* Methodology is a reserved footer well. Opening it reveals copy inside the
+   same allocation instead of making the whole Analysis page taller. */
 .analysis-v2 .analysis-v2-method {
+  width: min(760px, 100%);
+  height: 72px;
+  margin-top: 6px;
   justify-self: end;
-  max-width: 660px;
+  overflow: auto;
   color: var(--ink-muted);
   font-size: 11px;
 }
 
 .analysis-v2 .analysis-v2-method summary {
   color: var(--ink-muted);
+}
+
+.analysis-v2 .analysis-v2-method p {
+  max-width: 660px;
+  margin-left: auto;
+  font-size: 11px;
+  line-height: 1.55;
 }
 
 /* Historical evidence is compact annotation, never a second dashboard. */
@@ -395,12 +421,19 @@
 
 @media (max-width: 900px) {
   .analysis-v2 {
-    --analysis-primary-stage-height: clamp(300px, 46dvh, 360px);
-    --analysis-object-slot-height: 205px;
+    --analysis-primary-stage-height: clamp(330px, 48dvh, 390px);
+    --analysis-object-slot-height: 220px;
+    --analysis-strategy-object-slot-height: 310px;
+    --analysis-evidence-well-height: 150px;
   }
 
   .analysis-v2 .analysis-v2-evidence-nav {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .analysis-v2 .analysis-v2-evidence-rail {
+    min-height: calc(104px + var(--analysis-evidence-well-height));
+    grid-template-rows: 104px var(--analysis-evidence-well-height);
   }
 
   .analysis-v2 .analysis-v2-evidence-group:nth-child(3) {
@@ -415,8 +448,10 @@
 
 @media (max-width: 640px) {
   .analysis-v2 {
-    --analysis-primary-stage-height: 300px;
-    --analysis-object-slot-height: 190px;
+    --analysis-primary-stage-height: 320px;
+    --analysis-object-slot-height: 200px;
+    --analysis-strategy-object-slot-height: 290px;
+    --analysis-evidence-well-height: 160px;
   }
 
   .analysis-v2 .analysis-v2-domain-controls,
@@ -428,7 +463,8 @@
   .analysis-v2 .analysis-v2-primary-stage,
   .analysis-v2 .analysis-v2-visual-stage,
   .analysis-v2 .analysis-v2-strategy-stage {
-    gap: 18px;
+    padding-top: 8px;
+    gap: 20px;
   }
 
   .analysis-v2 .analysis-v2-hero-readout > strong {
@@ -436,8 +472,18 @@
     font-size: 23px;
   }
 
+  .analysis-v2 .analysis-v2-hero-readout > small,
+  .analysis-v2 .analysis-v2-hero-readout > span {
+    font-size: 11px;
+  }
+
   .analysis-v2 .analysis-v2-evidence-nav {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analysis-v2 .analysis-v2-evidence-rail {
+    min-height: calc(208px + var(--analysis-evidence-well-height));
+    grid-template-rows: 208px var(--analysis-evidence-well-height);
   }
 
   .analysis-v2 .analysis-v2-evidence-group + .analysis-v2-evidence-group,
@@ -449,7 +495,12 @@
 
   .analysis-v2 .analysis-v2-evidence-body,
   .analysis-v2 .analysis-v2-table-scroll,
-  .analysis-v2 .analysis-v2-tone-grid {
+  .analysis-v2 .analysis-v2-tone-grid,
+  .analysis-v2 .analysis-v2-method {
     width: 100%;
+  }
+
+  .analysis-v2 .analysis-v2-method {
+    height: 86px;
   }
 }
