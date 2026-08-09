@@ -85,7 +85,7 @@ async function installSpeedProgress(page: Page, edgeCount: number): Promise<void
   }, { key: PROGRESS_KEY, value: source });
 }
 
-test("keeps the enlarged keyboard width stable when a semantic inspector opens", async ({ page }) => {
+test("keeps the medium keyboard width stable when a semantic inspector opens", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAnalysis(page);
 
@@ -96,7 +96,7 @@ test("keeps the enlarged keyboard width stable when a semantic inspector opens",
   await analysis.locator('[data-action="select-key"]').first().click();
   const after = await keyboard.evaluate((node) => (node as HTMLElement).offsetWidth);
 
-  expect(before).toBe(1040);
+  expect(before).toBe(760);
   expect(after).toBe(before);
   await expect(analysis.locator(".analysis-v2-semantic-stage")).toHaveClass(/has-selection/);
 });
@@ -121,13 +121,13 @@ test("keeps flyline width stable on selection and exposes a wider pointer target
     node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
   const after = await board.evaluate((node) => (node as HTMLElement).offsetWidth);
-  expect(before).toBe(1040);
+  expect(before).toBe(760);
   expect(after).toBe(before);
   await expect(analysis.locator(".analysis-v2-speed-stage")).toHaveClass(/has-selection/);
   await expect(analysis.locator(".analysis-v2-speed-inspector")).toHaveCount(0);
 });
 
-test("keeps dense speed ranking in the path view and moves aggregates into Movement", async ({ page }) => {
+test("keeps dense speed ranking in the path view and restores compact Movement diagrams", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const requestedEdges = 40;
   const seededEdges = speedPairs(requestedEdges).length;
@@ -145,6 +145,15 @@ test("keeps dense speed ranking in the path view and moves aggregates into Movem
 
   await analysis.locator('[data-action="coordination-view"][data-value="movement"]').click();
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(0);
-  await expect(analysis.locator(".analysis-v2-movement-family")).toHaveCount(4);
+  const families = analysis.locator(".analysis-v2-movement-family");
+  await expect(families).toHaveCount(4);
   await expect(analysis.locator(".analysis-v2-movement-view table")).toHaveCount(0);
+  const diagrams = await families.evaluateAll((nodes) => nodes.map((node) =>
+    getComputedStyle(node, "::before").content.replaceAll('"', "")));
+  expect(diagrams).toEqual([
+    "左   ⇄   右",
+    "左   →   右   →   左",
+    "①   ─   ②   ─   ③",
+    "注音   →   ˊ",
+  ]);
 });
