@@ -1,3 +1,4 @@
+import { ARGUMENT_PRODUCTION_RULES } from "./argument-rules.js";
 import { FORMAL_GRAMMAR_VERSION } from "./features.js";
 import type {
   ProductionConstituent,
@@ -108,8 +109,11 @@ function fixturesForRule(rule: ProductionRule): readonly ProductionFixture[] {
   return fixtures;
 }
 
-const subject = () => constituent("subject", "NounPhrase", { requiredFunctions: ["subject"] });
-const object = () => constituent("object", "NounPhrase", { requiredFunctions: ["object"] });
+const subject = (options: Pick<ConstituentOptions, "minimum" | "maximum"> = {}) =>
+  constituent("subject", "Subject", options);
+const object = (options: Pick<ConstituentOptions, "minimum" | "maximum"> = {}) =>
+  constituent("object", "Object", options);
+const indirectObject = () => constituent("indirectObject", "IndirectObject");
 
 /**
  * Clause-model v2 transition: when the surrounding rule owns its arguments,
@@ -137,6 +141,7 @@ const aNotALexeme = (
 });
 
 export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
+  ...ARGUMENT_PRODUCTION_RULES,
   production("phrase.passive.short", "PassivePhrase", [
     lexical("marker", ["AUX"], { requiredFeatures: { voice: "passive" } }),
   ]),
@@ -164,7 +169,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   production("clause.ditransitive", "Clause", [
     subject(),
     corePredicate(["ditransitive"]),
-    constituent("indirectObject", "NounPhrase", { requiredFunctions: ["indirect-object"] }),
+    indirectObject(),
     object(),
   ]),
   production("clause.copular", "Clause", [
@@ -193,19 +198,19 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
       "intransitive", "transitive", "ditransitive", "ambitransitive",
       "clausal-complement", "open-clausal-complement", "adpositional-complement",
     ]),
-    constituent("object", "NounPhrase", { minimum: 0, maximum: 1 }),
+    object({ minimum: 0, maximum: 1 }),
   ]),
   production("clause.negative", "Clause", [
-    constituent("subject", "NounPhrase", { minimum: 0, maximum: 1, requiredFunctions: ["subject"] }),
+    subject({ minimum: 0, maximum: 1 }),
     lexical("negation", ["ADV", "AUX", "PART", "VERB"], { requiredFeatures: { polarity: "negative" } }),
     constituent("predicate", "Predicate", { requiredFunctions: ["predicate"] }),
-    constituent("object", "NounPhrase", { minimum: 0, maximum: 1 }),
+    object({ minimum: 0, maximum: 1 }),
   ]),
   production("clause.aspect", "Clause", [
-    constituent("subject", "NounPhrase", { minimum: 0, maximum: 1, requiredFunctions: ["subject"] }),
+    subject({ minimum: 0, maximum: 1 }),
     constituent("predicate", "Predicate", { requiredFunctions: ["predicate"] }),
     lexical("aspect", ["AUX", "PART"], { requiredFeatures: { aspect: "marked" } }),
-    constituent("object", "NounPhrase", { minimum: 0, maximum: 1 }),
+    object({ minimum: 0, maximum: 1 }),
   ]),
   production("clause.ba", "Clause", [
     subject(),
@@ -214,7 +219,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     corePredicate(["transitive", "ambitransitive", "resultative"]),
   ]),
   production("clause.bei", "Clause", [
-    constituent("patient", "NounPhrase", { requiredFunctions: ["subject"] }),
+    constituent("patient", "Subject"),
     constituent("passive", "PassivePhrase"),
     corePredicate(["transitive", "ambitransitive"]),
   ]),
@@ -231,7 +236,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     constituent("secondaryPredicate", "VerbPhrase", { requiredFunctions: ["predicate"] }),
   ]),
   production("clause.serial-verb", "Clause", [
-    constituent("subject", "NounPhrase", { minimum: 0, maximum: 1, requiredFunctions: ["subject"] }),
+    subject({ minimum: 0, maximum: 1 }),
     constituent("firstPredicate", "VerbPhrase", {
       requiredFunctions: ["predicate"],
       requiredValencyFrames: ["serial-verb", "intransitive", "transitive", "ambitransitive"],
@@ -257,7 +262,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
       "intransitive", "transitive", "ditransitive", "ambitransitive",
       "clausal-complement", "open-clausal-complement", "adpositional-complement",
     ]),
-    constituent("object", "NounPhrase", { minimum: 0, maximum: 1 }),
+    object({ minimum: 0, maximum: 1 }),
   ]),
   production("clause.object-omission", "Clause", [
     subject(),
@@ -282,14 +287,14 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     constituent("punctuation", "Punctuation", { minimum: 0, maximum: 1 }),
   ]),
   production("sentence.a-not-a-question", "Sentence", [
-    constituent("subject", "NounPhrase", { minimum: 0, maximum: 1, requiredFunctions: ["subject"] }),
+    subject({ minimum: 0, maximum: 1 }),
     aNotALexeme("positivePredicate", ["intransitive", "ambitransitive"]),
     lexical("negation", ["ADV", "AUX", "PART"], { requiredFeatures: { questionType: "a-not-a" } }),
     aNotALexeme("negativePredicate", ["intransitive", "ambitransitive"]),
     constituent("punctuation", "Punctuation", { minimum: 0, maximum: 1 }),
   ]),
   production("sentence.a-not-a-transitive-question", "Sentence", [
-    constituent("subject", "NounPhrase", { minimum: 0, maximum: 1, requiredFunctions: ["subject"] }),
+    subject({ minimum: 0, maximum: 1 }),
     aNotALexeme("positivePredicate", ["transitive", "ambitransitive"]),
     lexical("negation", ["ADV", "AUX", "PART"], { requiredFeatures: { questionType: "a-not-a" } }),
     aNotALexeme("negativePredicate", ["transitive", "ambitransitive"]),
@@ -303,7 +308,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     constituent("punctuation", "Punctuation", { minimum: 0, maximum: 1 }),
   ]),
   production("sentence.constituent-question", "Sentence", [
-    constituent("subject", "NounPhrase", { minimum: 0, maximum: 1, requiredFunctions: ["subject"] }),
+    subject({ minimum: 0, maximum: 1 }),
     constituent("predicate", "Predicate", {
       requiredFunctions: ["predicate"],
       requiredValencyFrames: ["transitive", "ambitransitive"],
