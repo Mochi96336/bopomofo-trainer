@@ -360,7 +360,8 @@ test("uses compact Movement diagrams with short supporting history lines", async
 
   await expect(families.nth(0).locator(".analysis-v2-movement-diagram")).toContainText("左");
   await expect(families.nth(0).locator(".analysis-v2-movement-diagram")).toContainText("右");
-  await expect(families.nth(1).locator(".analysis-v2-movement-diagram")).toContainText("左");
+  await expect(families.nth(1).locator(".analysis-v2-movement-diagram")).toContainText("同側");
+  await expect(families.nth(1).locator(".analysis-v2-movement-diagram")).toContainText("另一側");
   await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("聲母");
   await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("介音");
   await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("韻母");
