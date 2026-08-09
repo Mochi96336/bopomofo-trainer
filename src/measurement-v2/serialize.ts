@@ -1,5 +1,6 @@
 import type { PracticeMode } from "../core/model.js";
 import {
+  LEGACY_MEASUREMENT_V2_POLICY_VERSION,
   MEASUREMENT_V2_POLICY_VERSION,
   bindingAggregateKey,
   confusionAggregateKey,
@@ -24,6 +25,11 @@ import {
   type ToneCommitAggregateScope,
 } from "./aggregate.js";
 import type { CoordinationHandShape, ExplicitHand } from "./types.js";
+
+const CURRENT_STRATEGY_KEY_LIMIT = 13; // 2-part 2×2 + 3-part 3×3.
+const LEGACY_STRATEGY_KEY_LIMIT = 27;
+const CURRENT_COORDINATION_KEY_LIMIT = 8; // 2 body sizes × 4 hand shapes.
+const LEGACY_COORDINATION_KEY_LIMIT = 12;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -62,7 +68,7 @@ function handShape(value: unknown): value is CoordinationHandShape {
 }
 
 function bodySizeBucket(value: unknown): value is CoordinationBodySizeBucket {
-  return value === "2" || value === "3" || value === "4+";
+  return value === "2" || value === "3";
 }
 
 function bodyPosition(value: unknown): value is BodyPositionBucket {
@@ -137,6 +143,8 @@ function parseInputOrderPositionScope(value: unknown): InputOrderPositionAggrega
     || !bodySizeBucket(value.bodySize)
     || !bodyPosition(value.canonicalPosition)
     || !bodyPosition(value.acceptedPosition)) return null;
+  if (value.bodySize === "2"
+    && (value.canonicalPosition === "middle" || value.acceptedPosition === "middle")) return null;
   return {
     bodySize: value.bodySize,
     canonicalPosition: value.canonicalPosition,
@@ -234,6 +242,42 @@ function parseRecord<T>(
   return Object.fromEntries(entries.sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0));
 }
 
+/**
+ * Aggregate-1 admitted a `4+` bucket that standard Bopomofo can never produce.
+ * Drop only a structurally valid legacy 4+ entry; never reinterpret it as 3.
+ */
+function migrateLegacyBodyRecord(
+  value: unknown,
+  family: "strategy" | "coordination",
+  maximumLegacyKeys: number,
+): Readonly<Record<string, unknown>> | null {
+  if (!isRecord(value)) return null;
+  const entries = Object.entries(value);
+  if (entries.length > maximumLegacyKeys) return null;
+  const kept: [string, unknown][] = [];
+  for (const [storedKey, candidate] of entries) {
+    if (!isRecord(candidate) || !isRecord(candidate.scope)) {
+      kept.push([storedKey, candidate]);
+      continue;
+    }
+    if (candidate.scope.bodySize !== "4+") {
+      kept.push([storedKey, candidate]);
+      continue;
+    }
+    const expectedKey = family === "strategy"
+      ? JSON.stringify([
+          "input-order-position",
+          "4+",
+          candidate.scope.canonicalPosition,
+          candidate.scope.acceptedPosition,
+        ])
+      : JSON.stringify(["coordination", "4+", candidate.scope.handShape]);
+    if (storedKey !== expectedKey) return null;
+    // Recognized impossible legacy evidence is intentionally discarded.
+  }
+  return Object.fromEntries(kept);
+}
+
 export function parseMeasurementSummaryV2(
   value: unknown,
   mode: PracticeMode,
@@ -241,13 +285,15 @@ export function parseMeasurementSummaryV2(
   validTokens: ReadonlySet<string>,
 ): MeasurementSummaryV2 | null {
   if (!isRecord(value)
-    || value.policyVersion !== MEASUREMENT_V2_POLICY_VERSION
+    || (value.policyVersion !== MEASUREMENT_V2_POLICY_VERSION
+      && value.policyVersion !== LEGACY_MEASUREMENT_V2_POLICY_VERSION)
     || !isRecord(value.semantic)
     || !isRecord(value.motor)
     || !isNonNegativeInteger(value.semantic.ambiguousErrors)
     || !isNonNegativeInteger(value.semantic.duplicateComponents)
     || !isNonNegativeInteger(value.semantic.prematureTones)) return null;
 
+  const legacyBodyDomain = value.policyVersion === LEGACY_MEASUREMENT_V2_POLICY_VERSION;
   const bindings = parseRecord(
     value.semantic.bindings,
     (candidate) => parseBinding(candidate, mode, layoutId, validTokens),
@@ -271,18 +317,33 @@ export function parseMeasurementSummaryV2(
     ? { inputOrderPositions: {} }
     : value.strategy;
   if (!isRecord(strategy)) return null;
+  const strategySource = legacyBodyDomain
+    ? migrateLegacyBodyRecord(
+        strategy.inputOrderPositions,
+        "strategy",
+        LEGACY_STRATEGY_KEY_LIMIT,
+      )
+    : strategy.inputOrderPositions;
+  const coordinationSource = legacyBodyDomain
+    ? migrateLegacyBodyRecord(
+        value.motor.coordination,
+        "coordination",
+        LEGACY_COORDINATION_KEY_LIMIT,
+      )
+    : value.motor.coordination;
+  if (strategySource === null || coordinationSource === null) return null;
+
   const inputOrderPositions = parseRecord(
-    strategy.inputOrderPositions,
+    strategySource,
     parseInputOrderPosition,
     (aggregate) => inputOrderPositionAggregateKey(aggregate.scope),
-    27,
+    CURRENT_STRATEGY_KEY_LIMIT,
   );
-
   const coordination = parseRecord(
-    value.motor.coordination,
+    coordinationSource,
     (candidate) => parseMotor(candidate, parseCoordinationScope),
     (aggregate) => coordinationAggregateKey(aggregate.scope),
-    12,
+    CURRENT_COORDINATION_KEY_LIMIT,
   );
   // Exact accepted-token edges were added after the original V2 aggregate.
   // Missing data is therefore an empty history, never reconstructed from
