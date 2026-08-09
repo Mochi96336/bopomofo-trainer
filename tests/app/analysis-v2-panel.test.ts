@@ -242,27 +242,28 @@ describe("Analysis V2 panel", () => {
       .toContain("每一條至少 5 個時間樣本");
   });
 
-  it("keeps the four motor-family entries fixed while allowing only one shared detail well", () => {
+  it("keeps aggregate motor families in a compact Movement view instead of a shared detail well", () => {
     const host = open();
-    const buttons = [...host.querySelectorAll<HTMLButtonElement>('[data-action="evidence-family"]')];
-    expect(buttons.map((button) => button.querySelector("span")?.textContent)).toEqual([
+    expect(host.querySelector(".analysis-v2-speed-board")).not.toBeNull();
+    expect(host.querySelector(".analysis-v2-movement-view")).toBeNull();
+
+    host.querySelector<HTMLButtonElement>(
+      '[data-action="coordination-view"][data-value="movement"]',
+    )?.click();
+
+    const families = [...host.querySelectorAll<HTMLElement>(".analysis-v2-movement-family")];
+    expect(families.map((family) => family.querySelector("header strong")?.textContent)).toEqual([
       "手別轉換",
       "同側再出手",
       "音節跨度",
       "聲調收尾",
     ]);
-    buttons[0]?.click();
-    const detail = host.querySelector<HTMLElement>("#analysis-v2-evidence-detail");
-    expect(detail?.hidden).toBe(false);
-    expect(detail?.textContent).toContain("依標準指法的鍵位分工推定");
-    expect(detail?.textContent).toContain("不代表偵測到你實際使用哪隻手");
-    expect(detail?.textContent).toContain("88 ms");
-    expect(detail?.querySelector(".analysis-v2-motor-sparkline svg")).not.toBeNull();
-
-    const rerenderedButtons = [...host.querySelectorAll<HTMLButtonElement>('[data-action="evidence-family"]')];
-    rerenderedButtons[2]?.click();
-    expect(host.querySelectorAll('[data-action="evidence-family"][aria-expanded="true"]')).toHaveLength(1);
-    expect(host.querySelector("#analysis-v2-evidence-detail")?.textContent).toContain("只有 2、3 個注音");
+    expect(host.querySelector(".analysis-v2-speed-board")).toBeNull();
+    expect(host.querySelectorAll(".analysis-v2-movement-view table")).toHaveLength(0);
+    expect(host.querySelectorAll(".analysis-v2-motor-sparkline")).toHaveLength(0);
+    expect(host.querySelector(".analysis-v2-movement-view")?.textContent).toContain("88 ms");
+    expect(host.querySelector(".analysis-v2-movement-view")?.textContent)
+      .toContain("不代表偵測到實際使用哪隻手");
   });
 
   it("renders only 2/3 strategy scales and never invents a middle position for two components", () => {
