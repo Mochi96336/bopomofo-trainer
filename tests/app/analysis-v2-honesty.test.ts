@@ -165,8 +165,11 @@ describe("Analysis V2 evidence honesty", () => {
     expect(lead?.textContent?.trim().startsWith("ㄆ")).toBe(true);
     expect(host.querySelector(".analysis-v2-semantic-readout")?.textContent)
       .toContain("較常發生誤按的按鍵");
-    expect(host.querySelector('[data-token="zhuyin:ㄆ"]')?.classList.contains("is-salient"))
-      .toBe(true);
+    const p = host.querySelector<HTMLElement>('[data-token="zhuyin:ㄆ"]')!;
+    const b = host.querySelector<HTMLElement>('[data-token="zhuyin:ㄅ"]')!;
+    expect(p.classList.contains("has-data")).toBe(true);
+    expect(Number.parseFloat(p.style.getPropertyValue("--analysis-strength")))
+      .toBeGreaterThan(Number.parseFloat(b.style.getPropertyValue("--analysis-strength")));
   });
 
   it("does not promote a one-observation strategy deviation to a 100% hero", () => {
