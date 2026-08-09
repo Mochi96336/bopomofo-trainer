@@ -236,12 +236,44 @@
   font-size: 10px;
 }
 
-/* The 1064–1280px workspace in the supplied review was wasting horizontal
-   room. Let the keyboard become the subject there while preserving the existing
-   1440px visual contract and the phone fit contract. */
+/* The flyline field is a relationship sketch, not a line cloud. The exact same
+   paths remain present/selectable; unsupported visual weight simply recedes so
+   the current red relation and the few slow/supported lines have a clear order. */
+#analysis-v2 .analysis-v2-speed-path {
+  stroke-opacity: 0.24;
+}
+
+#analysis-v2 .analysis-v2-speed-path.salient {
+  stroke-opacity: 0.52;
+}
+
+#analysis-v2 .analysis-v2-speed-path.is-slow {
+  stroke-opacity: 0.86;
+}
+
+#analysis-v2 .analysis-v2-speed-path:hover,
+#analysis-v2 .analysis-v2-speed-path:focus-visible,
+#analysis-v2 .analysis-v2-speed-path.is-focused,
+#analysis-v2 .analysis-v2-speed-path.selected,
+#analysis-v2 .analysis-v2-speed-path.is-accent {
+  stroke-opacity: 1;
+}
+
+/* The 1064–1280px workspace in the supplied review was wasting horizontal and
+   vertical room. Use that room for the keyboard instead of inventing another
+   panel below it. The existing 1440px contract and phone fit stay untouched. */
 @media (min-width: 901px) and (max-width: 1280px) {
+  #analysis-v2 {
+    --analysis-object-slot-height: 280px;
+  }
+
   #analysis-v2 .analysis-v2-domain-controls {
     width: min(900px, 94%);
+  }
+
+  #analysis-v2 .analysis-v2-semantic-primary,
+  #analysis-v2 .analysis-v2-speed-primary {
+    min-height: clamp(384px, 56dvh, 480px);
   }
 
   #analysis-v2 .analysis-v2-semantic-primary .analysis-v2-keyboard,
