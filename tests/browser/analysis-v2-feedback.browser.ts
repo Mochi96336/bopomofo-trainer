@@ -115,6 +115,25 @@ test("does not expose a desktop horizontal scroller while the keyboard enters", 
   expect(overflow).toBe("clip");
 });
 
+test("fits the full Coordination keyboard on a phone instead of hiding its right side", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const analysis = await openAnalysis(page);
+  const fit = await analysis.evaluate((host) => {
+    const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
+    const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
+    const mainRect = main.getBoundingClientRect();
+    const boardRect = board.getBoundingClientRect();
+    return {
+      left: boardRect.left - mainRect.left,
+      right: mainRect.right - boardRect.right,
+      overflowX: getComputedStyle(host.querySelector<HTMLElement>(".analysis-v2-speed-scroll")!).overflowX,
+    };
+  });
+  expect(fit.left).toBeGreaterThanOrEqual(-1);
+  expect(fit.right).toBeGreaterThanOrEqual(-1);
+  expect(fit.overflowX).toBe("clip");
+});
+
 test("keeps the wide flyline hit target fully invisible", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const analysis = await openAnalysis(page);
@@ -146,45 +165,24 @@ test("keeps empty-state explanation out of the keyboard object", async ({ page }
   await expect(analysis.locator(".analysis-v2-hero-readout")).toContainText("仍在累積");
 });
 
-test("lets Coordination evidence use page flow and desktop horizontal room", async ({ page }) => {
+test("moves aggregate Coordination families into a separate compact Movement view", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const analysis = await openAnalysis(page);
-  const nav = analysis.locator(".analysis-v2-evidence-nav");
-  const before = await nav.evaluate((node) =>
-    [...node.querySelectorAll<HTMLElement>('[data-action="evidence-family"]')].map((button) => {
-      const rect = button.getBoundingClientRect();
-      return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
-    }));
 
-  await analysis.locator('[data-action="evidence-family"][data-family="hands"]').click();
-  const detail = analysis.locator("#analysis-v2-evidence-detail");
-  await expect(detail).toBeVisible();
+  await expect(analysis.locator(".analysis-v2-speed-board")).toBeVisible();
+  await expect(analysis.locator(".analysis-v2-movement-view")).toHaveCount(0);
+  await expect(analysis.locator('[data-action="coordination-view"]')).toHaveText(["鍵間", "動作"]);
 
-  const after = await nav.evaluate((node) =>
-    [...node.querySelectorAll<HTMLElement>('[data-action="evidence-family"]')].map((button) => {
-      const rect = button.getBoundingClientRect();
-      return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
-    }));
-  expect(after).toEqual(before);
-
-  const flow = await detail.evaluate((node) => {
-    const body = node.querySelector<HTMLElement>(".analysis-v2-evidence-body")!;
-    const copy = body.querySelector<HTMLElement>(":scope > p")!;
-    const table = body.querySelector<HTMLElement>(".analysis-v2-table-scroll")!;
-    const copyRect = copy.getBoundingClientRect();
-    const tableRect = table.getBoundingClientRect();
-    const detailStyle = getComputedStyle(node);
-    return {
-      overflowY: detailStyle.overflowY,
-      maxHeight: detailStyle.maxHeight,
-      columns: getComputedStyle(body).gridTemplateColumns,
-      usesHorizontalRoom: tableRect.left > copyRect.right,
-    };
-  });
-  expect(flow.overflowY).toBe("visible");
-  expect(flow.maxHeight).toBe("none");
-  expect(flow.columns).not.toBe("none");
-  expect(flow.usesHorizontalRoom).toBe(true);
+  await analysis.locator('[data-action="coordination-view"][data-value="movement"]').click();
+  const movement = analysis.locator(".analysis-v2-movement-view");
+  await expect(movement).toBeVisible();
+  await expect(movement.locator(".analysis-v2-movement-family")).toHaveCount(4);
+  await expect(movement).toContainText("手別轉換");
+  await expect(movement).toContainText("同側再出手");
+  await expect(movement).toContainText("音節跨度");
+  await expect(movement).toContainText("聲調收尾");
+  await expect(movement.locator("table")).toHaveCount(0);
+  await expect(movement.locator(".analysis-v2-motor-sparkline")).toHaveCount(0);
 });
 
 test("lets data rules join normal page flow instead of a fixed scroll well", async ({ page }) => {
