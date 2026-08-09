@@ -172,6 +172,8 @@ test("ranks only comparable word structures and keeps populated Movement geometr
   const family = analysis.locator(".analysis-v2-movement-family").filter({ hasText: "字內結構" });
   await expect(family).toBeVisible();
   await expect(family.locator("header small")).toHaveText("3 可比較 · 1 樣本中");
+  await expect(analysis.locator(".analysis-v2-movement-intro"))
+    .toContainText("只有累積至少 5 個乾淨時間樣本的列才參與家族內慢→快排列");
 
   const rows = family.locator(".analysis-v2-movement-stat");
   await expect(rows).toHaveCount(4);
