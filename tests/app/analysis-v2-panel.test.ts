@@ -245,7 +245,7 @@ describe("Analysis V2 panel", () => {
       .toContain("每一條至少 5 個時間樣本");
   });
 
-  it("keeps aggregate motor families in a compact Movement view instead of a shared detail well", () => {
+  it("keeps aggregate motor families in a compact Movement view with real history lines", () => {
     const host = open();
     expect(host.querySelector(".analysis-v2-speed-board")).not.toBeNull();
     expect(host.querySelector(".analysis-v2-movement-view")).toBeNull();
@@ -263,7 +263,7 @@ describe("Analysis V2 panel", () => {
     ]);
     expect(host.querySelector(".analysis-v2-speed-board")).toBeNull();
     expect(host.querySelectorAll(".analysis-v2-movement-view table")).toHaveLength(0);
-    expect(host.querySelectorAll(".analysis-v2-motor-sparkline")).toHaveLength(0);
+    expect(host.querySelectorAll(".analysis-v2-motor-sparkline")).toHaveLength(1);
     expect(host.querySelector(".analysis-v2-movement-view")?.textContent).toContain("88 ms");
     expect(host.querySelector(".analysis-v2-movement-view")?.textContent)
       .toContain("不代表偵測到實際使用哪隻手");
