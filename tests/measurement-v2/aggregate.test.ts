@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   aggregateMeasurementObservationsV2,
   bindingAggregateKey,
+  coordinationBodySizeBucket,
   createEmptyMeasurementSummaryV2,
   immediateHandAggregateKey,
   immediateTokenAggregateKey,
@@ -143,7 +144,7 @@ describe("measurement v2 aggregation", () => {
     });
   });
 
-  it("keeps low-dimensional motor aggregate cardinality bounded instead of multiplying observation features", () => {
+  it("keeps low-dimensional motor aggregate cardinality bounded by the real 2/3 body domain", () => {
     const hands: readonly ExplicitHand[] = ["left", "right"];
     const immediateHands: MeasurementObservationsV2["immediateHands"][number][] = [];
     const sameHandRevisits: MeasurementObservationsV2["sameHandRevisits"][number][] = [];
@@ -173,7 +174,7 @@ describe("measurement v2 aggregation", () => {
       }
     }
 
-    for (const bodySize of [2, 3, 4, 5, 8]) {
+    for (const bodySize of [2, 3]) {
       for (const handShape of ["left-only", "right-only", "mixed", "unknown"] as const) {
         coordination.push({
           syllableOrdinal: sequence++,
@@ -194,7 +195,24 @@ describe("measurement v2 aggregation", () => {
 
     expect(Object.keys(summary.motor.immediateHands)).toHaveLength(4);
     expect(Object.keys(summary.motor.sameHandRevisits)).toHaveLength(4);
-    expect(Object.keys(summary.motor.coordination).length).toBeLessThanOrEqual(12);
+    expect(Object.keys(summary.motor.coordination)).toHaveLength(8);
+  });
+
+  it("fails closed instead of inventing a catch-all body-size bucket", () => {
+    expect(coordinationBodySizeBucket(2)).toBe("2");
+    expect(coordinationBodySizeBucket(3)).toBe("3");
+    expect(() => coordinationBodySizeBucket(1)).toThrow(RangeError);
+    expect(() => coordinationBodySizeBucket(4)).toThrow(RangeError);
+    expect(() => aggregateMeasurementObservationsV2({
+      ...emptyObservations(),
+      coordination: [{
+        syllableOrdinal: 0,
+        bodySize: 4,
+        handShape: "mixed",
+        timingMs: 120,
+        clean: true,
+      }],
+    })).toThrow(RangeError);
   });
 
   it("distinguishes same-hand revisit only by hand and opposite-hand presence", () => {
