@@ -4,58 +4,89 @@ import {
   createAnalysisV2,
   type AnalysisV2PreferenceStorage,
 } from "../../src/app/analysis-v2-panel.js";
-import type { AnalysisV2Model } from "../../src/app/analysis-v2-model.js";
+import type { AnalysisV2Model, AnalysisV2MotorCell } from "../../src/app/analysis-v2-model.js";
+import type { ImmediateTokenAggregateScope } from "../../src/measurement-v2/aggregate.js";
+import type { ConfusionDiagnostic, KeyDiagnostic } from "../../src/diagnostics/types.js";
+import type { TokenId } from "../../src/core/model.js";
 
-function memoryStorage(): AnalysisV2PreferenceStorage {
-  const values = new Map<string, string>();
+function key(tokenId: TokenId, symbol: string): KeyDiagnostic {
   return {
-    getItem: (key) => values.get(key) ?? null,
-    setItem: (key, value) => void values.set(key, value),
+    tokenId,
+    symbol,
+    physicalCode: "KeyA",
+    physicalKey: "A",
+    attempts: 10,
+    errors: 1,
+    displayedErrorRatio: 0.1,
+    errorDataState: "sufficient",
+    timingAvailability: "available",
+    timingMs: 120,
+    timingSamples: 5,
+    timingDataState: "sufficient",
   };
 }
 
-function motorCell<Scope>(
+function confusion(
   id: string,
-  scope: Scope,
-  timingSamples: number,
-  currentTimeToTypeMs: number | null,
-) {
+  expectedTokenId: TokenId,
+  expectedSymbol: string,
+  actualTokenId: TokenId,
+  actualSymbol: string,
+  occurrences: number,
+  total: number,
+): ConfusionDiagnostic {
   return {
     id,
-    scope,
-    observations: timingSamples,
-    timingSamples,
-    currentTimeToTypeMs,
-    bestTimeToTypeMs: currentTimeToTypeMs,
-    ready: timingSamples >= 5 && currentTimeToTypeMs !== null,
+    expectedTokenId,
+    actualTokenId,
+    expectedSymbol,
+    actualSymbol,
+    expectedPhysicalKey: "A",
+    actualPhysicalKey: "S",
+    occurrences,
+    expectedConfusionTotal: total,
+    expectedErrorShare: occurrences / total,
+    dataState: occurrences >= 5 ? "sufficient" : occurrences >= 3 ? "preliminary" : "insufficient",
+  };
+}
+
+function edge(
+  id: string,
+  fromToken: TokenId,
+  toToken: TokenId,
+  time: number,
+): AnalysisV2MotorCell<ImmediateTokenAggregateScope> {
+  return {
+    id,
+    scope: { fromToken, toToken },
+    observations: 7,
+    timingSamples: 6,
+    currentTimeToTypeMs: time,
+    bestTimeToTypeMs: time - 15,
+    ready: true,
     history: [],
     partialTimingSamples: 0,
   };
 }
 
-function model(): AnalysisV2Model {
-  return {
+function model(overrides: Partial<AnalysisV2Model> = {}): AnalysisV2Model {
+  const base: AnalysisV2Model = {
     semantic: {
-      keys: [],
+      keys: [
+        key("zhuyin:ㄅ", "ㄅ"),
+        key("zhuyin:ㄆ", "ㄆ"),
+        key("zhuyin:ㄇ", "ㄇ"),
+        key("zhuyin:ㄈ", "ㄈ"),
+      ],
       confusions: [],
       keyProgress: {},
-      keysWithData: 0,
+      keysWithData: 4,
       repeatedConfusions: 0,
     },
     coordination: {
       immediateTokens: [
-        motorCell(
-          '["immediate-token","zhuyin:ㄅ","zhuyin:ㄆ"]',
-          { fromToken: "zhuyin:ㄅ", toToken: "zhuyin:ㄆ" },
-          6,
-          120,
-        ),
-        motorCell(
-          '["immediate-token","zhuyin:ㄇ","tone:2"]',
-          { fromToken: "zhuyin:ㄇ", toToken: "tone:2" },
-          7,
-          160,
-        ),
+        edge("e1", "zhuyin:ㄅ", "zhuyin:ㄆ", 100),
+        edge("e2", "zhuyin:ㄇ", "zhuyin:ㄈ", 180),
       ],
       coordination: [],
       immediateHands: [],
@@ -63,15 +94,24 @@ function model(): AnalysisV2Model {
       toneCommits: [],
       observedTokenTransitions: 2,
       readyTokenTransitions: 2,
-      observedScopes: 0,
-      readyScopes: 0,
-      cleanTimingSamples: 0,
+      observedScopes: 2,
+      readyScopes: 2,
+      cleanTimingSamples: 12,
     },
     strategy: {
       inputOrderPositions: [],
       totalObservations: 0,
       bodySizeBucketsWithData: 0,
     },
+  };
+  return { ...base, ...overrides };
+}
+
+function memoryStorage(): AnalysisV2PreferenceStorage {
+  const values = new Map<string, string>();
+  return {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => void values.set(key, value),
   };
 }
 
@@ -95,112 +135,81 @@ afterEach(() => {
 
 describe("Analysis V2 evidence honesty", () => {
   it("ranks confusion lead keys by attributable error count, not destination concentration", () => {
-    const source = model();
-    source.semantic = {
-      ...source.semantic,
-      keys: [
-        {
-          tokenId: "zhuyin:ㄅ",
-          symbol: "ㄅ",
-          physicalCode: "Digit1",
-          physicalKey: "1",
-          attempts: 20,
-          errors: 8,
-          displayedErrorRatio: 0.4,
-          errorDataState: "sufficient",
-          timingAvailability: "available",
-          timingMs: 100,
-          timingSamples: 10,
-          timingDataState: "sufficient",
-        },
-        {
-          tokenId: "zhuyin:ㄆ",
-          symbol: "ㄆ",
-          physicalCode: "KeyQ",
-          physicalKey: "Q",
-          attempts: 20,
-          errors: 9,
-          displayedErrorRatio: 0.45,
-          errorDataState: "sufficient",
-          timingAvailability: "available",
-          timingMs: 100,
-          timingSamples: 10,
-          timingDataState: "sufficient",
-        },
-      ],
-      confusions: [
-        {
-          id: "b-to-p",
-          expectedTokenId: "zhuyin:ㄅ",
-          actualTokenId: "zhuyin:ㄆ",
-          expectedSymbol: "ㄅ",
-          actualSymbol: "ㄆ",
-          expectedPhysicalKey: "1",
-          actualPhysicalKey: "Q",
-          occurrences: 5,
-          expectedConfusionTotal: 8,
-          expectedErrorShare: 5 / 8,
-          dataState: "sufficient",
-        },
-        {
-          id: "p-to-b",
-          expectedTokenId: "zhuyin:ㄆ",
-          actualTokenId: "zhuyin:ㄅ",
-          expectedSymbol: "ㄆ",
-          actualSymbol: "ㄅ",
-          expectedPhysicalKey: "Q",
-          actualPhysicalKey: "1",
-          occurrences: 6,
-          expectedConfusionTotal: 9,
-          expectedErrorShare: 6 / 9,
-          dataState: "sufficient",
-        },
-      ],
-      repeatedConfusions: 2,
-    };
+    const source = model({
+      semantic: {
+        keys: [
+          key("zhuyin:ㄅ", "ㄅ"),
+          key("zhuyin:ㄆ", "ㄆ"),
+          key("zhuyin:ㄇ", "ㄇ"),
+          key("zhuyin:ㄈ", "ㄈ"),
+        ],
+        confusions: [
+          // ㄅ has a perfectly concentrated destination, but only 5 attributable errors.
+          confusion("c1", "zhuyin:ㄅ", "ㄅ", "zhuyin:ㄇ", "ㄇ", 5, 5),
+          // ㄆ has many more attributable errors, split across destinations.
+          confusion("c2", "zhuyin:ㄆ", "ㄆ", "zhuyin:ㄇ", "ㄇ", 12, 20),
+          confusion("c3", "zhuyin:ㄆ", "ㄆ", "zhuyin:ㄈ", "ㄈ", 8, 20),
+        ],
+        keyProgress: {},
+        keysWithData: 4,
+        repeatedConfusions: 3,
+      },
+    });
     const host = open(source);
     selectTab(host, "semantic");
     host.querySelector<HTMLButtonElement>(
       '[data-action="semantic-view"][data-value="confusion"]',
     )?.click();
 
-    expect(host.querySelector(".analysis-v2-semantic-symbols")?.textContent?.trim().startsWith("ㄆ"))
-      .toBe(true);
+    const lead = host.querySelector(".analysis-v2-semantic-symbols");
+    expect(lead?.textContent?.trim().startsWith("ㄆ")).toBe(true);
+    expect(host.querySelector(".analysis-v2-semantic-readout")?.textContent)
+      .toContain("較常發生誤按的按鍵");
+    const p = host.querySelector<HTMLElement>('[data-token="zhuyin:ㄆ"]')!;
+    const b = host.querySelector<HTMLElement>('[data-token="zhuyin:ㄅ"]')!;
+    expect(p.classList.contains("has-data")).toBe(true);
+    expect(Number.parseFloat(p.style.getPropertyValue("--analysis-strength")))
+      .toBeGreaterThan(Number.parseFloat(b.style.getPropertyValue("--analysis-strength")));
   });
 
   it("does not promote a one-observation strategy deviation to a 100% hero", () => {
-    const source = model();
-    source.strategy = {
-      inputOrderPositions: [{
-        scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "first" },
-        observations: 1,
-      }],
-      totalObservations: 1,
-      bodySizeBucketsWithData: 1,
-    };
+    const source = model({
+      strategy: {
+        inputOrderPositions: [
+          {
+            scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "first" },
+            observations: 1,
+          },
+        ],
+        totalObservations: 1,
+        bodySizeBucketsWithData: 1,
+      },
+    });
     const host = open(source);
     selectTab(host, "strategy");
 
-    expect(host.querySelector(".analysis-v2-strategy-readout")?.textContent).toContain("仍在累積");
-    expect(host.querySelector(".analysis-v2-strategy-readout")?.textContent).not.toContain("100%");
+    const lead = host.querySelector(".analysis-v2-strategy-readout");
+    expect(lead?.textContent).toContain("仍在累積");
+    expect(lead?.textContent).not.toContain("100%");
   });
 
   it("promotes a strategy deviation only after its canonical row has enough support", () => {
-    const source = model();
-    source.strategy = {
-      inputOrderPositions: [
-        {
-          scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "last" },
-          observations: 6,
-        },
-        {
-          scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "first" },
-          observations: 4,
-        },
-      ],
-      totalObservations: 10,
-      bodySizeBucketsWithData: 1,
-    };
+    const source = model({
+      strategy: {
+        inputOrderPositions: [
+          {
+            scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "last" },
+            observations: 6,
+          },
+          {
+            scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "first" },
+            observations: 4,
+          },
+        ],
+        totalObservations: 10,
+        bodySizeBucketsWithData: 1,
+      },
+    });
     const host = open(source);
     selectTab(host, "strategy");
 
@@ -210,7 +219,7 @@ describe("Analysis V2 evidence honesty", () => {
     expect(lead?.textContent).toContain("4 / 10");
   });
 
-  it("keeps visible-family scope explicit in the single lower readout without copy above the keyboard", () => {
+  it("keeps visible-family scope explicit in the single lower readout without adding copy above the keyboard", () => {
     const host = open(model());
     const readout = host.querySelector(".analysis-v2-speed-readout");
     expect(readout?.textContent)
