@@ -204,7 +204,8 @@ export const PHRASE_PRODUCTION_RULES: readonly ProductionRule[] = [
   ]),
   production("phrase.numeral.classifier", "NumeralPhrase", [
     lexical("number", ["NUM"], { requiredFunctions: ["numeral"] }),
-    lexical("classifier", ["PART"], { requiredFunctions: ["classifier"] }),
+    // UD Chinese analyzes classifiers as NOUN dependents with relation `clf`.
+    lexical("classifier", ["NOUN"], { requiredFunctions: ["classifier"] }),
   ]),
   production("phrase.adjective.lexical", "AdjectivePhrase", [
     lexical("head", ["ADJ"], { inheritFunctions: true, inheritValencyFrames: true }),
