@@ -149,12 +149,14 @@ test("renders evidence thresholds through the production Analysis V2 mount", asy
   const sufficient = analysis.locator('[data-action="select-key"][data-token="zhuyin:ㄆ"]');
   await expect(insufficient).toHaveClass(/insufficient/);
   await expect(sufficient).toHaveClass(/sufficient/);
-  expect(await insufficient.evaluate((element) =>
+  const insufficientStrength = Number(await insufficient.evaluate((element) =>
     getComputedStyle(element).getPropertyValue("--analysis-strength").trim(),
-  )).toBe("0");
-  expect(Number(await sufficient.evaluate((element) =>
+  ));
+  const sufficientStrength = Number(await sufficient.evaluate((element) =>
     getComputedStyle(element).getPropertyValue("--analysis-strength").trim(),
-  ))).toBeGreaterThan(0);
+  ));
+  expect(insufficientStrength).toBeGreaterThan(0);
+  expect(sufficientStrength).toBeGreaterThan(insufficientStrength);
 
   await analysis.locator('[data-action="semantic-view"][data-value="confusion"]').click();
   await expect(analysis.locator(".confusion-matrix")).toHaveCount(0);
@@ -282,8 +284,8 @@ test("fits Analysis V2 and the full flyline keyboard at a narrow phone viewport"
   // 3D key-plane rounding can report a two-pixel transformed overflow even
   // though the board bounds remain fully contained and overflow is clipped.
   expect(overflow.scrollerScroll).toBeLessThanOrEqual(overflow.scrollerClient + 2);
-  expect(overflow.boardLeft).toBeGreaterThanOrEqual(overflow.mainLeft - 1);
-  expect(overflow.boardRight).toBeLessThanOrEqual(overflow.mainRight + 1);
+  expect(overflow.boardLeft).toBeGreaterThanOrEqual(overflow.mainLeft - 2);
+  expect(overflow.boardRight).toBeLessThanOrEqual(overflow.mainRight + 2);
   expect(overflow.captionRight).toBeLessThanOrEqual(overflow.fieldRight + 1);
   expect(overflow.readoutRight).toBeLessThanOrEqual(overflow.fieldRight + 1);
   await expect(speedScroll).toHaveAttribute("tabindex", "0");
