@@ -8,6 +8,7 @@ import {
   coordinationAggregateKey,
   immediateHandAggregateKey,
   immediateTokenAggregateKey,
+  inputOrderPermutationAggregateKey,
   inputOrderPositionAggregateKey,
   sameHandRevisitAggregateKey,
   toneCommitAggregateKey,
@@ -18,6 +19,8 @@ import {
   type CoordinationBodySizeBucket,
   type ImmediateHandAggregateScope,
   type ImmediateTokenAggregateScope,
+  type InputOrderPermutationAggregate,
+  type InputOrderPermutationAggregateScope,
   type InputOrderPositionAggregate,
   type InputOrderPositionAggregateScope,
   type MeasurementSummaryV2,
@@ -29,9 +32,11 @@ import type {
   CoordinationBodyShape,
   CoordinationHandShape,
   ExplicitHand,
+  ThreePartInputOrderPermutation,
 } from "./types.js";
 
 const CURRENT_STRATEGY_KEY_LIMIT = 13; // 2-part 2×2 + 3-part 3×3.
+const THREE_PART_PERMUTATION_KEY_LIMIT = 6;
 const LEGACY_STRATEGY_KEY_LIMIT = 27;
 const CURRENT_COORDINATION_KEY_LIMIT = 4;
 const PREVIOUS_COORDINATION_KEY_LIMIT = 8; // 2 body sizes × 4 legacy hand shapes.
@@ -86,6 +91,15 @@ function bodySizeBucket(value: unknown): value is CoordinationBodySizeBucket {
 
 function bodyPosition(value: unknown): value is BodyPositionBucket {
   return value === "first" || value === "middle" || value === "last";
+}
+
+function threePartInputOrderPermutation(value: unknown): value is ThreePartInputOrderPermutation {
+  return value === "first-middle-last"
+    || value === "middle-first-last"
+    || value === "first-last-middle"
+    || value === "middle-last-first"
+    || value === "last-first-middle"
+    || value === "last-middle-first";
 }
 
 function parseBinding(
@@ -168,6 +182,22 @@ function parseInputOrderPositionScope(value: unknown): InputOrderPositionAggrega
 function parseInputOrderPosition(value: unknown): InputOrderPositionAggregate | null {
   if (!isRecord(value)) return null;
   const scope = parseInputOrderPositionScope(value.scope);
+  if (scope === null || !isNonNegativeInteger(value.observations) || value.observations === 0) {
+    return null;
+  }
+  return { scope, observations: value.observations as number };
+}
+
+function parseInputOrderPermutationScope(value: unknown): InputOrderPermutationAggregateScope | null {
+  if (!isRecord(value)
+    || value.bodySize !== "3"
+    || !threePartInputOrderPermutation(value.permutation)) return null;
+  return { bodySize: "3", permutation: value.permutation };
+}
+
+function parseInputOrderPermutation(value: unknown): InputOrderPermutationAggregate | null {
+  if (!isRecord(value)) return null;
+  const scope = parseInputOrderPermutationScope(value.scope);
   if (scope === null || !isNonNegativeInteger(value.observations) || value.observations === 0) {
     return null;
   }
@@ -357,13 +387,14 @@ export function parseMeasurementSummaryV2(
   );
 
   const strategy = value.strategy === undefined
-    ? { inputOrderPositions: {} }
+    ? { inputOrderPositions: {}, inputOrderPermutations: {} }
     : value.strategy;
   if (!isRecord(strategy)) return null;
   const strategySource = aggregate1
     ? migrateLegacyStrategyRecord(strategy.inputOrderPositions)
     : strategy.inputOrderPositions;
   if (strategySource === null) return null;
+  const permutationSource = strategy.inputOrderPermutations ?? {};
 
   if (previousCoordination
     && !validateLegacyCoordinationRecord(value.motor.coordination, aggregate1)) return null;
@@ -374,6 +405,12 @@ export function parseMeasurementSummaryV2(
     parseInputOrderPosition,
     (aggregate) => inputOrderPositionAggregateKey(aggregate.scope),
     CURRENT_STRATEGY_KEY_LIMIT,
+  );
+  const inputOrderPermutations = parseRecord(
+    permutationSource,
+    parseInputOrderPermutation,
+    (aggregate) => inputOrderPermutationAggregateKey(aggregate.scope),
+    THREE_PART_PERMUTATION_KEY_LIMIT,
   );
   const coordination = parseRecord(
     coordinationSource,
@@ -409,8 +446,8 @@ export function parseMeasurementSummaryV2(
     (aggregate) => toneCommitAggregateKey(aggregate.scope),
   );
   if (bindings === null || confusions === null || inputOrderPositions === null
-    || coordination === null || immediateTokens === null || immediateHands === null
-    || sameHandRevisits === null || toneCommits === null) return null;
+    || inputOrderPermutations === null || coordination === null || immediateTokens === null
+    || immediateHands === null || sameHandRevisits === null || toneCommits === null) return null;
 
   return {
     policyVersion: MEASUREMENT_V2_POLICY_VERSION,
@@ -421,7 +458,7 @@ export function parseMeasurementSummaryV2(
       duplicateComponents: value.semantic.duplicateComponents as number,
       prematureTones: value.semantic.prematureTones as number,
     },
-    strategy: { inputOrderPositions },
+    strategy: { inputOrderPositions, inputOrderPermutations },
     motor: { coordination, immediateTokens, immediateHands, sameHandRevisits, toneCommits },
   };
 }
