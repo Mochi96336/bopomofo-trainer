@@ -61,9 +61,25 @@ function seededSemanticLeadProgress(): string {
       };
     });
   });
+  const confusionSpecs = [
+    ["zhuyin:ㄅ", "zhuyin:ㄆ", 6],
+    ["zhuyin:ㄅ", "zhuyin:ㄇ", 2],
+    ["zhuyin:ㄆ", "zhuyin:ㄈ", 5],
+    ["zhuyin:ㄇ", "zhuyin:ㄈ", 3],
+    ["zhuyin:ㄈ", "zhuyin:ㄅ", 1],
+  ] as const;
+  const confusions = confusionSpecs.flatMap(([expectedToken, actualToken, count]) =>
+    Array.from({ length: count }, () => ({
+      traceSequence: sequence++,
+      mode: "guided" as const,
+      layoutId: STANDARD_BOPOMOFO_LAYOUT.id,
+      expectedToken,
+      actualToken,
+      physicalCode: physicalCodeFor(actualToken),
+    })));
   const measurements = aggregateMeasurementObservationsV2({
     bindings,
-    confusions: [],
+    confusions,
     inputOrderPositions: [],
     coordination: [],
     immediateTokens: [],
@@ -213,21 +229,47 @@ test("gives Semantic a second summary level instead of ending at the lead keys",
   await expect(rail).toContainText("誤按資料");
 });
 
-test("uses the same three Semantic leads in the readout and on the keyboard", async ({ page }) => {
+test("maps all observed Semantic keys onto a continuous keyboard gradient", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installSemanticLeadProgress(page);
   const analysis = await openAnalysis(page);
   await analysis.locator('[data-tab="semantic"]').click();
 
-  const readoutSymbols = await analysis.locator(".analysis-v2-semantic-symbols")
-    .textContent();
+  const readoutSymbols = await analysis.locator(".analysis-v2-semantic-symbols").textContent();
   const readoutCount = [...(readoutSymbols ?? "").replaceAll("　", "")].length;
-  const salient = analysis.locator('[data-action="select-key"].is-salient');
-  await expect(salient).toHaveCount(3);
   expect(readoutCount).toBe(3);
 
-  const leadTokens = await salient.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-token")));
-  expect(leadTokens).toEqual(["zhuyin:ㄅ", "zhuyin:ㄆ", "zhuyin:ㄇ"]);
+  const keys = analysis.locator('[data-action="select-key"].has-data');
+  await expect(keys).toHaveCount(4);
+  const strengths = await Promise.all(
+    ["zhuyin:ㄅ", "zhuyin:ㄆ", "zhuyin:ㄇ", "zhuyin:ㄈ"].map((token) =>
+      analysis.locator(`[data-action="select-key"][data-token="${token}"]`)
+        .evaluate((element) => Number.parseFloat(
+          (element as HTMLElement).style.getPropertyValue("--analysis-strength"),
+        ))),
+  );
+  expect(strengths[0]).toBeGreaterThan(strengths[1]!);
+  expect(strengths[1]).toBeGreaterThan(strengths[2]!);
+  expect(strengths[2]).toBeGreaterThan(strengths[3]!);
+});
+
+test("restores compact observed confusion flylines over the full Semantic gradient", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installSemanticLeadProgress(page);
+  const analysis = await openAnalysis(page);
+  await analysis.locator('[data-tab="semantic"]').click();
+  await analysis.locator('[data-action="semantic-view"][data-value="confusion"]').click();
+
+  const flylines = analysis.locator(".analysis-v2-confusion-path");
+  await expect(analysis.locator(".analysis-v2-confusion-svg")).toBeVisible();
+  expect(await flylines.count()).toBeGreaterThan(0);
+  expect(await flylines.count()).toBeLessThanOrEqual(8);
+  await expect(analysis.locator(".analysis-v2-confusion-path.is-accent")).toHaveCount(0);
+  await expect(analysis.locator('[data-action="select-key"].has-data')).toHaveCount(4);
+
+  await analysis.locator('[data-action="select-key"][data-token="zhuyin:ㄅ"]').click();
+  await expect(analysis.locator(".analysis-v2-confusion-path.is-accent")).toHaveCount(1);
+  expect(await analysis.locator(".analysis-v2-confusion-path").count()).toBe(2);
 });
 
 test("removes the generic Semantic lead once a key is selected", async ({ page }) => {
