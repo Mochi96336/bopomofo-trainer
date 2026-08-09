@@ -152,9 +152,15 @@ function keyByToken(model: AnalysisV2Model): ReadonlyMap<TokenId, KeyDiagnostic>
 }
 
 function timingEvidenceLabel(row: KeyDiagnostic): string {
-  if (row.timingAvailability === "not-applicable") return "不適用";
+  if (row.timingMs === null && row.timingAvailability === "not-applicable") return "不適用";
+  if (row.timingSamples === 0) return "尚無乾淨樣本";
   if (row.timingDataState === null) return `${row.timingSamples} 個乾淨樣本`;
   return `${dataStateLabel(row.timingDataState)} · ${row.timingSamples} 個乾淨樣本`;
+}
+
+function timingDetailLabel(row: KeyDiagnostic): string {
+  const evidence = timingEvidenceLabel(row);
+  return row.timingMs === null ? evidence : `${milliseconds(row.timingMs)} · ${evidence}`;
 }
 
 function trendChartMarkup(
@@ -186,16 +192,15 @@ function keyDetailMarkup(model: AnalysisV2Model, tokenId: TokenId | null): strin
   if (row === undefined) return "";
   const progress = model.semantic.keyProgress[tokenId];
   const trends = progress === undefined ? "" : [
-    trendChartMarkup("錯誤觀察", progress.correctness.points, (value) => value * 100, (value) => `${Math.round(value)}%`),
-    trendChartMarkup("鍵間時間", progress.timing.points, (value) => value, (value) => `${Math.round(value)} ms`),
+    trendChartMarkup("近期錯誤觀察", progress.correctness.points, (value) => value * 100, (value) => `${Math.round(value)}%`),
+    trendChartMarkup("近期鍵間時間", progress.timing.points, (value) => value, (value) => `${Math.round(value)} ms`),
   ].filter(Boolean).join("");
   return `<article class="analysis-v2-inspector-content">
     <div class="analysis-v2-detail-heading"><strong>${escapeHtml(row.symbol)}</strong><span>${escapeHtml(row.physicalKey)}</span></div>
     <dl>
       <div><dt>錯誤觀察</dt><dd>${escapeHtml(percent(row.displayedErrorRatio))}</dd></div>
       <div><dt>錯誤資料</dt><dd>${escapeHtml(dataStateLabel(row.errorDataState))} · ${row.attempts} 次</dd></div>
-      <div><dt>有效鍵間時間</dt><dd>${escapeHtml(milliseconds(row.timingMs))}</dd></div>
-      <div><dt>時間資料</dt><dd>${escapeHtml(timingEvidenceLabel(row))}</dd></div>
+      <div><dt>有效鍵間時間</dt><dd>${escapeHtml(timingDetailLabel(row))}</dd></div>
     </dl>
     ${trends === "" ? "" : `<section class="analysis-v2-trends" aria-label="${escapeHtml(row.symbol)} 的歷史趨勢">${trends}</section>`}
   </article>`;
@@ -408,7 +413,10 @@ function speedLeadMarkup(cell: AnalysisV2MotorCell<ImmediateTokenAggregateScope>
 function familyStatus<Scope>(cells: readonly AnalysisV2MotorCell<Scope>[]): string {
   const observed = cells.filter((cell) => cell.observations > 0).length;
   const ready = cells.filter((cell) => cell.ready).length;
-  return observed === 0 ? "尚無資料" : `${ready} / ${observed} 可比較`;
+  if (observed === 0) return "尚無資料";
+  if (ready === 0) return "樣本中";
+  if (ready === observed) return "可比較";
+  return `${ready} 可比較 · ${observed - ready} 樣本中`;
 }
 
 function movementStatMarkup<Scope>(
