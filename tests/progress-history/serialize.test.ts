@@ -12,7 +12,7 @@ import {
 } from "../../src/progress-history/types.js";
 
 const TOKEN = "zhuyin:A";
-const VALID_TOKENS = new Set([TOKEN, "zhuyin:B"]);
+const VALID_TOKENS = new Set([TOKEN, "zhuyin:B", "tone:2"]);
 
 function entry(overrides: Partial<KeyProgressHistory> = {}): KeyProgressHistory {
   return {
@@ -65,10 +65,59 @@ function mutateEntry(change: (draft: Record<string, unknown>) => void): string {
   });
 }
 
+function motorHistory(scope: Record<string, unknown>, value = 140): Record<string, unknown> {
+  return {
+    scope,
+    timing: [{
+      endingSample: 5,
+      completedRound: 3,
+      samples: 5,
+      representativeTimingMs: value,
+    }],
+    partialTiming: { samples: [] },
+    totalTimingSamples: 5,
+  };
+}
+
 describe("progress history persistence", () => {
   it("round-trips a valid history", () => {
     const original = history();
     expect(parse(serializeProgressHistory(original))).toEqual(original);
+  });
+
+  it("migrates schema 3 by dropping only impossible 4+ coordination history", () => {
+    const source = mutate((draft) => {
+      draft.schemaVersion = 3;
+      draft.motor = {
+        coordination: {
+          '["coordination","2","mixed"]': motorHistory({ bodySize: "2", handShape: "mixed" }, 130),
+          '["coordination","4+","mixed"]': motorHistory({ bodySize: "4+", handShape: "mixed" }, 170),
+        },
+        immediateHands: {
+          '["immediate-hand","left","right"]': motorHistory({ fromHand: "left", toHand: "right" }, 110),
+        },
+        sameHandRevisits: {},
+        toneCommits: {},
+      };
+    });
+    const migrated = parse(source);
+    expect(migrated?.schemaVersion).toBe(PROGRESS_HISTORY_SCHEMA_VERSION);
+    expect(Object.keys(migrated?.motor.coordination ?? {})).toEqual([
+      '["coordination","2","mixed"]',
+    ]);
+    expect(Object.keys(migrated?.motor.immediateHands ?? {})).toEqual([
+      '["immediate-hand","left","right"]',
+    ]);
+    expect(migrated?.keys[TOKEN]).toEqual(history().keys[TOKEN]);
+  });
+
+  it("rejects 4+ coordination history in the current schema", () => {
+    expect(parse(mutate((draft) => {
+      const motor = draft.motor as Record<string, unknown>;
+      motor.coordination = {
+        '["coordination","4+","mixed"]': motorHistory({ bodySize: "4+", handShape: "mixed" }),
+      };
+    }))).toBeNull();
   });
 
   it("rejects unparsable source and unsupported schema generations", () => {
