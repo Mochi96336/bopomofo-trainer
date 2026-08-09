@@ -137,10 +137,11 @@ test("keeps dense speed ranking in the path view and restores compact Movement d
   const analysis = page.locator("#analysis-v2");
 
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(36);
-  await expect(analysis.locator(".analysis-v2-speed-caption"))
+  await expect(analysis.locator(".analysis-v2-speed-readout"))
     .toContainText(`36 / ${seededEdges} 條可比較`);
   await expect(analysis.locator(".analysis-v2-speed-readout"))
     .toContainText("僅在畫面中的同類實際鍵間轉換中比較");
+  await expect(analysis.locator(".analysis-v2-speed-caption")).toHaveCount(0);
   await expect(analysis.locator(".analysis-v2-movement-view")).toHaveCount(0);
 
   await analysis.locator('[data-action="coordination-view"][data-value="movement"]').click();
@@ -148,12 +149,13 @@ test("keeps dense speed ranking in the path view and restores compact Movement d
   const families = analysis.locator(".analysis-v2-movement-family");
   await expect(families).toHaveCount(4);
   await expect(analysis.locator(".analysis-v2-movement-view table")).toHaveCount(0);
-  const diagrams = await families.evaluateAll((nodes) => nodes.map((node) =>
-    getComputedStyle(node, "::before").content.replaceAll('"', "")));
-  expect(diagrams).toEqual([
-    "左   ⇄   右",
-    "左   →   右   →   左",
-    "①   ─   ②   ─   ③",
-    "注音   →   ˊ",
-  ]);
+  await expect(families.nth(0).locator(".analysis-v2-movement-diagram")).toContainText("左");
+  await expect(families.nth(0).locator(".analysis-v2-movement-diagram")).toContainText("右");
+  await expect(families.nth(1).locator(".analysis-v2-movement-diagram")).toContainText("左");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("聲母");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("介音");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("韻母");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("例：家");
+  await expect(families.nth(3).locator(".analysis-v2-movement-diagram")).toContainText("字內注音");
+  await expect(families.nth(3).locator(".analysis-v2-movement-diagram")).toContainText("聲調");
 });
