@@ -126,7 +126,7 @@ test("keeps flyline width stable on selection and exposes a wider pointer target
   await expect(analysis.locator(".analysis-v2-speed-stage")).toHaveClass(/has-selection/);
 });
 
-test("describes dense speed ranking as visible-only and keeps an expanded evidence family geometrically coherent", async ({ page }) => {
+test("describes dense speed ranking as visible-only and keeps evidence navigation geometrically stable", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const requestedEdges = 40;
   const seededEdges = speedPairs(requestedEdges).length;
@@ -136,24 +136,26 @@ test("describes dense speed ranking as visible-only and keeps an expanded eviden
   const analysis = page.locator("#analysis-v2");
 
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(36);
-  await expect(analysis.locator(".analysis-v2-speed-meta"))
+  await expect(analysis.locator(".analysis-v2-speed-caption"))
     .toContainText(`36 / ${seededEdges} 條可比較`);
-  await expect(analysis.locator(".analysis-v2-speed-readout")).toContainText("目前畫面中較慢");
+  await expect(analysis.locator(".analysis-v2-speed-readout"))
+    .toContainText("僅在畫面中的同類實際鍵間轉換中比較");
 
-  const summaries = analysis.locator(".analysis-v2-evidence-group > summary");
-  await summaries.nth(2).click();
-  const layout = await analysis.locator(".analysis-v2-evidence-rail").evaluate((rail) => {
-    const groups = [...rail.querySelectorAll<HTMLElement>(":scope > .analysis-v2-evidence-group")];
-    const opened = groups.find((group) => group.hasAttribute("open"))!;
-    const closed = groups.filter((group) => !group.hasAttribute("open"));
-    return {
-      openTop: opened.getBoundingClientRect().top,
-      closedTops: closed.map((group) => group.getBoundingClientRect().top),
-      closedWidths: closed.map((group) => group.getBoundingClientRect().width),
-    };
-  });
+  const before = await analysis.locator(".analysis-v2-evidence-nav").evaluate((nav) =>
+    [...nav.querySelectorAll<HTMLElement>('[data-action="evidence-family"]')].map((button) => {
+      const rect = button.getBoundingClientRect();
+      return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+    }));
 
-  expect(layout.closedTops.every((top) => top > layout.openTop + 1)).toBe(true);
-  expect(Math.max(...layout.closedTops) - Math.min(...layout.closedTops)).toBeLessThan(2);
-  expect(Math.max(...layout.closedWidths) - Math.min(...layout.closedWidths)).toBeLessThan(2);
+  await analysis.locator('[data-action="evidence-family"]').nth(2).click();
+  await expect(analysis.locator('[data-action="evidence-family"][aria-expanded="true"]')).toHaveCount(1);
+  await expect(analysis.locator("#analysis-v2-evidence-detail")).toBeVisible();
+
+  const after = await analysis.locator(".analysis-v2-evidence-nav").evaluate((nav) =>
+    [...nav.querySelectorAll<HTMLElement>('[data-action="evidence-family"]')].map((button) => {
+      const rect = button.getBoundingClientRect();
+      return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+    }));
+
+  expect(after).toEqual(before);
 });
