@@ -35,7 +35,45 @@ const MODEL: AnalysisV2Model = {
       expectedErrorShare: 1,
       dataState: "preliminary",
     }],
-    keyProgress: {},
+    keyProgress: {
+      "zhuyin:ㄅ": {
+        tokenId: "zhuyin:ㄅ",
+        correctness: {
+          metric: "correctness",
+          metricLabel: "錯誤觀察比例",
+          unit: "percent",
+          state: "charted",
+          points: [
+            { index: 0, value: 0.3, sampleCount: 8, completedRound: 1 },
+            { index: 1, value: 0.2, sampleCount: 8, completedRound: 2 },
+          ],
+          chartDomain: { minimum: 0, maximum: 1 },
+          trend: { state: "improving", previousValue: 0.3, recentValue: 0.2, delta: -0.1, label: "改善" },
+          earliestValue: 0.3,
+          latestValue: 0.2,
+          partialSampleCount: 0,
+          bucketSize: 8,
+          accessibleSummary: "錯誤觀察比例由 30% 到 20%",
+        },
+        timing: {
+          metric: "timing",
+          metricLabel: "鍵間時間",
+          unit: "milliseconds",
+          state: "charted",
+          points: [
+            { index: 0, value: 130, sampleCount: 5, completedRound: 1 },
+            { index: 1, value: 100, sampleCount: 5, completedRound: 2 },
+          ],
+          chartDomain: { minimum: 90, maximum: 140 },
+          trend: { state: "improving", previousValue: 130, recentValue: 100, delta: -30, label: "改善" },
+          earliestValue: 130,
+          latestValue: 100,
+          partialSampleCount: 0,
+          bucketSize: 5,
+          accessibleSummary: "鍵間時間由 130 ms 到 100 ms",
+        },
+      },
+    },
     keysWithData: 1,
     repeatedConfusions: 1,
   },
@@ -55,18 +93,16 @@ const MODEL: AnalysisV2Model = {
     immediateHands: [{
       id: "hand",
       scope: { fromHand: "left", toHand: "right" },
-      observations: 8,
-      timingSamples: 6,
+      observations: 10,
+      timingSamples: 10,
       currentTimeToTypeMs: 88,
       bestTimeToTypeMs: 70,
       ready: true,
-      history: [{
-        endingSample: 5,
-        completedRound: 5,
-        samples: 5,
-        representativeTimingMs: 92,
-      }],
-      partialTimingSamples: 1,
+      history: [
+        { endingSample: 5, completedRound: 1, samples: 5, representativeTimingMs: 96 },
+        { endingSample: 10, completedRound: 2, samples: 5, representativeTimingMs: 88 },
+      ],
+      partialTimingSamples: 0,
     }],
     sameHandRevisits: [],
     toneCommits: [],
@@ -74,7 +110,7 @@ const MODEL: AnalysisV2Model = {
     readyTokenTransitions: 1,
     observedScopes: 1,
     readyScopes: 1,
-    cleanTimingSamples: 6,
+    cleanTimingSamples: 10,
   },
   strategy: {
     inputOrderPositions: [
@@ -84,10 +120,10 @@ const MODEL: AnalysisV2Model = {
       },
       {
         scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "first" },
-        observations: 4,
+        observations: 8,
       },
     ],
-    totalObservations: 6,
+    totalObservations: 10,
     bodySizeBucketsWithData: 2,
   },
 };
@@ -108,6 +144,10 @@ function open() {
   return controller.host;
 }
 
+function selectTab(host: HTMLElement, tab: "coordination" | "semantic" | "strategy"): void {
+  host.querySelector<HTMLButtonElement>(`[data-action="select-tab"][data-tab="${tab}"]`)?.click();
+}
+
 afterEach(() => {
   controller?.destroy();
   controller = null;
@@ -116,16 +156,16 @@ afterEach(() => {
 });
 
 describe("Analysis V2 panel", () => {
-  it("uses semantic, coordination, and strategy as a complete tab/tabpanel contract", () => {
+  it("enters through Coordination and owns the final tab/tabpanel contract natively", () => {
     const host = open();
     const tabs = [...host.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-    expect(tabs.map((node) => node.textContent)).toEqual(["語意", "協調", "策略"]);
-    expect(host.textContent).not.toContain("轉換總覽");
+    expect(host.querySelector("#analysis-v2-title")?.textContent).toBe("分析");
+    expect(tabs.map((node) => node.textContent)).toEqual(["協調", "語意", "策略"]);
 
     const panels = [...host.querySelectorAll<HTMLElement>('[role="tabpanel"]')];
     expect(panels.map((panel) => panel.id)).toEqual([
-      "analysis-v2-panel-semantic",
       "analysis-v2-panel-coordination",
+      "analysis-v2-panel-semantic",
       "analysis-v2-panel-strategy",
     ]);
     for (const tab of tabs) {
@@ -141,6 +181,7 @@ describe("Analysis V2 panel", () => {
 
   it("keeps directional confusion on the keyboard and reveals sparse destinations on selection", () => {
     const host = open();
+    selectTab(host, "semantic");
     const confusion = host.querySelector<HTMLButtonElement>(
       '[data-action="semantic-view"][data-value="confusion"]',
     );
@@ -161,8 +202,9 @@ describe("Analysis V2 panel", () => {
     expect(host.querySelector(".analysis-v2-confusion-list")?.textContent).toContain("初步");
   });
 
-  it("keeps keyboard focus and main scroll position when semantic detail rerenders", () => {
+  it("keeps semantic focus/scroll and renders persisted key history directly", () => {
     const host = open();
+    selectTab(host, "semantic");
     const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
     main.scrollTop = 120;
     const key = host.querySelector<HTMLButtonElement>(
@@ -180,13 +222,11 @@ describe("Analysis V2 panel", () => {
     expect(host.textContent).toContain("可比較 · 10 次");
     expect(host.textContent).toContain("時間資料");
     expect(host.textContent).toContain("可比較 · 8 個乾淨樣本");
+    expect(host.querySelectorAll(".analysis-v2-trends svg")).toHaveLength(2);
   });
 
-  it("renders only ready observed speed lines as accessible selectable relations without direction markers", () => {
+  it("renders one red relation tied to the readout while all ready observed paths stay selectable", () => {
     const host = open();
-    host.querySelector<HTMLButtonElement>(
-      '[data-action="select-tab"][data-tab="coordination"]',
-    )?.click();
     const path = host.querySelector<SVGPathElement>(".analysis-v2-speed-path");
     const svg = host.querySelector<SVGSVGElement>(".analysis-v2-speed-svg");
     expect(path).not.toBeNull();
@@ -195,34 +235,41 @@ describe("Analysis V2 panel", () => {
       .toContain("ㄅ 到 ㄆ，120 毫秒，6 個乾淨樣本");
     expect(path?.getAttribute("role")).toBe("button");
     expect(path?.getAttribute("tabindex")).toBe("0");
-    expect(path?.getAttribute("aria-label")).toContain("ㄅ 到 ㄆ");
-    expect(svg?.getAttribute("aria-hidden")).toBeNull();
     expect(svg?.getAttribute("aria-label")).toContain("實際鍵間軌跡");
-    expect(host.querySelector(".analysis-v2-speed-details")).toBeNull();
+    expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
+    expect(host.querySelector(".analysis-v2-speed-caption")?.textContent).toContain("1 條可比較");
     expect(host.querySelector(".analysis-v2-method")?.textContent)
       .toContain("每一條至少 5 個時間樣本");
   });
 
-  it("states that hand classes are inferred from standard fingering rather than detected hands", () => {
+  it("keeps the four motor-family entries fixed while allowing only one shared detail well", () => {
     const host = open();
-    host.querySelector<HTMLButtonElement>(
-      '[data-action="select-tab"][data-tab="coordination"]',
-    )?.click();
-    const handEvidence = host.querySelector<HTMLDetailsElement>(".analysis-v2-evidence-group");
-    expect(handEvidence?.textContent).toContain("依標準指法的鍵位分工推定");
-    expect(handEvidence?.textContent).toContain("不代表偵測到你實際使用哪隻手");
-    expect(handEvidence?.textContent).toContain("88 ms");
-    expect(handEvidence?.textContent).toContain("92 ms");
+    const buttons = [...host.querySelectorAll<HTMLButtonElement>('[data-action="evidence-family"]')];
+    expect(buttons.map((button) => button.querySelector("span")?.textContent)).toEqual([
+      "手別轉換",
+      "同側再出手",
+      "音節跨度",
+      "聲調收尾",
+    ]);
+    buttons[0]?.click();
+    const detail = host.querySelector<HTMLElement>("#analysis-v2-evidence-detail");
+    expect(detail?.hidden).toBe(false);
+    expect(detail?.textContent).toContain("依標準指法的鍵位分工推定");
+    expect(detail?.textContent).toContain("不代表偵測到你實際使用哪隻手");
+    expect(detail?.textContent).toContain("88 ms");
+    expect(detail?.querySelector(".analysis-v2-motor-sparkline svg")).not.toBeNull();
+
+    buttons[2]?.click();
+    expect(host.querySelectorAll('[data-action="evidence-family"][aria-expanded="true"]')).toHaveLength(1);
+    expect(host.querySelector("#analysis-v2-evidence-detail")?.textContent).toContain("只有 2、3 個注音");
   });
 
-  it("renders one strategy scale at a time and never invents a middle position for two components", () => {
+  it("renders only 2/3 strategy scales and never invents a middle position for two components", () => {
     const host = open();
-    host.querySelector<HTMLButtonElement>(
-      '[data-action="select-tab"][data-tab="strategy"]',
-    )?.click();
-    expect(host.querySelectorAll(".strategy-matrix")).toHaveLength(1);
-    expect(host.querySelector(".analysis-v2-method")?.textContent)
-      .toContain("結構位置只是一組參考座標");
+    selectTab(host, "strategy");
+    const sizeButtons = [...host.querySelectorAll<HTMLButtonElement>('[data-action="strategy-size"]')];
+    expect(sizeButtons.map((button) => button.textContent)).toEqual(["2 個注音", "3 個注音"]);
+    expect(host.textContent).not.toContain("4+");
 
     host.querySelector<HTMLButtonElement>(
       '[data-action="strategy-size"][data-value="2"]',
@@ -232,7 +279,7 @@ describe("Analysis V2 panel", () => {
     expect(matrix?.textContent).not.toContain("中");
     expect(matrix?.querySelectorAll("thead th")).toHaveLength(3);
     expect(host.querySelector(".analysis-v2-method")?.textContent)
-      .toContain("2 成分只有前／後");
+      .toContain("1 個注音沒有順序差異");
   });
 
   it("cannot finish a stale open frame after the analysis has already closed", () => {
