@@ -80,7 +80,7 @@ describe("random structural sampling", () => {
       "clause.transitive",
       "phrase.noun.bare",
       "phrase.nominal-head.noun",
-      "phrase.verb.lexical",
+      "predicate.verb.lexical",
     ]);
     const shape = sampleStructuralDerivation({
       rootCategory: "Sentence",
@@ -110,7 +110,7 @@ describe("random structural sampling", () => {
       "clause.transitive",
       "phrase.noun.bare",
       "phrase.nominal-head.noun",
-      "phrase.verb.lexical",
+      "predicate.verb.lexical",
     ]);
     const shape = sampleStructuralDerivation({
       rootCategory: "Sentence",
