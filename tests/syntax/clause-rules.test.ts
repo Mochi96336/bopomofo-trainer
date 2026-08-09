@@ -11,6 +11,8 @@ const REQUIRED_CONSTRUCTIONS = [
   "argument.subject.noun",
   "argument.object.noun",
   "argument.indirect-object.noun",
+  "argument.disposal-patient.noun",
+  "argument.passive-agent.noun",
   "phrase.passive.short",
   "phrase.passive.long",
   "clause.nominal-predicate",
@@ -52,7 +54,45 @@ describe("formal clause and question production inventory", () => {
     expect(REQUIRED_CONSTRUCTIONS.filter((id) => !ids.has(id))).toEqual([]);
   });
 
-  it("separates short AUX passive from long ADP plus overt-agent passive", () => {
+  it("represents BA patient as a construction role instead of an ordinary object", () => {
+    const ba = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "clause.ba");
+    expect(ba?.constituents.map((item) => [item.key, item.category])).toEqual([
+      ["subject", "Subject"],
+      ["marker", "Lexeme"],
+      ["patient", "DisposalPatient"],
+      ["predicate", "Predicate"],
+    ]);
+    expect(ba?.constituents.find((item) => item.key === "marker")).toMatchObject({
+      allowedUpos: ["ADP"],
+      requiredFeatures: { voice: "disposal" },
+    });
+  });
+
+  it("keeps BA marker evidence hard without corpus-role gating the patient noun", () => {
+    const keep = new Set([
+      "clause.ba",
+      "argument.subject.noun",
+      "argument.disposal-patient.noun",
+      "predicate.verb.lexical",
+      "phrase.noun.bare",
+      "phrase.nominal-head.noun",
+    ]);
+    const shapes = [...enumerateStructuralDerivations({
+      rootCategory: "Clause",
+      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
+    })];
+    expect(shapes).toHaveLength(1);
+    expect(shapes[0]!.productionRulePath).toContain("argument.disposal-patient.noun");
+
+    const slots = shapes[0]!.lexicalSlots;
+    expect(slots.some((slot) => slot.allowedUpos.includes("ADP")
+      && slot.requiredFeatures.voice === "disposal")).toBe(true);
+    const nominalSlots = slots.filter((slot) => slot.allowedUpos.includes("NOUN"));
+    expect(nominalSlots).toHaveLength(2);
+    expect(nominalSlots.every((slot) => slot.requiredFunctions.length === 0)).toBe(true);
+  });
+
+  it("separates short AUX passive from long ADP plus structural-agent passive", () => {
     const short = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "phrase.passive.short");
     const long = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "phrase.passive.long");
     const bei = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "clause.bei");
@@ -71,10 +111,10 @@ describe("formal clause and question production inventory", () => {
       requiredFeatures: { voice: "passive" },
     });
     expect(long?.constituents.find((item) => item.key === "agent")).toMatchObject({
-      category: "NounPhrase",
+      category: "PassiveAgent",
       minimum: 1,
       maximum: 1,
-      requiredFunctions: ["oblique"],
+      requiredFunctions: [],
     });
 
     expect(bei?.constituents.map((item) => [item.key, item.category])).toEqual([
@@ -84,10 +124,11 @@ describe("formal clause and question production inventory", () => {
     ]);
   });
 
-  it("has exactly two minimal passive shapes without AUX-agent or bare-ADP crossovers", () => {
+  it("has exactly two minimal passive shapes without marker-agent crossovers or oblique noun gates", () => {
     const keep = new Set([
       "clause.bei",
       "argument.subject.noun",
+      "argument.passive-agent.noun",
       "phrase.passive.short",
       "phrase.passive.long",
       "predicate.verb.lexical",
@@ -109,15 +150,16 @@ describe("formal clause and question production inventory", () => {
     expect(short).toBeDefined();
     expect(short?.lexicalSlots.some((slot) => slot.allowedUpos.includes("AUX")
       && slot.requiredFeatures.voice === "passive")).toBe(true);
-    expect(short?.lexicalSlots.some((slot) => slot.requiredFunctions.includes("oblique")))
-      .toBe(false);
+    expect(short?.productionRulePath).not.toContain("argument.passive-agent.noun");
 
     const long = byVariant.get("long");
     expect(long).toBeDefined();
     expect(long?.lexicalSlots.some((slot) => slot.allowedUpos.includes("ADP")
       && slot.requiredFeatures.voice === "passive")).toBe(true);
-    expect(long?.lexicalSlots.some((slot) => slot.allowedUpos.includes("NOUN")
-      && slot.requiredFunctions.includes("oblique"))).toBe(true);
+    expect(long?.productionRulePath).toContain("argument.passive-agent.noun");
+    const longNominals = long!.lexicalSlots.filter((slot) => slot.allowedUpos.includes("NOUN"));
+    expect(longNominals).toHaveLength(2);
+    expect(longNominals.every((slot) => slot.requiredFunctions.length === 0)).toBe(true);
   });
 
   it("does not keep sentence labels that have no executable structural distinction", () => {
