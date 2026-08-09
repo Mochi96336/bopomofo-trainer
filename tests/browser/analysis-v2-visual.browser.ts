@@ -331,22 +331,26 @@ test("keeps Strategy's matrix compact inside the shared primary stage", async ({
   expect(widths.field).toBeLessThanOrEqual(560.5);
 });
 
-test("keeps the single expanded evidence table compact inside the workspace", async ({ page }) => {
+test("uses a compact Movement layout instead of an expanded aggregate table", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installSpeedProgress(page, 12);
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
-  await analysis.locator('[data-action="evidence-family"][data-family="hands"]').click();
-  await expect(analysis.locator("#analysis-v2-evidence-detail")).toBeVisible();
-  const widths = await analysis.locator("#analysis-v2-evidence-detail").evaluate((detail) => {
-    const body = detail.querySelector<HTMLElement>(".analysis-v2-evidence-body")!;
-    const table = detail.querySelector<HTMLElement>(".analysis-v2-motor-table")!;
+  await analysis.locator('[data-action="coordination-view"][data-value="movement"]').click();
+  const movement = analysis.locator(".analysis-v2-movement-view");
+  await expect(movement).toBeVisible();
+  await expect(movement.locator(".analysis-v2-movement-family")).toHaveCount(4);
+  await expect(movement.locator("table")).toHaveCount(0);
+
+  const geometry = await movement.evaluate((view) => {
+    const grid = view.querySelector<HTMLElement>(".analysis-v2-movement-grid")!;
     return {
-      body: body.getBoundingClientRect().width,
-      table: table.getBoundingClientRect().width,
+      width: view.getBoundingClientRect().width,
       workspace: document.querySelector<HTMLElement>("#analysis-v2")!.getBoundingClientRect().width,
+      columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
     };
   });
-  expect(widths.body).toBeLessThanOrEqual(760.5);
-  expect(widths.table).toBeLessThan(widths.workspace * 0.8);
+  expect(geometry.width).toBeLessThanOrEqual(960.5);
+  expect(geometry.width).toBeLessThan(geometry.workspace * 0.9);
+  expect(geometry.columns).toBe(2);
 });
