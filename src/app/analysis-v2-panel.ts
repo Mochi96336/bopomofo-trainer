@@ -480,25 +480,6 @@ function speedKeyboardMarkup(): string {
   return `<div class="analysis-v2-keyboard analysis-v2-speed-keyboard" aria-hidden="true">${keyboardRowsMarkup((tokenId, _key, columns) => `<span class="analysis-v2-key mapped" style="--key-columns:${columns}" data-speed-token="${escapeHtml(tokenId)}"><strong>${escapeHtml(tokenLabel(tokenId))}</strong></span>`)}</div>`;
 }
 
-function speedInspectorMarkup(
-  model: AnalysisV2Model,
-  selectedPathId: string | null,
-): string {
-  if (selectedPathId === null) return "";
-  const cell = model.coordination.immediateTokens.find((candidate) => candidate.id === selectedPathId);
-  if (cell === undefined || cell.currentTimeToTypeMs === null) return "";
-  return `<article class="analysis-v2-inspector-content analysis-v2-speed-detail">
-    <div class="analysis-v2-speed-pair"><strong>${escapeHtml(tokenLabel(cell.scope.fromToken))}</strong><span>→</span><strong>${escapeHtml(tokenLabel(cell.scope.toToken))}</strong></div>
-    <dl>
-      <div><dt>鍵間時間</dt><dd>${escapeHtml(milliseconds(cell.currentTimeToTypeMs))}</dd></div>
-      <div><dt>乾淨樣本</dt><dd>${cell.timingSamples}</dd></div>
-      <div><dt>累積觀察</dt><dd>${cell.observations}</dd></div>
-      <div><dt>資料狀態</dt><dd>${cell.ready ? "可比較" : "樣本中"}</dd></div>
-    </dl>
-    <p>同一類實際鍵間轉換，不和其他協調範圍混成分數。</p>
-  </article>`;
-}
-
 function speedLeadMarkup(cell: AnalysisV2MotorCell<ImmediateTokenAggregateScope> | undefined): string {
   if (cell === undefined || cell.currentTimeToTypeMs === null) {
     return `<div class="analysis-v2-hero-readout analysis-v2-speed-readout"><strong>仍在累積</strong><small>單一轉換累積 5 個乾淨時間樣本後可比較</small></div>`;
