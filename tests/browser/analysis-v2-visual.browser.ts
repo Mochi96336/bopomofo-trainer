@@ -358,12 +358,13 @@ test("uses compact Movement diagrams with short supporting history lines", async
   expect(geometry.columns).toBe(2);
   if (geometry.sparklineWidth > 0) expect(geometry.sparklineWidth).toBeLessThanOrEqual(104.5);
 
-  const diagrams = await families.evaluateAll((nodes) => nodes.map((node) =>
-    getComputedStyle(node, "::before").content.replaceAll('"', "")));
-  expect(diagrams).toEqual([
-    "左   ⇄   右",
-    "左   →   右   →   左",
-    "①   ─   ②   ─   ③",
-    "注音   →   ˊ",
-  ]);
+  await expect(families.nth(0).locator(".analysis-v2-movement-diagram")).toContainText("左");
+  await expect(families.nth(0).locator(".analysis-v2-movement-diagram")).toContainText("右");
+  await expect(families.nth(1).locator(".analysis-v2-movement-diagram")).toContainText("左");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("聲母");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("介音");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("韻母");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("例：家");
+  await expect(families.nth(3).locator(".analysis-v2-movement-diagram")).toContainText("字內注音");
+  await expect(families.nth(3).locator(".analysis-v2-movement-diagram")).toContainText("聲調");
 });
