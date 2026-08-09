@@ -28,6 +28,7 @@ import { sparklinePoints } from "./practice-sparkline.js";
 import {
   ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES,
   ANALYSIS_V2_SPEED_VIEWBOX,
+  analysisV2KeyboardCurvePath,
   buildAnalysisV2SpeedPaths,
 } from "./analysis-v2-speed-network.js";
 
@@ -67,6 +68,7 @@ const DEFAULT_PREFERENCES: AnalysisV2Preferences = {
 const BODY_SIZES: readonly CoordinationBodySizeBucket[] = ["2", "3"];
 const POSITIONS = ["first", "middle", "last"] as const;
 const SEMANTIC_LEAD_KEY_COUNT = 3;
+const SEMANTIC_CONFUSION_MAX_VISIBLE_EDGES = 8;
 const SPEED_SALIENT_EDGE_COUNT = 16;
 const SPEED_SLOW_EDGE_COUNT = 3;
 const STRATEGY_LEAD_MIN_ROW_OBSERVATIONS = 8;
@@ -143,6 +145,30 @@ function dataStateLabel(state: DiagnosticDataState): string {
   return "樣本不足";
 }
 
+function semanticEvidenceWeight(state: DiagnosticDataState): number {
+  if (state === "sufficient") return 1;
+  if (state === "preliminary") return 0.7;
+  return 0.38;
+}
+
+function semanticGradientStrength(
+  value: number,
+  maximum: number,
+  state: DiagnosticDataState,
+  hasData: boolean,
+): number {
+  if (!hasData) return 0;
+  const relative = maximum <= 0 ? 0 : Math.max(0, Math.min(1, value / maximum));
+  return Math.min(1, (0.08 + relative * 0.92) * semanticEvidenceWeight(state));
+}
+
+function semanticKeyStyle(columns: number, strength: number): string {
+  const fill = (strength * 14).toFixed(1);
+  const border = (18 + strength * 42).toFixed(1);
+  const text = (44 + strength * 56).toFixed(1);
+  return `--key-columns:${columns};--analysis-strength:${strength.toFixed(3)};--semantic-fill:${fill}%;--semantic-border:${border}%;--semantic-text:${text}%`;
+}
+
 function methodDetailsMarkup(label: string, body: string): string {
   return `<details class="analysis-v2-method"><summary>${escapeHtml(label)}</summary><p>${escapeHtml(body)}</p></details>`;
 }
@@ -196,7 +222,7 @@ function keyDetailMarkup(model: AnalysisV2Model, tokenId: TokenId | null): strin
     trendChartMarkup("近期鍵間時間", progress.timing.points, (value) => value, (value) => `${Math.round(value)} ms`),
   ].filter(Boolean).join("");
   return `<article class="analysis-v2-inspector-content">
-    <div class="analysis-v2-detail-heading"><strong>${escapeHtml(row.symbol)}</strong><span>${escapeHtml(row.physicalKey)}</span></div>
+    <div class="analysis-v2-detail-heading"><strong>${escapeHtml(row.symbol)}</strong><span>實體鍵 ${escapeHtml(row.physicalKey)}</span></div>
     <dl>
       <div><dt>錯誤觀察</dt><dd>${escapeHtml(percent(row.displayedErrorRatio))}</dd></div>
       <div><dt>錯誤資料</dt><dd>${escapeHtml(dataStateLabel(row.errorDataState))} · ${row.attempts} 次</dd></div>
@@ -300,17 +326,21 @@ function primaryStageMarkup(object: string, readout: string, extraClass: string)
 
 function correctnessKeyboardMarkup(model: AnalysisV2Model, selectedKey: TokenId | null): string {
   const byToken = keyByToken(model);
-  const salientTokens = new Set(rankedSemanticKeys(model)
-    .slice(0, SEMANTIC_LEAD_KEY_COUNT)
-    .map((row) => row.tokenId));
+  const maximum = Math.max(0, ...model.semantic.keys.map((row) => row.displayedErrorRatio ?? 0));
   const keyboard = keyboardRowsMarkup((tokenId, key, columns) => {
     const diagnostic = byToken.get(tokenId);
     const state = diagnostic?.errorDataState ?? "insufficient";
     const selected = selectedKey === tokenId;
-    const salient = salientTokens.has(tokenId);
-    return `<button type="button" class="analysis-v2-key ${state}${salient ? " is-salient" : ""}${selected ? " selected" : ""}" style="--key-columns:${columns}" data-action="select-key" data-token="${escapeHtml(tokenId)}" aria-pressed="${selected}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}，錯誤觀察比例 ${escapeHtml(percent(diagnostic?.displayedErrorRatio ?? null))}，${escapeHtml(dataStateLabel(state))}，${diagnostic?.attempts ?? 0} 次觀察"><strong>${escapeHtml(tokenLabel(tokenId))}</strong><small aria-hidden="true"></small></button>`;
+    const hasData = diagnostic !== undefined && diagnostic.attempts > 0 && diagnostic.displayedErrorRatio !== null;
+    const strength = semanticGradientStrength(
+      diagnostic?.displayedErrorRatio ?? 0,
+      maximum,
+      state,
+      hasData,
+    );
+    return `<button type="button" class="analysis-v2-key ${state}${hasData ? " has-data" : ""}${selected ? " selected" : ""}" style="${semanticKeyStyle(columns, strength)}" data-action="select-key" data-token="${escapeHtml(tokenId)}" aria-pressed="${selected}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}，錯誤觀察比例 ${escapeHtml(percent(diagnostic?.displayedErrorRatio ?? null))}，${escapeHtml(dataStateLabel(state))}，${diagnostic?.attempts ?? 0} 次觀察"><strong>${escapeHtml(tokenLabel(tokenId))}</strong><small aria-hidden="true"></small></button>`;
   });
-  const object = `<div class="analysis-v2-keyboard">${keyboard}</div>`;
+  const object = `<div class="analysis-v2-keyboard analysis-v2-semantic-gradient-keyboard">${keyboard}</div>`;
   return `<div class="analysis-v2-semantic-stage${selectedKey === null ? "" : " has-selection"}">
     ${primaryStageMarkup(object, semanticLeadMarkup(model, "correctness"), "analysis-v2-semantic-primary")}
     ${selectedKey === null ? "" : `<aside class="analysis-v2-inspector" aria-live="polite">${keyDetailMarkup(model, selectedKey)}</aside>`}
@@ -338,19 +368,65 @@ function confusionDetailMarkup(model: AnalysisV2Model, tokenId: TokenId | null):
   </article>`;
 }
 
+function visibleConfusionRows(
+  model: AnalysisV2Model,
+  selectedKey: TokenId | null,
+): readonly ConfusionDiagnostic[] {
+  const rows = model.semantic.confusions
+    .filter((row) => row.occurrences > 0 && row.expectedTokenId !== row.actualTokenId)
+    .filter((row) => selectedKey === null || row.expectedTokenId === selectedKey)
+    .sort((left, right) => {
+      const leftEvidence = semanticEvidenceWeight(left.dataState);
+      const rightEvidence = semanticEvidenceWeight(right.dataState);
+      return rightEvidence - leftEvidence
+        || right.occurrences - left.occurrences
+        || right.expectedErrorShare - left.expectedErrorShare
+        || left.id.localeCompare(right.id);
+    });
+  return rows.slice(0, SEMANTIC_CONFUSION_MAX_VISIBLE_EDGES);
+}
+
+function confusionFlylinesMarkup(
+  model: AnalysisV2Model,
+  selectedKey: TokenId | null,
+): string {
+  const rows = visibleConfusionRows(model, selectedKey);
+  if (rows.length === 0) return "";
+  const maximum = Math.max(...rows.map((row) => row.occurrences), 1);
+  const viewBox = ANALYSIS_V2_SPEED_VIEWBOX;
+  const paths = rows.map((row, index) => {
+    const path = analysisV2KeyboardCurvePath(row.id, row.expectedTokenId, row.actualTokenId);
+    if (path === null) return "";
+    const strength = semanticGradientStrength(
+      row.occurrences,
+      maximum,
+      row.dataState,
+      true,
+    );
+    const accent = selectedKey !== null && index === 0;
+    const label = `${row.expectedSymbol} 誤按成 ${row.actualSymbol}，${row.occurrences} 次，${percent(row.expectedErrorShare)}`;
+    return `<path class="analysis-v2-confusion-path${accent ? " is-accent" : ""}" d="${path}" style="--confusion-strength:${strength.toFixed(3)}" aria-hidden="true"><title>${escapeHtml(label)}</title></path>`;
+  }).join("");
+  return `<svg class="analysis-v2-confusion-svg" viewBox="${viewBox.minX} ${viewBox.minY} ${viewBox.width} ${viewBox.height}" preserveAspectRatio="none" aria-hidden="true">${paths}</svg>`;
+}
+
 function confusionKeyboardMarkup(model: AnalysisV2Model, selectedKey: TokenId | null): string {
   const strongestByToken = strongestConfusionsByToken(model);
-  const salientTokens = new Set(rankedConfusionKeys(model)
-    .slice(0, SEMANTIC_LEAD_KEY_COUNT)
-    .map((row) => row.expectedTokenId));
+  const maximum = Math.max(0, ...strongestByToken.values().map((row) => row.expectedConfusionTotal));
   const keyboard = keyboardRowsMarkup((tokenId, key, columns) => {
     const confusion = strongestByToken.get(tokenId);
     const state = confusionKeyDataState(confusion);
     const selected = selectedKey === tokenId;
-    const salient = salientTokens.has(tokenId);
-    return `<button type="button" class="analysis-v2-key ${state}${salient ? " is-salient" : ""}${selected ? " selected" : ""}" style="--key-columns:${columns}" data-action="select-key" data-token="${escapeHtml(tokenId)}" aria-pressed="${selected}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}，已確認原意的誤按 ${confusion?.expectedConfusionTotal ?? 0} 次，${escapeHtml(dataStateLabel(state))}"><strong>${escapeHtml(tokenLabel(tokenId))}</strong><small aria-hidden="true"></small></button>`;
+    const hasData = confusion !== undefined && confusion.expectedConfusionTotal > 0;
+    const strength = semanticGradientStrength(
+      confusion?.expectedConfusionTotal ?? 0,
+      maximum,
+      state,
+      hasData,
+    );
+    return `<button type="button" class="analysis-v2-key ${state}${hasData ? " has-data" : ""}${selected ? " selected" : ""}" style="${semanticKeyStyle(columns, strength)}" data-action="select-key" data-token="${escapeHtml(tokenId)}" aria-pressed="${selected}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}，已確認原意的誤按 ${confusion?.expectedConfusionTotal ?? 0} 次，${escapeHtml(dataStateLabel(state))}"><strong>${escapeHtml(tokenLabel(tokenId))}</strong><small aria-hidden="true"></small></button>`;
   });
-  const object = `<div class="analysis-v2-keyboard">${keyboard}</div>`;
+  const object = `<div class="analysis-v2-keyboard analysis-v2-semantic-gradient-keyboard analysis-v2-confusion-keyboard">${keyboard}${confusionFlylinesMarkup(model, selectedKey)}</div>`;
   return `<div class="analysis-v2-semantic-stage${selectedKey === null ? "" : " has-selection"}">
     ${primaryStageMarkup(object, semanticLeadMarkup(model, "confusion"), "analysis-v2-semantic-primary")}
     ${selectedKey === null ? "" : `<aside class="analysis-v2-inspector" aria-live="polite">${confusionDetailMarkup(model, selectedKey)}</aside>`}
