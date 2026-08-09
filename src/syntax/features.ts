@@ -22,6 +22,7 @@ export const SYNTAX_CATEGORIES = [
   "AdjectivePhrase",
   "AdverbPhrase",
   "AdpositionPhrase",
+  "PassivePhrase",
   "NumeralPhrase",
   "DeterminerPhrase",
   "ParticlePhrase",
