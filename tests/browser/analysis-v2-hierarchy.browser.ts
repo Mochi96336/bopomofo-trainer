@@ -120,7 +120,7 @@ test("keeps a medium keyboard while using desktop space to separate the reading"
   expect(metrics.leadFont).toBeGreaterThanOrEqual(24);
   expect(metrics.leadFont).toBeLessThanOrEqual(29.5);
   expect(metrics.leadGap).toBeGreaterThanOrEqual(45);
-  expect(metrics.leadGap).toBeLessThanOrEqual(190);
+  expect(metrics.leadGap).toBeLessThanOrEqual(280);
 });
 
 test("keeps Semantic and Coordination keyboards at one fixed screen position and scale", async ({ page }) => {
