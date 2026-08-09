@@ -174,13 +174,19 @@
   display: grid;
   width: 100%;
   margin-top: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: start;
   border-top: 1px solid var(--hairline);
   border-bottom: 1px solid var(--hairline);
 }
 
 .analysis-v2 .analysis-v2-evidence-nav {
   display: grid;
+  grid-column: 1;
+  grid-row: 1;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-self: start;
 }
 
 .analysis-v2 .analysis-v2-evidence-group {
@@ -226,6 +232,10 @@
 }
 
 .analysis-v2 .analysis-v2-evidence-detail {
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  align-self: start;
   border-top: 1px solid var(--hairline);
 }
 
