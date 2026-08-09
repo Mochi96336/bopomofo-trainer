@@ -16,8 +16,6 @@ import {
 import { buildAnalysisV2SemanticModel } from "./analysis-v2-semantic-model.js";
 import type { AnalysisV2Snapshot } from "./analysis-v2-snapshot.js";
 
-const KEYBOARD_TILT = "perspective(520px) rotateX(19deg)";
-
 function analysisModelFrom(snapshot: AnalysisV2Snapshot) {
   const semantic = buildAnalysisV2SemanticModel({
     measurements: snapshot.progress.measurements,
@@ -85,12 +83,15 @@ function animateKeyboardRise(board: HTMLElement, origin: DOMRect | null): void {
   if (target.width === 0 || target.height === 0) return;
   const dx = (origin.left + origin.width / 2) - (target.left + target.width / 2);
   const dy = (origin.top + origin.height / 2) - (target.top + target.height / 2);
+
+  // Motion and object geometry are deliberately separate. The keyboard keeps its
+  // protected perspective/rotateX transform for the whole animation; only the
+  // independent CSS translate property moves that already-tilted object from the
+  // practice keyboard's screen-space position to the Analysis slot. No scale is
+  // involved, so the object reads as the same keyboard travelling between views.
   board.animate([
-    {
-      transform: `translate(${dx}px, ${dy}px) scale(1, 1) ${KEYBOARD_TILT}`,
-      opacity: 0.25,
-    },
-    { transform: KEYBOARD_TILT, opacity: 1 },
+    { translate: `${dx}px ${dy}px`, opacity: 0.25 },
+    { translate: "0px 0px", opacity: 1 },
   ], { duration: 320, easing: "cubic-bezier(.2, .75, .25, 1)" });
 }
 
