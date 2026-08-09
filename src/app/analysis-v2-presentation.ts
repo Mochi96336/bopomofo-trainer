@@ -7,6 +7,9 @@ const TAB_ORDER = ["coordination", "semantic", "strategy"] as const;
 const TREND_WIDTH = 168;
 const TREND_HEIGHT = 40;
 const TREND_PAD = 4;
+const MOTOR_TREND_WIDTH = 104;
+const MOTOR_TREND_HEIGHT = 24;
+const MOTOR_TREND_PAD = 2;
 
 export interface AnalysisV2Presentation {
   refresh(): void;
@@ -103,7 +106,7 @@ function semanticTrends(host: HTMLElement, model: AnalysisV2Model): void {
   ].filter(Boolean).join("");
   for (const paragraph of inspector.querySelectorAll<HTMLParagraphElement>("p")) {
     if (paragraph.textContent?.startsWith("錯誤趨勢") || paragraph.textContent?.startsWith("時間趨勢")) {
-      paragraph.hidden = true;
+      paragraph.hidden = markup !== "";
     }
   }
   if (markup === "") return;
@@ -115,26 +118,23 @@ function semanticTrends(host: HTMLElement, model: AnalysisV2Model): void {
   inspector.append(trends);
 }
 
-function speedTrend(host: HTMLElement, model: AnalysisV2Model): void {
-  const selected = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.selected");
-  const inspector = host.querySelector<HTMLElement>(".analysis-v2-speed-inspector .analysis-v2-inspector-content");
-  if (selected === null || inspector === null) return;
-  const id = selected.dataset.speedId;
-  const cell = model.coordination.immediateTokens.find((candidate) => candidate.id === id);
-  if (cell === undefined) return;
-  const values = cell.history.slice(-10).map((point) => point.representativeTimingMs);
-  const signature = `${cell.id}:${values.join(",")}`;
-  const existing = inspector.querySelector<HTMLElement>(".analysis-v2-trends");
-  if (existing?.dataset.signature === signature) return;
-  existing?.remove();
-  const markup = renderTrend("歷史鍵間時間", values, (value) => `${Math.round(value)} ms`);
-  if (markup === "") return;
-  const trends = document.createElement("section");
-  trends.className = "analysis-v2-trends";
-  trends.dataset.signature = signature;
-  trends.setAttribute("aria-label", "選取轉換的歷史鍵間時間");
-  trends.innerHTML = markup;
-  inspector.append(trends);
+function motorEvidenceTrends(host: HTMLElement): void {
+  for (const label of host.querySelectorAll<HTMLElement>(".analysis-v2-motor-cell > span")) {
+    if (label.classList.contains("analysis-v2-motor-sparkline")) continue;
+    const source = label.textContent?.trim() ?? "";
+    const values = [...source.matchAll(/(-?\d+(?:\.\d+)?)\s*ms/g)]
+      .map((match) => Number(match[1]))
+      .filter(Number.isFinite);
+    if (values.length < 2) continue;
+    const points = sparklinePoints(values, MOTOR_TREND_WIDTH, MOTOR_TREND_HEIGHT, MOTOR_TREND_PAD);
+    const path = points
+      .map((point, index) => `${index === 0 ? "M" : "L"}${point.x.toFixed(1)},${point.y.toFixed(1)}`)
+      .join(" ");
+    const last = points.at(-1)!;
+    label.classList.add("analysis-v2-motor-sparkline");
+    label.setAttribute("aria-label", `歷史時間 ${source}`);
+    label.innerHTML = `<svg viewBox="0 0 ${MOTOR_TREND_WIDTH} ${MOTOR_TREND_HEIGHT}" preserveAspectRatio="none" aria-hidden="true"><path d="${path}"></path><circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="2"></circle></svg>`;
+  }
 }
 
 function normalizeAnalysis(host: HTMLElement, model: AnalysisV2Model): void {
@@ -143,7 +143,7 @@ function normalizeAnalysis(host: HTMLElement, model: AnalysisV2Model): void {
   relabelStrategySegments(host);
   normalizeCoordinationCopy(host);
   semanticTrends(host, model);
-  speedTrend(host, model);
+  motorEvidenceTrends(host);
 }
 
 export function normalizeAnalysisV2Summary(section: HTMLElement): void {
