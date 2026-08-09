@@ -14,7 +14,7 @@ for (const viewport of [
   { width: 1440, height: 900 },
   { width: 1064, height: 665 },
 ]) {
-  test(`reuses the Semantic readout and summary allocation after selection at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+  test(`reuses the Semantic readout slot while keeping the summary visible at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport);
     await openSemantic(page);
     const analysis = page.locator("#analysis-v2");
@@ -28,6 +28,7 @@ for (const viewport of [
       return {
         scrollHeight: main.scrollHeight,
         keyboardTop: keyboardRect.top,
+        keyboardBottom: keyboardRect.bottom,
         keyboardLeft: keyboardRect.left,
         railTop: rail.getBoundingClientRect().top,
         railBottom: rail.getBoundingClientRect().bottom,
@@ -52,6 +53,7 @@ for (const viewport of [
       return {
         scrollHeight: main.scrollHeight,
         keyboardTop: keyboardRect.top,
+        keyboardBottom: keyboardRect.bottom,
         keyboardLeft: keyboardRect.left,
         railTop: railRect.top,
         railBottom: railRect.bottom,
@@ -68,9 +70,9 @@ for (const viewport of [
     expect(Math.abs(after.railTop - before.railTop)).toBeLessThanOrEqual(1);
     expect(Math.abs(after.methodTop - before.methodTop)).toBeLessThanOrEqual(1);
     expect(Math.abs(after.scrollHeight - before.scrollHeight)).toBeLessThanOrEqual(1);
-    expect(after.railVisibility).toBe("hidden");
-    expect(after.inspectorTop).toBeGreaterThanOrEqual(before.railTop - 90);
-    expect(after.inspectorBottom).toBeLessThanOrEqual(before.railBottom + 1);
+    expect(after.railVisibility).toBe("visible");
+    expect(after.inspectorTop).toBeGreaterThanOrEqual(before.keyboardBottom + 1);
+    expect(after.inspectorBottom).toBeLessThanOrEqual(before.railTop + 1);
     expect(after.headingSize).toBeLessThanOrEqual(24.5);
   });
 }
