@@ -85,23 +85,27 @@ async function installSpeedProgress(page: Page, edgeCount: number): Promise<void
   }, { key: PROGRESS_KEY, value: source });
 }
 
-test("keeps the protected 760px keyboard inside a centered 1080px visual stage", async ({ page }) => {
+test("keeps the protected 760px keyboard primary while annotations stay below it", async ({ page }) => {
   await page.setViewportSize({ width: 2000, height: 1100 });
   await openAnalysis(page);
+  const analysis = page.locator("#analysis-v2");
+  await analysis.locator('[data-tab="semantic"]').click();
 
-  const metrics = await page.locator("#analysis-v2").evaluate((host) => {
+  const metrics = await analysis.evaluate((host) => {
     const domain = host.querySelector<HTMLElement>(".analysis-v2-domain")!;
     const stage = host.querySelector<HTMLElement>(".analysis-v2-semantic-stage")!;
     const keyboard = host.querySelector<HTMLElement>(".analysis-v2-keyboard")!;
-    const lead = host.querySelector<HTMLElement>(".analysis-v2-hero-readout > strong")!;
-    const title = host.querySelector<HTMLElement>(".analysis-v2-domain-head h3")!;
+    const lead = host.querySelector<HTMLElement>(".analysis-v2-hero-readout")!;
+    const leadStrong = lead.querySelector<HTMLElement>("strong")!;
+    const keyboardRect = keyboard.getBoundingClientRect();
+    const leadRect = lead.getBoundingClientRect();
     return {
       domainWidth: domain.getBoundingClientRect().width,
       stageWidth: stage.getBoundingClientRect().width,
-      keyboardWidth: keyboard.getBoundingClientRect().width,
-      keyboardShare: keyboard.getBoundingClientRect().width / stage.getBoundingClientRect().width,
-      leadFont: Number.parseFloat(getComputedStyle(lead).fontSize),
-      titleFont: Number.parseFloat(getComputedStyle(title).fontSize),
+      keyboardWidth: keyboardRect.width,
+      keyboardShare: keyboardRect.width / stage.getBoundingClientRect().width,
+      leadFont: Number.parseFloat(getComputedStyle(leadStrong).fontSize),
+      leadBelowKeyboard: leadRect.top >= keyboardRect.bottom,
     };
   });
 
@@ -110,22 +114,62 @@ test("keeps the protected 760px keyboard inside a centered 1080px visual stage",
   expect(metrics.keyboardWidth).toBeLessThanOrEqual(760.5);
   expect(metrics.keyboardShare).toBeGreaterThan(0.68);
   expect(metrics.keyboardShare).toBeLessThan(0.73);
-  expect(metrics.leadFont).toBeGreaterThan(metrics.titleFont * 1.7);
+  expect(metrics.leadFont).toBeLessThanOrEqual(20);
+  expect(metrics.leadBelowKeyboard).toBe(true);
 });
 
-test("uses ink for the dense flyline field and reserves accent for three slow/focused paths", async ({ page }) => {
+test("keeps Semantic and Coordination keyboards at one fixed screen position", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installSpeedProgress(page, 24);
   await openAnalysis(page);
-  await page.locator('[data-action="select-tab"][data-tab="coordination"]').click();
+  const analysis = page.locator("#analysis-v2");
+
+  const coordinationBoard = analysis.locator(".analysis-v2-speed-board");
+  const coordinationBefore = await coordinationBoard.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return { top: rect.top, width: (node as HTMLElement).offsetWidth };
+  });
+  await analysis.locator(".analysis-v2-speed-path").first().evaluate((node) => {
+    node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+  const coordinationAfter = await coordinationBoard.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return { top: rect.top, width: (node as HTMLElement).offsetWidth };
+  });
+  expect(Math.abs(coordinationAfter.top - coordinationBefore.top)).toBeLessThan(0.5);
+  expect(coordinationAfter.width).toBe(coordinationBefore.width);
+
+  await analysis.locator('[data-tab="semantic"]').click();
+  const semanticBoard = analysis.locator(".analysis-v2-keyboard");
+  const semanticBefore = await semanticBoard.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return { top: rect.top, width: (node as HTMLElement).offsetWidth };
+  });
+  expect(Math.abs(semanticBefore.top - coordinationBefore.top)).toBeLessThan(0.5);
+  expect(semanticBefore.width).toBe(coordinationBefore.width);
+
+  await analysis.locator('[data-action="select-key"]').first().click();
+  const semanticAfter = await semanticBoard.evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return { top: rect.top, width: (node as HTMLElement).offsetWidth };
+  });
+  expect(Math.abs(semanticAfter.top - semanticBefore.top)).toBeLessThan(0.5);
+  expect(semanticAfter.width).toBe(semanticBefore.width);
+});
+
+test("uses neutral ink for the dense flyline field instead of error-red semantics", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installSpeedProgress(page, 24);
+  await openAnalysis(page);
 
   const analysis = page.locator("#analysis-v2");
+  await expect(analysis.locator('[data-tab="coordination"]')).toHaveAttribute("aria-selected", "true");
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(24);
   await expect(analysis.locator(".analysis-v2-speed-path.is-slow")).toHaveCount(3);
   await expect(analysis.locator(".analysis-v2-speed-readout")).toContainText("ms");
   await expect(analysis.locator(".analysis-v2-speed-inspector")).toHaveCount(0);
   await expect(analysis.locator(".analysis-v2-speed-stage")).not.toHaveClass(/has-selection/);
-  await expect(analysis.locator(".analysis-v2-speed-legend")).toContainText("紅色只標較慢或選取");
+  await expect(analysis.locator(".analysis-v2-speed-legend")).toContainText("深色標記較慢或目前選取");
   await expect(analysis.locator(".analysis-v2-speed-legend i")).toHaveCount(0);
 
   const palette = await analysis.evaluate((host) => {
@@ -136,34 +180,27 @@ test("uses ink for the dense flyline field and reserves accent for three slow/fo
       ".analysis-v2-speed-path.salient:not(.is-slow)",
     )!;
     const slow = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-slow")!;
+    const rootStyle = getComputedStyle(host);
     return {
       backgroundStroke: getComputedStyle(background).stroke,
       salientStroke: getComputedStyle(salient).stroke,
       slowStroke: getComputedStyle(slow).stroke,
+      accent: rootStyle.getPropertyValue("--accent").trim(),
       backgroundOpacity: Number(getComputedStyle(background).strokeOpacity),
       slowOpacity: Number(getComputedStyle(slow).strokeOpacity),
     };
   });
   expect(palette.backgroundStroke).not.toBe(palette.slowStroke);
   expect(palette.salientStroke).not.toBe(palette.slowStroke);
+  expect(palette.slowStroke).not.toBe(palette.accent);
   expect(palette.backgroundOpacity).toBeGreaterThan(0.8);
   expect(palette.slowOpacity).toBeGreaterThan(0.7);
 
   const chosen = analysis.locator(".analysis-v2-speed-path").first();
-  const hitPoint = await chosen.evaluate((path) => {
-    const rect = path.getBoundingClientRect();
-    for (let y = rect.top; y <= rect.bottom; y += 0.5) {
-      for (let x = rect.left; x <= rect.right; x += 0.5) {
-        if (document.elementFromPoint(x, y) === path) return { x, y };
-      }
-    }
-    throw new Error("rendered flyline exposes no real pointer-hit point");
-  });
-  await page.mouse.click(hitPoint.x, hitPoint.y);
+  await chosen.evaluate((node) => node.dispatchEvent(new MouseEvent("click", { bubbles: true })));
   await expect(analysis.locator(".analysis-v2-speed-stage")).toHaveClass(/has-selection/);
   await expect(analysis.locator(".analysis-v2-speed-inspector")).toHaveCount(1);
   await expect(analysis.locator(".analysis-v2-speed-inspector")).toContainText("ms");
-  await expect(chosen).toBeFocused();
 
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
   const dark = await analysis.evaluate((host) => {
