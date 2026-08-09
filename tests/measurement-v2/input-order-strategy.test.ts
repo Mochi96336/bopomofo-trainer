@@ -78,16 +78,16 @@ describe("input-order strategy persistence", () => {
     })]?.observations).toBe(1);
   });
 
-  it("keeps strategy identity bounded for bodies larger than three components", () => {
-    const summary = aggregateMeasurementObservationsV2({
+  it("does not invent strategy buckets outside two- and three-part Bopomofo bodies", () => {
+    expect(() => aggregateMeasurementObservationsV2({
       bindings: [],
       confusions: [],
-      inputOrderPositions: Array.from({ length: 20 }, (_, index) => ({
-        syllableOrdinal: index,
-        bodySize: 8,
-        canonicalBodyIndex: index % 8,
-        acceptedBodyIndex: 7 - (index % 8),
-      })),
+      inputOrderPositions: [{
+        syllableOrdinal: 0,
+        bodySize: 4,
+        canonicalBodyIndex: 0,
+        acceptedBodyIndex: 3,
+      }],
       coordination: [],
       immediateTokens: [],
       immediateHands: [],
@@ -96,8 +96,7 @@ describe("input-order strategy persistence", () => {
       ambiguousErrorCount: 0,
       duplicateComponentCount: 0,
       prematureToneCount: 0,
-    });
-    expect(Object.keys(summary.strategy.inputOrderPositions).length).toBeLessThanOrEqual(9);
+    })).toThrow(RangeError);
   });
 
   it("round-trips strategy aggregates and safely treats an older V2 record as empty strategy", () => {
