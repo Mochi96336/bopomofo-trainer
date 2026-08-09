@@ -201,21 +201,41 @@ test("moves aggregate Coordination families into a separate compact Movement vie
   await expect(movement.locator(".analysis-v2-motor-sparkline")).toHaveCount(0);
 });
 
-test("lets data rules join normal page flow instead of a fixed scroll well", async ({ page }) => {
+test("opens data rules upward without lengthening the page", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const analysis = await openAnalysis(page);
   const method = analysis.locator(".analysis-v2-method");
-  const heightBefore = await method.evaluate((element) => element.getBoundingClientRect().height);
+  const before = await analysis.evaluate((host) => {
+    const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
+    const methodNode = host.querySelector<HTMLElement>(".analysis-v2-method")!;
+    return {
+      scrollHeight: main.scrollHeight,
+      methodHeight: methodNode.getBoundingClientRect().height,
+    };
+  });
 
   await method.locator("summary").click();
   await expect(method).toHaveAttribute("open", "");
 
-  const after = await method.evaluate((element) => ({
-    height: element.getBoundingClientRect().height,
-    overflowY: getComputedStyle(element).overflowY,
-  }));
-  expect(after.height).toBeGreaterThan(heightBefore);
+  const after = await analysis.evaluate((host) => {
+    const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
+    const methodNode = host.querySelector<HTMLElement>(".analysis-v2-method")!;
+    const summary = methodNode.querySelector<HTMLElement>("summary")!;
+    const popup = methodNode.querySelector<HTMLElement>("p")!;
+    return {
+      scrollHeight: main.scrollHeight,
+      methodHeight: methodNode.getBoundingClientRect().height,
+      overflowY: getComputedStyle(methodNode).overflowY,
+      popupPosition: getComputedStyle(popup).position,
+      popupBottom: popup.getBoundingClientRect().bottom,
+      summaryTop: summary.getBoundingClientRect().top,
+    };
+  });
+  expect(Math.abs(after.methodHeight - before.methodHeight)).toBeLessThanOrEqual(1);
+  expect(Math.abs(after.scrollHeight - before.scrollHeight)).toBeLessThanOrEqual(1);
   expect(after.overflowY).toBe("visible");
+  expect(after.popupPosition).toBe("absolute");
+  expect(after.popupBottom).toBeLessThan(after.summaryTop);
 });
 
 test("gives Semantic a second summary level instead of ending at the lead keys", async ({ page }) => {
