@@ -8,6 +8,11 @@ import {
 } from "./analysis-v2-panel.js";
 import "./analysis-v2-layout.css";
 import { buildAnalysisV2Model } from "./analysis-v2-model.js";
+import {
+  mountAnalysisV2Presentation,
+  normalizeAnalysisV2Summary,
+  type AnalysisV2Presentation,
+} from "./analysis-v2-presentation.js";
 import { buildAnalysisV2SemanticModel } from "./analysis-v2-semantic-model.js";
 import type { AnalysisV2Snapshot } from "./analysis-v2-snapshot.js";
 
@@ -53,19 +58,20 @@ function findAnalysisSummarySlot(content: HTMLElement): HTMLElement | null {
 
 function keyboardFlipOrigin(): DOMRect | null {
   const sketch = document.querySelector<HTMLElement>("#keyboard-sketch");
-  if (sketch !== null && !sketch.hidden) {
-    const rect = sketch.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) return rect;
+  if (sketch === null) return null;
+  const board = sketch.querySelector<HTMLElement>(".keyboard-sketch-board") ?? sketch;
+  const wasHidden = sketch.hidden;
+  const previousVisibility = sketch.style.visibility;
+  if (wasHidden) {
+    sketch.hidden = false;
+    sketch.style.visibility = "hidden";
   }
-  const stage = document.querySelector<HTMLElement>("#practice-stage");
-  const stageRect = stage?.getBoundingClientRect();
-  if (stageRect === undefined || stageRect.width === 0) return null;
-  return new DOMRect(
-    stageRect.left,
-    stageRect.bottom - stageRect.height * 0.18,
-    stageRect.width,
-    stageRect.height * 0.18,
-  );
+  const rect = board.getBoundingClientRect();
+  if (wasHidden) {
+    sketch.hidden = true;
+    sketch.style.visibility = previousVisibility;
+  }
+  return rect.width > 0 && rect.height > 0 ? rect : null;
 }
 
 function visibleAnalysisKeyboardBoard(analysis: HTMLElement): HTMLElement | null {
@@ -73,19 +79,15 @@ function visibleAnalysisKeyboardBoard(analysis: HTMLElement): HTMLElement | null
     ?? analysis.querySelector<HTMLElement>(".analysis-v2-keyboard");
 }
 
-function animateKeyboardRise(board: HTMLElement): void {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const origin = keyboardFlipOrigin();
-  if (origin === null) return;
+function animateKeyboardRise(board: HTMLElement, origin: DOMRect | null): void {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || origin === null) return;
   const target = board.getBoundingClientRect();
   if (target.width === 0 || target.height === 0) return;
   const dx = (origin.left + origin.width / 2) - (target.left + target.width / 2);
   const dy = (origin.top + origin.height / 2) - (target.top + target.height / 2);
-  const scaleX = origin.width / target.width;
-  const scaleY = origin.height / target.height;
   board.animate([
     {
-      transform: `translate(${dx}px, ${dy}px) scale(${scaleX}, ${scaleY}) ${KEYBOARD_TILT}`,
+      transform: `translate(${dx}px, ${dy}px) scale(1, 1) ${KEYBOARD_TILT}`,
       opacity: 0.25,
     },
     { transform: KEYBOARD_TILT, opacity: 1 },
@@ -94,16 +96,22 @@ function animateKeyboardRise(board: HTMLElement): void {
 
 function openAnalysisFromPractice(
   analysis: AnalysisV2Controller,
+  presentation: AnalysisV2Presentation,
   deps: AnalysisV2IntegrationDependencies,
 ): void {
+  // Capture the practice keyboard before the drawer closes or the practice stage
+  // recedes. The analysis keyboard then translates from that exact screen-space
+  // origin instead of being synthesized from a lower-stage fallback.
+  const origin = keyboardFlipOrigin();
   deps.closePanel();
   deps.focusPractice();
   document.body.classList.add("analysis-v2-open");
-  analysis.open();
+  analysis.open("coordination");
+  presentation.refresh();
   window.requestAnimationFrame(() => {
     if (analysis.host.hidden) return;
     const board = visibleAnalysisKeyboardBoard(analysis.host);
-    if (board !== null) animateKeyboardRise(board);
+    if (board !== null) animateKeyboardRise(board, origin);
   });
 }
 
@@ -158,6 +166,7 @@ export function mountAnalysisV2Integration(
       deps.focusPractice();
     },
   });
+  const presentation = mountAnalysisV2Presentation(analysis.host, currentAnalysisModel);
   topLayer = mountAnalysisTopLayer(analysis.host);
 
   return {
@@ -167,11 +176,13 @@ export function mountAnalysisV2Integration(
       renderAnalysisV2Summary(
         section,
         currentAnalysisModel(),
-        () => openAnalysisFromPractice(analysis, deps),
+        () => openAnalysisFromPractice(analysis, presentation, deps),
       );
+      normalizeAnalysisV2Summary(section);
     },
     destroy(): void {
       document.body.classList.remove("analysis-v2-open");
+      presentation.destroy();
       topLayer?.destroy();
       analysis.destroy();
     },
