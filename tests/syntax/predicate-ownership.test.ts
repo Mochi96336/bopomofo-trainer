@@ -33,6 +33,8 @@ function verbalProfile(
 function canonicalTransitiveSlots() {
   const keep = new Set([
     "clause.transitive",
+    "argument.subject.noun",
+    "argument.object.noun",
     "predicate.verb.lexical",
     "phrase.noun.bare",
     "phrase.nominal-head.noun",
@@ -92,10 +94,11 @@ describe("Clause-model v2 predicate argument ownership", () => {
       .toBe("VerbPhrase");
   });
 
-  it("gives a canonical transitive core exactly one object-bearing lexical path", () => {
+  it("keeps one subject, predicate, and object lexical path without observed role gates", () => {
     const slots = canonicalTransitiveSlots();
-    expect(slots.filter((slot) => slot.requiredFunctions.includes("subject"))).toHaveLength(1);
-    expect(slots.filter((slot) => slot.requiredFunctions.includes("object"))).toHaveLength(1);
+    const nominalSlots = slots.filter((slot) => slot.allowedUpos.includes("NOUN"));
+    expect(nominalSlots).toHaveLength(2);
+    expect(nominalSlots.every((slot) => slot.requiredFunctions.length === 0)).toBe(true);
 
     const predicate = slots.find((slot) => slot.allowedUpos.includes("VERB"));
     expect(predicate).toMatchObject({
