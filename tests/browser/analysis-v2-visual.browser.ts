@@ -189,7 +189,7 @@ test("translates the analysis keyboard from the main-page keyboard origin withou
     .toBe(false);
 });
 
-test("keeps the original semantic keyboard visual contract", async ({ page }) => {
+test("keeps the enlarged semantic keyboard visual contract", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
@@ -219,11 +219,11 @@ test("keeps the original semantic keyboard visual contract", async ({ page }) =>
     };
   });
 
-  expect(visual.keyboardWidth).toBe(760);
+  expect(visual.keyboardWidth).toBe(1040);
   expect(visual.transform).not.toBe("none");
   expect(visual.transformOrigin).not.toBe("");
-  expect(visual.keyHeight).toBeGreaterThanOrEqual(22);
-  expect(visual.keyHeight).toBeLessThanOrEqual(36);
+  expect(visual.keyHeight).toBeGreaterThanOrEqual(34);
+  expect(visual.keyHeight).toBeLessThanOrEqual(42.5);
   expect(visual.regularRadius).not.toBe("5px");
   expect(Number.parseFloat(visual.wideRadius)).toBeGreaterThan(100);
   expect(visual.metricDisplay).toBe("none");
@@ -326,7 +326,7 @@ test("keeps Strategy's matrix compact inside the shared primary stage", async ({
     object: host.querySelector<HTMLElement>(".analysis-v2-strategy-object")!.getBoundingClientRect().width,
     field: host.querySelector<HTMLElement>(".analysis-v2-strategy-field")!.getBoundingClientRect().width,
   }));
-  expect(widths.stage).toBeLessThanOrEqual(1080.5);
+  expect(widths.stage).toBeLessThanOrEqual(1180.5);
   expect(widths.object).toBeLessThanOrEqual(560.5);
   expect(widths.field).toBeLessThanOrEqual(560.5);
 });
@@ -350,7 +350,7 @@ test("uses a compact Movement layout instead of an expanded aggregate table", as
       columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
     };
   });
-  expect(geometry.width).toBeLessThanOrEqual(960.5);
-  expect(geometry.width).toBeLessThan(geometry.workspace * 0.9);
+  expect(geometry.width).toBeLessThanOrEqual(1040.5);
+  expect(geometry.width).toBeLessThan(geometry.workspace * 0.91);
   expect(geometry.columns).toBe(2);
 });
