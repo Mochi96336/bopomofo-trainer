@@ -163,9 +163,8 @@
   content: "▾";
 }
 
-/* Movement stays a 2×2 reading surface, but the explanatory layer is now
-   literal line art. Hand-based families reuse the same tiny keyboard silhouette;
-   each route is drawn on top so the visual explains the motion before the text. */
+/* Movement remains a quiet 2×2 reading surface, but each family gets one small
+   line diagram that explains the motion before the numbers. */
 .analysis-v2 .analysis-v2-movement-view {
   width: min(900px, 92%);
   margin: clamp(44px, 6dvh, 64px) auto 0;
@@ -199,46 +198,47 @@
   content: "";
 }
 
-/* Shared compact keyboard: four staggered rows of outlined keycaps. The SVG is
-   used as a mask so the line colour keeps following the active theme. */
+/* Hand-based families share a schematic keyboard: a trapezoid outline, key grid,
+   and centre split. Keeping this in CSS makes the diagram theme-aware and tiny. */
 .analysis-v2 .analysis-v2-movement-family:nth-child(-n + 2) .analysis-v2-movement-diagram::before {
-  top: 2px;
+  top: 5px;
   left: 50%;
-  width: min(240px, 72%);
-  height: 64px;
-  background: var(--ink-muted);
-  opacity: 0.34;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 64'%3E%3Cg fill='none' stroke='white' stroke-width='1.15'%3E%3Cg%3E%3Crect x='19' y='3' width='17' height='12' rx='2'/%3E%3Crect x='39' y='3' width='17' height='12' rx='2'/%3E%3Crect x='59' y='3' width='17' height='12' rx='2'/%3E%3Crect x='79' y='3' width='17' height='12' rx='2'/%3E%3Crect x='99' y='3' width='17' height='12' rx='2'/%3E%3Crect x='119' y='3' width='17' height='12' rx='2'/%3E%3Crect x='139' y='3' width='17' height='12' rx='2'/%3E%3Crect x='159' y='3' width='17' height='12' rx='2'/%3E%3Crect x='179' y='3' width='17' height='12' rx='2'/%3E%3Crect x='199' y='3' width='17' height='12' rx='2'/%3E%3C/g%3E%3Cg transform='translate(8 15)'%3E%3Crect x='19' y='3' width='17' height='12' rx='2'/%3E%3Crect x='39' y='3' width='17' height='12' rx='2'/%3E%3Crect x='59' y='3' width='17' height='12' rx='2'/%3E%3Crect x='79' y='3' width='17' height='12' rx='2'/%3E%3Crect x='99' y='3' width='17' height='12' rx='2'/%3E%3Crect x='119' y='3' width='17' height='12' rx='2'/%3E%3Crect x='139' y='3' width='17' height='12' rx='2'/%3E%3Crect x='159' y='3' width='17' height='12' rx='2'/%3E%3Crect x='179' y='3' width='17' height='12' rx='2'/%3E%3C/g%3E%3Cg transform='translate(18 30)'%3E%3Crect x='19' y='3' width='17' height='12' rx='2'/%3E%3Crect x='39' y='3' width='17' height='12' rx='2'/%3E%3Crect x='59' y='3' width='17' height='12' rx='2'/%3E%3Crect x='79' y='3' width='17' height='12' rx='2'/%3E%3Crect x='99' y='3' width='17' height='12' rx='2'/%3E%3Crect x='119' y='3' width='17' height='12' rx='2'/%3E%3Crect x='139' y='3' width='17' height='12' rx='2'/%3E%3Crect x='159' y='3' width='17' height='12' rx='2'/%3E%3C/g%3E%3Cg transform='translate(32 45)'%3E%3Crect x='19' y='3' width='17' height='12' rx='2'/%3E%3Crect x='39' y='3' width='17' height='12' rx='2'/%3E%3Crect x='59' y='3' width='17' height='12' rx='2'/%3E%3Crect x='79' y='3' width='17' height='12' rx='2'/%3E%3Crect x='99' y='3' width='17' height='12' rx='2'/%3E%3Crect x='119' y='3' width='17' height='12' rx='2'/%3E%3Crect x='139' y='3' width='17' height='12' rx='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 64'%3E%3Cg fill='none' stroke='white' stroke-width='1.15'%3E%3Cg%3E%3Crect x='19' y='3' width='17' height='12' rx='2'/%3E%3Crect x='39' y='3' width='17' height='12' rx='2'/%3E%3Crect x='59' y='3' width='17' height='12' rx='2'/%3E%3Crect x='79' y='3' width='17' height='12' rx='2'/%3E%3Crect x='99' y='3' width='17' height='12' rx='2'/%3E%3Crect x='119' y='3' width='17' height='12' rx='2'/%3E%3Crect x='139' y='3' width='17' height='12' rx='2'/%3E%3Crect x='159' y='3' width='17' height='12' rx='2'/%3E%3Crect x='179' y='3' width='17' height='12' rx='2'/%3E%3Crect x='199' y='3' width='17' height='12' rx='2'/%3E%3C/g%3E%3Cg transform='translate(8 15)'%3E%3Crect x='19' y='3' width='17' height='12' rx='2'/%3E%3Crect x='39' y='3' width='17' height='12' rx='2'/%3E%3Crect x='59' y='3' width='17' height='12' rx='2'/%3E%3Crect x='79' y='3' width='17' height='12' rx='2'/%3E%3Crect x='99' y='3' width='17' height='12' rx='2'/%3E%3Crect x='119' y='3' width='17' height='12' rx='2'/%3E%3Crect x='139' y='3' width='17' height='12' rx='2'/%3E%3Crect x='159' y='3' width='17' height='12' rx='2'/%3E%3Crect x='179' y='3' width='17' height='12' rx='2'/%3E%3C/g%3E%3Cg transform='translate(18 30)'%3E%3Crect x='19' y='3' width='17' height='12' rx='2'/%3E%3Crect x='39' y='3' width='17' height='12' rx='2'/%3E%3Crect x='59' y='3' width='17' height='12' rx='2'/%3E%3Crect x='79' y='3' width='17' height='12' rx='2'/%3E%3Crect x='99' y='3' width='17' height='12' rx='2'/%3E%3Crect x='119' y='3' width='17' height='12' rx='2'/%3E%3Crect x='139' y='3' width='17' height='12' rx='2'/%3E%3Crect x='159' y='3' width='17' height='12' rx='2'/%3E%3C/g%3E%3Cg transform='translate(32 45)'%3E%3Crect x='19' y='3' width='17' height='12' rx='2'/%3E%3Crect x='39' y='3' width='17' height='12' rx='2'/%3E%3Crect x='59' y='3' width='17' height='12' rx='2'/%3E%3Crect x='79' y='3' width='17' height='12' rx='2'/%3E%3Crect x='99' y='3' width='17' height='12' rx='2'/%3E%3Crect x='119' y='3' width='17' height='12' rx='2'/%3E%3Crect x='139' y='3' width='17' height='12' rx='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  width: min(230px, 70%);
+  height: 57px;
+  border: 1px solid color-mix(in srgb, var(--ink-muted) 34%, transparent);
+  border-radius: 4px;
+  background:
+    linear-gradient(90deg, transparent calc(50% - .5px), var(--hairline) calc(50% - .5px), var(--hairline) calc(50% + .5px), transparent calc(50% + .5px)),
+    repeating-linear-gradient(90deg, transparent 0 19px, var(--hairline) 19px 20px),
+    repeating-linear-gradient(0deg, transparent 0 13px, var(--hairline) 13px 14px);
+  clip-path: polygon(4% 0, 96% 0, 100% 100%, 0 100%);
+  opacity: .9;
   transform: translateX(-50%);
 }
 
-/* Left/right transition: the centre split and the two opposing curves are the
-   actual information. Keyboard geometry stays deliberately faint. */
+/* Hand switch: a broad arc crosses the centre seam. */
 .analysis-v2 .analysis-v2-movement-family:nth-child(1) .analysis-v2-movement-diagram::after {
-  top: 1px;
+  top: 18px;
   left: 50%;
-  width: min(240px, 72%);
-  height: 64px;
-  background: var(--ink);
-  opacity: 0.72;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 64'%3E%3Cg fill='none' stroke='white' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M120 2v60' stroke-dasharray='2 4' opacity='.45'/%3E%3Cpath d='M72 25C94 10 146 10 168 25'/%3E%3Cpath d='m162 19 7 6-8 3'/%3E%3Cpath d='M168 40C146 54 94 54 72 40'/%3E%3Cpath d='m78 35-7 5 8 4'/%3E%3Ccircle cx='72' cy='25' r='2' fill='white' stroke='none'/%3E%3Ccircle cx='168' cy='40' r='2' fill='white' stroke='none'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 64'%3E%3Cg fill='none' stroke='white' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M120 2v60' stroke-dasharray='2 4' opacity='.45'/%3E%3Cpath d='M72 25C94 10 146 10 168 25'/%3E%3Cpath d='m162 19 7 6-8 3'/%3E%3Cpath d='M168 40C146 54 94 54 72 40'/%3E%3Cpath d='m78 35-7 5 8 4'/%3E%3Ccircle cx='72' cy='25' r='2' fill='white' stroke='none'/%3E%3Ccircle cx='168' cy='40' r='2' fill='white' stroke='none'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
+  width: 102px;
+  height: 28px;
+  border-top: 1.5px solid var(--ink-muted);
+  border-radius: 50% 50% 0 0;
+  opacity: .72;
   transform: translateX(-50%);
 }
 
-/* Same-side revisit: one short arc stays on the same half; the second route
-   crosses the split and returns. That difference is visible without reading. */
+/* Same-side revisit: a smaller loop stays visually anchored to one half. */
 .analysis-v2 .analysis-v2-movement-family:nth-child(2) .analysis-v2-movement-diagram::after {
-  top: 1px;
-  left: 50%;
-  width: min(240px, 72%);
-  height: 64px;
-  background: var(--ink);
-  opacity: 0.72;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 64'%3E%3Cg fill='none' stroke='white' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M120 2v60' stroke-dasharray='2 4' opacity='.35'/%3E%3Cpath d='M66 24C72 8 101 8 106 24'/%3E%3Cpath d='m100 18 7 6-8 3'/%3E%3Ccircle cx='66' cy='24' r='2' fill='white' stroke='none'/%3E%3Cpath d='M70 43C99 29 143 29 169 42C145 57 102 57 73 45' stroke-dasharray='4 3'/%3E%3Cpath d='m80 40-8 5 8 4'/%3E%3Ccircle cx='169' cy='42' r='2' fill='white' stroke='none'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 64'%3E%3Cg fill='none' stroke='white' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M120 2v60' stroke-dasharray='2 4' opacity='.35'/%3E%3Cpath d='M66 24C72 8 101 8 106 24'/%3E%3Cpath d='m100 18 7 6-8 3'/%3E%3Ccircle cx='66' cy='24' r='2' fill='white' stroke='none'/%3E%3Cpath d='M70 43C99 29 143 29 169 42C145 57 102 57 73 45' stroke-dasharray='4 3'/%3E%3Cpath d='m80 40-8 5 8 4'/%3E%3Ccircle cx='169' cy='42' r='2' fill='white' stroke='none'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
-  transform: translateX(-50%);
+  top: 14px;
+  left: calc(50% - 48px);
+  width: 54px;
+  height: 34px;
+  border: 1.5px solid var(--ink-muted);
+  border-left-color: transparent;
+  border-radius: 50%;
+  opacity: .72;
+  transform: rotate(-13deg);
 }
 
 .analysis-v2 .analysis-v2-movement-diagram-line {
@@ -326,29 +326,39 @@
   font-size: 9px;
 }
 
-/* Tone commit is a short key sequence followed by one separated final key. */
+/* Tone commit: three linked input keycells, then one separated tone key. */
 .analysis-v2 .analysis-v2-movement-family:nth-child(4) .analysis-v2-movement-diagram::before {
-  top: 7px;
-  left: 50%;
-  width: min(240px, 72%);
-  height: 58px;
-  background: var(--ink-muted);
-  opacity: 0.66;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 58'%3E%3Cg fill='none' stroke='white' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='52' y='19' width='24' height='20' rx='3'/%3E%3Crect x='80' y='19' width='24' height='20' rx='3'/%3E%3Crect x='108' y='19' width='24' height='20' rx='3'/%3E%3Cpath d='M138 29h22'/%3E%3Cpath d='m155 24 6 5-6 5'/%3E%3Crect x='170' y='16' width='34' height='26' rx='4'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 58'%3E%3Cg fill='none' stroke='white' stroke-width='1.25' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='52' y='19' width='24' height='20' rx='3'/%3E%3Crect x='80' y='19' width='24' height='20' rx='3'/%3E%3Crect x='108' y='19' width='24' height='20' rx='3'/%3E%3Cpath d='M138 29h22'/%3E%3Cpath d='m155 24 6 5-6 5'/%3E%3Crect x='170' y='16' width='34' height='26' rx='4'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat;
-  transform: translateX(-50%);
+  top: 20px;
+  left: calc(50% - 64px);
+  width: 92px;
+  height: 28px;
+  border: 1px solid color-mix(in srgb, var(--ink-muted) 42%, transparent);
+  border-radius: 4px;
+  background: repeating-linear-gradient(90deg, transparent 0 29px, var(--hairline) 29px 30px);
 }
 
 .analysis-v2 .analysis-v2-movement-family:nth-child(4) .analysis-v2-movement-diagram::after {
-  top: 24px;
-  left: calc(50% + 66px);
+  top: 17px;
+  left: calc(50% + 52px);
+  display: grid;
+  width: 48px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--ink-muted) 48%, transparent);
+  border-radius: 5px;
   color: var(--ink-muted);
   content: "ˊ ˇ ˋ ˙";
   font-size: 9px;
   letter-spacing: 1px;
-  line-height: 1;
-  transform: translateX(-50%);
   white-space: nowrap;
+}
+
+.analysis-v2 .analysis-v2-movement-family:nth-child(4) .analysis-v2-movement-diagram-line i {
+  position: absolute;
+  top: -48px;
+  left: 50%;
+  font-size: 17px;
+  transform: translateX(10px);
 }
 
 .analysis-v2 .analysis-v2-movement-stat {
@@ -415,9 +425,7 @@
     padding-top: 0;
   }
 
-  .analysis-v2 .analysis-v2-movement-family:nth-child(-n + 2) .analysis-v2-movement-diagram::before,
-  .analysis-v2 .analysis-v2-movement-family:nth-child(-n + 2) .analysis-v2-movement-diagram::after,
-  .analysis-v2 .analysis-v2-movement-family:nth-child(4) .analysis-v2-movement-diagram::before {
+  .analysis-v2 .analysis-v2-movement-family:nth-child(-n + 2) .analysis-v2-movement-diagram::before {
     width: min(220px, 78%);
   }
 }
