@@ -57,6 +57,9 @@ describe("lexical function gating audit", () => {
 
   it("reports the packaged profile audit for review", () => {
     const audit = auditLexicalFunctionGating(SYNTAX_PROFILES);
-    throw new Error(`LEXICAL_FUNCTION_GATING_AUDIT ${JSON.stringify(audit)}`);
+    console.info(`LEXICAL_FUNCTION_GATING_AUDIT ${JSON.stringify(audit)}`);
+    expect(audit.profileCount).toBe(SYNTAX_PROFILES.length);
+    expect(audit.nominal.entries).toBeGreaterThan(0);
+    expect(audit.verbal.entries).toBeGreaterThan(0);
   });
 });
