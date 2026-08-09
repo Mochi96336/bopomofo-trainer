@@ -9,16 +9,15 @@
   --analysis-object-slot-height: 240px;
 }
 
-.analysis-v2 .analysis-v2-domain {
-  width: min(1080px, 100%);
-}
-
 .analysis-v2 .analysis-v2-domain-controls {
   width: min(860px, 92%);
 }
 
-.analysis-v2 .analysis-v2-primary-stage,
-.analysis-v2 .analysis-v2-visual-stage {
+/* Breathing-space rules belong only to the keyboard-led Coordination/Semantic
+   stages. Strategy keeps its own taller matrix geometry and is intentionally
+   excluded from these rows. */
+.analysis-v2 .analysis-v2-primary-stage:not(.analysis-v2-strategy-stage),
+.analysis-v2 .analysis-v2-visual-stage:not(.analysis-v2-strategy-stage) {
   min-height: var(--analysis-primary-stage-height);
   padding-top: 14px;
   grid-template-rows: var(--analysis-object-slot-height) auto;
@@ -41,7 +40,10 @@
   font-size: clamp(7px, 0.85vw, 10px);
 }
 
-.analysis-v2 .analysis-v2-hero-readout {
+/* Lower only the keyboard-led readings. Strategy's readout keeps its native
+   flow position below the matrix. */
+.analysis-v2 .analysis-v2-semantic-readout,
+.analysis-v2 .analysis-v2-speed-readout {
   min-height: 58px;
   transform: translateY(8px);
 }
@@ -127,8 +129,8 @@
     --analysis-object-slot-height: 220px;
   }
 
-  .analysis-v2 .analysis-v2-primary-stage,
-  .analysis-v2 .analysis-v2-visual-stage {
+  .analysis-v2 .analysis-v2-primary-stage:not(.analysis-v2-strategy-stage),
+  .analysis-v2 .analysis-v2-visual-stage:not(.analysis-v2-strategy-stage) {
     gap: 38px;
   }
 
@@ -156,8 +158,8 @@
     width: 100%;
   }
 
-  .analysis-v2 .analysis-v2-primary-stage,
-  .analysis-v2 .analysis-v2-visual-stage {
+  .analysis-v2 .analysis-v2-primary-stage:not(.analysis-v2-strategy-stage),
+  .analysis-v2 .analysis-v2-visual-stage:not(.analysis-v2-strategy-stage) {
     gap: 20px;
   }
 
@@ -177,7 +179,8 @@
     font-size: 7px;
   }
 
-  .analysis-v2 .analysis-v2-hero-readout {
+  .analysis-v2 .analysis-v2-semantic-readout,
+  .analysis-v2 .analysis-v2-speed-readout {
     transform: none;
   }
 
