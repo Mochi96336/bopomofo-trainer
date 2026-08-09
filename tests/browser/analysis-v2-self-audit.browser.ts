@@ -151,7 +151,8 @@ test("keeps dense speed ranking in the path view and restores compact Movement d
   await expect(analysis.locator(".analysis-v2-movement-view table")).toHaveCount(0);
   await expect(families.nth(0).locator(".analysis-v2-movement-diagram")).toContainText("左");
   await expect(families.nth(0).locator(".analysis-v2-movement-diagram")).toContainText("右");
-  await expect(families.nth(1).locator(".analysis-v2-movement-diagram")).toContainText("左");
+  await expect(families.nth(1).locator(".analysis-v2-movement-diagram")).toContainText("同側");
+  await expect(families.nth(1).locator(".analysis-v2-movement-diagram")).toContainText("另一側");
   await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("聲母");
   await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("介音");
   await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("韻母");
