@@ -68,13 +68,24 @@ const model: AnalysisV2Model = {
         ],
         partialTimingSamples: 0,
       },
+      {
+        id: "structure-sampling",
+        scope: { bodyShape: "initial-medial" },
+        observations: 3,
+        timingSamples: 3,
+        currentTimeToTypeMs: null,
+        bestTimeToTypeMs: 420,
+        ready: false,
+        history: [],
+        partialTimingSamples: 3,
+      },
     ],
     toneCommits: [],
     observedTokenTransitions: 0,
     readyTokenTransitions: 0,
-    observedScopes: 3,
+    observedScopes: 4,
     readyScopes: 3,
-    cleanTimingSamples: 30,
+    cleanTimingSamples: 33,
   },
   strategy: {
     inputOrderPositions: [],
@@ -92,7 +103,7 @@ afterEach(() => {
 });
 
 describe("Analysis V2 Movement ranking", () => {
-  it("shows only observed revisit scopes and ranks word structures slow-to-fast with sparklines", () => {
+  it("shows only observed revisit scopes and keeps sampling structures below ranked rows", () => {
     controller = createAnalysisV2({ getModel: () => model, storage: storage() });
     controller.open();
     const host = controller.host;
@@ -110,11 +121,19 @@ describe("Analysis V2 Movement ranking", () => {
     expect(revisit.textContent).not.toContain("左 ·");
     expect(revisit.textContent).not.toContain("隔左側");
 
-    const structureLabels = [...structure.querySelectorAll<HTMLElement>(".analysis-v2-movement-stat > span:first-child")]
-      .map((node) => node.textContent?.trim());
-    expect(structureLabels).toEqual(["聲母＋介音＋韻母", "聲母＋韻母"]);
-    expect(structure.textContent).toContain("240 ms");
-    expect(structure.textContent).toContain("170 ms");
+    const structureRows = [...structure.querySelectorAll<HTMLElement>(".analysis-v2-movement-stat")];
+    const structureLabels = structureRows
+      .map((row) => row.querySelector("span:first-child")?.textContent?.trim());
+    expect(structureLabels).toEqual([
+      "聲母＋介音＋韻母",
+      "聲母＋韻母",
+      "聲母＋介音",
+    ]);
+    expect(structureRows[0]?.textContent).toContain("240 ms");
+    expect(structureRows[1]?.textContent).toContain("170 ms");
+    expect(structureRows[2]).toHaveClass("sampling");
+    expect(structureRows[2]?.textContent).toContain("樣本中");
+    expect(structureRows[2]?.querySelector("strong")?.textContent).toBe("—");
     expect(structure.querySelectorAll(".analysis-v2-motor-sparkline")).toHaveLength(2);
   });
 });
