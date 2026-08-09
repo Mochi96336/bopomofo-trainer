@@ -74,7 +74,7 @@ describe("random structural sampling", () => {
     expect(first?.lexicalSlots[0]?.allowedUpos).toEqual(["NOUN"]);
   });
 
-  it("propagates transitive clause requirements to lexical heads", () => {
+  it("propagates transitive valency while keeping observed root role out of the lexical head", () => {
     const keep = new Set([
       "sentence.declarative",
       "clause.transitive",
@@ -95,7 +95,7 @@ describe("random structural sampling", () => {
     });
     expect(shape?.lexicalSlots[1]).toMatchObject({
       allowedUpos: ["VERB"],
-      requiredFunctions: ["predicate"],
+      requiredFunctions: [],
       requiredValencyFrames: ["ambitransitive", "transitive"],
     });
     expect(shape?.lexicalSlots[2]).toMatchObject({
