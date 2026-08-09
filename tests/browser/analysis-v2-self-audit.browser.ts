@@ -85,7 +85,7 @@ async function installSpeedProgress(page: Page, edgeCount: number): Promise<void
   }, { key: PROGRESS_KEY, value: source });
 }
 
-test("keeps the protected keyboard width stable when a semantic inspector opens", async ({ page }) => {
+test("keeps the enlarged keyboard width stable when a semantic inspector opens", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAnalysis(page);
 
@@ -96,7 +96,7 @@ test("keeps the protected keyboard width stable when a semantic inspector opens"
   await analysis.locator('[data-action="select-key"]').first().click();
   const after = await keyboard.evaluate((node) => (node as HTMLElement).offsetWidth);
 
-  expect(before).toBe(760);
+  expect(before).toBe(1040);
   expect(after).toBe(before);
   await expect(analysis.locator(".analysis-v2-semantic-stage")).toHaveClass(/has-selection/);
 });
@@ -121,9 +121,10 @@ test("keeps flyline width stable on selection and exposes a wider pointer target
     node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
   const after = await board.evaluate((node) => (node as HTMLElement).offsetWidth);
-  expect(before).toBe(760);
+  expect(before).toBe(1040);
   expect(after).toBe(before);
   await expect(analysis.locator(".analysis-v2-speed-stage")).toHaveClass(/has-selection/);
+  await expect(analysis.locator(".analysis-v2-speed-inspector")).toHaveCount(0);
 });
 
 test("keeps dense speed ranking in the path view and moves aggregates into Movement", async ({ page }) => {
