@@ -20,10 +20,17 @@ function constituent(key: string, category: SyntaxCategory): ProductionConstitue
   };
 }
 
-function argumentRule(
-  id: string,
-  output: Extract<SyntaxCategory, "Subject" | "Object" | "IndirectObject">,
-): ProductionRule {
+const ARGUMENT_OUTPUTS = [
+  "Subject",
+  "Object",
+  "IndirectObject",
+  "DisposalPatient",
+  "PassiveAgent",
+] as const satisfies readonly SyntaxCategory[];
+
+type ArgumentOutput = (typeof ARGUMENT_OUTPUTS)[number];
+
+function argumentRule(id: string, output: ArgumentOutput): ProductionRule {
   return {
     id,
     grammarVersion: FORMAL_GRAMMAR_VERSION,
@@ -59,15 +66,19 @@ function fixtures(rule: ProductionRule): readonly ProductionFixture[] {
  * Structural open-class nominal arguments for Clause-model v2.
  *
  * The role is represented by the wrapper category itself. The child NounPhrase
- * deliberately does not inherit a `subject` / `object` / `indirect-object`
- * function requirement, because those RuntimeSyntaxProfile functions record
- * corpus-observed dependency roles rather than an exhaustive lexical
- * capability inventory.
+ * deliberately does not inherit a corpus-observed dependency-function gate.
+ * Subject/Object/IndirectObject are ordinary argument positions; the
+ * construction-specific DisposalPatient and PassiveAgent wrappers preserve the
+ * formal BA/passive distinction without requiring a noun itself to have been
+ * observed as `obl:patient` / `obl:agent` (or generic `obl`) in the finite UD
+ * source corpus.
  */
 export const ARGUMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
   argumentRule("argument.subject.noun", "Subject"),
   argumentRule("argument.object.noun", "Object"),
   argumentRule("argument.indirect-object.noun", "IndirectObject"),
+  argumentRule("argument.disposal-patient.noun", "DisposalPatient"),
+  argumentRule("argument.passive-agent.noun", "PassiveAgent"),
 ];
 
 export const ARGUMENT_PRODUCTION_FIXTURES: readonly ProductionFixture[] =
