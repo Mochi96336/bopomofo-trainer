@@ -62,6 +62,97 @@
   width: var(--analysis-board-width);
 }
 
+/* Coordination paths keep the keyboard in the upper reading zone and put all
+   textual interpretation at the lower edge. The footer is one editorial line:
+   evidence note on the left, methodology disclosure on the right. */
+.analysis-v2 .analysis-v2-speed-field {
+  width: min(900px, 92%);
+  min-height: max(500px, calc(100dvh - 150px));
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) auto;
+  align-items: end;
+  column-gap: 24px;
+  row-gap: 12px;
+}
+
+.analysis-v2 .analysis-v2-speed-stage {
+  height: 100%;
+  min-height: 0;
+  grid-column: 1 / -1;
+}
+
+.analysis-v2 .analysis-v2-primary-stage.analysis-v2-speed-primary {
+  height: 100%;
+  min-height: 0;
+  padding-top: 14px;
+  grid-template-rows: var(--analysis-object-slot-height) auto;
+  align-content: space-between;
+  gap: 0;
+}
+
+.analysis-v2 .analysis-v2-hero-readout.analysis-v2-speed-readout {
+  width: 100%;
+  margin: 0;
+  align-content: end;
+  justify-items: start;
+  text-align: left;
+  transform: none;
+}
+
+.analysis-v2 .analysis-v2-hero-readout.analysis-v2-speed-readout > strong {
+  justify-content: flex-start;
+}
+
+.analysis-v2 .analysis-v2-speed-caption {
+  width: auto;
+  margin: 0;
+  grid-column: 1;
+  grid-row: 2;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+/* Methodology is a right-edge disclosure. The popup opens upward, so the
+   closed marker points up; once open it points down to indicate collapse. */
+.analysis-v2 .analysis-v2-method {
+  width: auto;
+  margin: 6px 0 0;
+  justify-self: end;
+  text-align: right;
+}
+
+.analysis-v2 .analysis-v2-speed-field > .analysis-v2-method {
+  margin: 0;
+  grid-column: 2;
+  grid-row: 2;
+  align-self: end;
+}
+
+.analysis-v2 .analysis-v2-method summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+}
+
+.analysis-v2 .analysis-v2-method summary::-webkit-details-marker {
+  display: none;
+}
+
+.analysis-v2 .analysis-v2-method summary::marker {
+  content: "";
+}
+
+.analysis-v2 .analysis-v2-method summary::before {
+  content: "▴";
+  font-size: 9px;
+  line-height: 1;
+}
+
+.analysis-v2 .analysis-v2-method[open] summary::before {
+  content: "▾";
+}
+
 /* Movement keeps the explanatory schematic as the primary object. Historical
    lines are deliberately tiny annotations; a 100px trend should never read as
    a half-page chart. */
@@ -187,6 +278,50 @@
   .analysis-v2 .analysis-v2-semantic-readout,
   .analysis-v2 .analysis-v2-speed-readout {
     transform: none;
+  }
+
+  .analysis-v2 .analysis-v2-speed-field {
+    width: 100%;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    row-gap: 10px;
+  }
+
+  .analysis-v2 .analysis-v2-speed-stage,
+  .analysis-v2 .analysis-v2-speed-caption,
+  .analysis-v2 .analysis-v2-speed-field > .analysis-v2-method {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .analysis-v2 .analysis-v2-primary-stage.analysis-v2-speed-primary {
+    height: auto;
+    min-height: var(--analysis-primary-stage-height);
+    grid-template-rows: var(--analysis-object-slot-height) auto;
+    align-content: center;
+    gap: 20px;
+  }
+
+  .analysis-v2 .analysis-v2-hero-readout.analysis-v2-speed-readout {
+    width: 100%;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .analysis-v2 .analysis-v2-hero-readout.analysis-v2-speed-readout > strong {
+    justify-content: center;
+  }
+
+  .analysis-v2 .analysis-v2-speed-caption {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .analysis-v2 .analysis-v2-speed-field > .analysis-v2-method {
+    width: 100%;
+    justify-self: stretch;
   }
 
   .analysis-v2 .analysis-v2-movement-view {
