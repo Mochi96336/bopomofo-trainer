@@ -135,5 +135,7 @@ describe("Analysis V2 Movement ranking", () => {
     expect(structureRows[2]?.textContent).toContain("樣本中");
     expect(structureRows[2]?.querySelector("strong")?.textContent).toBe("—");
     expect(structure.querySelectorAll(".analysis-v2-motor-sparkline")).toHaveLength(2);
+    expect(host.querySelector(".analysis-v2-movement-intro")?.textContent)
+      .toContain("只有累積至少 5 個乾淨時間樣本的列才參與家族內慢→快排列");
   });
 });
