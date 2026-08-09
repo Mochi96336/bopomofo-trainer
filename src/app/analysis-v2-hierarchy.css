@@ -255,8 +255,8 @@
   color: var(--ink-muted);
 }
 
-/* Historical evidence is restored as a compact inspector sparkline. It uses
-   neutral ink so a trend does not read as an error state. */
+/* Historical evidence is restored as compact sparklines. It uses neutral ink
+   so a trend reads as history, never as an error alert. */
 .analysis-v2 .analysis-v2-trends {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -296,7 +296,8 @@
   stroke-width: 1;
 }
 
-.analysis-v2 .analysis-v2-trend-chart path {
+.analysis-v2 .analysis-v2-trend-chart path,
+.analysis-v2 .analysis-v2-motor-sparkline path {
   fill: none;
   stroke: var(--ink);
   stroke-width: 1.6;
@@ -304,8 +305,23 @@
   stroke-linejoin: round;
 }
 
-.analysis-v2 .analysis-v2-trend-chart circle {
+.analysis-v2 .analysis-v2-trend-chart circle,
+.analysis-v2 .analysis-v2-motor-sparkline circle {
   fill: var(--ink);
+}
+
+.analysis-v2 .analysis-v2-motor-sparkline {
+  display: block;
+  width: 104px;
+  max-width: 100%;
+  margin-top: 2px;
+}
+
+.analysis-v2 .analysis-v2-motor-sparkline svg {
+  display: block;
+  width: 100%;
+  height: 24px;
+  overflow: visible;
 }
 
 .analysis-v2-summary .analysis-v2-open:hover,
