@@ -173,123 +173,135 @@
   color: var(--ink-muted);
 }
 
-/* The four family controls are a stable navigation strip, not a miniature
-   viewport. Collapsed state reserves only the strip itself. Opening a family
-   lets evidence join the page's normal vertical flow; the outer Analysis main
-   owns vertical scrolling. */
-.analysis-v2 .analysis-v2-evidence-rail {
-  position: relative;
+/* Coordination's aggregate families are now their own view instead of a drawer
+   under the flyline keyboard. They use a quiet two-column reading surface: one
+   family heading, a handful of representative timings, and one scope sentence.
+   No nested viewport, no per-cell sample-count paragraph, no matrix chrome. */
+.analysis-v2 .analysis-v2-movement-view {
   display: grid;
-  width: 100%;
-  min-height: 52px;
-  margin-top: clamp(40px, 7dvh, 72px);
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  align-items: start;
-  border-top: 1px solid var(--hairline);
+  width: min(960px, 100%);
+  margin: clamp(30px, 5dvh, 52px) auto 0;
+  gap: 18px;
+}
+
+.analysis-v2 .analysis-v2-movement-intro {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--hairline);
 }
 
-.analysis-v2 .analysis-v2-evidence-nav {
-  display: grid;
-  grid-column: 1;
-  grid-row: 1;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  align-self: start;
-}
-
-.analysis-v2 .analysis-v2-evidence-group {
-  display: grid;
-  min-width: 0;
-  min-height: 52px;
-  padding: 0 14px;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 9px;
-  appearance: none;
-  border: 0;
-  background: transparent;
+.analysis-v2 .analysis-v2-movement-intro strong {
   color: var(--ink);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 650;
-  text-align: left;
+  font-size: 14px;
+  font-weight: 680;
 }
 
-.analysis-v2 .analysis-v2-evidence-group + .analysis-v2-evidence-group {
+.analysis-v2 .analysis-v2-movement-intro span {
+  max-width: 620px;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.analysis-v2 .analysis-v2-movement-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--hairline);
+}
+
+.analysis-v2 .analysis-v2-movement-family {
+  min-width: 0;
+  padding: 16px 18px 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.analysis-v2 .analysis-v2-movement-family:nth-child(even) {
   border-left: 1px solid var(--hairline);
 }
 
-.analysis-v2 .analysis-v2-evidence-group small {
+.analysis-v2 .analysis-v2-movement-family header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.analysis-v2 .analysis-v2-movement-family header strong {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.analysis-v2 .analysis-v2-movement-family header small {
   color: var(--ink-muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   white-space: nowrap;
 }
 
-.analysis-v2 .analysis-v2-evidence-group i {
-  width: 1em;
-  color: var(--ink-upcoming);
-  font-size: 14px;
-  font-style: normal;
-  font-weight: 500;
-  text-align: right;
+.analysis-v2 .analysis-v2-movement-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 18px;
 }
 
-.analysis-v2 .analysis-v2-evidence-group.is-open {
-  box-shadow: inset 0 -1px 0 var(--ink);
-}
-
-.analysis-v2 .analysis-v2-evidence-detail {
-  grid-column: 1;
-  grid-row: 2;
-  width: 100%;
+.analysis-v2 .analysis-v2-movement-stat {
+  display: grid;
   min-width: 0;
-  align-self: start;
-  overflow: visible;
+  min-height: 38px;
+  padding: 8px 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
   border-top: 1px solid var(--hairline);
 }
 
-/* On useful desktop widths the evidence explanation and the actual table/chart
-   share one row. This spends horizontal room before asking for more vertical
-   room and removes the old nested vertical scrollbar entirely. */
-.analysis-v2 .analysis-v2-evidence-body {
-  display: grid;
-  width: min(960px, 100%);
-  margin-inline: auto;
-  padding: 18px 0 22px;
-  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
-  align-items: start;
-  gap: 24px;
-}
-
-.analysis-v2 .analysis-v2-evidence-body > p {
-  grid-column: 1;
-  margin: 0;
+.analysis-v2 .analysis-v2-movement-stat span {
+  min-width: 0;
+  overflow: hidden;
   color: var(--ink-muted);
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.analysis-v2 .analysis-v2-evidence-body > .analysis-v2-table-scroll,
-.analysis-v2 .analysis-v2-evidence-body > .analysis-v2-tone-grid,
-.analysis-v2 .analysis-v2-evidence-body > .analysis-v2-empty {
-  grid-column: 2;
+.analysis-v2 .analysis-v2-movement-stat strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 680;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.analysis-v2 .analysis-v2-table-scroll {
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
+.analysis-v2 .analysis-v2-movement-stat small {
+  grid-column: 1 / -1;
+  margin-top: -5px;
+  color: var(--ink-muted);
+  font-size: 10px;
 }
 
-.analysis-v2 .analysis-v2-motor-table {
-  width: 100%;
+.analysis-v2 .analysis-v2-movement-stat.sampling strong,
+.analysis-v2 .analysis-v2-movement-stat.empty {
+  color: var(--ink-muted);
 }
 
-.analysis-v2 .analysis-v2-tone-grid {
-  width: 100%;
-  margin: 0;
+.analysis-v2 .analysis-v2-movement-empty {
+  grid-column: 1 / -1;
+  padding: 10px 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+.analysis-v2 .analysis-v2-movement-family > p {
+  margin: 10px 0 0;
+  color: var(--ink-muted);
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 /* Strategy shares the same overall rhythm but its matrix is physically taller
@@ -398,8 +410,7 @@
   stroke-width: 1;
 }
 
-.analysis-v2 .analysis-v2-trend-chart path,
-.analysis-v2 .analysis-v2-motor-sparkline path {
+.analysis-v2 .analysis-v2-trend-chart path {
   fill: none;
   stroke: var(--ink);
   stroke-width: 1.6;
@@ -407,28 +418,8 @@
   stroke-linejoin: round;
 }
 
-.analysis-v2 .analysis-v2-trend-chart circle,
-.analysis-v2 .analysis-v2-motor-sparkline circle {
+.analysis-v2 .analysis-v2-trend-chart circle {
   fill: var(--ink);
-}
-
-.analysis-v2 .analysis-v2-motor-sparkline {
-  display: block;
-  width: 104px;
-  max-width: 100%;
-  margin: 2px auto 0;
-}
-
-.analysis-v2 .analysis-v2-motor-sparkline svg {
-  display: block;
-  width: 100%;
-  height: 24px;
-  overflow: visible;
-}
-
-.analysis-v2 .analysis-v2-motor-history-empty {
-  color: var(--ink-muted);
-  font-size: 11px;
 }
 
 .analysis-v2-summary .analysis-v2-open:hover,
@@ -443,33 +434,28 @@
     --analysis-strategy-object-slot-height: 310px;
   }
 
-  .analysis-v2 .analysis-v2-evidence-nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .analysis-v2 .analysis-v2-evidence-group:nth-child(3) {
-    border-top: 1px solid var(--hairline);
-    border-left: 0;
-  }
-
-  .analysis-v2 .analysis-v2-evidence-group:nth-child(4) {
-    border-top: 1px solid var(--hairline);
+  .analysis-v2 .analysis-v2-movement-view {
+    margin-top: 28px;
   }
 }
 
 @media (max-width: 760px) {
-  .analysis-v2 .analysis-v2-evidence-body {
-    width: min(760px, 100%);
-    padding: 16px 0 20px;
+  .analysis-v2 .analysis-v2-movement-grid {
     grid-template-columns: minmax(0, 1fr);
-    gap: 12px;
   }
 
-  .analysis-v2 .analysis-v2-evidence-body > p,
-  .analysis-v2 .analysis-v2-evidence-body > .analysis-v2-table-scroll,
-  .analysis-v2 .analysis-v2-evidence-body > .analysis-v2-tone-grid,
-  .analysis-v2 .analysis-v2-evidence-body > .analysis-v2-empty {
-    grid-column: 1;
+  .analysis-v2 .analysis-v2-movement-family:nth-child(even) {
+    border-left: 0;
+  }
+
+  .analysis-v2 .analysis-v2-movement-intro {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .analysis-v2 .analysis-v2-movement-intro span {
+    text-align: left;
   }
 }
 
@@ -482,7 +468,8 @@
 
   .analysis-v2 .analysis-v2-domain-controls,
   .analysis-v2 .analysis-v2-semantic-stage > .analysis-v2-inspector,
-  .analysis-v2 .analysis-v2-speed-inspector {
+  .analysis-v2 .analysis-v2-speed-inspector,
+  .analysis-v2 .analysis-v2-movement-view {
     width: 100%;
   }
 
@@ -503,20 +490,18 @@
     font-size: 11px;
   }
 
-  .analysis-v2 .analysis-v2-evidence-nav {
-    grid-template-columns: minmax(0, 1fr);
+  .analysis-v2 .analysis-v2-movement-view {
+    margin-top: 20px;
   }
 
-  .analysis-v2 .analysis-v2-evidence-group + .analysis-v2-evidence-group,
-  .analysis-v2 .analysis-v2-evidence-group:nth-child(3),
-  .analysis-v2 .analysis-v2-evidence-group:nth-child(4) {
-    border-top: 1px solid var(--hairline);
-    border-left: 0;
+  .analysis-v2 .analysis-v2-movement-family {
+    padding-inline: 4px;
   }
 
-  .analysis-v2 .analysis-v2-evidence-body,
-  .analysis-v2 .analysis-v2-table-scroll,
-  .analysis-v2 .analysis-v2-tone-grid,
+  .analysis-v2 .analysis-v2-movement-stats {
+    column-gap: 12px;
+  }
+
   .analysis-v2 .analysis-v2-method {
     width: 100%;
   }
