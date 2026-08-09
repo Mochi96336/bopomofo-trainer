@@ -3,67 +3,35 @@
   width: 100%;
   min-width: 0;
   margin-inline: auto;
-  gap: 14px;
-}
-
-/* One short line is enough above the keyboard. The active tab already says
-   Coordination, and detailed sample counts belong below/inside inspection. */
-.analysis-v2-speed-meta {
-  display: flex;
-  width: min(760px, 92%);
-  min-width: 0;
-  min-height: 34px;
-  margin-inline: auto;
-  align-items: center;
-  justify-content: flex-end;
   gap: 10px;
-  color: var(--ink);
 }
 
-.analysis-v2-speed-meta > div {
-  display: flex;
-  align-items: baseline;
-  gap: 0;
-}
-
-.analysis-v2-speed-meta span,
-.analysis-v2-speed-meta > small {
-  display: none;
-}
-
-.analysis-v2-speed-meta strong {
-  color: var(--ink);
-  font-size: 0.74rem;
-  font-weight: 620;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Selection never changes the board's row/column geometry. The inspector stacks
-   beneath the same fixed-height board slot instead of squeezing it sideways. */
 .analysis-v2-speed-stage,
 .analysis-v2-speed-stage.has-selection {
   display: grid;
+  min-width: 0;
   grid-template-columns: minmax(0, 1fr);
-  min-height: var(--analysis-board-stage-height, clamp(430px, 56dvh, 540px));
-  align-items: start;
-  align-content: start;
 }
 
+.analysis-v2-speed-primary {
+  width: 100%;
+}
+
+/* The scroll viewport owns only the keyboard object slot. Readout and captions
+   stay in normal flow beneath it. */
 .analysis-v2-speed-scroll {
   display: grid;
   width: 100%;
   min-width: 0;
-  min-height: var(--analysis-board-stage-height, clamp(430px, 56dvh, 540px));
+  min-height: 100%;
   overflow-x: auto;
   overflow-y: visible;
-  align-items: start;
-  padding: 14px 0 18px;
+  place-items: center;
+  padding: 0;
   overscroll-behavior-inline: contain;
 }
 
-/* Match the original diagnostic keyboard structure: one transformed board owns
-   both the key rows and the SVG coordinate plane. Never transform the two
-   layers independently. */
+/* One transformed board owns both key rows and the SVG coordinate plane. */
 .analysis-v2-speed-board {
   position: relative;
   width: min(760px, 92%);
@@ -121,11 +89,9 @@
   cursor: pointer;
 }
 
-/* All analytical states use neutral ink. Hierarchy is carried primarily by
-   opacity so light and dark themes stay legible even when two ink variables
-   resolve to the same RGB value. Stroke color itself is not animated: after we
-   stopped using red for slow/focus, interpolating paint only creates transient
-   in-between grays during theme changes and has no interaction benefit. */
+/* The field keeps three neutral evidence weights. Only `is-accent` carries red,
+   and the renderer assigns that class to exactly the edge described by the
+   current readout (or the pinned edge after selection). */
 .analysis-v2-speed-path {
   fill: none;
   stroke: var(--ink-faint);
@@ -136,9 +102,7 @@
   vector-effect: non-scaling-stroke;
   pointer-events: stroke;
   cursor: pointer;
-  transition:
-    stroke-opacity 110ms ease,
-    stroke-width 110ms ease;
+  transition: stroke-opacity 110ms ease, stroke-width 110ms ease;
 }
 
 .analysis-v2-speed-path.salient {
@@ -146,12 +110,12 @@
   stroke-opacity: 0.82;
 }
 
-/* Slow is an analytical distinction, not an error. */
 .analysis-v2-speed-path.is-slow {
   stroke: var(--ink);
   stroke-opacity: 1;
 }
 
+/* Hover/focus exposes geometry without creating another red signal. */
 .analysis-v2-speed-path:hover,
 .analysis-v2-speed-path:focus-visible,
 .analysis-v2-speed-path.is-focused,
@@ -162,8 +126,21 @@
   stroke-width: calc(var(--relation-width) + 0.7px);
 }
 
+.analysis-v2-speed-path.is-accent,
+.analysis-v2-speed-path.is-accent:hover,
+.analysis-v2-speed-path.is-accent:focus-visible,
+.analysis-v2-speed-path.is-accent.is-focused,
+.analysis-v2-speed-path.is-accent.selected {
+  stroke: var(--accent);
+  stroke-opacity: 1;
+}
+
 .analysis-v2-speed-path.is-muted {
   stroke-opacity: 0.12;
+}
+
+.analysis-v2-speed-path.is-accent.is-muted {
+  stroke-opacity: 0.34;
 }
 
 .analysis-v2-speed-path.tone {
@@ -178,8 +155,8 @@
   place-items: center;
   padding: 20px;
   color: var(--ink-muted);
-  font-size: 0.72rem;
-  line-height: 1.6;
+  font-size: 11px;
+  line-height: 1.55;
   text-align: center;
   pointer-events: none;
 }
@@ -191,83 +168,53 @@
 }
 
 .analysis-v2-speed-pair strong {
-  font-size: 1.35rem;
+  color: var(--ink);
+  font-size: 20px;
   font-weight: 660;
 }
 
 .analysis-v2-speed-pair span {
   color: var(--ink-muted);
-  font-size: 0.8rem;
+  font-size: 12px;
 }
 
-/* The lead follows the fixed keyboard stage, so the visual object is always the
-   first thing the eye meets. */
-.analysis-v2-speed-readout {
-  order: 2;
-}
-
-.analysis-v2-speed-stage {
-  order: 1;
-}
-
-.analysis-v2-speed-meta {
-  order: 0;
-}
-
+.analysis-v2-speed-caption,
 .analysis-v2-speed-legend {
-  order: 3;
   display: flex;
   width: min(760px, 92%);
   min-width: 0;
-  margin-inline: auto;
+  margin: 0 auto 2px;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 18px;
+  justify-content: center;
+  gap: 14px;
   color: var(--ink-muted);
-  font-size: 0.66rem;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
-.analysis-v2-speed-legend small {
+.analysis-v2-speed-caption strong {
   color: var(--ink-muted);
-  font-size: 0.64rem;
-  text-align: right;
+  font-size: 11px;
+  font-weight: 620;
+  font-variant-numeric: tabular-nums;
 }
 
-.analysis-v2-speed-field > .analysis-v2-method {
-  order: 4;
-}
-
-.analysis-v2-speed-inspector {
-  width: min(760px, 92%);
-  min-height: 0;
-  margin-inline: auto;
-  padding: 18px 0 8px;
-  border-top: 1px solid var(--hairline);
-  border-left: 0;
+.analysis-v2-speed-caption span {
+  color: var(--ink-muted);
 }
 
 @media (max-width: 640px) {
-  .analysis-v2-speed-meta,
+  .analysis-v2-speed-caption,
   .analysis-v2-speed-legend,
   .analysis-v2-speed-inspector {
     width: 100%;
   }
 
-  .analysis-v2-speed-meta {
-    min-height: 34px;
-  }
-
-  .analysis-v2-speed-scroll {
-    padding-block: 10px 14px;
-  }
-
+  .analysis-v2-speed-caption,
   .analysis-v2-speed-legend {
-    align-items: flex-start;
+    align-items: center;
     flex-direction: column;
-    gap: 3px;
-  }
-
-  .analysis-v2-speed-legend small {
-    text-align: left;
+    gap: 2px;
+    text-align: center;
   }
 }
