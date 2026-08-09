@@ -248,7 +248,7 @@ describe("frequency-first formal syntax compatibility composer", () => {
       "clause.transitive",
       "phrase.noun.bare",
       "phrase.nominal-head.noun",
-      "phrase.verb.lexical",
+      "predicate.verb.lexical",
     ]);
     const result = composeFormalSyntaxUtterances({
       eligibleEntries: [subject, transitive, intransitive, object],
