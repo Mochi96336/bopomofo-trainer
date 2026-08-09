@@ -85,7 +85,7 @@ async function installSpeedProgress(page: Page, edgeCount: number): Promise<void
   }, { key: PROGRESS_KEY, value: source });
 }
 
-test("keeps the protected 760px keyboard primary while annotations stay below it", async ({ page }) => {
+test("keeps the protected keyboard primary while the readout stays nearby", async ({ page }) => {
   await page.setViewportSize({ width: 2000, height: 1100 });
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
@@ -93,7 +93,7 @@ test("keeps the protected 760px keyboard primary while annotations stay below it
 
   const metrics = await analysis.evaluate((host) => {
     const domain = host.querySelector<HTMLElement>(".analysis-v2-domain")!;
-    const stage = host.querySelector<HTMLElement>(".analysis-v2-semantic-stage")!;
+    const stage = host.querySelector<HTMLElement>(".analysis-v2-primary-stage")!;
     const keyboard = host.querySelector<HTMLElement>(".analysis-v2-keyboard")!;
     const lead = host.querySelector<HTMLElement>(".analysis-v2-hero-readout")!;
     const leadStrong = lead.querySelector<HTMLElement>("strong")!;
@@ -102,20 +102,24 @@ test("keeps the protected 760px keyboard primary while annotations stay below it
     return {
       domainWidth: domain.getBoundingClientRect().width,
       stageWidth: stage.getBoundingClientRect().width,
+      stageHeight: stage.getBoundingClientRect().height,
       keyboardWidth: keyboardRect.width,
       keyboardShare: keyboardRect.width / stage.getBoundingClientRect().width,
       leadFont: Number.parseFloat(getComputedStyle(leadStrong).fontSize),
-      leadBelowKeyboard: leadRect.top >= keyboardRect.bottom,
+      leadGap: leadRect.top - keyboardRect.bottom,
     };
   });
 
   expect(metrics.domainWidth).toBeLessThanOrEqual(1080.5);
   expect(metrics.stageWidth).toBeLessThanOrEqual(1080.5);
+  expect(metrics.stageHeight).toBeLessThanOrEqual(390.5);
   expect(metrics.keyboardWidth).toBeLessThanOrEqual(760.5);
   expect(metrics.keyboardShare).toBeGreaterThan(0.68);
   expect(metrics.keyboardShare).toBeLessThan(0.73);
-  expect(metrics.leadFont).toBeLessThanOrEqual(20);
-  expect(metrics.leadBelowKeyboard).toBe(true);
+  expect(metrics.leadFont).toBeGreaterThanOrEqual(24);
+  expect(metrics.leadFont).toBeLessThanOrEqual(28.5);
+  expect(metrics.leadGap).toBeGreaterThanOrEqual(18);
+  expect(metrics.leadGap).toBeLessThanOrEqual(70);
 });
 
 test("keeps Semantic and Coordination keyboards at one fixed screen position", async ({ page }) => {
@@ -157,8 +161,8 @@ test("keeps Semantic and Coordination keyboards at one fixed screen position", a
   expect(semanticAfter.width).toBe(semanticBefore.width);
 });
 
-test("uses neutral ink for the dense flyline field instead of error-red semantics", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
+test("keeps exactly one red flyline and never turns Analysis text red on hover", async ({ page }) => {
+  await page.setViewportSize({ width: 1064, height: 665 });
   await installSpeedProgress(page, 24);
   await openAnalysis(page);
 
@@ -166,54 +170,83 @@ test("uses neutral ink for the dense flyline field instead of error-red semantic
   await expect(analysis.locator('[data-tab="coordination"]')).toHaveAttribute("aria-selected", "true");
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(24);
   await expect(analysis.locator(".analysis-v2-speed-path.is-slow")).toHaveCount(3);
+  await expect(analysis.locator(".analysis-v2-speed-path.is-accent")).toHaveCount(1);
   await expect(analysis.locator(".analysis-v2-speed-readout")).toContainText("ms");
-  await expect(analysis.locator(".analysis-v2-speed-inspector")).toHaveCount(0);
-  await expect(analysis.locator(".analysis-v2-speed-stage")).not.toHaveClass(/has-selection/);
-  await expect(analysis.locator(".analysis-v2-speed-legend")).toContainText("深色標記較慢或目前選取");
-  await expect(analysis.locator(".analysis-v2-speed-legend i")).toHaveCount(0);
+  await expect(analysis.locator(".analysis-v2-speed-caption")).toContainText("24 條可比較");
 
-  const readPalette = () => analysis.evaluate((host) => {
-    const background = host.querySelector<SVGPathElement>(
-      ".analysis-v2-speed-path:not(.salient):not(.is-slow)",
-    )!;
-    const salient = host.querySelector<SVGPathElement>(
-      ".analysis-v2-speed-path.salient:not(.is-slow)",
-    )!;
-    const slow = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-slow")!;
-    const probe = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  const palette = await analysis.evaluate((host) => {
+    const stage = host.querySelector<HTMLElement>(".analysis-v2-primary-stage")!;
+    const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
+    const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout")!;
+    const caption = host.querySelector<HTMLElement>(".analysis-v2-speed-caption")!;
+    const accentPath = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-accent")!;
+    const neutralSlow = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-slow:not(.is-accent)")!;
+    const probe = document.createElement("span");
     host.append(probe);
-    probe.style.stroke = "var(--ink)";
-    const ink = getComputedStyle(probe).stroke;
-    probe.style.stroke = "var(--accent)";
-    const accent = getComputedStyle(probe).stroke;
+    probe.style.color = "var(--accent)";
+    const accent = getComputedStyle(probe).color;
+    probe.style.color = "var(--danger)";
+    const danger = getComputedStyle(probe).color;
+    probe.style.color = "var(--ink)";
+    const ink = getComputedStyle(probe).color;
     probe.remove();
+    const boardRect = board.getBoundingClientRect();
+    const readoutRect = readout.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
     return {
-      backgroundOpacity: Number(getComputedStyle(background).strokeOpacity),
-      salientOpacity: Number(getComputedStyle(salient).strokeOpacity),
-      slowStroke: getComputedStyle(slow).stroke,
-      slowOpacity: Number(getComputedStyle(slow).strokeOpacity),
-      ink,
       accent,
+      danger,
+      ink,
+      accentStroke: getComputedStyle(accentPath).stroke,
+      neutralSlowStroke: getComputedStyle(neutralSlow).stroke,
+      stageHeight: stageRect.height,
+      boardTopInsideStage: boardRect.top - stageRect.top,
+      readoutGap: readoutRect.top - boardRect.bottom,
+      captionBelowReadout: caption.getBoundingClientRect().top >= readoutRect.bottom - 1,
     };
   });
+  expect(palette.accentStroke).toBe(palette.accent);
+  expect(palette.neutralSlowStroke).toBe(palette.ink);
+  expect(palette.neutralSlowStroke).not.toBe(palette.accent);
+  expect(palette.stageHeight).toBeLessThanOrEqual(390.5);
+  expect(palette.boardTopInsideStage).toBeGreaterThan(12);
+  expect(palette.readoutGap).toBeGreaterThanOrEqual(18);
+  expect(palette.readoutGap).toBeLessThanOrEqual(70);
+  expect(palette.captionBelowReadout).toBe(true);
 
-  const palette = await readPalette();
-  expect(palette.backgroundOpacity).toBeLessThan(palette.salientOpacity);
-  expect(palette.salientOpacity).toBeLessThan(palette.slowOpacity);
-  expect(palette.slowOpacity).toBe(1);
-  expect(palette.slowStroke).toBe(palette.ink);
-  expect(palette.slowStroke).not.toBe(palette.accent);
+  const nonAccent = analysis.locator(".analysis-v2-speed-path:not(.is-accent)").first();
+  await nonAccent.hover();
+  await expect(analysis.locator(".analysis-v2-speed-path.is-accent")).toHaveCount(1);
+  const redText = await analysis.evaluate((host) => {
+    const probe = document.createElement("span");
+    host.append(probe);
+    probe.style.color = "var(--accent)";
+    const accent = getComputedStyle(probe).color;
+    probe.style.color = "var(--danger)";
+    const danger = getComputedStyle(probe).color;
+    probe.remove();
+    return [...host.querySelectorAll<HTMLElement>("*")]
+      .filter((node) => node.children.length === 0 && (node.textContent?.trim().length ?? 0) > 0)
+      .filter((node) => {
+        const style = getComputedStyle(node);
+        return style.display !== "none" && style.visibility !== "hidden"
+          && (style.color === accent || style.color === danger);
+      })
+      .map((node) => node.textContent?.trim() ?? "");
+  });
+  expect(redText).toEqual([]);
 
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
-  const dark = await readPalette();
-  expect(dark.backgroundOpacity).toBeLessThan(dark.slowOpacity);
-  expect(dark.slowOpacity).toBe(1);
-  expect(dark.slowStroke).toBe(dark.ink);
-  expect(dark.slowStroke).not.toBe(dark.accent);
-
-  const chosen = analysis.locator(".analysis-v2-speed-path").first();
-  await chosen.evaluate((node) => node.dispatchEvent(new MouseEvent("click", { bubbles: true })));
-  await expect(analysis.locator(".analysis-v2-speed-stage")).toHaveClass(/has-selection/);
-  await expect(analysis.locator(".analysis-v2-speed-inspector")).toHaveCount(1);
-  await expect(analysis.locator(".analysis-v2-speed-inspector")).toContainText("ms");
+  await expect(analysis.locator(".analysis-v2-speed-path.is-accent")).toHaveCount(1);
+  const darkAccentMatches = await analysis.evaluate((host) => {
+    const path = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-accent")!;
+    const probe = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    host.append(probe);
+    probe.style.stroke = "var(--accent)";
+    const accent = getComputedStyle(probe).stroke;
+    const actual = getComputedStyle(path).stroke;
+    probe.remove();
+    return actual === accent;
+  });
+  expect(darkAccentMatches).toBe(true);
 });
