@@ -66,7 +66,6 @@ const DEFAULT_PREFERENCES: AnalysisV2Preferences = {
 };
 const BODY_SIZES: readonly CoordinationBodySizeBucket[] = ["2", "3"];
 const POSITIONS = ["first", "middle", "last"] as const;
-const SEMANTIC_SALIENT_KEY_COUNT = 4;
 const SEMANTIC_LEAD_KEY_COUNT = 3;
 const SPEED_SALIENT_EDGE_COUNT = 16;
 const SPEED_SLOW_EDGE_COUNT = 3;
@@ -272,19 +271,29 @@ function semanticLeadMarkup(model: AnalysisV2Model, view: SemanticView): string 
   if (view === "correctness") {
     const rows = rankedSemanticKeys(model);
     if (rows.length === 0) {
-      return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><strong>仍在累積</strong><small>資料充足後才標記值得注意的鍵</small></div>`;
+      return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><strong>仍在累積</strong><small>資料足夠後才顯示需要留意的按鍵</small></div>`;
     }
     const symbols = rows.slice(0, SEMANTIC_LEAD_KEY_COUNT).map((row) => escapeHtml(row.symbol)).join("　");
-    return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><strong class="analysis-v2-semantic-symbols">${symbols}</strong><small>錯誤觀察較高的可比較按鍵</small></div>`;
+    return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><strong class="analysis-v2-semantic-symbols">${symbols}</strong><small>較常出現錯誤的按鍵</small></div>`;
   }
   const rows = rankedConfusionKeys(model);
   if (rows.length === 0) {
-    return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><strong>仍在累積</strong><small>可歸因誤按累積足夠後才標記</small></div>`;
+    return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><strong>仍在累積</strong><small>誤按資料足夠後才顯示需要留意的按鍵</small></div>`;
   }
   const symbols = rows.slice(0, SEMANTIC_LEAD_KEY_COUNT)
     .map((row) => escapeHtml(row.expectedSymbol))
     .join("　");
-  return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><strong class="analysis-v2-semantic-symbols">${symbols}</strong><small>可歸因誤按較多的原意鍵</small></div>`;
+  return `<div class="analysis-v2-hero-readout analysis-v2-semantic-readout"><strong class="analysis-v2-semantic-symbols">${symbols}</strong><small>較常發生誤按的按鍵</small></div>`;
+}
+
+function semanticSummaryRailMarkup(model: AnalysisV2Model): string {
+  const comparableKeys = model.semantic.keys.filter((row) => row.errorDataState === "sufficient").length;
+  const observedDirections = model.semantic.confusions.filter((row) => row.occurrences > 0).length;
+  const comparableDirections = model.semantic.confusions.filter((row) => row.dataState === "sufficient").length;
+  return `<section class="analysis-v2-semantic-rail" aria-label="語意摘要">
+    <div><span>按鍵資料</span><strong>${model.semantic.keysWithData} 鍵</strong><small>${comparableKeys} 鍵可比較</small></div>
+    <div><span>誤按資料</span><strong>${model.semantic.repeatedConfusions} 組重複</strong><small>${observedDirections} 條觀察方向 · ${comparableDirections} 條可比較</small></div>
+  </section>`;
 }
 
 function primaryStageMarkup(object: string, readout: string, extraClass: string): string {
@@ -297,7 +306,7 @@ function primaryStageMarkup(object: string, readout: string, extraClass: string)
 function correctnessKeyboardMarkup(model: AnalysisV2Model, selectedKey: TokenId | null): string {
   const byToken = keyByToken(model);
   const salientTokens = new Set(rankedSemanticKeys(model)
-    .slice(0, SEMANTIC_SALIENT_KEY_COUNT)
+    .slice(0, SEMANTIC_LEAD_KEY_COUNT)
     .map((row) => row.tokenId));
   const keyboard = keyboardRowsMarkup((tokenId, key, columns) => {
     const diagnostic = byToken.get(tokenId);
@@ -329,7 +338,7 @@ function confusionDetailMarkup(model: AnalysisV2Model, tokenId: TokenId | null):
   return `<article class="analysis-v2-inspector-content">
     <div class="analysis-v2-detail-heading"><strong>${escapeHtml(key.symbol)}</strong><span>誤按去向</span></div>
     ${rows.length === 0
-      ? '<p class="analysis-v2-inspector-empty">目前沒有可歸因的誤按。</p>'
+      ? '<p class="analysis-v2-inspector-empty">目前沒有能確認原意的誤按。</p>'
       : `<ol class="analysis-v2-confusion-list">${rows.map((row) => `<li><div><strong>${escapeHtml(row.actualSymbol)}</strong><span>${escapeHtml(row.actualPhysicalKey)}</span></div><div><b>${row.occurrences}</b><small>${escapeHtml(percent(row.expectedErrorShare))} · ${escapeHtml(dataStateLabel(row.dataState))}</small></div></li>`).join("")}</ol>`}
   </article>`;
 }
@@ -337,14 +346,14 @@ function confusionDetailMarkup(model: AnalysisV2Model, tokenId: TokenId | null):
 function confusionKeyboardMarkup(model: AnalysisV2Model, selectedKey: TokenId | null): string {
   const strongestByToken = strongestConfusionsByToken(model);
   const salientTokens = new Set(rankedConfusionKeys(model)
-    .slice(0, SEMANTIC_SALIENT_KEY_COUNT)
+    .slice(0, SEMANTIC_LEAD_KEY_COUNT)
     .map((row) => row.expectedTokenId));
   const keyboard = keyboardRowsMarkup((tokenId, key, columns) => {
     const confusion = strongestByToken.get(tokenId);
     const state = confusionKeyDataState(confusion);
     const selected = selectedKey === tokenId;
     const salient = salientTokens.has(tokenId);
-    return `<button type="button" class="analysis-v2-key ${state}${salient ? " is-salient" : ""}${selected ? " selected" : ""}" style="--key-columns:${columns}" data-action="select-key" data-token="${escapeHtml(tokenId)}" aria-pressed="${selected}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}，可歸因誤按 ${confusion?.expectedConfusionTotal ?? 0} 次，${escapeHtml(dataStateLabel(state))}"><strong>${escapeHtml(tokenLabel(tokenId))}</strong><small aria-hidden="true"></small></button>`;
+    return `<button type="button" class="analysis-v2-key ${state}${salient ? " is-salient" : ""}${selected ? " selected" : ""}" style="--key-columns:${columns}" data-action="select-key" data-token="${escapeHtml(tokenId)}" aria-pressed="${selected}" aria-label="${escapeHtml(tokenLabel(tokenId))}，實體鍵 ${escapeHtml(physicalKeyLabel(key.code))}，已確認原意的誤按 ${confusion?.expectedConfusionTotal ?? 0} 次，${escapeHtml(dataStateLabel(state))}"><strong>${escapeHtml(tokenLabel(tokenId))}</strong><small aria-hidden="true"></small></button>`;
   });
   const object = `<div class="analysis-v2-keyboard">${keyboard}</div>`;
   return `<div class="analysis-v2-semantic-stage${selectedKey === null ? "" : " has-selection"}">
@@ -366,11 +375,12 @@ function semanticMarkup(
     ${preferences.semanticView === "correctness"
       ? correctnessKeyboardMarkup(model, selectedKey)
       : confusionKeyboardMarkup(model, selectedKey)}
+    ${semanticSummaryRailMarkup(model)}
     ${methodDetailsMarkup(
       "資料規則",
       preferences.semanticView === "correctness"
-        ? "錯誤觀察比例只來自可歸因按鍵觀察；樣本不足不做視覺判讀。時間描述前一個已接受事件到目前按鍵，不是能力分數。"
-        : "只顯示實際觀察到而且能歸因的誤按方向；原意鍵依累積可歸因誤按總數判讀。",
+        ? "錯誤觀察比例只來自能確定原本應按哪個鍵的觀察；樣本不足時不做高低判讀。時間描述前一個已接受事件到目前按鍵，不是能力分數。"
+        : "只顯示實際觀察到，而且能確定原本應按哪個鍵的誤按方向；資料足夠後才做高低判讀。",
     )}
   </section>`;
 }
