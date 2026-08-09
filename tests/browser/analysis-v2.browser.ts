@@ -172,8 +172,9 @@ test("renders evidence thresholds through the production Analysis V2 mount", asy
 
   await analysis.locator('[data-tab="coordination"]').click();
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(1);
-  await expect(analysis.locator(".analysis-v2-speed-caption")).toContainText("1 條可比較");
+  await expect(analysis.locator(".analysis-v2-speed-readout")).toContainText("1 條可比較");
   await expect(analysis.locator(".analysis-v2-speed-readout")).toContainText("5 個乾淨樣本");
+  await expect(analysis.locator(".analysis-v2-speed-caption")).toHaveCount(0);
   await expect(analysis.locator(".analysis-v2-movement-view")).toHaveCount(0);
   await expect(analysis.locator('[data-action="coordination-view"][data-value="paths"]'))
     .toHaveAttribute("aria-pressed", "true");
@@ -204,6 +205,7 @@ test("opens Analysis V2 on flylines without reviving the legacy transition netwo
   await expect(movement).toBeVisible();
   await expect(movement.locator(".analysis-v2-movement-family")).toHaveCount(4);
   await expect(movement).toContainText("手別轉換");
+  await expect(movement).toContainText("字內結構");
   await expect(movement).toContainText("不代表偵測到實際使用哪隻手");
   await expect(movement.locator("table")).toHaveCount(0);
 
@@ -215,7 +217,7 @@ test("opens Analysis V2 on flylines without reviving the legacy transition netwo
     "3 個注音",
   ]);
   await expect(analysis.locator(".analysis-v2-strategy-segments"))
-    .toHaveAttribute("aria-label", "音節內注音成分數，不含聲調");
+    .toHaveAttribute("aria-label", "字內注音成分數，不含聲調");
   const method = analysis.locator(".analysis-v2-method");
   await expect(method.locator("summary")).toHaveText("資料規則");
   await method.locator("summary").click();
@@ -259,7 +261,6 @@ test("fits Analysis V2 and the full flyline keyboard at a narrow phone viewport"
     const field = host.querySelector<HTMLElement>(".analysis-v2-speed-field")!;
     const scroller = host.querySelector<HTMLElement>(".analysis-v2-speed-scroll")!;
     const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
-    const caption = host.querySelector<HTMLElement>(".analysis-v2-speed-caption")!;
     const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout")!;
     const mainRect = main.getBoundingClientRect();
     const boardRect = board.getBoundingClientRect();
@@ -274,7 +275,6 @@ test("fits Analysis V2 and the full flyline keyboard at a narrow phone viewport"
       boardRight: boardRect.right,
       mainLeft: mainRect.left,
       mainRight: mainRect.right,
-      captionRight: caption.getBoundingClientRect().right,
       readoutRight: readout.getBoundingClientRect().right,
       fieldRight: field.getBoundingClientRect().right,
     };
@@ -286,7 +286,6 @@ test("fits Analysis V2 and the full flyline keyboard at a narrow phone viewport"
   expect(overflow.scrollerScroll).toBeLessThanOrEqual(overflow.scrollerClient + 2);
   expect(overflow.boardLeft).toBeGreaterThanOrEqual(overflow.mainLeft - 2);
   expect(overflow.boardRight).toBeLessThanOrEqual(overflow.mainRight + 2);
-  expect(overflow.captionRight).toBeLessThanOrEqual(overflow.fieldRight + 1);
   expect(overflow.readoutRight).toBeLessThanOrEqual(overflow.fieldRight + 1);
   await expect(speedScroll).toHaveAttribute("tabindex", "0");
 
