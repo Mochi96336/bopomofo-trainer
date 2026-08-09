@@ -79,7 +79,7 @@ describe("measurement v2 persistence validation", () => {
     });
   });
 
-  it("migrates aggregate-1 by preserving 2/3 evidence and dropping only recognized 4+ buckets", () => {
+  it("migrates aggregate-1 by preserving valid strategy and hand evidence while dropping obsolete coordination", () => {
     const current = summaryWithImmediateHands(1);
     const legacy = structuredClone(current) as unknown as Record<string, unknown>;
     legacy.policyVersion = LEGACY_MEASUREMENT_V2_POLICY_VERSION;
@@ -118,9 +118,7 @@ describe("measurement v2 persistence validation", () => {
     expect(Object.keys(migrated?.strategy.inputOrderPositions ?? {})).toEqual([
       '["input-order-position","3","first","last"]',
     ]);
-    expect(Object.keys(migrated?.motor.coordination ?? {})).toEqual([
-      '["coordination","2","mixed"]',
-    ]);
+    expect(migrated?.motor.coordination).toEqual({});
     expect(migrated?.motor.immediateHands).toEqual(current.motor.immediateHands);
   });
 
