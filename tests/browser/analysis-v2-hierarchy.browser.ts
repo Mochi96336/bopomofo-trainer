@@ -214,9 +214,20 @@ test("keeps exactly one red flyline and never turns Analysis text red on hover",
   expect(palette.readoutGap).toBeLessThanOrEqual(70);
   expect(palette.captionBelowReadout).toBe(true);
 
-  const nonAccent = analysis.locator(".analysis-v2-speed-path:not(.is-accent)").first();
-  await nonAccent.hover();
+  /* Relation hover is owned by the 10px transparent hit layer, not by asking
+     Playwright to guess a point on the 1–2px curved visual stroke. */
+  await analysis.evaluate((host) => {
+    const visual = host.querySelector<SVGPathElement>(".analysis-v2-speed-path:not(.is-accent)")!;
+    const id = visual.dataset.speedId;
+    const hit = [...host.querySelectorAll<SVGPathElement>(".analysis-v2-speed-hit")]
+      .find((candidate) => candidate.dataset.speedId === id)!;
+    hit.dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
+  });
   await expect(analysis.locator(".analysis-v2-speed-path.is-accent")).toHaveCount(1);
+
+  /* Real pointer hover on text-bearing controls must stay neutral. */
+  await analysis.locator('[data-action="evidence-family"]').first().hover();
+  await analysis.locator('[data-tab="semantic"]').hover();
   const redText = await analysis.evaluate((host) => {
     const probe = document.createElement("span");
     host.append(probe);
