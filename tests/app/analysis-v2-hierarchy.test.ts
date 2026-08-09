@@ -130,23 +130,25 @@ afterEach(() => {
 });
 
 describe("Analysis V2 visual hierarchy", () => {
-  it("marks only a bounded sufficient-data semantic set and gives it a typographic lead", () => {
+  it("marks the same bounded three-key Semantic lead that it names in the readout", () => {
     const host = open();
     selectTab(host, "semantic");
     const marked = [...host.querySelectorAll<HTMLElement>(".analysis-v2-key.is-salient")];
-    expect(marked).toHaveLength(4);
+    expect(marked).toHaveLength(3);
     expect(marked.map((node) => node.dataset.token)).toEqual([
       "zhuyin:ㄅ",
       "zhuyin:ㄆ",
       "zhuyin:ㄇ",
-      "zhuyin:ㄈ",
     ]);
+    expect(host.querySelector('[data-token="zhuyin:ㄈ"]')?.classList.contains("is-salient"))
+      .toBe(false);
     expect(host.querySelector('[data-token="zhuyin:ㄊ"]')?.classList.contains("is-salient"))
       .toBe(false);
     const lead = host.querySelector(".analysis-v2-semantic-readout");
     expect(lead?.textContent).toContain("ㄅ");
     expect(lead?.textContent).toContain("ㄆ");
     expect(lead?.textContent).toContain("ㄇ");
+    expect(lead?.textContent).not.toContain("ㄈ");
     expect(lead?.textContent).not.toContain("ㄊ");
   });
 
