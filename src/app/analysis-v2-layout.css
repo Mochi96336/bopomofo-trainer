@@ -186,13 +186,13 @@
 }
 
 /* Semantic gets a second information level instead of ending immediately after
-   three lead keys. It is deliberately quieter than the keyboard and does not
-   pretend to be another dashboard. */
+   the lead summary. Match the board width so selected detail and summary form
+   one column rather than two mismatched horizontal bands. */
 .analysis-v2-semantic-rail {
   display: grid;
-  width: 100%;
+  width: var(--analysis-board-width, min(1040px, 94%));
   min-height: 58px;
-  margin-top: clamp(22px, 3dvh, 34px);
+  margin: clamp(22px, 3dvh, 34px) auto 0;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   border-top: 1px solid var(--hairline);
   border-bottom: 1px solid var(--hairline);
@@ -241,10 +241,8 @@
   scrollbar-gutter: stable;
 }
 
-/* Desktop keeps the exact protected board width. Phone layouts opt out of this
-   minimum so Coordination follows Semantic and fits the whole keyboard at once. */
 .analysis-v2-speed-board {
-  min-width: 680px;
+  min-width: 0;
 }
 
 @media (max-width: 900px) {
@@ -320,6 +318,10 @@
 
   .analysis-v2-segments button {
     flex: 1 1 0;
+  }
+
+  .analysis-v2-semantic-rail {
+    width: 100%;
   }
 
   .analysis-v2-semantic-rail > div {
