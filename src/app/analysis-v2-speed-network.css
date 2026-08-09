@@ -3,54 +3,61 @@
   width: 100%;
   min-width: 0;
   margin-inline: auto;
-  gap: 16px;
+  gap: 14px;
 }
 
+/* One short line is enough above the keyboard. The active tab already says
+   Coordination, and detailed sample counts belong below/inside inspection. */
 .analysis-v2-speed-meta {
   display: flex;
+  width: min(760px, 92%);
   min-width: 0;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 18px;
+  min-height: 34px;
+  margin-inline: auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  color: var(--ink);
 }
 
 .analysis-v2-speed-meta > div {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 0;
 }
 
 .analysis-v2-speed-meta span,
-.analysis-v2-speed-meta small {
-  color: var(--ink-muted);
-  font-size: 0.72rem;
+.analysis-v2-speed-meta > small {
+  display: none;
 }
 
 .analysis-v2-speed-meta strong {
-  font-size: 0.82rem;
-  font-weight: 680;
+  color: var(--ink);
+  font-size: 0.74rem;
+  font-weight: 620;
   font-variant-numeric: tabular-nums;
 }
 
-.analysis-v2-speed-stage {
+/* Selection never changes the board's row/column geometry. The inspector stacks
+   beneath the same fixed-height board slot instead of squeezing it sideways. */
+.analysis-v2-speed-stage,
+.analysis-v2-speed-stage.has-selection {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  min-height: clamp(430px, 60dvh, 610px);
-  align-items: stretch;
-}
-
-.analysis-v2-speed-stage.has-selection {
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 240px);
+  min-height: var(--analysis-board-stage-height, clamp(430px, 56dvh, 540px));
+  align-items: start;
+  align-content: start;
 }
 
 .analysis-v2-speed-scroll {
   display: grid;
+  width: 100%;
   min-width: 0;
-  min-height: 0;
+  min-height: var(--analysis-board-stage-height, clamp(430px, 56dvh, 540px));
   overflow-x: auto;
   overflow-y: visible;
-  align-items: center;
-  padding: 24px 0 34px;
+  align-items: start;
+  padding: 14px 0 18px;
   overscroll-behavior-inline: contain;
 }
 
@@ -90,7 +97,7 @@
 
 .analysis-v2-speed-keyboard .analysis-v2-key.is-related {
   z-index: 3;
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--key-border));
+  border-color: color-mix(in srgb, var(--ink) 54%, var(--key-border));
   color: var(--ink);
 }
 
@@ -105,9 +112,6 @@
   transform: none;
 }
 
-/* Hit geometry is deliberately wider than the visible stroke. It never changes
-   the visual weight of the evidence field, but gives mouse/pen input a humane
-   target instead of requiring a 1.4–2px pixel-perfect hit. */
 .analysis-v2-speed-hit {
   fill: none;
   stroke: transparent;
@@ -138,9 +142,11 @@
   stroke-opacity: 0.94;
 }
 
+/* Slow is an analytical distinction, not an error. Use a deeper neutral ink
+   instead of the product's red accent/danger family. */
 .analysis-v2-speed-path.is-slow {
-  stroke: color-mix(in srgb, var(--accent) 78%, var(--ink) 22%);
-  stroke-opacity: 0.86;
+  stroke: var(--ink);
+  stroke-opacity: 0.78;
 }
 
 .analysis-v2-speed-path:hover,
@@ -148,13 +154,13 @@
 .analysis-v2-speed-path.is-focused,
 .analysis-v2-speed-path.selected {
   outline: none;
-  stroke: var(--accent);
+  stroke: var(--ink);
   stroke-opacity: 1;
   stroke-width: calc(var(--relation-width) + 0.7px);
 }
 
 .analysis-v2-speed-path.is-muted {
-  stroke-opacity: 0.18;
+  stroke-opacity: 0.16;
 }
 
 .analysis-v2-speed-path.tone {
@@ -182,7 +188,7 @@
 }
 
 .analysis-v2-speed-pair strong {
-  font-size: 1.55rem;
+  font-size: 1.35rem;
   font-weight: 660;
 }
 
@@ -191,45 +197,65 @@
   font-size: 0.8rem;
 }
 
+/* The lead follows the fixed keyboard stage, so the visual object is always the
+   first thing the eye meets. */
+.analysis-v2-speed-readout {
+  order: 2;
+}
+
+.analysis-v2-speed-stage {
+  order: 1;
+}
+
+.analysis-v2-speed-meta {
+  order: 0;
+}
+
 .analysis-v2-speed-legend {
+  order: 3;
   display: flex;
+  width: min(760px, 92%);
   min-width: 0;
+  margin-inline: auto;
   align-items: baseline;
   justify-content: space-between;
   gap: 18px;
   color: var(--ink-muted);
-  font-size: 0.7rem;
+  font-size: 0.66rem;
 }
 
 .analysis-v2-speed-legend small {
   color: var(--ink-muted);
-  font-size: 0.68rem;
+  font-size: 0.64rem;
   text-align: right;
 }
 
-@media (max-width: 1120px) {
-  .analysis-v2-speed-stage,
-  .analysis-v2-speed-stage.has-selection {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.analysis-v2-speed-field > .analysis-v2-method {
+  order: 4;
+}
 
-  .analysis-v2-speed-inspector {
-    min-height: 118px;
-    padding: 18px 0 0;
-    border-top: 1px solid var(--hairline);
-    border-left: 0;
-  }
+.analysis-v2-speed-inspector {
+  width: min(760px, 92%);
+  min-height: 0;
+  margin-inline: auto;
+  padding: 18px 0 8px;
+  border-top: 1px solid var(--hairline);
+  border-left: 0;
 }
 
 @media (max-width: 640px) {
+  .analysis-v2-speed-meta,
+  .analysis-v2-speed-legend,
+  .analysis-v2-speed-inspector {
+    width: 100%;
+  }
+
   .analysis-v2-speed-meta {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 3px;
+    min-height: 34px;
   }
 
   .analysis-v2-speed-scroll {
-    padding-block: 14px 22px;
+    padding-block: 10px 14px;
   }
 
   .analysis-v2-speed-legend {
