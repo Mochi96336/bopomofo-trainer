@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Exercise } from "../../src/core/model.js";
-import { deriveMeasurementObservationsV2 } from "../../src/measurement-v2/derive-observations.js";
+import {
+  coordinationBodyShape,
+  deriveMeasurementObservationsV2,
+} from "../../src/measurement-v2/derive-observations.js";
 import type { PracticeInput } from "../../src/practice/interaction-input.js";
 import {
   applyInteractionInputV2,
@@ -53,6 +56,15 @@ function apply(
 }
 
 describe("measurement v2 observation projection", () => {
+  it("classifies the four real multi-part Bopomofo word-body structures", () => {
+    expect(coordinationBodyShape(["zhuyin:ㄅ", "zhuyin:ㄧ"])).toBe("initial-medial");
+    expect(coordinationBodyShape(["zhuyin:ㄅ", "zhuyin:ㄢ"])).toBe("initial-final");
+    expect(coordinationBodyShape(["zhuyin:ㄧ", "zhuyin:ㄢ"])).toBe("medial-final");
+    expect(coordinationBodyShape(["zhuyin:ㄐ", "zhuyin:ㄧ", "zhuyin:ㄚ"]))
+      .toBe("initial-medial-final");
+    expect(coordinationBodyShape(["zhuyin:A", "zhuyin:B"])).toBeNull();
+  });
+
   it("projects actual order into independent semantic and motor channels", () => {
     let state = createInteractionSessionV2(exercise, 90);
     state = apply(state, 100, "KeyM", "zhuyin:ㄩ"); // right
@@ -73,8 +85,9 @@ describe("measurement v2 observation projection", () => {
       { token: "tone:2", correct: true, timing: 35 },
     ]);
 
-    // Canonical body order is ㄒ / ㄩ / ㄝ, but the learner actually entered
-    // ㄩ / ㄒ / ㄝ. Exact motor edges must preserve that observed direction.
+    // Canonical body structure is 聲母 / 介音 / 韻母, while the learner
+    // actually entered ㄩ / ㄒ / ㄝ. Exact motor edges preserve observed order;
+    // whole-word coordination retains only the canonical body shape.
     expect(result.immediateTokens.map((observation) => ({
       from: observation.fromToken,
       to: observation.toToken,
@@ -89,8 +102,7 @@ describe("measurement v2 observation projection", () => {
     expect(result.coordination).toEqual([
       {
         syllableOrdinal: 0,
-        bodySize: 3,
-        handShape: "mixed",
+        bodyShape: "initial-medial-final",
         timingMs: 70,
         clean: true,
       },
@@ -174,7 +186,11 @@ describe("measurement v2 observation projection", () => {
     const result = deriveMeasurementObservationsV2(exercise, state.traces);
 
     expect(result.coordination).toEqual([
-      expect.objectContaining({ timingMs: 70, clean: false }),
+      expect.objectContaining({
+        bodyShape: "initial-medial-final",
+        timingMs: 70,
+        clean: false,
+      }),
     ]);
     expect(result.immediateTokens[0]).toEqual(expect.objectContaining({
       fromToken: "zhuyin:ㄩ",
