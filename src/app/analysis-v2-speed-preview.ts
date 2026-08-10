@@ -19,11 +19,10 @@ function relationId(target: EventTarget | null): string | null {
 }
 
 /**
- * Coordination flylines use hover as a transient preview and click as the
- * persistent selection owned by analysis-v2-panel. This controller swaps the
- * current lower readout/accent while the pointer is over a relation. It also
- * decorates the freshly rendered baseline readout with the exact-pair history;
- * the panel itself remains concerned only with current aggregate selection.
+ * Coordination flylines use hover/focus as a transient preview and click as the
+ * persistent selection owned by analysis-v2-panel. The panel renders the full
+ * baseline readout synchronously; this controller only swaps that readout and
+ * accent while a temporary relation is being previewed.
  */
 export function mountAnalysisV2SpeedPreview(
   host: HTMLElement,
@@ -57,21 +56,6 @@ export function mountAnalysisV2SpeedPreview(
     }
   };
 
-  const syncBaselineHistory = (): void => {
-    const board = host.querySelector(".analysis-v2-speed-board");
-    const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout");
-    const detail = readout?.querySelector<HTMLElement>("span");
-    const accent = board?.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-accent");
-    const id = accent?.dataset.speedId;
-    if (board === null || detail == null || id === undefined) return;
-    const cell = cellsForBoard(board).get(id);
-    if (cell === undefined) return;
-    const history = exactTransitionHistoryLabel(cell);
-    const current = detail.textContent ?? "";
-    if (current.startsWith(history)) return;
-    detail.textContent = `${history} · ${current}`;
-  };
-
   const showPreview = (id: string): void => {
     const board = host.querySelector(".analysis-v2-speed-board");
     const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout");
@@ -98,7 +82,6 @@ export function mountAnalysisV2SpeedPreview(
       setAccent(board, baselineAccentId);
     }
     clearPreviewState();
-    syncBaselineHistory();
   };
 
   const pointerOver = (event: PointerEvent): void => {
@@ -142,13 +125,8 @@ export function mountAnalysisV2SpeedPreview(
   host.addEventListener("focusin", focusIn);
   host.addEventListener("focusout", focusOut);
 
-  const observer = new MutationObserver(() => syncBaselineHistory());
-  observer.observe(host, { childList: true, subtree: true });
-  syncBaselineHistory();
-
   return {
     destroy(): void {
-      observer.disconnect();
       host.removeEventListener("pointerover", pointerOver);
       host.removeEventListener("pointerout", pointerOut);
       host.removeEventListener("focusin", focusIn);
