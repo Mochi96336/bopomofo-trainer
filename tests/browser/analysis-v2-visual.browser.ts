@@ -219,7 +219,7 @@ test("keeps the medium semantic keyboard visual contract", async ({ page }) => {
     };
   });
 
-  expect(visual.keyboardWidth).toBe(860);
+  expect(visual.keyboardWidth).toBe(760);
   expect(visual.transform).not.toBe("none");
   expect(visual.transformOrigin).not.toBe("");
   expect(visual.keyHeight).toBeGreaterThanOrEqual(23);
@@ -328,8 +328,8 @@ test("keeps Strategy's trajectory compact inside the shared primary stage", asyn
     trajectory: host.querySelector<HTMLElement>(".analysis-v2-strategy-trajectory")!.getBoundingClientRect().width,
   }));
   expect(widths.stage).toBeLessThanOrEqual(1180.5);
-  expect(widths.object).toBeLessThanOrEqual(860.5);
-  expect(widths.trajectory).toBeLessThanOrEqual(860.5);
+  expect(widths.object).toBeLessThanOrEqual(760.5);
+  expect(widths.trajectory).toBeLessThanOrEqual(760.5);
 });
 
 test("uses compact Movement diagrams with short supporting history lines", async ({ page }) => {

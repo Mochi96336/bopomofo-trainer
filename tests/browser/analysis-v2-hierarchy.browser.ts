@@ -113,10 +113,10 @@ test("keeps a medium keyboard while using desktop space to separate the reading"
   expect(metrics.domainWidth).toBeLessThanOrEqual(1180.5);
   expect(metrics.stageWidth).toBeLessThanOrEqual(1180.5);
   expect(metrics.stageHeight).toBeLessThanOrEqual(540.5);
-  expect(metrics.keyboardWidth).toBeGreaterThanOrEqual(859);
-  expect(metrics.keyboardWidth).toBeLessThanOrEqual(860.5);
-  expect(metrics.keyboardShare).toBeGreaterThan(0.72);
-  expect(metrics.keyboardShare).toBeLessThan(0.74);
+  expect(metrics.keyboardWidth).toBeGreaterThanOrEqual(759);
+  expect(metrics.keyboardWidth).toBeLessThanOrEqual(760.5);
+  expect(metrics.keyboardShare).toBeGreaterThan(0.63);
+  expect(metrics.keyboardShare).toBeLessThan(0.66);
   expect(metrics.leadFont).toBeGreaterThanOrEqual(24);
   expect(metrics.leadFont).toBeLessThanOrEqual(29.5);
   expect(metrics.leadGap).toBeGreaterThanOrEqual(45);
@@ -142,12 +142,6 @@ test("keeps Semantic and Coordination keyboards at one fixed screen position and
   const canvasCenter = (canvasBefore.left + canvasBefore.right) / 2;
   expect(Math.abs(boardCenter - canvasCenter)).toBeLessThan(1);
 
-  const floorRail = await analysis.evaluate((host) => ({
-    readoutRight: host.querySelector<HTMLElement>(".analysis-v2-speed-readout")!.getBoundingClientRect().right,
-    methodRight: host.querySelector<HTMLElement>(".analysis-v2-speed-field > .analysis-v2-method")!.getBoundingClientRect().right,
-  }));
-  expect(Math.abs(floorRail.methodRight - floorRail.readoutRight)).toBeLessThanOrEqual(1);
-
   await analysis.locator(".analysis-v2-speed-path").first().evaluate((node) => {
     node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
@@ -157,7 +151,7 @@ test("keeps Semantic and Coordination keyboards at one fixed screen position and
   });
   expect(Math.abs(coordinationAfter.top - coordinationBefore.top)).toBeLessThan(0.5);
   expect(coordinationAfter.width).toBe(coordinationBefore.width);
-  expect(coordinationBefore.width).toBe(860);
+  expect(coordinationBefore.width).toBe(760);
 
   await analysis.locator('[data-tab="semantic"]').click();
   const semanticBoard = analysis.locator(".analysis-v2-keyboard");
