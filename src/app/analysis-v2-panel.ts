@@ -29,6 +29,7 @@ import {
   ANALYSIS_V2_SPEED_VIEWBOX,
   analysisV2KeyboardCurvePath,
   buildAnalysisV2SpeedPaths,
+  exactTransitionHistoryLabel,
 } from "./analysis-v2-speed-network.js";
 import {
   strategyPermutationStructureLabel,
@@ -502,7 +503,7 @@ function speedLeadMarkup(
   return `<div class="analysis-v2-hero-readout analysis-v2-speed-readout">
     <strong><b>${escapeHtml(tokenLabel(cell.scope.fromToken))} → ${escapeHtml(tokenLabel(cell.scope.toToken))}</b><em>${escapeHtml(milliseconds(cell.currentTimeToTypeMs))}</em></strong>
     <small>${cell.timingSamples} 個乾淨樣本 · 僅在畫面中的同類實際鍵間轉換中比較</small>
-    <span>${escapeHtml(displayCount)} · 線粗代表樣本支持；紅線對應目前主讀值</span>
+    <span>${escapeHtml(exactTransitionHistoryLabel(cell))} · ${escapeHtml(displayCount)} · 線粗代表樣本支持；紅線對應目前主讀值</span>
   </div>`;
 }
 
