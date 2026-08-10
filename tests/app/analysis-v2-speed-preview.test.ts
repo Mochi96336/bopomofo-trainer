@@ -107,12 +107,14 @@ describe("Analysis V2 speed hover preview", () => {
     return controller.host;
   }
 
-  it("renders the baseline pair and its history synchronously", () => {
+  it("renders the baseline pair, history, and speed legend synchronously", () => {
     const host = open();
 
     expect(readout(host)).toContain("ㄇ → ㄈ");
     expect(readout(host)).toContain("240 ms");
     expect(readout(host)).toContain("近期完成點 277 → 249 → 247 → 254 → 256 毫秒");
+    expect(readout(host)).toContain("線粗＝樣本支持；越深紅＝相對越慢");
+    expect(readout(host)).not.toContain("紅線對應目前主讀值");
     expect(speedPath(host, SLOW_ID).classList.contains("is-accent")).toBe(true);
   });
 
@@ -126,6 +128,7 @@ describe("Analysis V2 speed hover preview", () => {
     expect(readout(host)).toContain("120 ms");
     expect(readout(host)).toContain("6 個乾淨樣本");
     expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
+    expect(readout(host)).toContain("越深紅＝相對越慢");
     expect(readout(host)).not.toContain("277 → 249 → 247 → 254 → 256");
     expect(speedPath(host, FAST_ID).classList.contains("is-accent")).toBe(true);
     expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
