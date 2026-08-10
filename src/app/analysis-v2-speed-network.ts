@@ -12,7 +12,7 @@ export interface AnalysisV2SpeedPath {
   readonly label: string;
   readonly width: number;
   readonly opacity: number;
-  /** Relative speed rank inside the visible homogeneous exact-transition family. */
+  /** Tail-weighted visual slowness inside the visible exact-transition family. */
   readonly slowness: number;
   readonly includesTone: boolean;
 }
@@ -152,7 +152,11 @@ export function buildAnalysisV2SpeedPaths(
     const from = points.get(cell.scope.fromToken);
     const to = points.get(cell.scope.toToken);
     if (from === undefined || to === undefined || cell.currentTimeToTypeMs === null) return [];
-    const slowness = visible.length === 1 ? 0.5 : index / maximumRank;
+    const speedRank = visible.length === 1 ? 0.5 : index / maximumRank;
+    // A mild gamma curve keeps most comparable paths near the neutral evidence
+    // color and lets the slow tail separate more clearly instead of filling the
+    // whole network with evenly spaced red steps.
+    const slowness = Math.pow(speedRank, 1.8);
     const includesTone = cell.scope.fromToken.startsWith("tone:")
       || cell.scope.toToken.startsWith("tone:");
     return [{
