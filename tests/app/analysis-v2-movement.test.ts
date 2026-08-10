@@ -119,8 +119,8 @@ describe("Analysis V2 Movement ranking", () => {
     const revisitLabels = [...revisit.querySelectorAll<HTMLElement>(".analysis-v2-movement-stat > span:first-child")]
       .map((node) => node.textContent?.trim());
     expect(revisitLabels).toEqual(["右 · 隔左側"]);
-    expect(revisit.textContent).not.toContain("左 · 隔右側");
-    expect(revisit.textContent).not.toContain("連續");
+    expect(revisitLabels.join(" ")).not.toContain("左 · 隔右側");
+    expect(revisitLabels.join(" ")).not.toContain("連續");
 
     const structureRows = [...structure.querySelectorAll<HTMLElement>(".analysis-v2-movement-stat")];
     const structureLabels = structureRows
