@@ -3,6 +3,9 @@ import { expect, test } from "@playwright/test";
 test("captures the refined movement diagram preview", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = "dark";
+  });
   await page.locator("#open-information").click();
   await page.locator(".analysis-v2-open").click();
 
