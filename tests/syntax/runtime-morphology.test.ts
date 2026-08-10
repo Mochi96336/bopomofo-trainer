@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   decodeSyntaxProfiles,
@@ -12,6 +13,7 @@ import {
   projectRuntimeMorphologicalFeatureCounts,
   validRuntimeMorphologicalFeatureCounts,
 } from "../../src/syntax/runtime-morphology.js";
+import type { ActiveCatalogSyntaxProfilesArtifact } from "../../src/syntax/runtime-profiles.js";
 import type { RuntimeSyntaxProfile } from "../../src/syntax/types.js";
 
 const ENTRY: CatalogEntry = {
@@ -102,5 +104,21 @@ describe("reviewed runtime morphology", () => {
       ["medial"],
     );
     expect(legacyDecoded[0]?.dependencyEvidence.morphologicalFeatureCounts).toBeUndefined();
+  });
+
+  it("ships the pinned active morphology migration sparsely", () => {
+    const artifact = JSON.parse(readFileSync(
+      new URL("../../data/grammar/formal-syntax-active-catalog-profiles.json", import.meta.url),
+      "utf8",
+    )) as ActiveCatalogSyntaxProfilesArtifact;
+    const morphologyProfiles = artifact.profiles.filter(
+      (item) => item.dependencyEvidence.morphologicalFeatureCounts !== undefined,
+    );
+    expect(morphologyProfiles).toHaveLength(139);
+    expect(new Set(morphologyProfiles.map((item) => item.entryId)).size).toBe(138);
+    expect(morphologyProfiles.length).toBeLessThan(artifact.profileCount);
+    for (const item of morphologyProfiles) {
+      expect(item.dependencyEvidence.morphologicalFeatureCounts).toEqual({ "Voice=Cau": 1 });
+    }
   });
 });
