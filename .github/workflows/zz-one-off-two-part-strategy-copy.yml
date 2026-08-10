@@ -18,25 +18,17 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
+          import re
 
           panel = Path('src/app/analysis-v2-panel.ts')
           text = panel.read_text(encoding='utf-8')
-          block = '''  const directions = rows.map((row) => {
-    const accepted = row.canonical === "first" ? "last" : "first";
-    const index = positions.indexOf(accepted);
-    const count = index < 0 ? 0 : row.values[index] ?? 0;
-    const ratio = row.total === 0 ? 0 : count / row.total;
-    return `${positionLabel(row.canonical)} → ${positionLabel(accepted)} ${Math.round(ratio * 100)}%`;
-  }).join(" · ");
-'''
-          if text.count(block) != 1:
-              raise SystemExit(f'expected exactly one duplicated direction block, got {text.count(block)}')
-          text = text.replace(block, '')
+          pattern = r'  const directions = rows\.map\(\(row\) => \{.*?\n  \}\)\.join\(" · "\);\n'
+          text, count = re.subn(pattern, '', text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'expected exactly one duplicated direction block, got {count}')
           replacements = {
-              '<small>前、後位置各累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察後顯示換序輸入</small><span>${escapeHtml(directions)}</span>':
-                  '<small>前、後位置各累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察後顯示換序輸入</small>',
-              '<small>${shifted} / ${total} 個位置觀察</small><span>${escapeHtml(directions)}</span>':
-                  '<small>${shifted} / ${total} 個位置觀察</small>',
+              '<small>前、後位置各累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察後顯示換序輸入</small><span>${escapeHtml(directions)}</span>': '<small>前、後位置各累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察後顯示換序輸入</small>',
+              '<small>${shifted} / ${total} 個位置觀察</small><span>${escapeHtml(directions)}</span>': '<small>${shifted} / ${total} 個位置觀察</small>',
           }
           for old, new in replacements.items():
               if text.count(old) != 1:
