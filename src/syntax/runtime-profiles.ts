@@ -30,7 +30,8 @@ function validProfile(profile: RuntimeSyntaxProfile): boolean {
     && typeof profile.dependencyEvidence === "object"
     && profile.dependencyEvidence !== null
     && typeof profile.dependencyEvidence.dependencyRelationCounts === "object"
-    && typeof profile.dependencyEvidence.surfacePositionCounts === "object";
+    && typeof profile.dependencyEvidence.surfacePositionCounts === "object"
+    && typeof profile.dependencyEvidence.morphologicalFeatureCounts === "object";
 }
 
 /**
