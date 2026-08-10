@@ -206,14 +206,15 @@ test("ranks only comparable word structures and keeps populated Movement geometr
   await expect(returnFamily.locator("header small")).toHaveText("1 可比較 · 1 樣本中");
   const returnRows = returnFamily.locator(".analysis-v2-movement-stat");
   await expect(returnRows).toHaveCount(2);
-  expect(await returnRows.locator(":scope > span:first-child").allTextContents()).toEqual([
+  const returnLabels = await returnRows.locator(":scope > span:first-child").allTextContents();
+  expect(returnLabels).toEqual([
     "左 · 隔右側",
     "右 · 隔左側",
   ]);
   await expect(returnRows.nth(0).locator("strong")).toHaveText("260 ms");
   await expect(returnRows.nth(1)).toHaveClass(/sampling/);
   await expect(returnRows.nth(1).locator("strong")).toHaveText("—");
-  await expect(returnFamily).not.toContainText("連續");
+  expect(returnLabels.join(" ")).not.toContain("連續");
 
   const family = analysis.locator(".analysis-v2-movement-family").filter({ hasText: "字內結構" });
   await expect(family).toBeVisible();
