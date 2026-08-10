@@ -12,7 +12,10 @@ import type {
   StructuralLexicalSlot,
   StructuralSyntaxNode,
 } from "./derive.js";
-import { presenceConstraintsSatisfied } from "./presence-constraints.js";
+import {
+  validConstituentCountAssignments,
+  type ConstituentCounts,
+} from "./presence-constraints.js";
 import {
   EMPTY_SYNTAX_REQUIREMENTS,
   requirementsForConstituent,
@@ -53,6 +56,13 @@ interface State {
 interface Sampled {
   readonly element: StructuralElement;
   readonly state: State;
+  readonly rulePath: readonly string[];
+  readonly slots: readonly StructuralLexicalSlot[];
+}
+
+interface SampledRuleChildren {
+  readonly state: State;
+  readonly children: readonly StructuralElement[];
   readonly rulePath: readonly string[];
   readonly slots: readonly StructuralLexicalSlot[];
 }
@@ -129,6 +139,75 @@ function makeSlot(
   };
 }
 
+function sampleRuleChildren(
+  ordered: readonly ProductionConstituent[],
+  requirements: SyntaxRequirements,
+  rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
+  random: RandomSource,
+  bounds: DerivationBounds,
+  inputState: State,
+  path: readonly string[],
+  isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
+  rootProductionRuleId: string | undefined,
+  fixedCounts?: ConstituentCounts,
+): SampledRuleChildren | null {
+  let workingState = inputState;
+  const children: StructuralElement[] = [];
+  const slots: StructuralLexicalSlot[] = [];
+  const rulePath: string[] = [];
+
+  for (const constituent of ordered) {
+    const maximum = effectiveConstituentMaximum(constituent, bounds);
+    if (maximum < constituent.minimum) return null;
+    const count = fixedCounts === undefined
+      ? constituent.minimum + chooseIndex(random, maximum - constituent.minimum + 1)
+      : fixedCounts[constituent.key] ?? 0;
+    if (count < constituent.minimum || count > maximum) return null;
+
+    for (let occurrenceIndex = 0; occurrenceIndex < count; occurrenceIndex += 1) {
+      const afterDepth = decrement(workingState, constituent);
+      if (afterDepth === null) return null;
+      const childRequirements = requirementsForConstituent(constituent, requirements);
+      if (childRequirements === null) return null;
+      workingState = afterDepth;
+      if (constituent.category === "Lexeme") {
+        if (workingState.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) return null;
+        const slot = makeSlot(
+          constituent,
+          childRequirements,
+          occurrenceIndex,
+          [...path, constituent.key],
+        );
+        if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) return null;
+        children.push(slot);
+        slots.push(slot);
+        workingState = { ...workingState, lexicalCount: workingState.lexicalCount + 1 };
+        continue;
+      }
+      const child = sampleCategory(
+        constituent.category,
+        childRequirements,
+        rulesByOutput,
+        random,
+        bounds,
+        workingState,
+        [...path, `${constituent.key}[${occurrenceIndex}]`],
+        isLexicalSlotReachable,
+        excludedClassesForConstituent(constituent),
+        rootProductionRuleId,
+        false,
+      );
+      if (child === null) return null;
+      children.push(child.element);
+      slots.push(...child.slots);
+      rulePath.push(...child.rulePath);
+      workingState = child.state;
+    }
+  }
+
+  return { state: workingState, children, rulePath, slots };
+}
+
 function sampleCategory(
   category: SyntaxCategory,
   requirements: SyntaxRequirements,
@@ -158,89 +237,32 @@ function sampleCategory(
     const ordered = order.constituentKeys.map((key) => byKey.get(key));
     if (ordered.some((item) => item === undefined)) continue;
 
-    const counts: Record<string, number> = {};
-    let failed = false;
-    for (const maybeConstituent of ordered) {
-      const constituent = maybeConstituent!;
-      const maximum = effectiveConstituentMaximum(constituent, bounds);
-      if (maximum < constituent.minimum) {
-        failed = true;
-        break;
-      }
-      const range = maximum - constituent.minimum + 1;
-      counts[constituent.key] = constituent.minimum + chooseIndex(random, range);
+    let fixedCounts: ConstituentCounts | undefined;
+    if (rule.constraints.length > 0) {
+      const assignments = [...validConstituentCountAssignments(rule, bounds)];
+      if (assignments.length === 0) continue;
+      fixedCounts = assignments[chooseIndex(random, assignments.length)];
     }
-    if (failed || !presenceConstraintsSatisfied(rule.constraints, counts)) continue;
 
-    let workingState = state;
-    const children: StructuralElement[] = [];
-    const slots: StructuralLexicalSlot[] = [];
-    const rulePath: string[] = [rule.id];
-    for (const maybeConstituent of ordered) {
-      const constituent = maybeConstituent!;
-      const count = counts[constituent.key] ?? 0;
-      for (let occurrenceIndex = 0; occurrenceIndex < count; occurrenceIndex += 1) {
-        const afterDepth = decrement(workingState, constituent);
-        if (afterDepth === null) {
-          failed = true;
-          break;
-        }
-        const childRequirements = requirementsForConstituent(constituent, requirements);
-        if (childRequirements === null) {
-          failed = true;
-          break;
-        }
-        workingState = afterDepth;
-        if (constituent.category === "Lexeme") {
-          if (workingState.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) {
-            failed = true;
-            break;
-          }
-          const slot = makeSlot(
-            constituent,
-            childRequirements,
-            occurrenceIndex,
-            [...path, rule.id, constituent.key],
-          );
-          if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) {
-            failed = true;
-            break;
-          }
-          children.push(slot);
-          slots.push(slot);
-          workingState = { ...workingState, lexicalCount: workingState.lexicalCount + 1 };
-          continue;
-        }
-        const child = sampleCategory(
-          constituent.category,
-          childRequirements,
-          rulesByOutput,
-          random,
-          bounds,
-          workingState,
-          [...path, rule.id, `${constituent.key}[${occurrenceIndex}]`],
-          isLexicalSlotReachable,
-          excludedClassesForConstituent(constituent),
-          rootProductionRuleId,
-          false,
-        );
-        if (child === null) {
-          failed = true;
-          break;
-        }
-        children.push(child.element);
-        slots.push(...child.slots);
-        rulePath.push(...child.rulePath);
-        workingState = child.state;
-      }
-      if (failed) break;
-    }
-    if (failed) continue;
+    const sampledChildren = sampleRuleChildren(
+      ordered as readonly ProductionConstituent[],
+      requirements,
+      rulesByOutput,
+      random,
+      bounds,
+      state,
+      [...path, rule.id],
+      isLexicalSlotReachable,
+      rootProductionRuleId,
+      fixedCounts,
+    );
+    if (sampledChildren === null) continue;
+
     const identity = {
       category,
       productionRuleId: rule.id,
       surfaceOrderId: order.id,
-      children,
+      children: sampledChildren.children,
     };
     const node: StructuralSyntaxNode = {
       kind: "syntax-node",
@@ -248,9 +270,14 @@ function sampleCategory(
       category,
       productionRuleId: rule.id,
       surfaceOrderId: order.id,
-      children,
+      children: sampledChildren.children,
     };
-    return { element: node, state: workingState, rulePath, slots };
+    return {
+      element: node,
+      state: sampledChildren.state,
+      rulePath: [rule.id, ...sampledChildren.rulePath],
+      slots: sampledChildren.slots,
+    };
   }
   return null;
 }
