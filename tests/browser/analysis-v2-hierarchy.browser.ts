@@ -192,7 +192,6 @@ test("uses continuous red flyline intensity and never turns Analysis text red on
     const paths = [...host.querySelectorAll<SVGPathElement>(".analysis-v2-speed-path")];
     const fastest = paths[0]!;
     const slowest = paths.at(-1)!;
-    const neutral = paths.find((path) => !path.classList.contains("is-accent"))!;
     const probe = document.createElement("span");
     host.append(probe);
     probe.style.color = "var(--accent)";
@@ -206,7 +205,8 @@ test("uses continuous red flyline intensity and never turns Analysis text red on
     return {
       accent,
       danger,
-      neutralStroke: getComputedStyle(neutral).stroke,
+      fastestStroke: getComputedStyle(fastest).stroke,
+      slowestStroke: getComputedStyle(slowest).stroke,
       fastestOpacity: Number.parseFloat(fastest.style.getPropertyValue("--relation-opacity")),
       slowestOpacity: Number.parseFloat(slowest.style.getPropertyValue("--relation-opacity")),
       stageHeight: stageRect.height,
@@ -214,7 +214,9 @@ test("uses continuous red flyline intensity and never turns Analysis text red on
       readoutGap: readoutRect.top - boardRect.bottom,
     };
   });
-  expect(palette.neutralStroke).toBe(palette.accent);
+  expect(palette.fastestStroke).not.toBe(palette.slowestStroke);
+  expect(palette.fastestStroke).not.toBe(palette.accent);
+  expect(palette.slowestStroke).not.toBe(palette.accent);
   expect(Number.isFinite(palette.fastestOpacity)).toBe(true);
   expect(Number.isFinite(palette.slowestOpacity)).toBe(true);
   expect(palette.slowestOpacity).toBeGreaterThan(palette.fastestOpacity);
@@ -265,5 +267,5 @@ test("uses continuous red flyline intensity and never turns Analysis text red on
     probe.remove();
     return { actual, accent };
   });
-  expect(darkPalette.actual).toBe(darkPalette.accent);
+  expect(darkPalette.actual).not.toBe(darkPalette.accent);
 });
