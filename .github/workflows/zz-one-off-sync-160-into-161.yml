@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   sync:
-    if: ${{ github.event.before == 'bff075501af76d2c15d5ffc64fe6e1c63a757f15' && contains(github.event.head_commit.message, '[install-sync-160-161]') }}
+    if: ${{ github.event.before == '85b48820a1d81366cddf35efa0686aabc2f93368' && contains(github.event.head_commit.message, '[retry-sync-160-161]') }}
     runs-on: ubuntu-latest
     env:
       PARENT_SHA: 79fe520e8821f0df5530d17c623d691e44c7a812
@@ -40,6 +40,17 @@ jobs:
           git merge --no-commit --no-ff -X ours "${PARENT_SHA}"
           test -z "$(git diff --name-only --diff-filter=U)"
           python scripts/zz_one_off_sync_160_161.py
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/progress-history/motor-history.test.ts')
+          text = path.read_text(encoding='utf-8')
+          if 'sameHandRevisitAggregateKey,' not in text:
+              anchor = '  immediateTokenAggregateKey,\n'
+              if anchor not in text:
+                  raise SystemExit('motor-history import anchor drifted')
+              text = text.replace(anchor, anchor + '  sameHandRevisitAggregateKey,\n', 1)
+              path.write_text(text, encoding='utf-8')
+          PY
 
       - name: Validate schema and interaction contracts before push
         shell: bash
