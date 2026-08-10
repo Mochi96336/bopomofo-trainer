@@ -17,9 +17,9 @@ import {
   createAnalysisV2,
   renderAnalysisV2Summary,
   type AnalysisV2Controller,
+  type AnalysisV2PreferenceStorage,
 } from "./analysis-v2-panel.js";
 import { buildAnalysisV2Model } from "./analysis-v2-model.js";
-import type { DiagnosticPreferenceStorage } from "./diagnostic-preferences.js";
 import type { DiagnosticSnapshot } from "./diagnostic-snapshot.js";
 import {
   DEFAULT_SELECTION_TUNING,
@@ -80,7 +80,7 @@ export interface DiagnosticEnhancementDependencies {
   readonly closePanel: () => void;
   readonly focusPractice: () => void;
   readonly getSnapshot: () => DiagnosticSnapshot | null;
-  readonly storage: DiagnosticPreferenceStorage;
+  readonly storage: AnalysisV2PreferenceStorage;
 }
 
 export interface DiagnosticEnhancement {
@@ -168,7 +168,6 @@ export function mountDiagnosticEnhancement(
         currentAnalysisModel(),
         () => openAnalysisFromPractice(analysis, deps),
       );
-      content.querySelector(".motor-diagnostic-section")?.remove();
     },
     destroy(): void {
       topLayer?.destroy();
