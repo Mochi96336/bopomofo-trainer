@@ -160,7 +160,7 @@ export function buildAnalysisV2SpeedPaths(
       path: pathFor(cell.id, from, to, includesTone),
       label: `${tokenLabel(cell.scope.fromToken)} 到 ${tokenLabel(cell.scope.toToken)}，${Math.round(cell.currentTimeToTypeMs)} 毫秒，${cell.timingSamples} 個乾淨樣本；${exactTransitionHistoryLabel(cell)}`,
       width: sampleWidth(cell.timingSamples),
-      opacity: 0.22 + slowness * 0.68,
+      opacity: 0.42 + slowness * 0.30,
       slowness,
       includesTone,
     }];
