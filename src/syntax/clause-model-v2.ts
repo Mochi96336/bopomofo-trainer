@@ -32,9 +32,9 @@ export interface ClauseRuleV2Migration {
  * Migration inventory for every current v1 `Clause` production.
  *
  * This is deliberately not a sampling taxonomy. It records which orthogonal
- * grammatical dimension should own each legacy production while v1 remains the
- * executable runtime. A follow-up may change legality only after the target
- * dimension has an executable representation and evidence contract.
+ * grammatical dimension should own each production while the v2 migration is
+ * in progress. A rule may remain in a rebuild group after its first structural
+ * correction so later evidence and lexical licensing work stays explicit.
  */
 export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
   "clause.nominal-predicate": {
@@ -148,23 +148,23 @@ export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
     target: "ccomp",
     note: "Represent a finite content complement through the clausal-complement relation.",
   },
-  "clause.complement-content": {
+  "clause.xcomp-subject-control": {
     group: "rebuild-embedding-control",
     targetAxis: "embedding",
-    target: "xcomp",
-    note: "Requires executable subject-control constraints; an arbitrary embedded Clause is too broad.",
+    target: "xcomp.subject-control",
+    note: "Uses a subjectless OpenClause and an executable controller-presence constraint; lexical licensing remains evidence-driven.",
+  },
+  "clause.xcomp-object-control": {
+    group: "rebuild-embedding-control",
+    targetAxis: "embedding",
+    target: "xcomp.object-control",
+    note: "Replaces the legacy pivotal rule with obj + subjectless OpenClause control structure.",
   },
   "clause.quoted-content": {
     group: "rebuild-embedding-control",
     targetAxis: "embedding",
     target: "quotation",
     note: "Keep quotation as an embedding shape while reviewing the allowed quoted root categories.",
-  },
-  "clause.pivotal": {
-    group: "rebuild-embedding-control",
-    targetAxis: "predicate-structure",
-    target: "object-control",
-    note: "Prefer an obj + xcomp/control representation over a bespoke pivot lexical role.",
   },
 
   "clause.locative": {
