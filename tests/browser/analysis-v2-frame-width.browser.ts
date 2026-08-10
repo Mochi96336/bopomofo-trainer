@@ -15,7 +15,9 @@ function expectedBoardWidth(width: number, height: number): number {
 }
 
 function expectedKeyHeight(width: number, height: number): number {
-  return Math.max(23, Math.min(48, Math.min(width * 0.037, height * 0.032)));
+  const scaled = Math.min(width * 0.0194, height * 0.0276);
+  const preferred = Math.min(width * 0.037, Math.max(35, scaled));
+  return Math.max(23, Math.min(48, preferred));
 }
 
 test("scales all primary frames together only when width and height both have room", async ({ page }) => {
@@ -37,7 +39,7 @@ test("scales all primary frames together only when width and height both have ro
       const key = host.querySelector<HTMLElement>(".analysis-v2-speed-board .analysis-v2-key")!;
       return {
         width: board.getBoundingClientRect().width,
-        keyHeight: key.getBoundingClientRect().height,
+        keyHeight: Number.parseFloat(getComputedStyle(key).height),
       };
     });
 
@@ -53,7 +55,7 @@ test("scales all primary frames together only when width and height both have ro
       return {
         keyboardWidth: keyboard.getBoundingClientRect().width,
         slotWidth: slot.getBoundingClientRect().width,
-        keyHeight: key.getBoundingClientRect().height,
+        keyHeight: Number.parseFloat(getComputedStyle(key).height),
       };
     });
 
