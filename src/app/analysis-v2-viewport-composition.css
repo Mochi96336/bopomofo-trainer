@@ -178,17 +178,34 @@
   }
 
   /* Methodology is independent vertically, but it belongs to the same editorial
-     rail as the keyboard/readout instead of drifting to the wider domain edge.
-     Movement owns the same viewport floor as the path view rather than leaving
-     its disclosure at the end of the long scrolling surface. */
+     rail as the keyboard/readout instead of drifting to the wider domain edge. */
   .analysis-v2 .analysis-v2-speed-field > .analysis-v2-method,
-  .analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method,
-  .analysis-v2 .analysis-v2-movement-view > .analysis-v2-method {
+  .analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method {
     position: fixed;
     z-index: 6;
     right: calc((100vw - var(--analysis-board-width)) / 2);
     bottom: clamp(30px, 4dvh, 48px);
     margin: 0;
+  }
+
+  /* Movement is a wider reading surface than the keyboard rail. Keep its
+     disclosure on the same viewport floor, but pin it to the movement surface's
+     own right edge so it cannot land in the middle of the lower-right family. */
+  .analysis-v2 .analysis-v2-movement-view > .analysis-v2-method {
+    position: fixed;
+    z-index: 6;
+    right: max(3vw, calc((100vw - 1040px) / 2));
+    bottom: clamp(30px, 4dvh, 48px);
+    width: auto;
+    margin: 0;
+  }
+
+  /* The collapsed disclosure sits beside the final explanatory paragraph.
+     Reserve its lane explicitly instead of allowing the fixed summary to paint
+     over that text. */
+  .analysis-v2 .analysis-v2-movement-family:last-child > p {
+    box-sizing: border-box;
+    padding-right: 104px;
   }
 }
 
