@@ -132,12 +132,14 @@
   cursor: pointer;
 }
 
-/* Four neutral evidence levels. Only the single current relation is red. */
+/* Every comparable exact transition uses one speed scale: faint red is faster,
+   deeper red is slower inside the currently visible homogeneous family. Line
+   width remains sample support, so color and width carry separate evidence. */
 .analysis-v2-speed-path {
   fill: none;
-  stroke: var(--ink-faint);
+  stroke: var(--accent);
   stroke-width: var(--relation-width);
-  stroke-opacity: 0.24;
+  stroke-opacity: var(--relation-opacity, 0.22);
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
@@ -146,23 +148,13 @@
   transition: stroke-opacity 110ms ease, stroke-width 110ms ease;
 }
 
-.analysis-v2-speed-path.salient {
-  stroke: var(--ink-upcoming);
-  stroke-opacity: 0.5;
-}
-
-.analysis-v2-speed-path.is-slow {
-  stroke: var(--ink);
-  stroke-opacity: 0.72;
-}
-
+/* Hover/pin is an interaction treatment only. It must not replace the speed
+   color encoding, so the path keeps its data-driven red intensity. */
 .analysis-v2-speed-path:hover,
 .analysis-v2-speed-path:focus-visible,
 .analysis-v2-speed-path.is-focused,
 .analysis-v2-speed-path.selected {
   outline: none;
-  stroke: var(--ink);
-  stroke-opacity: 1;
   stroke-width: calc(var(--relation-width) + 0.7px);
 }
 
@@ -171,8 +163,7 @@
 .analysis-v2-speed-path.is-accent:focus-visible,
 .analysis-v2-speed-path.is-accent.is-focused,
 .analysis-v2-speed-path.is-accent.selected {
-  stroke: var(--accent);
-  stroke-opacity: 1;
+  stroke-width: calc(var(--relation-width) + 0.9px);
 }
 
 .analysis-v2-speed-path.is-muted {
@@ -180,7 +171,7 @@
 }
 
 .analysis-v2-speed-path.is-accent.is-muted {
-  stroke-opacity: 0.34;
+  stroke-opacity: 0.12;
 }
 
 .analysis-v2-speed-path.tone {
@@ -191,7 +182,7 @@
   display: none;
 }
 
-/* Selecting a relation pins the hero/red line only. The former secondary table
+/* Selecting a relation pins the hero relation only. The former secondary table
    repeated low-value observation/readiness metadata and is intentionally absent
    from the visible composition. */
 .analysis-v2-speed-inspector {
