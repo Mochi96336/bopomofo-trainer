@@ -45,8 +45,8 @@ describe("formal complement and embedded-clause inventory", () => {
       replacement: "compound:vv-or-reviewed-reconstruction:TBD",
     });
     expect(FORMAL_SYNTAX_RULES.flatMap((rule) =>
-      rule.constituents.flatMap((item) => item.requiredValencyFrames))
-      .toContain("resultative")).toBe(false);
+      rule.constituents.flatMap((item) => item.requiredValencyFrames)))
+      .not.toContain("resultative");
   });
 
   it("marks every embedded return to clause-like categories as recursive", () => {
