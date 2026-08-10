@@ -246,7 +246,7 @@
    legible once the viewport is vertically compressed. Below this threshold,
    return every fixed Analysis floor item to document flow so the workspace can
    scroll rather than letting persistent controls paint over content. */
-@media (min-width: 641px) and (max-height: 620px) {
+@media (min-width: 641px) and (max-height: 700px) {
   .analysis-v2 .analysis-v2-speed-field,
   .analysis-v2 .analysis-v2-semantic-domain,
   .analysis-v2 .analysis-v2-strategy-domain {
