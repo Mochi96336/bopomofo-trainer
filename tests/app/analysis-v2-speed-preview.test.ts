@@ -165,4 +165,29 @@ describe("Analysis V2 speed hover preview", () => {
     expect(speedPath(host, FAST_ID).classList.contains("is-accent")).toBe(true);
     expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
   });
+
+  it("keeps a keyboard-pinned relation after rerender and focus leaves the new path", () => {
+    const host = open();
+    const beforePin = speedPath(host, FAST_ID);
+    beforePin.focus();
+
+    expect(readout(host)).toContain("ㄅ → ㄆ");
+    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
+    expect(beforePin.getAttribute("aria-pressed")).toBe("false");
+
+    beforePin.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+
+    const afterPin = speedPath(host, FAST_ID);
+    expect(afterPin).not.toBe(beforePin);
+    expect(afterPin.getAttribute("aria-pressed")).toBe("true");
+    expect(readout(host)).toContain("ㄅ → ㄆ");
+    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
+
+    host.querySelector<HTMLButtonElement>(".analysis-v2-close")?.focus();
+
+    expect(readout(host)).toContain("ㄅ → ㄆ");
+    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
+    expect(readout(host)).not.toContain("277 → 249 → 247 → 254 → 256");
+    expect(speedPath(host, FAST_ID).classList.contains("is-accent")).toBe(true);
+  });
 });
