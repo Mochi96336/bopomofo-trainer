@@ -142,6 +142,28 @@ describe("Analysis V2 speed hover preview", () => {
     expect(speedPath(host, SLOW_ID).classList.contains("is-accent")).toBe(true);
   });
 
+  it("returns to the focused relation after a temporary pointer preview", () => {
+    const host = open();
+    const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
+    speedPath(host, FAST_ID).focus();
+
+    expect(readout(host)).toContain("ㄅ → ㄆ");
+    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
+
+    pointer(speedHit(host, SLOW_ID), "pointerover");
+    expect(readout(host)).toContain("ㄇ → ㄈ");
+    expect(readout(host)).toContain("近期完成點 277 → 249 → 247 → 254 → 256 毫秒");
+
+    pointer(speedHit(host, SLOW_ID), "pointerout", board);
+    expect(readout(host)).toContain("ㄅ → ㄆ");
+    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
+    expect(speedPath(host, FAST_ID).classList.contains("is-accent")).toBe(true);
+
+    host.querySelector<HTMLButtonElement>(".analysis-v2-close")?.focus();
+    expect(readout(host)).toContain("ㄇ → ㄈ");
+    expect(readout(host)).toContain("近期完成點 277 → 249 → 247 → 254 → 256 毫秒");
+  });
+
   it("keeps click as the pinned baseline while other hover remains temporary", () => {
     const host = open();
     pointer(speedHit(host, FAST_ID), "pointerover");
