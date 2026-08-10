@@ -165,6 +165,7 @@ const moduleSource = [
   "const ENCODED_EVALUATION: readonly EncodedCatalogEntry[] = [];",
   `const DEPENDENCY_RELATION_KEYS: readonly string[] = ${JSON.stringify(encodedProfiles.relationKeys)};`,
   `const SURFACE_POSITION_KEYS: readonly string[] = ${JSON.stringify(encodedProfiles.positionKeys)};`,
+  `const MORPHOLOGICAL_FEATURE_KEYS: readonly string[] = ${JSON.stringify(encodedProfiles.morphologyKeys)};`,
   `const ENCODED_SYNTAX_PROFILES: readonly EncodedSyntaxProfile[] = ${JSON.stringify(encodedProfiles.profiles)};`,
   "",
   "export const PRACTICE_CATALOG: readonly CatalogEntry[] = decodeCatalogEntries(ENCODED_PRACTICE);",
@@ -174,6 +175,7 @@ const moduleSource = [
   "  PRACTICE_CATALOG,",
   "  DEPENDENCY_RELATION_KEYS,",
   "  SURFACE_POSITION_KEYS,",
+  "  MORPHOLOGICAL_FEATURE_KEYS,",
   ");",
   "",
 ].join("\n");
