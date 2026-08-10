@@ -12,7 +12,7 @@ function profile(frame: ValencyFrame): RuntimeSyntaxProfile {
     id: `profile:${frame}`,
     entryId: `entry:${frame}`,
     upos: "VERB",
-    functions: [],
+    functions: ["predicate"],
     valencyFrames: [frame],
     dependencyEvidence: {
       dependencyRelationCounts: {},
