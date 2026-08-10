@@ -101,6 +101,6 @@ describe("reviewed runtime morphology", () => {
       ["ccomp"],
       ["medial"],
     );
-    expect(legacyDecoded[0]?.dependencyEvidence.morphologicalFeatureCounts).toEqual({});
+    expect(legacyDecoded[0]?.dependencyEvidence.morphologicalFeatureCounts).toBeUndefined();
   });
 });
