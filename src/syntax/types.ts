@@ -20,9 +20,9 @@ export type SyntacticFunction = (typeof SYNTACTIC_FUNCTIONS)[number];
 
 export const VALENCY_FRAMES = [
   "avalent", "intransitive", "transitive", "ditransitive", "ambitransitive",
-  "copular", "clausal-complement", "open-clausal-complement",
+  "copular", "clausal-complement", "open-clausal-complement", "adpositional-complement",
+  "serial-verb", "causative", "resultative",
   "subject-controlled-open-complement", "object-controlled-open-complement",
-  "adpositional-complement", "serial-verb", "causative", "resultative",
 ] as const;
 export type ValencyFrame = (typeof VALENCY_FRAMES)[number];
 export type SyntaxEvidenceScope = "per-upos" | "aggregate-legacy";
