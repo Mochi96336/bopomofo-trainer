@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PREDICATE_PRODUCTION_RULES } from "../../src/syntax/predicate-rules.js";
 import {
   EMPTY_SYNTAX_REQUIREMENTS,
   requirementsForConstituent,
@@ -39,11 +40,46 @@ describe("syntax requirement propagation", () => {
     });
   });
 
+  it("inherits compatible features only when the edge opts in", () => {
+    const parent = {
+      requiredFunctions: [] as const,
+      requiredValencyFrames: [] as const,
+      requiredFeatures: { voice: "causative", polarity: "negative" } as const,
+    };
+    expect(requirementsForConstituent(constituent({
+      inheritFeatures: true,
+      requiredFeatures: { aspect: "marked" },
+    }), parent)?.requiredFeatures).toEqual({
+      aspect: "marked",
+      polarity: "negative",
+      voice: "causative",
+    });
+    expect(requirementsForConstituent(constituent({
+      requiredFeatures: { aspect: "marked" },
+    }), parent)?.requiredFeatures).toEqual({ aspect: "marked" });
+  });
+
+  it("fails closed when local and inherited feature requirements conflict", () => {
+    const parent = {
+      requiredFunctions: [] as const,
+      requiredValencyFrames: [] as const,
+      requiredFeatures: { voice: "causative" } as const,
+    };
+    expect(requirementsForConstituent(constituent({
+      inheritFeatures: true,
+      requiredFeatures: { voice: "passive" },
+    }), parent)).toBeNull();
+    expect(requirementsForConstituent(constituent({
+      inheritFeatures: true,
+      requiredFeatures: { voice: "causative" },
+    }), parent)?.requiredFeatures).toEqual({ voice: "causative" });
+  });
+
   it("does not leak parent requirements into an unrelated child", () => {
     const parent = {
       requiredFunctions: ["subject"] as const,
       requiredValencyFrames: [] as const,
-      requiredFeatures: {},
+      requiredFeatures: { voice: "causative" } as const,
     };
     expect(requirementsForConstituent(constituent({
       allowedUpos: ["ADJ"],
@@ -69,6 +105,25 @@ describe("syntax requirement propagation", () => {
       inheritValencyFrames: true,
       requiredValencyFrames: ["intransitive"],
     }), parent)).toBeNull();
+  });
+
+  it("carries predicate-level feature requirements only to the lexical head", () => {
+    const parent = {
+      requiredFunctions: [] as const,
+      requiredValencyFrames: ["clausal-complement"] as const,
+      requiredFeatures: { voice: "causative" } as const,
+    };
+    for (const rule of PREDICATE_PRODUCTION_RULES) {
+      const head = rule.constituents.find((item) => item.key === "head");
+      expect(head?.inheritFeatures).toBe(true);
+      expect(head === undefined ? null : requirementsForConstituent(head, parent)).toMatchObject({
+        requiredValencyFrames: ["clausal-complement"],
+        requiredFeatures: { voice: "causative" },
+      });
+      for (const nonHead of rule.constituents.filter((item) => item.key !== "head")) {
+        expect(nonHead.inheritFeatures).not.toBe(true);
+      }
+    }
   });
 
   it("keeps an unconstrained edge empty", () => {
