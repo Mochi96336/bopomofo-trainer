@@ -429,6 +429,7 @@ export function parseMeasurementSummaryV2(
     || !isNonNegativeInteger(value.semantic.prematureTones)) return null;
 
   const aggregate1 = value.policyVersion === LEGACY_MEASUREMENT_V2_POLICY_VERSION;
+  const currentStrategyEvidence = value.policyVersion === MEASUREMENT_V2_POLICY_VERSION;
   const legacyHandshapeCoordination = aggregate1
     || value.policyVersion === HANDSHAPE_MEASUREMENT_V2_POLICY_VERSION;
   const legacySameHandRevisit = value.policyVersion !== MEASUREMENT_V2_POLICY_VERSION;
@@ -457,8 +458,12 @@ export function parseMeasurementSummaryV2(
     ? migrateLegacyStrategyRecord(strategy.inputOrderPositions)
     : strategy.inputOrderPositions;
   if (strategySource === null) return null;
-  const permutationSource = strategy.inputOrderPermutations ?? {};
-  const trajectorySource = strategy.recentInputOrderTrajectories ?? [];
+  const permutationSource = currentStrategyEvidence
+    ? strategy.inputOrderPermutations ?? {}
+    : {};
+  const trajectorySource = currentStrategyEvidence
+    ? strategy.recentInputOrderTrajectories ?? []
+    : [];
 
   if (legacyHandshapeCoordination
     && !validateLegacyCoordinationRecord(value.motor.coordination, aggregate1)) return null;
