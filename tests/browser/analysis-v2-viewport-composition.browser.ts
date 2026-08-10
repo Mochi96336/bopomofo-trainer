@@ -31,7 +31,7 @@ async function semanticSelectionGap(page: Page, height: number): Promise<number>
   });
 }
 
-test("returns keyboard-led views and methodology to flow before a short desktop viewport can overlap", async ({ page }) => {
+test("returns primary Analysis views and methodology to flow before a short desktop viewport can overlap", async ({ page }) => {
   for (const height of [560, 480, 400]) {
     const gap = await semanticSelectionGap(page, height);
     expect(gap).toBeGreaterThanOrEqual(0);
@@ -65,6 +65,38 @@ test("returns keyboard-led views and methodology to flow before a short desktop 
   expect(coordination.methodPosition).toBe("static");
   expect(coordination.methodGap).toBeGreaterThanOrEqual(0);
   expect(coordination.scrollable).toBe(true);
+
+  await analysis.locator('[data-tab="strategy"]').click();
+  const strategy = await analysis.evaluate((host) => {
+    const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
+    const trajectory = host.querySelector<HTMLElement>(".analysis-v2-strategy-trajectory")!;
+    const projection = host.querySelector<HTMLElement>(".analysis-v2-strategy-projection")!;
+    const readout = host.querySelector<HTMLElement>(".analysis-v2-strategy-readout")!;
+    const method = host.querySelector<HTMLElement>(".analysis-v2-strategy-domain > .analysis-v2-method")!;
+    const slot = host.querySelector<HTMLElement>(
+      ".analysis-v2-strategy-stage .analysis-v2-primary-object-slot",
+    )!;
+    const trajectoryRect = trajectory.getBoundingClientRect();
+    const projectionRect = projection.getBoundingClientRect();
+    const readoutRect = readout.getBoundingClientRect();
+    const methodRect = method.getBoundingClientRect();
+    return {
+      slotPosition: getComputedStyle(slot).position,
+      projectionPosition: getComputedStyle(projection).position,
+      projectionGap: projectionRect.top - trajectoryRect.bottom,
+      readoutGap: readoutRect.top - projectionRect.bottom,
+      methodPosition: getComputedStyle(method).position,
+      methodGap: methodRect.top - readoutRect.bottom,
+      scrollable: main.scrollHeight > main.clientHeight,
+    };
+  });
+  expect(strategy.slotPosition).toBe("static");
+  expect(strategy.projectionPosition).toBe("static");
+  expect(strategy.projectionGap).toBeGreaterThanOrEqual(0);
+  expect(strategy.readoutGap).toBeGreaterThanOrEqual(0);
+  expect(strategy.methodPosition).toBe("static");
+  expect(strategy.methodGap).toBeGreaterThanOrEqual(0);
+  expect(strategy.scrollable).toBe(true);
 });
 
 test("returns Movement methodology to flow in a short desktop viewport", async ({ page }) => {
