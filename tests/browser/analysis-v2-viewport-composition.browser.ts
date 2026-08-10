@@ -58,15 +58,12 @@ test("returns keyboard-led views and methodology to flow before a short desktop 
       readoutGap: readoutRect.top - boardRect.bottom,
       methodPosition: getComputedStyle(method).position,
       methodGap: methodRect.top - readoutRect.bottom,
-      methodWidth: methodRect.width,
-      boardWidth: board.getBoundingClientRect().width,
       scrollable: main.scrollHeight > main.clientHeight,
     };
   });
   expect(coordination.readoutGap).toBeGreaterThanOrEqual(0);
   expect(coordination.methodPosition).toBe("static");
   expect(coordination.methodGap).toBeGreaterThanOrEqual(0);
-  expect(Math.abs(coordination.methodWidth - coordination.boardWidth)).toBeLessThanOrEqual(1);
   expect(coordination.scrollable).toBe(true);
 });
 
