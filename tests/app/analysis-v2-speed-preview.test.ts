@@ -107,15 +107,18 @@ describe("Analysis V2 speed hover preview", () => {
     return controller.host;
   }
 
-  it("previews the relation under the pointer without pinning it", async () => {
+  it("renders the baseline pair and its history synchronously", () => {
     const host = open();
-    await Promise.resolve();
-    const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
 
     expect(readout(host)).toContain("ㄇ → ㄈ");
     expect(readout(host)).toContain("240 ms");
     expect(readout(host)).toContain("近期完成點 277 → 249 → 247 → 254 → 256 毫秒");
     expect(speedPath(host, SLOW_ID).classList.contains("is-accent")).toBe(true);
+  });
+
+  it("previews the relation under the pointer without pinning it", () => {
+    const host = open();
+    const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
 
     pointer(speedHit(host, FAST_ID), "pointerover");
 
@@ -136,12 +139,10 @@ describe("Analysis V2 speed hover preview", () => {
     expect(speedPath(host, SLOW_ID).classList.contains("is-accent")).toBe(true);
   });
 
-  it("keeps click as the pinned baseline while other hover remains temporary", async () => {
+  it("keeps click as the pinned baseline while other hover remains temporary", () => {
     const host = open();
-    await Promise.resolve();
     pointer(speedHit(host, FAST_ID), "pointerover");
     speedPath(host, FAST_ID).dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    await Promise.resolve();
 
     expect(readout(host)).toContain("ㄅ → ㄆ");
     expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
