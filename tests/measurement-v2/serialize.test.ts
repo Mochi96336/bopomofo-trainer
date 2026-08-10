@@ -201,6 +201,30 @@ describe("measurement v2 persistence validation", () => {
     expect(migrated?.motor.immediateHands).toEqual(current.motor.immediateHands);
   });
 
+  it("rejects malformed obsolete 4+ Strategy buckets before discarding them", () => {
+  for (const [key, candidate] of [
+    [
+      '["input-order-position","4+","garbage","last"]',
+      {
+        scope: { bodySize: "4+", canonicalPosition: "garbage", acceptedPosition: "last" },
+        observations: 11,
+      },
+    ],
+    [
+      '["input-order-position","4+","first","last"]',
+      {
+        scope: { bodySize: "4+", canonicalPosition: "first", acceptedPosition: "last" },
+        observations: 0,
+      },
+    ],
+  ] as const) {
+    const legacy = structuredClone(createEmptyMeasurementSummaryV2()) as unknown as Record<string, unknown>;
+    legacy.policyVersion = LEGACY_MEASUREMENT_V2_POLICY_VERSION;
+    legacy.strategy = { inputOrderPositions: { [key]: candidate } };
+    expect(parseMeasurementSummaryV2(legacy, "guided", "zhuyin-standard", TOKENS)).toBeNull();
+  }
+});
+
   it("rejects 4+ in the current aggregate policy instead of silently dropping it", () => {
     const current = createEmptyMeasurementSummaryV2();
     const invalid = structuredClone(current) as unknown as Record<string, unknown>;

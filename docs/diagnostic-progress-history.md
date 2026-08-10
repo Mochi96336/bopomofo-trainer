@@ -23,7 +23,7 @@ There is no validated predictive learning model behind this feature. The product
 
 ## Stored series
 
-Progress-history schema 7 stores per-key semantic history plus bounded V2 motor history.
+Progress-history schema 8 stores per-key semantic history plus bounded V2 motor history.
 
 ### Per-key semantic history
 
@@ -71,11 +71,14 @@ UI code does not decide timing eligibility, reconstruct raw traces, or reclassif
 
 ## Schema and migration
 
-`PROGRESS_HISTORY_SCHEMA_VERSION` is currently **7**.
+`PROGRESS_HISTORY_SCHEMA_VERSION` is currently **8**.
 
-Schema 8 adds `motor.immediateTokens`, keyed by the existing exact directed token-pair aggregate identity.
+Schema 8 adds `motor.immediateTokens`, keyed by the existing exact directed token-pair aggregate identity. Migration is explicit across the two immediately preceding generations:
 
-Schema 6 did not store pair-level history. A schema-6 record therefore migrates to schema 7 with `immediateTokens: {}` while preserving its valid word-structure coordination, immediate-hand, same-hand-revisit, and tone-commit histories. The parser does **not** take a cumulative pair aggregate and manufacture historical points from it: the joint sequence of past buckets is not recoverable from one cumulative value.
+- schema 7 → 8 preserves tone-aware same-hand-revisit history and starts `immediateTokens: {}` because schema 7 never stored pair-level history;
+- schema 6 → 8 validates then discards body-only same-hand-revisit history and also starts `immediateTokens: {}`.
+
+The parser does **not** take a cumulative pair aggregate and manufacture historical points from it: the joint sequence of past buckets is not recoverable from one cumulative value.
 
 Older migration semantics remain unchanged:
 
