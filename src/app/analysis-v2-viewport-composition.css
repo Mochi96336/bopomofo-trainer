@@ -210,9 +210,9 @@
 }
 
 /* A centered fixed board and a fixed lower rail cannot both remain legible once
-   the viewport is vertically compressed. Below this threshold, keep the shared
-   width but return keyboard-led content to normal vertical flow so the page can
-   scroll rather than letting the board cover its readout/inspector. */
+   the viewport is vertically compressed. Below this threshold, return every
+   fixed Analysis floor item to document flow so the workspace can scroll rather
+   than letting a persistent control paint over content. */
 @media (min-width: 641px) and (max-height: 620px) {
   .analysis-v2 .analysis-v2-speed-field,
   .analysis-v2 .analysis-v2-semantic-domain {
@@ -264,12 +264,26 @@
   }
 
   .analysis-v2 .analysis-v2-speed-field > .analysis-v2-method,
-  .analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method {
+  .analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method,
+  .analysis-v2 .analysis-v2-movement-view > .analysis-v2-method {
     position: static;
     right: auto;
     bottom: auto;
-    width: var(--analysis-board-width);
     margin: 8px auto 0;
+  }
+
+  .analysis-v2 .analysis-v2-speed-field > .analysis-v2-method,
+  .analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method {
+    width: var(--analysis-board-width);
     justify-self: center;
+  }
+
+  .analysis-v2 .analysis-v2-movement-view > .analysis-v2-method {
+    width: auto;
+    justify-self: end;
+  }
+
+  .analysis-v2 .analysis-v2-movement-family:last-child > p {
+    padding-right: 0;
   }
 }
