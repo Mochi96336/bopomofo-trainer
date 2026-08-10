@@ -39,8 +39,8 @@ test("keeps Coordination and Semantic keyboards on the same shared frame", async
   }
 });
 
-test("keeps the fixed desktop composition collision-free immediately above the short-height fallback", async ({ page }) => {
-  for (const height of [621, 640, 664]) {
+test("keeps the fixed desktop composition collision-free immediately above the 700px fallback", async ({ page }) => {
+  for (const height of [701, 720, 744]) {
     await page.setViewportSize({ width: 1440, height });
     await openAnalysis(page);
     const analysis = page.locator("#analysis-v2");
