@@ -19,7 +19,8 @@ import type {
 export const LEGACY_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-1" as const;
 export const HANDSHAPE_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-2" as const;
 export const PREVIOUS_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-3" as const;
-export const MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-4" as const;
+export const BODY_ONLY_REVISIT_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-4" as const;
+export const MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-5" as const;
 /** Maximum recent clean trajectory samples retained independently for each body size. */
 export const STRATEGY_TRAJECTORY_LIMIT = 80;
 const SMOOTHING_ALPHA = 0.25;

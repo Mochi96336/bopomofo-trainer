@@ -86,7 +86,7 @@ describe("progress history persistence", () => {
     expect(parse(serializeProgressHistory(original))).toEqual(original);
   });
 
-  it("migrates schema 6 without inventing exact transition history", () => {
+  it("migrates schema 6 by dropping body-only revisit and starting exact history empty", () => {
     const source = mutate((draft) => {
       draft.schemaVersion = 6;
       const motor = draft.motor as Record<string, unknown>;
@@ -98,9 +98,9 @@ describe("progress history persistence", () => {
         '["immediate-hand","left","right"]': motorHistory({ fromHand: "left", toHand: "right" }, 110),
       };
       motor.sameHandRevisits = {
-        '["same-hand-revisit","left",false]': motorHistory({
+        '["same-hand-revisit","left",true]': motorHistory({
           hand: "left",
-          oppositeHandIntervened: false,
+          oppositeHandIntervened: true,
         }, 150),
       };
       motor.toneCommits = {
@@ -116,11 +116,29 @@ describe("progress history persistence", () => {
     expect(Object.keys(migrated?.motor.immediateHands ?? {})).toEqual([
       '["immediate-hand","left","right"]',
     ]);
-    expect(Object.keys(migrated?.motor.sameHandRevisits ?? {})).toEqual([
-      '["same-hand-revisit","left",false]',
-    ]);
+    expect(migrated?.motor.sameHandRevisits).toEqual({});
     expect(Object.keys(migrated?.motor.toneCommits ?? {})).toEqual([
       '["tone-commit","tone:2"]',
+    ]);
+  });
+
+  it("migrates schema 7 by preserving tone-aware revisit and starting exact history empty", () => {
+    const source = mutate((draft) => {
+      draft.schemaVersion = 7;
+      const motor = draft.motor as Record<string, unknown>;
+      delete motor.immediateTokens;
+      motor.sameHandRevisits = {
+        '["same-hand-revisit","left",true]': motorHistory({
+          hand: "left",
+          oppositeHandIntervened: true,
+        }, 150),
+      };
+    });
+    const migrated = parse(source);
+    expect(migrated?.schemaVersion).toBe(PROGRESS_HISTORY_SCHEMA_VERSION);
+    expect(migrated?.motor.immediateTokens).toEqual({});
+    expect(Object.keys(migrated?.motor.sameHandRevisits ?? {})).toEqual([
+      '["same-hand-revisit","left",true]',
     ]);
   });
 

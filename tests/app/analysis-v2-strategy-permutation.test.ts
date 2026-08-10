@@ -134,12 +134,10 @@ describe("Analysis V2 Strategy interpretation", () => {
     )?.click();
 
     const readout = host.querySelector(".analysis-v2-strategy-readout");
-    expect(readout?.textContent).toContain("位置偏移");
+    expect(readout?.textContent).toContain("換序輸入");
     expect(readout?.textContent).toContain("13%");
     expect(readout?.textContent).toContain("25 / 200 個位置觀察");
-    expect(readout?.textContent).toContain("前 → 後 12%");
-    expect(readout?.textContent).toContain("後 → 前 13%");
-    expect(readout?.querySelector("b")?.textContent).toBe("位置偏移");
+    expect(readout?.querySelector("b")?.textContent).toBe("換序輸入");
     expect(host.querySelector(".strategy-matrix")).toBeNull();
     expect(host.querySelector(".analysis-v2-strategy-trajectory")).not.toBeNull();
     expect(host.querySelector(".analysis-v2-strategy-trajectory")?.textContent).toContain("前位");

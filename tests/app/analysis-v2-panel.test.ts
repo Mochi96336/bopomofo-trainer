@@ -261,7 +261,7 @@ describe("Analysis V2 panel", () => {
     const families = [...host.querySelectorAll<HTMLElement>(".analysis-v2-movement-family")];
     expect(families.map((family) => family.querySelector("header strong")?.textContent)).toEqual([
       "手別轉換",
-      "同側再出手",
+      "同側回返",
       "字內結構",
       "聲調收尾",
     ]);
@@ -296,7 +296,7 @@ describe("Analysis V2 panel", () => {
     expect(matrix?.querySelectorAll("thead th")).toHaveLength(3);
     expect(matrix?.querySelectorAll("tbody tr")).toHaveLength(2);
     expect(matrix?.querySelectorAll("tbody td")).toHaveLength(4);
-    expect(host.querySelector(".analysis-v2-method")?.textContent).toContain("位置偏移");
+    expect(host.querySelector(".analysis-v2-method")?.textContent).toContain("位置投影");
     expect(host.querySelector(".analysis-v2-method")?.textContent).toContain("邊際分布");
   });
 

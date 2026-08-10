@@ -35,7 +35,8 @@ const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_2 = 2;
 const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_3 = 3;
 const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_4 = 4;
 const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_5 = 5;
-const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_6 = 6;
+const BODY_ONLY_REVISIT_PROGRESS_HISTORY_SCHEMA_VERSION = 6;
+const TONE_AWARE_REVISIT_PROGRESS_HISTORY_SCHEMA_VERSION = 7;
 export const PROGRESS_HISTORY_KEY_LIMIT = 128;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -443,7 +444,8 @@ export function parseProgressHistory(
   const schemaVersion = parsed.schemaVersion;
   if (
     schemaVersion !== PROGRESS_HISTORY_SCHEMA_VERSION
-    && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_6
+    && schemaVersion !== TONE_AWARE_REVISIT_PROGRESS_HISTORY_SCHEMA_VERSION
+    && schemaVersion !== BODY_ONLY_REVISIT_PROGRESS_HISTORY_SCHEMA_VERSION
     && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_5
     && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_4
     && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_3
@@ -477,7 +479,8 @@ export function parseProgressHistory(
     motor = emptyMotorProgressHistory();
   } else {
     const coordinationSchema = schemaVersion === PROGRESS_HISTORY_SCHEMA_VERSION
-      || schemaVersion === LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_6
+      || schemaVersion === TONE_AWARE_REVISIT_PROGRESS_HISTORY_SCHEMA_VERSION
+      || schemaVersion === BODY_ONLY_REVISIT_PROGRESS_HISTORY_SCHEMA_VERSION
       || schemaVersion === LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_5
       ? "current"
       : schemaVersion === LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_4
@@ -487,7 +490,7 @@ export function parseProgressHistory(
       ? "current"
       : "legacy-missing";
     const sameHandSchema = schemaVersion === PROGRESS_HISTORY_SCHEMA_VERSION
-      || schemaVersion === LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_6
+      || schemaVersion === TONE_AWARE_REVISIT_PROGRESS_HISTORY_SCHEMA_VERSION
       ? "current"
       : "legacy";
     motor = parseMotorProgressHistory(

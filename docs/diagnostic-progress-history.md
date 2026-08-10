@@ -73,7 +73,7 @@ UI code does not decide timing eligibility, reconstruct raw traces, or reclassif
 
 `PROGRESS_HISTORY_SCHEMA_VERSION` is currently **7**.
 
-Schema 7 adds `motor.immediateTokens`, keyed by the existing exact directed token-pair aggregate identity.
+Schema 8 adds `motor.immediateTokens`, keyed by the existing exact directed token-pair aggregate identity.
 
 Schema 6 did not store pair-level history. A schema-6 record therefore migrates to schema 7 with `immediateTokens: {}` while preserving its valid word-structure coordination, immediate-hand, same-hand-revisit, and tone-commit histories. The parser does **not** take a cumulative pair aggregate and manufacture historical points from it: the joint sequence of past buckets is not recoverable from one cumulative value.
 

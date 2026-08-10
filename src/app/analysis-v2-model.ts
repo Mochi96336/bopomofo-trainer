@@ -119,10 +119,15 @@ export function buildAnalysisV2Model(
     measurements.motor.immediateHands,
     history?.motor.immediateHands,
   );
+  // Zero-opposite-hand revisits are exactly the same adjacent timing already
+  // represented by immediateHands (L→L / R→R). Keep them in persistence for
+  // measurement continuity, but omit them from the Analysis presentation model
+  // so summary counts and visible rows describe only genuine leave-and-return
+  // patterns (L→R→L / R→L→R).
   const sameHandRevisits = joinMotorFamily(
     measurements.motor.sameHandRevisits,
     history?.motor.sameHandRevisits,
-  );
+  ).filter((cell) => cell.scope.oppositeHandIntervened);
   const toneCommits = joinMotorFamily(
     measurements.motor.toneCommits,
     history?.motor.toneCommits,

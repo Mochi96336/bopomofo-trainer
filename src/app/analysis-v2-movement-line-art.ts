@@ -41,26 +41,19 @@ const handSwitch = `${svgOpen}
   <path d="M79 34C106 24 153 24 181 34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" marker-end="url(#${handSwitchMarker})" opacity=".82"/>
 ${svgClose}`;
 
-const revisitMarkerPrimary = "analysis-v2-arrow-revisit-short";
-const revisitMarkerSecondary = "analysis-v2-arrow-revisit-return";
+const revisitReturnMarker = "analysis-v2-arrow-revisit-return";
 const sameSideRevisit = `${svgOpen}
-  ${arrowMarker(revisitMarkerPrimary, 5.8)}
-  ${arrowMarker(revisitMarkerSecondary, 6.2)}
+  ${arrowMarker(revisitReturnMarker, 6.2)}
   ${keyCluster(37, "同側")}
   ${keyCluster(174, "另一側")}
   <path d="M130 15V57" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 4" opacity=".14"/>
 
-  <!-- Primary pattern: a short movement that stays entirely inside the same-side cluster. -->
-  <circle cx="43" cy="27" r="2.5" fill="currentColor" opacity=".68"/>
-  <circle cx="75" cy="27" r="2.5" fill="currentColor" opacity=".68"/>
-  <path d="M45.5 26.5C53 23 64 23 72.5 26.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" marker-end="url(#${revisitMarkerPrimary})" opacity=".80"/>
-
-  <!-- Secondary pattern: cross to the other side, then return on a visually separate lane. -->
-  <circle cx="48" cy="42" r="2.4" fill="currentColor" opacity=".42"/>
-  <circle cx="201" cy="42" r="2.4" fill="currentColor" opacity=".42"/>
-  <circle cx="80" cy="42" r="2.4" fill="currentColor" opacity=".42"/>
-  <path d="M50.5 41.5C92 47 158 47 198.5 41.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="4 3" opacity=".42"/>
-  <path d="M198.5 43.5C160 58 118 58 82.5 42.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="4 3" marker-end="url(#${revisitMarkerSecondary})" opacity=".50"/>
+  <!-- One return pattern only: leave the side, cross over, then land back on it. -->
+  <circle cx="48" cy="35" r="2.5" fill="currentColor" opacity=".48"/>
+  <circle cx="201" cy="35" r="2.5" fill="currentColor" opacity=".44"/>
+  <circle cx="85" cy="43" r="2.6" fill="currentColor" opacity=".72"/>
+  <path d="M50.5 34.5C93 28 158 28 198.5 34.5" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-dasharray="4 3" opacity=".38"/>
+  <path d="M198.5 37C166 53 121 55 88 44C87 43.6 86 43 85 43" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" marker-end="url(#${revisitReturnMarker})" opacity=".68"/>
 ${svgClose}`;
 
 const wordStructure = `${svgOpen}
@@ -110,7 +103,7 @@ ${svgClose}`;
 
 const lineArt: readonly MovementLineArt[] = [
   { label: "鍵盤左右手切換示意", markup: handSwitch },
-  { label: "同側再出手與跨側返回示意", markup: sameSideRevisit },
+  { label: "同側回返示意：離開一側後經另一側回到原側", markup: sameSideRevisit },
   { label: "聲母、介音、韻母的字內結構示意", markup: wordStructure },
   { label: "完成字內注音後按下聲調鍵示意", markup: toneCommit },
 ];

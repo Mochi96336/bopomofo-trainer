@@ -7,14 +7,13 @@ import type {
   ToneCommitAggregateScope,
 } from "../measurement-v2/aggregate.js";
 
-// Schema 7 adds bounded history for exact accepted-token transitions. Schema 6
-// remains readable: its word-structure, immediate-hand, same-hand revisit and
-// tone histories are preserved, while exact transition history starts empty
-// because older records never stored pair-level series. Schema 5 preserves
-// word-structure, immediate-hand and tone histories but discards its old revisit
-// series; schema 4/3 also discard obsolete coordination; schema 2 migrates with
-// empty motor history.
-export const PROGRESS_HISTORY_SCHEMA_VERSION = 7 as const;
+// Schema 8 adds bounded history for exact accepted-token transitions on top of
+// schema 7's tone-aware same-hand revisit semantics. Schema 7 therefore keeps
+// its valid revisit history while exact transition history starts empty. Schema
+// 6 used body-only revisit semantics, so its revisit series is validated then
+// discarded and exact transition history also starts empty. Schema 5 and older
+// retain their existing migration behavior.
+export const PROGRESS_HISTORY_SCHEMA_VERSION = 8 as const;
 
 export interface CorrectnessTrendPoint {
   readonly endingObservation: number;

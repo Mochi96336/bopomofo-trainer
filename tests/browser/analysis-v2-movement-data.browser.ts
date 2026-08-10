@@ -93,6 +93,37 @@ function seededMovementState(): { progress: string; history: string } {
       clean: true,
     })),
   ];
+
+  let revisitSequence = 1000;
+  const sameHandRevisits = [
+    // Adjacent same-hand timing is already represented by immediateHands and
+    // must not reappear in the return-only family.
+    ...Array.from({ length: 10 }, () => ({
+      traceSequence: revisitSequence++,
+      hand: "left" as const,
+      boundary: "within-syllable" as const,
+      timingMs: 90,
+      oppositeHandEventsBetween: 0,
+      clean: true,
+    })),
+    ...Array.from({ length: 10 }, () => ({
+      traceSequence: revisitSequence++,
+      hand: "left" as const,
+      boundary: "within-syllable" as const,
+      timingMs: 260,
+      oppositeHandEventsBetween: 1,
+      clean: true,
+    })),
+    ...Array.from({ length: 3 }, () => ({
+      traceSequence: revisitSequence++,
+      hand: "right" as const,
+      boundary: "within-syllable" as const,
+      timingMs: 310,
+      oppositeHandEventsBetween: 1,
+      clean: true,
+    })),
+  ];
+
   const measurements = aggregateMeasurementObservationsV2({
     bindings: [],
     confusions: [],
@@ -100,7 +131,7 @@ function seededMovementState(): { progress: string; history: string } {
     coordination,
     immediateTokens: [],
     immediateHands: [],
-    sameHandRevisits: [],
+    sameHandRevisits,
     toneCommits: [],
     ambiguousErrorCount: 0,
     duplicateComponentCount: 0,
@@ -170,6 +201,22 @@ test("ranks only comparable word structures and keeps populated Movement geometr
 
   const analysis = page.locator("#analysis-v2");
   await analysis.locator('[data-action="coordination-view"][data-value="movement"]').click();
+
+  const returnFamily = analysis.locator(".analysis-v2-movement-family").filter({ hasText: "同側回返" });
+  await expect(returnFamily).toBeVisible();
+  await expect(returnFamily.locator("header small")).toHaveText("1 可比較 · 1 樣本中");
+  const returnRows = returnFamily.locator(".analysis-v2-movement-stat");
+  await expect(returnRows).toHaveCount(2);
+  const returnLabels = await returnRows.locator(":scope > span:first-child").allTextContents();
+  expect(returnLabels).toEqual([
+    "左 · 隔右側",
+    "右 · 隔左側",
+  ]);
+  await expect(returnRows.nth(0).locator("strong")).toHaveText("260 ms");
+  await expect(returnRows.nth(1)).toHaveClass(/sampling/);
+  await expect(returnRows.nth(1).locator("strong")).toHaveText("—");
+  expect(returnLabels.join(" ")).not.toContain("連續");
+
   const family = analysis.locator(".analysis-v2-movement-family").filter({ hasText: "字內結構" });
   await expect(family).toBeVisible();
   await expect(family.locator("header small")).toHaveText("3 可比較 · 1 樣本中");

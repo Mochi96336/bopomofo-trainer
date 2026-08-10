@@ -564,8 +564,7 @@ function simpleMovementDiagram(label: string): string {
 }
 
 function revisitMovementDiagram(): string {
-  return `<div class="analysis-v2-movement-diagram" aria-label="同側再次出現；中間可能連續，也可能穿插另一側">
-    <div class="analysis-v2-movement-diagram-line"><span>同側</span><i>→</i><span>同側</span></div>
+  return `<div class="analysis-v2-movement-diagram" aria-label="同一音節內離開一側後回到原側；最後的聲調鍵也可以成為回返終點">
     <div class="analysis-v2-movement-diagram-line"><span>同側</span><i>→</i><span>另一側</span><i>→</i><span>同側</span></div>
   </div>`;
 }
@@ -597,7 +596,6 @@ function findImmediate(
 
 function revisitLabel(cell: AnalysisV2MotorCell<SameHandRevisitAggregateScope>): string {
   const hand = cell.scope.hand === "left" ? "左" : "右";
-  if (!cell.scope.oppositeHandIntervened) return `${hand} · 連續`;
   return `${hand} · 隔${cell.scope.hand === "left" ? "右" : "左"}側`;
 }
 
@@ -610,12 +608,14 @@ function movementFamiliesMarkup(model: AnalysisV2Model): string {
   ]);
   const handStats = handRows.map(({ label, cell }) => movementStatMarkup(label, cell));
 
-  const observedRevisits = model.coordination.sameHandRevisits.filter((cell) => cell.observations > 0);
+  const observedRevisits = model.coordination.sameHandRevisits.filter(
+    (cell) => cell.observations > 0 && cell.scope.oppositeHandIntervened,
+  );
   const revisitRows = sortedMovementRows(
     observedRevisits.map((cell) => ({ label: revisitLabel(cell), cell })),
   );
   const revisitStats = revisitRows.length === 0
-    ? ['<div class="analysis-v2-movement-empty">尚無字內同側再出手資料</div>']
+    ? ['<div class="analysis-v2-movement-empty">尚無同音節同側回返資料</div>']
     : revisitRows.map(({ label, cell }) => movementStatMarkup(label, cell));
 
   const observedStructures = model.coordination.coordination.filter((cell) => cell.observations > 0);
@@ -646,9 +646,9 @@ function movementFamiliesMarkup(model: AnalysisV2Model): string {
         handStats,
       )}
       ${movementFamilyMarkup(
-        "同側再出手",
+        "同側回返",
         familyStatus(observedRevisits),
-        "只比較同一個字內的注音成分；聲調與跨字事件不列入。可比較資料依目前代表時間由慢到快排列。",
+        "比較同一音節內離開一側後回到原側的時間；連續同手已由手別轉換的左→左／右→右呈現。最後的聲調鍵可以成為回返終點，不跨音節。可比較資料依目前代表時間由慢到快排列。",
         revisitMovementDiagram(),
         revisitStats,
       )}
@@ -667,7 +667,7 @@ function movementFamiliesMarkup(model: AnalysisV2Model): string {
         toneStats,
       )}
     </div>
-    ${methodDetailsMarkup("資料規則", "折線只表示各家族自己的近期變化；至少 5 個乾淨時間樣本後，毫秒才進入家族內排序。樣本中的列不參與排名，只固定列在可比較資料之後。字內結構按聲母、介音、韻母組合聚合；同側再出手只看同一字內的注音成分，不含聲調或跨字事件。")}
+    ${methodDetailsMarkup("資料規則", "折線只表示各家族自己的近期變化；至少 5 個乾淨時間樣本後，毫秒才進入家族內排序。樣本中的列不參與排名，只固定列在可比較資料之後。字內結構按聲母、介音、韻母組合聚合；同側回返只看同一音節內離開一側後再次回到該側的已接受手部事件，包含最後聲調但不跨音節或跨字；連續同手留在手別轉換，避免重複呈現同一筆相鄰時間。")}
   </section>`;
 }
 
