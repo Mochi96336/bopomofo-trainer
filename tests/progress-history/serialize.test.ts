@@ -124,6 +124,49 @@ describe("progress history persistence", () => {
     ]);
   });
 
+  it("round-trips current exact-transition history and rejects corrupted pair identity", () => {
+    const exactKey = '["immediate-token","zhuyin:A","zhuyin:B"]';
+    const source = mutate((draft) => {
+      const motor = draft.motor as Record<string, unknown>;
+      motor.immediateTokens = {
+        [exactKey]: motorHistory({ fromToken: TOKEN, toToken: "zhuyin:B" }, 125),
+      };
+    });
+    const parsed = parse(source);
+    expect(parsed?.motor.immediateTokens[exactKey]?.timing[0]?.representativeTimingMs).toBe(125);
+
+    expect(parse(mutate((draft) => {
+      const motor = draft.motor as Record<string, unknown>;
+      motor.immediateTokens = {
+        '["immediate-token","zhuyin:B","zhuyin:A"]': motorHistory({
+          fromToken: TOKEN,
+          toToken: "zhuyin:B",
+        }),
+      };
+    }))).toBeNull();
+
+    expect(parse(mutate((draft) => {
+      const motor = draft.motor as Record<string, unknown>;
+      motor.immediateTokens = {
+        '["immediate-token","zhuyin:A","zhuyin:UNKNOWN"]': motorHistory({
+          fromToken: TOKEN,
+          toToken: "zhuyin:UNKNOWN",
+        }),
+      };
+    }))).toBeNull();
+  });
+
+  it("gates exact-transition history by the valid token-pair domain before parsing entries", () => {
+    const immediateTokens: Record<string, unknown> = {};
+    const maximumPairs = VALID_TOKENS.size * VALID_TOKENS.size;
+    for (let index = 0; index <= maximumPairs; index += 1) {
+      immediateTokens[`invalid-${index}`] = motorHistory({ fromToken: TOKEN, toToken: "zhuyin:B" });
+    }
+    expect(parse(mutate((draft) => {
+      (draft.motor as Record<string, unknown>).immediateTokens = immediateTokens;
+    }))).toBeNull();
+  });
+
   it("migrates schema 3 by dropping obsolete coordination while preserving other history", () => {
     const source = mutate((draft) => {
       draft.schemaVersion = 3;
