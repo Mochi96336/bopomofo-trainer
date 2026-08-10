@@ -113,6 +113,51 @@ describe("Analysis V2 model", () => {
     expect(model.strategy.bodySizeBucketsWithData).toBe(1);
   });
 
+  it("omits adjacent same-hand duplicates while keeping true return scopes", () => {
+    let sequence = 0;
+    const measurements = aggregateMeasurementObservationsV2({
+      bindings: [],
+      confusions: [],
+      inputOrderPositions: [],
+      coordination: [],
+      immediateTokens: [],
+      immediateHands: [],
+      sameHandRevisits: [
+        ...Array.from({ length: 5 }, () => ({
+          traceSequence: sequence++,
+          hand: "left" as const,
+          boundary: "within-syllable" as const,
+          timingMs: 90,
+          oppositeHandEventsBetween: 0,
+          clean: true,
+        })),
+        ...Array.from({ length: 5 }, () => ({
+          traceSequence: sequence++,
+          hand: "left" as const,
+          boundary: "within-syllable" as const,
+          timingMs: 240,
+          oppositeHandEventsBetween: 1,
+          clean: true,
+        })),
+      ],
+      toneCommits: [],
+      ambiguousErrorCount: 0,
+      duplicateComponentCount: 0,
+      prematureToneCount: 0,
+    });
+
+    const model = buildAnalysisV2Model(semantic, measurements, null);
+
+    expect(model.coordination.sameHandRevisits).toHaveLength(1);
+    expect(model.coordination.sameHandRevisits[0]?.scope).toEqual({
+      hand: "left",
+      oppositeHandIntervened: true,
+    });
+    expect(model.coordination.observedScopes).toBe(1);
+    expect(model.coordination.readyScopes).toBe(1);
+    expect(model.coordination.cleanTimingSamples).toBe(5);
+  });
+
   it("has no legacy transition domain to expose", () => {
     const measurements = aggregateMeasurementObservationsV2({
       bindings: [],

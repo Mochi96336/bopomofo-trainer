@@ -26,8 +26,8 @@ const model: AnalysisV2Model = {
     immediateTokens: [],
     immediateHands: [],
     sameHandRevisits: [{
-      id: "right-continuous",
-      scope: { hand: "right", oppositeHandIntervened: false },
+      id: "right-return",
+      scope: { hand: "right", oppositeHandIntervened: true },
       observations: 10,
       timingSamples: 10,
       currentTimeToTypeMs: 205,
@@ -103,7 +103,7 @@ afterEach(() => {
 });
 
 describe("Analysis V2 Movement ranking", () => {
-  it("shows only observed revisit scopes and keeps sampling structures below ranked rows", () => {
+  it("shows only observed return scopes and keeps sampling structures below ranked rows", () => {
     controller = createAnalysisV2({ getModel: () => model, storage: storage() });
     controller.open();
     const host = controller.host;
@@ -115,11 +115,12 @@ describe("Analysis V2 Movement ranking", () => {
     const revisit = families[1]!;
     const structure = families[2]!;
 
+    expect(revisit.querySelector("header strong")?.textContent).toBe("同側回返");
     const revisitLabels = [...revisit.querySelectorAll<HTMLElement>(".analysis-v2-movement-stat > span:first-child")]
       .map((node) => node.textContent?.trim());
-    expect(revisitLabels).toEqual(["右 · 連續"]);
-    expect(revisit.textContent).not.toContain("左 ·");
-    expect(revisit.textContent).not.toContain("隔左側");
+    expect(revisitLabels).toEqual(["右 · 隔左側"]);
+    expect(revisitLabels.join(" ")).not.toContain("左 · 隔右側");
+    expect(revisitLabels.join(" ")).not.toContain("連續");
 
     const structureRows = [...structure.querySelectorAll<HTMLElement>(".analysis-v2-movement-stat")];
     const structureLabels = structureRows

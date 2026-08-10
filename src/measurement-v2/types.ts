@@ -131,9 +131,9 @@ export interface ImmediateHandObservation {
 }
 
 /**
- * Reappearance of the same conventional hand assignment inside one word body.
- * Tone keys and cross-word/syllable predecessors are deliberately excluded;
- * tone completion is owned by ToneCommitObservation instead.
+ * Reappearance of the same conventional hand assignment inside one syllable.
+ * Accepted body components and the final accepted tone can both complete a
+ * revisit; predecessors never cross a syllable or entry boundary.
  */
 export interface SameHandRevisitObservation {
   readonly traceSequence: number;
