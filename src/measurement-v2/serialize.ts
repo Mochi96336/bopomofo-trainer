@@ -401,6 +401,10 @@ function migrateLegacyStrategyRecord(
       kept.push([storedKey, candidate]);
       continue;
     }
+    if (!bodyPosition(candidate.scope.canonicalPosition)
+    || !bodyPosition(candidate.scope.acceptedPosition)
+    || !isNonNegativeInteger(candidate.observations)
+    || candidate.observations === 0) return null;
     const expectedKey = JSON.stringify([
       "input-order-position",
       "4+",
