@@ -1,10 +1,11 @@
-/* Desktop keyboard-led composition contract.
-   The keyboard and the lower reading must not participate in one flow/grid
+/* Desktop primary-view composition contract.
+   The main object and lower reading must not participate in one flow/grid
    calculation: changing copy, sample support, selection, or summary height must
-   never move the keyboard. Keyboard-led views therefore use viewport anchors on
-   desktop: the board is centered on the Analysis viewport and reading belongs to
-   a separate floor rail. Shared frame sizing is owned upstream; this layer only
-   composes those already-sized objects. Narrow screens keep normal document flow. */
+   never move the object. Coordination, Semantic, and Strategy therefore share
+   the same viewport anchor on desktop: the primary object is centered on the
+   Analysis viewport and its reading belongs to a separate floor rail. Shared
+   frame sizing is owned upstream; this layer only composes already-sized objects.
+   Narrow screens keep normal document flow. */
 
 /* The compact SVGs deliberately stretch to the width of their reading column.
    A filled SVG circle would inherit that non-uniform transform and become an
@@ -21,22 +22,24 @@
 
 @media (min-width: 641px) {
   .analysis-v2 .analysis-v2-speed-field,
-  .analysis-v2 .analysis-v2-semantic-domain {
+  .analysis-v2 .analysis-v2-semantic-domain,
+  .analysis-v2 .analysis-v2-strategy-domain {
     padding-bottom: 0;
   }
 
   .analysis-v2 .analysis-v2-speed-stage,
   .analysis-v2 .analysis-v2-speed-primary,
   .analysis-v2 .analysis-v2-semantic-stage,
-  .analysis-v2 .analysis-v2-semantic-primary {
+  .analysis-v2 .analysis-v2-semantic-primary,
+  .analysis-v2 .analysis-v2-strategy-stage {
     min-height: 0;
   }
 
-  /* Absolute visual center. The object wrapper, never the readout, owns this
-     coordinate. This removes the old grid coupling that pulled the keyboard up
-     whenever the lower copy became taller. */
+  /* One absolute visual center for every primary Analysis object. The object
+     wrapper, never its readout, owns this coordinate. */
   .analysis-v2 .analysis-v2-speed-primary .analysis-v2-primary-object-slot,
-  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-primary-object-slot {
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-primary-object-slot,
+  .analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot {
     position: fixed;
     top: 50dvh;
     left: 50vw;
@@ -48,10 +51,11 @@
     overflow: clip;
   }
 
-  /* Lower readings share the board rail but never participate in board layout. */
+  /* Lower readings share the board rail but never participate in object layout. */
   .analysis-v2 :is(
     .analysis-v2-speed-readout,
     .analysis-v2-semantic-readout,
+    .analysis-v2-strategy-readout,
     .analysis-v2-semantic-rail,
     .analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector
   ) {
@@ -62,8 +66,20 @@
     transform: translateX(-50%);
   }
 
-  .analysis-v2 .analysis-v2-speed-readout {
+  .analysis-v2 .analysis-v2-speed-readout,
+  .analysis-v2 .analysis-v2-strategy-readout {
     bottom: clamp(30px, 4dvh, 48px);
+  }
+
+  /* Position projection is supporting Strategy evidence on the same lower rail,
+     not part of the trajectory's vertical geometry. */
+  .analysis-v2 .analysis-v2-strategy-projection {
+    position: fixed;
+    z-index: 5;
+    left: calc(50vw - var(--analysis-board-width) / 2);
+    bottom: clamp(30px, 4dvh, 48px);
+    width: 126px;
+    transform: none;
   }
 
   .analysis-v2 .analysis-v2-semantic-readout {
@@ -76,7 +92,8 @@
 
   /* The lower-right methodology control owns a small lane of the shared floor.
      Reserve that lane in copy-bearing rails so 641–900px layouts wrap instead of
-     painting text underneath the control. */
+     painting text underneath the control. Strategy reserves both lower lanes in
+     analysis-v2-strategy-floor.css because its projection also occupies the left. */
   .analysis-v2 .analysis-v2-speed-readout > span,
   .analysis-v2 .analysis-v2-semantic-rail {
     box-sizing: border-box;
@@ -182,6 +199,7 @@
   .analysis-v2 :is(
     .analysis-v2-speed-field > .analysis-v2-method,
     .analysis-v2-semantic-domain > .analysis-v2-method,
+    .analysis-v2-strategy-domain > .analysis-v2-method,
     .analysis-v2-movement-view > .analysis-v2-method
   ) {
     position: fixed;
@@ -191,7 +209,8 @@
   }
 
   .analysis-v2 .analysis-v2-speed-field > .analysis-v2-method,
-  .analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method {
+  .analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method,
+  .analysis-v2 .analysis-v2-strategy-domain > .analysis-v2-method {
     right: calc((100vw - var(--analysis-board-width)) / 2);
   }
 
@@ -211,23 +230,26 @@
   }
 }
 
-/* A centered fixed board and a fixed lower rail cannot both remain legible once
-   the viewport is vertically compressed. Below this threshold, return every
-   fixed Analysis floor item to document flow so the workspace can scroll rather
-   than letting a persistent control paint over content. */
+/* A centered fixed primary object and a fixed lower rail cannot both remain
+   legible once the viewport is vertically compressed. Below this threshold,
+   return every fixed Analysis floor item to document flow so the workspace can
+   scroll rather than letting persistent controls paint over content. */
 @media (min-width: 641px) and (max-height: 620px) {
   .analysis-v2 .analysis-v2-speed-field,
-  .analysis-v2 .analysis-v2-semantic-domain {
+  .analysis-v2 .analysis-v2-semantic-domain,
+  .analysis-v2 .analysis-v2-strategy-domain {
     padding-bottom: 30px;
   }
 
   .analysis-v2 .analysis-v2-speed-primary,
-  .analysis-v2 .analysis-v2-semantic-primary {
+  .analysis-v2 .analysis-v2-semantic-primary,
+  .analysis-v2 .analysis-v2-strategy-stage {
     min-height: var(--analysis-primary-stage-height);
   }
 
   .analysis-v2 .analysis-v2-speed-primary .analysis-v2-primary-object-slot,
-  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-primary-object-slot {
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-primary-object-slot,
+  .analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot {
     position: static;
     width: auto;
     transform: none;
@@ -236,6 +258,7 @@
   .analysis-v2 :is(
     .analysis-v2-speed-readout,
     .analysis-v2-semantic-readout,
+    .analysis-v2-strategy-readout,
     .analysis-v2-semantic-rail,
     .analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector
   ) {
@@ -244,8 +267,35 @@
     transform: none;
   }
 
+  .analysis-v2 .analysis-v2-strategy-stage {
+    grid-template-rows: max-content auto;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot {
+    min-height: 0;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-trajectory-object {
+    display: grid;
+    gap: 12px;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-projection {
+    position: static;
+    width: 126px;
+    min-height: 88px;
+    margin: 12px 0 0 4px;
+    transform: none;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-readout {
+    padding-right: 0;
+    padding-left: 0;
+  }
+
   .analysis-v2 .analysis-v2-speed-readout,
   .analysis-v2 .analysis-v2-semantic-readout,
+  .analysis-v2 .analysis-v2-strategy-readout,
   .analysis-v2 .analysis-v2-semantic-rail {
     margin-inline: auto;
   }
@@ -263,6 +313,7 @@
   .analysis-v2 :is(
     .analysis-v2-speed-field > .analysis-v2-method,
     .analysis-v2-semantic-domain > .analysis-v2-method,
+    .analysis-v2-strategy-domain > .analysis-v2-method,
     .analysis-v2-movement-view > .analysis-v2-method
   ) {
     position: static;
@@ -270,7 +321,8 @@
   }
 
   .analysis-v2 .analysis-v2-speed-field > .analysis-v2-method,
-  .analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method {
+  .analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method,
+  .analysis-v2 .analysis-v2-strategy-domain > .analysis-v2-method {
     width: var(--analysis-board-width);
     justify-self: center;
   }
