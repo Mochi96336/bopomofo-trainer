@@ -46,6 +46,7 @@ describe("formal syntax sampling taxonomy", () => {
       kind: "embedded-content",
       family: "embedded.xcomp-control",
     });
+    expect(clauseConstructionClassification("clause.causative")).toBeNull();
   });
 
   it("makes the current equal-rule ticket bias explicit instead of treating it as policy", () => {
@@ -91,15 +92,15 @@ describe("formal syntax sampling taxonomy", () => {
       .toMatchObject({ ticketCount: 2, rawShare: 0.2 });
 
     expect(audit.clauseKinds).toEqual([
-      expect.objectContaining({ family: "complex-predicate", ticketCount: 2, rawShare: 2 / 24 }),
-      expect.objectContaining({ family: "core-predication", ticketCount: 8, rawShare: 8 / 24 }),
-      expect.objectContaining({ family: "embedded-content", ticketCount: 5, rawShare: 5 / 24 }),
-      expect.objectContaining({ family: "information-structure", ticketCount: 3, rawShare: 3 / 24 }),
-      expect.objectContaining({ family: "marked", ticketCount: 6, rawShare: 6 / 24 }),
+      expect.objectContaining({ family: "complex-predicate", ticketCount: 1, rawShare: 1 / 23 }),
+      expect.objectContaining({ family: "core-predication", ticketCount: 8, rawShare: 8 / 23 }),
+      expect.objectContaining({ family: "embedded-content", ticketCount: 5, rawShare: 5 / 23 }),
+      expect.objectContaining({ family: "information-structure", ticketCount: 3, rawShare: 3 / 23 }),
+      expect.objectContaining({ family: "marked", ticketCount: 6, rawShare: 6 / 23 }),
     ]);
-    expect(audit.clauseFamilies).toHaveLength(23);
+    expect(audit.clauseFamilies).toHaveLength(22);
     expect(audit.clauseFamilies.find((row) => row.family === "embedded.xcomp-control"))
-      .toMatchObject({ ticketCount: 2, rawShare: 2 / 24 });
+      .toMatchObject({ ticketCount: 2, rawShare: 2 / 23 });
     expect(audit.clauseFamilies
       .filter((row) => row.family !== "embedded.xcomp-control")
       .every((row) => row.ticketCount === 1)).toBe(true);
