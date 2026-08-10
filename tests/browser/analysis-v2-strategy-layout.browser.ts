@@ -191,13 +191,14 @@ test("aligns Strategy primary object with Coordination and Semantic", async ({ p
     (host, selectors) => {
       const slot = host.querySelector<HTMLElement>(selectors.slot)!;
       const object = host.querySelector<HTMLElement>(selectors.object)!;
+      const slotRect = slot.getBoundingClientRect();
       const rect = object.getBoundingClientRect();
       return {
         slotPosition: getComputedStyle(slot).position,
         left: rect.left,
         width: rect.width,
         centerX: rect.left + rect.width / 2,
-        centerY: rect.top + rect.height / 2,
+        centerY: slotRect.top + slotRect.height / 2,
       };
     },
     { slot: slotSelector, object: objectSelector },
