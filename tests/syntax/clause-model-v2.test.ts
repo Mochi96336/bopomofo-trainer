@@ -46,7 +46,7 @@ describe("Clause model v2 migration inventory", () => {
       .toBe("information-structure");
   });
 
-  it("pins the first migration partition before runtime legality changes", () => {
+  it("keeps the migration partition explicit as runtime legality changes", () => {
     const counts = Object.values(CURRENT_CLAUSE_RULE_V2_MIGRATION)
       .reduce<Record<string, number>>((result, item) => {
         result[item.group] = (result[item.group] ?? 0) + 1;
@@ -71,9 +71,13 @@ describe("Clause model v2 migration inventory", () => {
       group: "rebuild-construction",
       target: "passive.short|passive.long",
     });
-    expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.complement-content"]).toMatchObject({
+    expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.xcomp-subject-control"]).toMatchObject({
       targetAxis: "embedding",
-      target: "xcomp",
+      target: "xcomp.subject-control",
+    });
+    expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.xcomp-object-control"]).toMatchObject({
+      targetAxis: "embedding",
+      target: "xcomp.object-control",
     });
   });
 });
