@@ -147,6 +147,7 @@ for (const entry of catalog.entries) {
         dependencyEvidence: {
           dependencyRelationCounts: sourceProfile.dependencyEvidence.dependencyRelationCounts,
           surfacePositionCounts: sourceProfile.dependencyEvidence.surfacePositionCounts,
+          morphologicalFeatureCounts: sourceProfile.dependencyEvidence.morphologicalFeatureCounts,
         },
         provenanceIds: sourceProfile.provenanceIds,
       });
