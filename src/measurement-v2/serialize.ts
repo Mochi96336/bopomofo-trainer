@@ -244,7 +244,9 @@ function parseRecord<T>(
 
 /**
  * Aggregate-1 admitted a `4+` bucket that standard Bopomofo can never produce.
- * Drop only a structurally valid legacy 4+ entry; never reinterpret it as 3.
+ * Obsolete entries are still fully validated before discard: migration must not
+ * turn malformed persisted data into a valid current record merely because the
+ * legacy scope no longer exists.
  */
 function migrateLegacyBodyRecord(
   value: unknown,
@@ -264,16 +266,33 @@ function migrateLegacyBodyRecord(
       kept.push([storedKey, candidate]);
       continue;
     }
-    const expectedKey = family === "strategy"
-      ? JSON.stringify([
-          "input-order-position",
-          "4+",
-          candidate.scope.canonicalPosition,
-          candidate.scope.acceptedPosition,
-        ])
-      : JSON.stringify(["coordination", "4+", candidate.scope.handShape]);
-    if (storedKey !== expectedKey) return null;
-    // Recognized impossible legacy evidence is intentionally discarded.
+
+    if (family === "strategy") {
+      if (!bodyPosition(candidate.scope.canonicalPosition)
+        || !bodyPosition(candidate.scope.acceptedPosition)
+        || !isNonNegativeInteger(candidate.observations)
+        || candidate.observations === 0) return null;
+      const expectedKey = JSON.stringify([
+        "input-order-position",
+        "4+",
+        candidate.scope.canonicalPosition,
+        candidate.scope.acceptedPosition,
+      ]);
+      if (storedKey !== expectedKey) return null;
+      continue;
+    }
+
+    const legacyMotor = parseMotor(candidate, (scope) => {
+      if (!isRecord(scope) || scope.bodySize !== "4+" || !handShape(scope.handShape)) return null;
+      return { bodySize: "4+" as const, handShape: scope.handShape };
+    });
+    if (legacyMotor === null
+      || storedKey !== JSON.stringify([
+        "coordination",
+        "4+",
+        legacyMotor.scope.handShape,
+      ])) return null;
+    // Recognized, fully validated impossible legacy evidence is intentionally discarded.
   }
   return Object.fromEntries(kept);
 }
