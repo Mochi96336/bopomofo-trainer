@@ -31,7 +31,7 @@ async function semanticSelectionGap(page: Page, height: number): Promise<number>
   });
 }
 
-test("returns keyboard-led views to flow before a short desktop viewport can overlap the lower reading", async ({ page }) => {
+test("returns keyboard-led views and methodology to flow before a short desktop viewport can overlap", async ({ page }) => {
   for (const height of [560, 480, 400]) {
     const gap = await semanticSelectionGap(page, height);
     expect(gap).toBeGreaterThanOrEqual(0);
@@ -40,20 +40,34 @@ test("returns keyboard-led views to flow before a short desktop viewport can ove
   await page.setViewportSize({ width: 1440, height: 400 });
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
-  const coordinationGap = await analysis.evaluate((host) => {
+  const coordination = await analysis.evaluate((host) => {
+    const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
     const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
     const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout")!;
+    const method = host.querySelector<HTMLElement>(".analysis-v2-speed-field > .analysis-v2-method")!;
     const slot = host.querySelector<HTMLElement>(
       ".analysis-v2-speed-primary .analysis-v2-primary-object-slot",
     )!;
     const boardRect = board.getBoundingClientRect();
     const readoutRect = readout.getBoundingClientRect();
+    const methodRect = method.getBoundingClientRect();
     if (getComputedStyle(slot).position !== "static") {
       throw new Error("short-height coordination composition did not return to flow");
     }
-    return readoutRect.top - boardRect.bottom;
+    return {
+      readoutGap: readoutRect.top - boardRect.bottom,
+      methodPosition: getComputedStyle(method).position,
+      methodGap: methodRect.top - readoutRect.bottom,
+      methodWidth: methodRect.width,
+      boardWidth: board.getBoundingClientRect().width,
+      scrollable: main.scrollHeight > main.clientHeight,
+    };
   });
-  expect(coordinationGap).toBeGreaterThanOrEqual(0);
+  expect(coordination.readoutGap).toBeGreaterThanOrEqual(0);
+  expect(coordination.methodPosition).toBe("static");
+  expect(coordination.methodGap).toBeGreaterThanOrEqual(0);
+  expect(Math.abs(coordination.methodWidth - coordination.boardWidth)).toBeLessThanOrEqual(1);
+  expect(coordination.scrollable).toBe(true);
 });
 
 test("uses the shared viewport-relative rail and reserves the methodology lane at 700px", async ({ page }) => {
