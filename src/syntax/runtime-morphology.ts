@@ -11,6 +11,10 @@ const REVIEWED_RUNTIME_MORPHOLOGICAL_FEATURE_SET: ReadonlySet<string> = new Set(
   REVIEWED_RUNTIME_MORPHOLOGICAL_FEATURES,
 );
 
+export function isReviewedRuntimeMorphologicalFeature(feature: string): boolean {
+  return REVIEWED_RUNTIME_MORPHOLOGICAL_FEATURE_SET.has(feature);
+}
+
 /**
  * Project full source counts into the sparse runtime presence contract.
  * Absent reviewed evidence stays absent rather than materializing an empty map.
@@ -34,6 +38,6 @@ export function validRuntimeMorphologicalFeatureCounts(
 ): boolean {
   if (counts === undefined) return true;
   return Object.entries(counts).every(
-    ([feature, count]) => REVIEWED_RUNTIME_MORPHOLOGICAL_FEATURE_SET.has(feature) && count === 1,
+    ([feature, count]) => isReviewedRuntimeMorphologicalFeature(feature) && count === 1,
   );
 }
