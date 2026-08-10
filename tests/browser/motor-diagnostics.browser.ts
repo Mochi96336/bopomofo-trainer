@@ -1,42 +1,49 @@
 import { expect, test } from "@playwright/test";
 
-test("shows observation-based motor diagnostics in the information panel", async ({ page }) => {
+test("surfaces motor evidence through the integrated Analysis V2 summary", async ({ page }) => {
   await page.goto("/");
   await page.locator("#open-information").click();
 
-  const section = page.locator(".motor-diagnostic-section");
-  await expect(section).toBeVisible();
-  await expect(section.getByRole("heading", { name: "動作協調" })).toBeVisible();
-  await expect(section).toContainText("依實際按鍵順序量測");
-  await expect(section).toContainText("左右手交接");
-  await expect(section).toContainText("同手再出手");
-  await expect(section).toContainText("聲調完成");
+  const summary = page.locator(".diagnostic-summary-section");
+  await expect(summary).toBeVisible();
+  await expect(summary.locator(".diagnostic-summary-signals > div")).toHaveCount(3);
+  await expect(summary).toContainText("語意");
+  await expect(summary).toContainText("協調");
+  await expect(summary).toContainText("策略");
+  await expect(page.locator(".motor-diagnostic-section")).toHaveCount(0);
+
+  await summary.locator(".diagnostic-open-analysis").click();
+  await page.locator('[data-action="select-tab"][data-tab="coordination"]').click();
+  const coordination = page.locator("#analysis-v2-coordination-title").locator("..");
+  await expect(coordination).toContainText("不同動作類型不以絕對毫秒互相比弱");
+  await expect(page.getByRole("heading", { name: "標準指法手別轉換" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "同側鍵位再出手" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "聲調完成" })).toBeVisible();
 });
 
-test("retires the old canonical transition diagnostics from every product navigation path", async ({ page }) => {
+test("retires canonical transition diagnostics from every production navigation path", async ({ page }) => {
   await page.goto("/");
   await page.locator("#open-information").click();
 
-  const semantic = page.locator(".diagnostic-summary-section");
-  await expect(semantic.locator(".diagnostic-summary-signals > div")).toHaveCount(2);
-  await expect(semantic).not.toContainText("轉換");
+  const summary = page.locator(".diagnostic-summary-section");
+  await expect(summary.locator(".diagnostic-summary-signals > div")).toHaveCount(3);
+  await expect(summary).not.toContainText("轉換總覽");
 
-  await semantic.locator(".diagnostic-open-analysis").click();
+  await summary.locator(".diagnostic-open-analysis").click();
   const analysis = page.locator("#diagnostic-analysis");
-  const keyTab = page.locator("#diagnostic-analysis-tab-key");
-  const confusionTab = page.locator("#diagnostic-analysis-tab-confusion");
-  await expect(keyTab).toBeVisible();
-  await expect(confusionTab).toBeVisible();
-  await expect(page.locator("#diagnostic-analysis-tab-transition")).toHaveCount(0);
-  await expect(analysis).not.toContainText("未計入時間");
+  await expect(analysis.locator('[role="tab"]')).toHaveText(["語意", "協調", "策略"]);
+  await expect(analysis.locator('[data-tab="transition"]')).toHaveCount(0);
+  await expect(analysis.locator('[data-action="toggle-network"]')).toHaveCount(0);
+  await expect(analysis.locator(".diagnostic-relationship-svg")).toHaveCount(0);
 
-  await keyTab.focus();
-  await keyTab.press("ArrowRight");
-  await expect(confusionTab).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator("#diagnostic-analysis-panel-transition")).toHaveCount(0);
-  await expect(page.locator("#diagnostic-analysis-tab-transition")).toHaveCount(0);
-
-  await confusionTab.press("ArrowLeft");
-  await expect(keyTab).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator("#diagnostic-analysis-panel-transition")).toHaveCount(0);
+  const semanticTab = analysis.locator('[data-action="select-tab"][data-tab="semantic"]');
+  const coordinationTab = analysis.locator('[data-action="select-tab"][data-tab="coordination"]');
+  const strategyTab = analysis.locator('[data-action="select-tab"][data-tab="strategy"]');
+  await semanticTab.focus();
+  await semanticTab.press("ArrowRight");
+  await expect(coordinationTab).toHaveAttribute("aria-selected", "true");
+  await coordinationTab.press("ArrowRight");
+  await expect(strategyTab).toHaveAttribute("aria-selected", "true");
+  await strategyTab.press("ArrowRight");
+  await expect(semanticTab).toHaveAttribute("aria-selected", "true");
 });
