@@ -229,8 +229,6 @@
   .analysis-v2 .analysis-v2-speed-primary .analysis-v2-primary-object-slot,
   .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-primary-object-slot {
     position: static;
-    top: auto;
-    left: auto;
     width: auto;
     transform: none;
   }
@@ -242,9 +240,6 @@
     .analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector
   ) {
     position: static;
-    right: auto;
-    bottom: auto;
-    left: auto;
     width: var(--analysis-board-width);
     transform: none;
   }
