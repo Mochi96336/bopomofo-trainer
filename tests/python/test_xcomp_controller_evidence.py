@@ -14,6 +14,7 @@ from ud_grammar_evidence.xcomp_control import (  # noqa: E402
     audit_sentence,
     iter_audit_sentences,
     parse_audit_token,
+    parse_enhanced_dependencies,
     summarize,
 )
 
@@ -92,6 +93,11 @@ class XcompControllerEvidenceTest(unittest.TestCase):
         self.assertEqual(audit.subject_controller_count, 0)
         self.assertEqual(audit.object_controller_count, 0)
         self.assertEqual(audit.unresolved_count, 1)
+
+    def test_accepts_empty_node_heads_in_unrelated_enhanced_edges(self) -> None:
+        dependencies = parse_enhanced_dependencies("2:nsubj|4.1:dep")
+        self.assertEqual(dependencies[0].head, "2")
+        self.assertEqual(dependencies[1].head, "4.1")
 
     def test_rejects_malformed_enhanced_dependencies(self) -> None:
         path = self.root / "bad.conllu"
