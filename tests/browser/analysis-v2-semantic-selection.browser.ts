@@ -74,6 +74,9 @@ for (const viewport of [
       const keyboard = host.querySelector<HTMLElement>(".analysis-v2-keyboard")!;
       const rail = host.querySelector<HTMLElement>(".analysis-v2-semantic-rail")!;
       const method = host.querySelector<HTMLElement>(".analysis-v2-method")!;
+      const slot = host.querySelector<HTMLElement>(
+        ".analysis-v2-semantic-primary .analysis-v2-primary-object-slot",
+      )!;
       const inspectorNode = host.querySelector<HTMLElement>(".analysis-v2-semantic-stage > .analysis-v2-inspector")!;
       const content = inspectorNode.querySelector<HTMLElement>(".analysis-v2-inspector-content")!;
       const heading = inspectorNode.querySelector<HTMLElement>(".analysis-v2-detail-heading strong")!;
@@ -97,8 +100,12 @@ for (const viewport of [
         keyboardBottom: keyboardRect.bottom,
         keyboardLeft: keyboardRect.left,
         railTop: railRect.top,
+        railBottom: railRect.bottom,
         railVisibility: getComputedStyle(rail).visibility,
         methodTop: method.getBoundingClientRect().top,
+        methodPosition: getComputedStyle(method).position,
+        slotPosition: getComputedStyle(slot).position,
+        inspectorPosition: getComputedStyle(inspectorNode).position,
         inspectorTop: inspectorRect.top,
         inspectorBottom: inspectorRect.bottom,
         headingSize: Number.parseFloat(getComputedStyle(heading).fontSize),
@@ -121,12 +128,27 @@ for (const viewport of [
 
     expect(Math.abs(after.keyboardTop - before.keyboardTop)).toBeLessThanOrEqual(1);
     expect(Math.abs(after.keyboardLeft - before.keyboardLeft)).toBeLessThanOrEqual(1);
-    expect(Math.abs(after.railTop - before.railTop)).toBeLessThanOrEqual(1);
-    expect(Math.abs(after.methodTop - before.methodTop)).toBeLessThanOrEqual(1);
-    expect(Math.abs(after.scrollHeight - before.scrollHeight)).toBeLessThanOrEqual(1);
     expect(after.railVisibility).toBe("visible");
-    expect(after.inspectorTop).toBeGreaterThanOrEqual(before.keyboardBottom + 1);
-    expect(after.inspectorBottom).toBeLessThanOrEqual(before.railTop + 1);
+
+    if (viewport.height <= 700) {
+      expect(after.slotPosition).toBe("static");
+      expect(after.inspectorPosition).toBe("static");
+      expect(after.methodPosition).toBe("static");
+      expect(after.inspectorTop).toBeGreaterThanOrEqual(before.keyboardBottom + 1);
+      expect(after.railTop).toBeGreaterThanOrEqual(after.inspectorBottom);
+      expect(after.methodTop).toBeGreaterThanOrEqual(after.railBottom);
+      expect(after.scrollHeight).toBeGreaterThanOrEqual(before.scrollHeight);
+    } else {
+      expect(after.slotPosition).toBe("fixed");
+      expect(after.inspectorPosition).toBe("fixed");
+      expect(after.methodPosition).toBe("fixed");
+      expect(Math.abs(after.railTop - before.railTop)).toBeLessThanOrEqual(1);
+      expect(Math.abs(after.methodTop - before.methodTop)).toBeLessThanOrEqual(1);
+      expect(Math.abs(after.scrollHeight - before.scrollHeight)).toBeLessThanOrEqual(1);
+      expect(after.inspectorTop).toBeGreaterThanOrEqual(before.keyboardBottom + 1);
+      expect(after.inspectorBottom).toBeLessThanOrEqual(before.railTop + 1);
+    }
+
     expect(after.headingSize).toBeLessThanOrEqual(24.5);
     expect(after.contentOverflow).toBeLessThanOrEqual(1);
     expect(after.overflowGroupCount).toBe(0);
