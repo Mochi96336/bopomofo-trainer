@@ -9,6 +9,7 @@ import type {
   CatalogSyntaxLegalityArtifact,
 } from "../src/syntax/catalog-legality.js";
 import { FORMAL_GRAMMAR_VERSION } from "../src/syntax/features.js";
+import { projectRuntimeMorphologicalFeatureCounts } from "../src/syntax/runtime-morphology.js";
 import type {
   ActiveCatalogSyntaxProfilesArtifact,
 } from "../src/syntax/runtime-profiles.js";
@@ -135,6 +136,9 @@ for (const entry of catalog.entries) {
       if (sourceProfile === undefined || sourceProfile.entryId !== indexed.entryId) {
         throw new Error(`source rule index references an invalid syntax profile: ${sourceProfileId}`);
       }
+      const morphologicalFeatureCounts = projectRuntimeMorphologicalFeatureCounts(
+        sourceProfile.dependencyEvidence.morphologicalFeatureCounts,
+      );
       runtimeProfiles.push({
         id: `runtime-syntax-profile:${sha256Canonical({
           sourceProfileId,
@@ -147,7 +151,7 @@ for (const entry of catalog.entries) {
         dependencyEvidence: {
           dependencyRelationCounts: sourceProfile.dependencyEvidence.dependencyRelationCounts,
           surfacePositionCounts: sourceProfile.dependencyEvidence.surfacePositionCounts,
-          morphologicalFeatureCounts: sourceProfile.dependencyEvidence.morphologicalFeatureCounts,
+          ...(morphologicalFeatureCounts === undefined ? {} : { morphologicalFeatureCounts }),
         },
         provenanceIds: sourceProfile.provenanceIds,
       });
