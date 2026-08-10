@@ -262,4 +262,14 @@
     margin: 8px auto 0;
     padding-top: 10px;
   }
+
+  .analysis-v2 .analysis-v2-speed-field > .analysis-v2-method,
+  .analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method {
+    position: static;
+    right: auto;
+    bottom: auto;
+    width: var(--analysis-board-width);
+    margin: 8px auto 0;
+    justify-self: center;
+  }
 }
