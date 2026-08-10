@@ -42,7 +42,6 @@ export type ClauseConstructionFamily =
   | "marked.ba"
   | "marked.bei"
   | "marked.comparative"
-  | "complex.causative"
   | "complex.serial-verb"
   | "information.topic-comment"
   | "information.subject-omission"
@@ -92,7 +91,6 @@ const CLAUSE_CLASSIFICATION_BY_RULE_ID: Readonly<Record<string, ClauseConstructi
   "clause.bei": { kind: "marked", family: "marked.bei" },
   "clause.comparative": { kind: "marked", family: "marked.comparative" },
 
-  "clause.causative": { kind: "complex-predicate", family: "complex.causative" },
   "clause.serial-verb": { kind: "complex-predicate", family: "complex.serial-verb" },
 
   "clause.topic-comment": { kind: "information-structure", family: "information.topic-comment" },
