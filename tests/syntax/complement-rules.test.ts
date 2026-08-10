@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { RETIRED_COMPLEMENT_RULE_V2_DECISIONS } from "../../src/syntax/complement-model-v2.js";
 import {
   COMPLEMENT_PRODUCTION_RULES,
   FORMAL_SYNTAX_FIXTURES,
@@ -7,7 +8,6 @@ import {
 import { validateGrammarBundle } from "../../src/syntax/validate.js";
 
 const REQUIRED = [
-  "complement.result",
   "complement.directional",
   "complement.potential",
   "complement.degree",
@@ -33,9 +33,20 @@ describe("formal complement and embedded-clause inventory", () => {
       .toEqual([]);
   });
 
-  it("covers every required complement and embedded-clause construction", () => {
+  it("covers every required live complement and embedded-clause construction", () => {
     const ids = new Set(COMPLEMENT_PRODUCTION_RULES.map((rule) => rule.id));
     expect(REQUIRED.filter((id) => !ids.has(id))).toEqual([]);
+    expect(ids.has("complement.result")).toBe(false);
+  });
+
+  it("keeps retired resultative provenance without an executable resultative requirement", () => {
+    expect(RETIRED_COMPLEMENT_RULE_V2_DECISIONS["complement.result"]).toMatchObject({
+      evidenceContract: "resultative-evidence-audit-v1",
+      replacement: "compound:vv-or-reviewed-reconstruction:TBD",
+    });
+    expect(FORMAL_SYNTAX_RULES.flatMap((rule) =>
+      rule.constituents.flatMap((item) => item.requiredValencyFrames))
+      .toContain("resultative")).toBe(false);
   });
 
   it("marks every embedded return to clause-like categories as recursive", () => {
