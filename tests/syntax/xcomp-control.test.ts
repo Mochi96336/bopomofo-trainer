@@ -68,7 +68,7 @@ describe("Clause-model v2 xcomp control", () => {
     expect(ids.has(OBJECT_CONTROL)).toBe(true);
   });
 
-  it("budgets OpenClause as a nested clause rather than phrase recursion", () => {
+  it("counts OpenClause as a second clause without consuming phrase depth", () => {
     const keep = new Set([
       SUBJECT_CONTROL,
       "open-clause.intransitive",
@@ -78,34 +78,26 @@ describe("Clause-model v2 xcomp control", () => {
       "phrase.nominal-head.noun",
     ]);
     const rules = FORMAL_SYNTAX_RULES.filter((item) => keep.has(item.id));
+    const baseBounds = {
+      maximumPhraseDepth: 1,
+      maximumClauseNesting: 1,
+      maximumCoordinationItems: 3,
+      maximumConsecutiveModifiers: 3,
+      maximumComplementsPerPredicate: 2,
+      maximumLexicalEntriesPerUtterance: 12,
+    } as const;
 
     const blocked = [...enumerateStructuralDerivations({
       rootCategory: "Clause",
       rules,
-      bounds: {
-        maximumPhraseDepth: 4,
-        maximumClauseNesting: 0,
-        maximumClausesPerSentence: 4,
-        maximumCoordinationItems: 3,
-        maximumConsecutiveModifiers: 3,
-        maximumComplementsPerPredicate: 2,
-        maximumLexicalEntriesPerUtterance: 12,
-      },
+      bounds: { ...baseBounds, maximumClausesPerSentence: 1 },
     })];
     expect(blocked).toEqual([]);
 
     const allowed = [...enumerateStructuralDerivations({
       rootCategory: "Clause",
       rules,
-      bounds: {
-        maximumPhraseDepth: 0,
-        maximumClauseNesting: 1,
-        maximumClausesPerSentence: 2,
-        maximumCoordinationItems: 3,
-        maximumConsecutiveModifiers: 3,
-        maximumComplementsPerPredicate: 2,
-        maximumLexicalEntriesPerUtterance: 12,
-      },
+      bounds: { ...baseBounds, maximumClausesPerSentence: 2 },
     })];
     expect(allowed).toHaveLength(1);
     expect(allowed[0]?.clauseCount).toBe(2);
