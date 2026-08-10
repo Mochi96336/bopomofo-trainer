@@ -41,8 +41,10 @@ const COORDINATION_CONNECTORS: Readonly<Record<string, ReadonlySet<string>>> = {
 };
 
 /**
- * Every form this module can license, so the catalog-identity table below can
- * be checked for completeness against real catalog readings.
+ * Every form this module can license through an explicit form set, so the
+ * catalog-identity table below can be checked for completeness against real
+ * catalog readings. Source-only morphology licenses such as Voice=Cau do not
+ * add a lexical whitelist here.
  */
 export const LICENSED_CONSTRUCTION_FORMS: ReadonlySet<string> = new Set([
   ...NEGATORS,
@@ -103,6 +105,7 @@ const LICENSED_FEATURE_VALUES = new Set([
   "aspect:marked",
   "voice:disposal",
   "voice:passive",
+  "voice:causative",
   "clauseType:existential",
   "clauseType:comparative",
   "clauseType:request",
@@ -121,6 +124,12 @@ const LICENSED_FEATURE_VALUES = new Set([
 function relationSeen(profile: RuntimeSyntaxProfile, ...relations: readonly string[]): boolean {
   return relations.some(
     (relation) => (profile.dependencyEvidence.dependencyRelationCounts[relation] ?? 0) > 0,
+  );
+}
+
+function morphologySeen(profile: RuntimeSyntaxProfile, ...features: readonly string[]): boolean {
+  return features.some(
+    (feature) => (profile.dependencyEvidence.morphologicalFeatureCounts[feature] ?? 0) > 0,
   );
 }
 
@@ -147,8 +156,9 @@ export function supportsLexicalConstructionFeature(
   return LICENSED_FEATURE_VALUES.has(featureKey(feature, value));
 }
 
-/** Resolve closed-class construction licensing from exact catalog identity,
- * written form, and compact UD evidence. This is syntax, not semantics. */
+/** Resolve construction licensing from exact catalog identity and compact UD
+ * evidence. Open lexical capabilities may be licensed by source morphology
+ * without introducing a hard-coded form list. */
 export function lexicalConstructionFeatureMatches(
   entryId: string | undefined,
   text: string,
@@ -172,6 +182,8 @@ export function lexicalConstructionFeatureMatches(
       return PASSIVE_MARKERS.has(text)
         && ((profile.upos === "AUX" && relationSeen(profile, "aux:pass"))
           || (profile.upos === "ADP" && relationSeen(profile, "case")));
+    case "voice:causative":
+      return morphologySeen(profile, "Voice=Cau");
     case "clauseType:existential":
       return EXISTENTIAL_PREDICATES.has(text) && profile.functions.includes("predicate");
     case "clauseType:comparative":
