@@ -229,12 +229,6 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     constituent("causee", "NounPhrase", { requiredFunctions: ["object"] }),
     constituent("resultPredicate", "VerbPhrase", { requiredFunctions: ["complement"] }),
   ]),
-  production("clause.pivotal", "Clause", [
-    subject(),
-    legacyVerbPredicate(["transitive", "ambitransitive", "causative"]),
-    constituent("pivot", "NounPhrase", { requiredFunctions: ["object", "subject"] }),
-    constituent("secondaryPredicate", "VerbPhrase", { requiredFunctions: ["predicate"] }),
-  ]),
   production("clause.serial-verb", "Clause", [
     subject({ minimum: 0, maximum: 1 }),
     constituent("firstPredicate", "VerbPhrase", {
