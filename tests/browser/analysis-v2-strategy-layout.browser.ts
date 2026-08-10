@@ -276,6 +276,8 @@ test("keeps two- and three-part Strategy trajectories on one fixed frame", async
   await expect(projection.locator("tbody td")).toHaveCount(4);
   await expect(analysis.locator(".analysis-v2-strategy-readout")).toContainText("換序輸入");
   await expect(analysis.locator(".analysis-v2-strategy-readout")).not.toContainText("位置偏移");
+  await expect(analysis.locator(".analysis-v2-strategy-readout")).not.toContainText("前 → 後");
+  await expect(analysis.locator(".analysis-v2-strategy-readout")).not.toContainText("後 → 前");
   await expect(analysis.locator(".analysis-v2-strategy-readout")).toContainText("20%");
 
   const twoPart = await trajectory.evaluate((node) => {
