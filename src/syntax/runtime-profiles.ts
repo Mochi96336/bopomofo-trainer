@@ -1,6 +1,7 @@
 import type { CatalogEntry } from "../core/model.js";
 import { sha256Canonical } from "../reference/importers/canonical-json.js";
 import { FORMAL_GRAMMAR_VERSION } from "./features.js";
+import { validRuntimeMorphologicalFeatureCounts } from "./runtime-morphology.js";
 import type { RuntimeSyntaxProfile } from "./types.js";
 
 export interface ActiveCatalogSyntaxProfilesArtifact {
@@ -37,8 +38,8 @@ function validProfile(profile: RuntimeSyntaxProfile): boolean {
     && validCountMap(profile.dependencyEvidence.dependencyRelationCounts)
     && validCountMap(profile.dependencyEvidence.surfacePositionCounts)
     // v1 active profiles predate runtime morphology. Missing means no reviewed
-    // runtime morphology evidence; malformed present values still fail closed.
-    && (morphology === undefined || validCountMap(morphology));
+    // evidence; present maps must satisfy the explicit runtime allowlist.
+    && validRuntimeMorphologicalFeatureCounts(morphology);
 }
 
 /**
