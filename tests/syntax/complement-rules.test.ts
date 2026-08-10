@@ -13,9 +13,13 @@ const REQUIRED = [
   "complement.degree",
   "complement.quantity",
   "complement.duration",
+  "open-clause.intransitive",
+  "open-clause.transitive",
+  "open-clause.ditransitive",
   "clause.subject-content",
   "clause.object-content",
-  "clause.complement-content",
+  "clause.xcomp-subject-control",
+  "clause.xcomp-object-control",
   "relative.clause",
   "phrase.noun.relative",
   "phrase.noun.de-nominalization",
@@ -34,11 +38,12 @@ describe("formal complement and embedded-clause inventory", () => {
     expect(REQUIRED.filter((id) => !ids.has(id))).toEqual([]);
   });
 
-  it("marks every embedded return to Clause or NounPhrase as recursive", () => {
+  it("marks every embedded return to clause-like categories as recursive", () => {
     const embedded = COMPLEMENT_PRODUCTION_RULES.flatMap((rule) =>
       rule.constituents.filter((item) =>
-        item.category === "Clause" || item.category === "ContentClause"
-        || item.category === "RelativeClause" || item.category === "QuotedClause"));
+        item.category === "Clause" || item.category === "OpenClause"
+        || item.category === "ContentClause" || item.category === "RelativeClause"
+        || item.category === "QuotedClause"));
     expect(embedded.length).toBeGreaterThan(0);
     expect(embedded.every((item) => item.recursive)).toBe(true);
   });
