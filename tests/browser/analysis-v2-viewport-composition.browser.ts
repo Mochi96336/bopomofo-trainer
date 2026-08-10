@@ -8,34 +8,79 @@ async function openAnalysis(page: Page): Promise<void> {
   await page.waitForTimeout(340);
 }
 
-async function semanticSelectionGap(page: Page, height: number): Promise<number> {
+async function semanticSelectionGeometry(page: Page, height: number): Promise<{
+  gap: number;
+  slotPosition: string;
+  inspectorPosition: string;
+  inspectorHeight: number;
+}> {
   await page.setViewportSize({ width: 1440, height });
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
   await analysis.locator('[data-tab="semantic"]').click();
   await analysis.locator('[data-action="select-key"]').first().click();
+
+  const inspector = analysis.locator(
+    ".analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector",
+  );
+  await inspector.evaluate((inspectorNode) => {
+    const content = inspectorNode.querySelector<HTMLElement>(".analysis-v2-inspector-content");
+    if (content === null || content.querySelector(".analysis-v2-trends") !== null) return;
+    const trends = document.createElement("section");
+    trends.className = "analysis-v2-trends";
+    trends.innerHTML = `
+      <div class="analysis-v2-trend-chart">
+        <div class="analysis-v2-trend-heading"><span>近期錯誤觀察</span><strong>25%</strong></div>
+        <svg viewBox="0 0 168 40" preserveAspectRatio="none" aria-hidden="true">
+          <line x1="4" y1="36" x2="164" y2="36"></line>
+          <path d="M4,14 L84,18 L164,25"></path>
+          <circle cx="164" cy="25" r="2.5"></circle>
+        </svg>
+      </div>
+      <div class="analysis-v2-trend-chart">
+        <div class="analysis-v2-trend-heading"><span>近期鍵間時間</span><strong>184 ms</strong></div>
+        <svg viewBox="0 0 168 40" preserveAspectRatio="none" aria-hidden="true">
+          <line x1="4" y1="36" x2="164" y2="36"></line>
+          <path d="M4,13 L84,17 L164,25"></path>
+          <circle cx="164" cy="25" r="2.5"></circle>
+        </svg>
+      </div>`;
+    content.append(trends);
+  });
+
   return analysis.evaluate((host) => {
     const board = host.querySelector<HTMLElement>(".analysis-v2-keyboard")!;
-    const inspector = host.querySelector<HTMLElement>(
+    const inspectorNode = host.querySelector<HTMLElement>(
       ".analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector",
     )!;
     const slot = host.querySelector<HTMLElement>(
       ".analysis-v2-semantic-primary .analysis-v2-primary-object-slot",
     )!;
     const boardRect = board.getBoundingClientRect();
-    const inspectorRect = inspector.getBoundingClientRect();
-    if (getComputedStyle(slot).position !== "static") {
-      throw new Error("short-height semantic composition did not return to flow");
-    }
-    return inspectorRect.top - boardRect.bottom;
+    const inspectorRect = inspectorNode.getBoundingClientRect();
+    return {
+      gap: inspectorRect.top - boardRect.bottom,
+      slotPosition: getComputedStyle(slot).position,
+      inspectorPosition: getComputedStyle(inspectorNode).position,
+      inspectorHeight: inspectorRect.height,
+    };
   });
 }
 
-test("returns primary Analysis views and methodology to flow before a short desktop viewport can overlap", async ({ page }) => {
-  for (const height of [560, 480, 400]) {
-    const gap = await semanticSelectionGap(page, height);
-    expect(gap).toBeGreaterThanOrEqual(0);
+test("returns primary Analysis views and methodology to flow through the 700px compact-height boundary", async ({ page }) => {
+  for (const height of [700, 670, 650, 621, 560, 480, 400]) {
+    const semantic = await semanticSelectionGeometry(page, height);
+    expect(semantic.slotPosition).toBe("static");
+    expect(semantic.inspectorPosition).toBe("static");
+    expect(semantic.inspectorHeight).toBeGreaterThanOrEqual(90);
+    expect(semantic.gap).toBeGreaterThanOrEqual(0);
   }
+
+  const fixedSemantic = await semanticSelectionGeometry(page, 701);
+  expect(fixedSemantic.slotPosition).toBe("fixed");
+  expect(fixedSemantic.inspectorPosition).toBe("fixed");
+  expect(fixedSemantic.inspectorHeight).toBeGreaterThanOrEqual(90);
+  expect(fixedSemantic.gap).toBeGreaterThanOrEqual(0);
 
   await page.setViewportSize({ width: 1440, height: 400 });
   await openAnalysis(page);
@@ -123,7 +168,7 @@ test("returns Movement methodology to flow in a short desktop viewport", async (
   expect(movement.scrollable).toBe(true);
 });
 
-test("uses the shared viewport-relative rail and reserves the methodology lane at 700px", async ({ page }) => {
+test("uses the shared viewport-relative rail and reserves the methodology lane at 700px width", async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 900 });
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
