@@ -42,6 +42,12 @@ export function mountAnalysisV2SpeedPreview(
     baselineAccentId = null;
   };
 
+  const currentBoard = (): Element | null => host.querySelector(".analysis-v2-speed-board");
+
+  const isCurrentPreview = (id: string): boolean => (
+    id === activePreviewId && previewBoard !== null && previewBoard === currentBoard()
+  );
+
   const cellsForBoard = (board: Element): ReadonlyMap<string, AnalysisV2MotorCell<ImmediateTokenAggregateScope>> => {
     if (cachedBoard !== board) {
       cachedBoard = board;
@@ -57,7 +63,7 @@ export function mountAnalysisV2SpeedPreview(
   };
 
   const showPreview = (id: string): void => {
-    const board = host.querySelector(".analysis-v2-speed-board");
+    const board = currentBoard();
     const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout");
     if (board === null || readout === null) return;
     const cell = cellsForBoard(board).get(id);
@@ -76,8 +82,9 @@ export function mountAnalysisV2SpeedPreview(
 
   const restorePreview = (): void => {
     const board = previewBoard;
+    const boardStillCurrent = board !== null && board === currentBoard();
     const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout");
-    if (board !== null && readout !== null && baselineReadoutHtml !== null) {
+    if (boardStillCurrent && readout !== null && baselineReadoutHtml !== null) {
       readout.innerHTML = baselineReadoutHtml;
       setAccent(board, baselineAccentId);
     }
@@ -86,7 +93,7 @@ export function mountAnalysisV2SpeedPreview(
 
   const pointerOver = (event: PointerEvent): void => {
     const id = relationId(event.target);
-    if (id === null || id === activePreviewId) return;
+    if (id === null || isCurrentPreview(id)) return;
     showPreview(id);
   };
 
@@ -104,7 +111,7 @@ export function mountAnalysisV2SpeedPreview(
 
   const focusIn = (event: FocusEvent): void => {
     const id = relationId(event.target);
-    if (id === null || id === activePreviewId) return;
+    if (id === null || isCurrentPreview(id)) return;
     showPreview(id);
   };
 
