@@ -29,6 +29,7 @@ import {
   ANALYSIS_V2_SPEED_VIEWBOX,
   analysisV2KeyboardCurvePath,
   buildAnalysisV2SpeedPaths,
+  exactTransitionHistoryLabel,
 } from "./analysis-v2-speed-network.js";
 import {
   strategyPermutationStructureLabel,
@@ -81,8 +82,6 @@ const THREE_PART_PERMUTATIONS = [
 type ThreePartPermutation = (typeof THREE_PART_PERMUTATIONS)[number];
 const SEMANTIC_LEAD_KEY_COUNT = 3;
 const SEMANTIC_CONFUSION_MAX_VISIBLE_EDGES = 8;
-const SPEED_SALIENT_EDGE_COUNT = 16;
-const SPEED_SLOW_EDGE_COUNT = 3;
 const STRATEGY_LEAD_MIN_ROW_OBSERVATIONS = 8;
 const TREND_WIDTH = 168;
 const TREND_HEIGHT = 40;
@@ -497,12 +496,12 @@ function speedLeadMarkup(
   displayCount: string,
 ): string {
   if (cell === undefined || cell.currentTimeToTypeMs === null) {
-    return `<div class="analysis-v2-hero-readout analysis-v2-speed-readout"><strong>仍在累積</strong><small>單一轉換累積 5 個乾淨時間樣本後可比較</small><span>${escapeHtml(displayCount)} · 線粗代表樣本支持；紅線對應目前主讀值</span></div>`;
+    return `<div class="analysis-v2-hero-readout analysis-v2-speed-readout"><strong>仍在累積</strong><small>單一轉換累積 5 個乾淨時間樣本後可比較</small><span>${escapeHtml(displayCount)} · 線粗＝樣本支持；越深紅＝相對越慢</span></div>`;
   }
   return `<div class="analysis-v2-hero-readout analysis-v2-speed-readout">
     <strong><b>${escapeHtml(tokenLabel(cell.scope.fromToken))} → ${escapeHtml(tokenLabel(cell.scope.toToken))}</b><em>${escapeHtml(milliseconds(cell.currentTimeToTypeMs))}</em></strong>
     <small>${cell.timingSamples} 個乾淨樣本 · 僅在畫面中的同類實際鍵間轉換中比較</small>
-    <span>${escapeHtml(displayCount)} · 線粗代表樣本支持；紅線對應目前主讀值</span>
+    <span>${escapeHtml(exactTransitionHistoryLabel(cell))} · ${escapeHtml(displayCount)} · 線粗＝樣本支持；越深紅＝相對越慢</span>
   </div>`;
 }
 
@@ -679,14 +678,6 @@ function speedNetworkMarkup(
   const readyCells = model.coordination.immediateTokens.filter((cell) => cell.ready);
   const paths = buildAnalysisV2SpeedPaths(model.coordination.immediateTokens);
   const cellById = new Map(model.coordination.immediateTokens.map((cell) => [cell.id, cell]));
-  const salientIds = new Set(paths
-    .map((path) => ({ path, cell: cellById.get(path.id) }))
-    .sort((left, right) => (right.cell?.timingSamples ?? 0) - (left.cell?.timingSamples ?? 0)
-      || (right.cell?.observations ?? 0) - (left.cell?.observations ?? 0)
-      || left.path.id.localeCompare(right.path.id))
-    .slice(0, SPEED_SALIENT_EDGE_COUNT)
-    .map(({ path }) => path.id));
-  const slowIds = new Set(paths.slice(-SPEED_SLOW_EDGE_COUNT).map((path) => path.id));
   const selectedCell = selectedPathId === null ? undefined : cellById.get(selectedPathId);
   const slowestVisibleCell = paths.length === 0 ? undefined : cellById.get(paths[paths.length - 1]!.id);
   const leadCell = selectedCell ?? slowestVisibleCell;
@@ -708,13 +699,13 @@ function speedNetworkMarkup(
         if (cell === undefined) return "";
         const selected = selectedPathId === path.id;
         const interaction = `data-action="select-speed" data-speed-id="${escapeHtml(path.id)}" data-from-token="${escapeHtml(cell.scope.fromToken)}" data-to-token="${escapeHtml(cell.scope.toToken)}"`;
-        return `<path class="analysis-v2-speed-hit" d="${path.path}" ${interaction} aria-hidden="true"></path><path class="analysis-v2-speed-path${path.includesTone ? " tone" : ""}${salientIds.has(path.id) ? " salient" : ""}${slowIds.has(path.id) ? " is-slow" : ""}${accentId === path.id ? " is-accent" : ""}${selected ? " selected" : ""}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity};--relation-slowness:${path.slowness}" ${interaction} tabindex="0" role="button" aria-pressed="${selected}" aria-label="${escapeHtml(path.label)}"><title>${escapeHtml(path.label)}</title></path>`;
+        return `<path class="analysis-v2-speed-hit" d="${path.path}" ${interaction} aria-hidden="true"></path><path class="analysis-v2-speed-path${path.includesTone ? " tone" : ""}${accentId === path.id ? " is-accent" : ""}${selected ? " selected" : ""}" d="${path.path}" style="--relation-width:${path.width};--relation-opacity:${path.opacity};--relation-slowness:${path.slowness}" ${interaction} tabindex="0" role="button" aria-pressed="${selected}" aria-label="${escapeHtml(path.label)}"><title>${escapeHtml(path.label)}</title></path>`;
       }).join("")}</svg>`}
   </div></div>`;
   const primary = primaryStageMarkup(board, speedLeadMarkup(leadCell, displayCount), "analysis-v2-speed-primary");
   return `<section class="analysis-v2-speed-field" aria-label="鍵間軌跡">
     <div class="analysis-v2-speed-stage${selectedCell === undefined ? "" : " has-selection"}">${primary}</div>
-    ${methodDetailsMarkup("資料規則", `只畫同一字內實際相鄰接受且乾淨的轉換，每一條至少 5 個時間樣本。最多顯示支持度較高的 ${ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES} 條；紅線只連結目前主讀值，不代表錯誤。`)}
+    ${methodDetailsMarkup("資料規則", `只畫同一字內實際相鄰接受且乾淨的轉換，每一條至少 5 個時間樣本。最多顯示支持度較高的 ${ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES} 條；紅色深淺只在目前畫面中的同類實際鍵間轉換內表示相對速度，越深紅越慢，不代表錯誤。`)}
   </section>`;
 }
 

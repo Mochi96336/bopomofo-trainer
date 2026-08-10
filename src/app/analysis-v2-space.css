@@ -1,7 +1,7 @@
 /* Analysis breathing-space ownership.
-   Keep keyboard-led views on one shared visual axis. The board stays medium;
+   Keep primary views on one shared visual axis. The board stays medium;
    the remaining viewport becomes intentional separation between object, reading,
-   summary, and methodology instead of being consumed by a larger keyboard. */
+   summary, and methodology instead of being consumed by a larger object. */
 .analysis-v2 {
   --analysis-board-width: min(760px, 92%);
   --analysis-primary-stage-height: clamp(470px, 60dvh, 540px);
@@ -12,8 +12,8 @@
   width: min(860px, 92%);
 }
 
-/* Strategy trajectory paint belongs here; Strategy frame sizing belongs to
-   analysis-v2-strategy-floor.css so cascade order cannot redefine its geometry. */
+/* Strategy trajectory paint lives here; its frame and vertical composition use
+   the same shared Analysis tokens and stage skeleton as the keyboard views. */
 .analysis-v2 .analysis-v2-strategy-trajectory {
   display: grid;
   width: 100%;
@@ -89,11 +89,11 @@
   stroke-dasharray: 2 2;
 }
 
-/* Keyboard-led stages reserve the upper slot for the board and let all text
-   settle into the lower rail. The object slot is identical across Coordination
-   and Semantic, so changing views never moves the keyboard. */
-.analysis-v2 .analysis-v2-primary-stage:not(.analysis-v2-strategy-stage),
-.analysis-v2 .analysis-v2-visual-stage:not(.analysis-v2-strategy-stage) {
+/* Every primary stage reserves the same object slot and lower reading band.
+   Strategy is deliberately included: switching domains changes the object, not
+   the Analysis vertical skeleton. */
+.analysis-v2 .analysis-v2-primary-stage,
+.analysis-v2 .analysis-v2-visual-stage {
   min-height: var(--analysis-primary-stage-height);
   padding-top: 14px;
   grid-template-rows: var(--analysis-object-slot-height) minmax(0, 1fr);
@@ -417,8 +417,8 @@
     width: 100%;
   }
 
-  .analysis-v2 .analysis-v2-primary-stage:not(.analysis-v2-strategy-stage),
-  .analysis-v2 .analysis-v2-visual-stage:not(.analysis-v2-strategy-stage) {
+  .analysis-v2 .analysis-v2-primary-stage,
+  .analysis-v2 .analysis-v2-visual-stage {
     grid-template-rows: var(--analysis-object-slot-height) minmax(0, 1fr);
   }
 

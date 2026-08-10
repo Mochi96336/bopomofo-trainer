@@ -1,22 +1,6 @@
-/* Strategy uses the same primary frame as Coordination and Semantic. The
-   trajectory is an absolute Analysis-canvas object; projection, conclusion and
-   methodology share one bounded lower rail and cannot move that center. */
-.analysis-v2 .analysis-v2-domain:has(.analysis-v2-strategy-stage) {
-  width: min(1180px, 100%);
-}
-
-.analysis-v2 .analysis-v2-strategy-stage {
-  min-height: var(--analysis-primary-stage-height);
-  padding-top: 14px;
-  grid-template-rows: var(--analysis-object-slot-height) minmax(0, 1fr);
-  align-content: stretch;
-  gap: 0;
-}
-
-.analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot {
-  min-height: var(--analysis-object-slot-height);
-}
-
+/* Strategy shares the same Analysis primary-stage and viewport composition as
+   Coordination and Semantic. This file owns only trajectory/projection paint and
+   the extra lower-rail spacing needed by the compact position projection. */
 .analysis-v2 .analysis-v2-strategy-trajectory-object {
   position: relative;
   width: var(--analysis-board-width);
@@ -25,10 +9,7 @@
 }
 
 .analysis-v2 .analysis-v2-strategy-projection {
-  position: absolute;
-  z-index: 2;
-  left: 4px;
-  bottom: 22px;
+  z-index: 5;
   width: 126px;
   color: var(--ink-muted);
 }
@@ -93,73 +74,18 @@
   font-weight: 560;
 }
 
-/* Desktop Strategy has two independent anchors:
-   1. trajectory: exact center of the Analysis main canvas;
-   2. lower rail: one 760px frame, 30px above the canvas floor.
-   Neither the 2/3 selector nor lower annotations can displace the primary object. */
+/* The Strategy readout uses the same 760px lower rail as Coordination. Reserve
+   the left projection and right methodology lanes without changing its anchor. */
 @media (min-width: 641px) {
-  .analysis-v2 .analysis-v2-main:has(.analysis-v2-strategy-domain) {
-    position: relative;
-  }
-
-  .analysis-v2-main > [role="tabpanel"]:has(.analysis-v2-strategy-domain) {
-    height: 100%;
-  }
-
-  .analysis-v2 .analysis-v2-strategy-domain {
-    position: static;
-    box-sizing: border-box;
-    height: 100%;
-    grid-template-rows: auto minmax(var(--analysis-primary-stage-height), 1fr);
-  }
-
-  .analysis-v2 .analysis-v2-strategy-stage {
-    position: static;
-    height: var(--analysis-primary-stage-height);
-    align-self: end;
-  }
-
-  .analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot,
-  .analysis-v2 .analysis-v2-strategy-trajectory-object {
-    position: static;
-  }
-
-  .analysis-v2 .analysis-v2-strategy-trajectory {
-    position: absolute;
-    z-index: 1;
-    top: 50%;
-    left: 50%;
-    width: var(--analysis-board-width);
-    transform: translate(-50%, -50%);
-  }
-
-  .analysis-v2 .analysis-v2-strategy-projection {
-    left: calc((100% - var(--analysis-board-width)) / 2);
-    bottom: 30px;
-    width: 126px;
-  }
-
   .analysis-v2 .analysis-v2-strategy-readout {
-    position: absolute;
-    left: calc((100% - var(--analysis-board-width)) / 2);
-    bottom: 30px;
     box-sizing: border-box;
-    width: var(--analysis-board-width);
-    min-height: 88px;
-    margin: 0;
     padding-right: 112px;
     padding-left: 154px;
   }
-
-  .analysis-v2 .analysis-v2-strategy-domain > .analysis-v2-method {
-    right: calc((100% - var(--analysis-board-width)) / 2);
-    bottom: 30px;
-  }
 }
 
-/* Narrow screens keep the projection subordinate and flowing below the plot.
-   Once the projection becomes part of normal flow, the object row must be able
-   to grow with it instead of inheriting the fixed desktop slot height. */
+/* Narrow screens keep the projection subordinate and in normal document flow.
+   The object row can grow with trajectory + projection before the readout. */
 @media (max-width: 640px) {
   .analysis-v2 .analysis-v2-strategy-stage {
     min-height: 0;

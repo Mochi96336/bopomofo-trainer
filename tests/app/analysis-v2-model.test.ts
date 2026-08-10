@@ -6,6 +6,7 @@ import {
 import {
   aggregateMeasurementObservationsV2,
   immediateHandAggregateKey,
+  immediateTokenAggregateKey,
 } from "../../src/measurement-v2/aggregate.js";
 import { createEmptyProgressHistory } from "../../src/progress-history/update.js";
 
@@ -74,14 +75,31 @@ describe("Analysis V2 model", () => {
       duplicateComponentCount: 0,
       prematureToneCount: 0,
     });
-    const key = immediateHandAggregateKey({ fromHand: "left", toHand: "right" });
+    const exactKey = immediateTokenAggregateKey({
+      fromToken: "zhuyin:ㄆ",
+      toToken: "zhuyin:ㄅ",
+    });
+    const handKey = immediateHandAggregateKey({ fromHand: "left", toHand: "right" });
     const emptyHistory = createEmptyProgressHistory("guided", "zhuyin-standard");
     const history = {
       ...emptyHistory,
       motor: {
         ...emptyHistory.motor,
+        immediateTokens: {
+          [exactKey]: {
+            scope: { fromToken: "zhuyin:ㄆ", toToken: "zhuyin:ㄅ" },
+            timing: [{
+              endingSample: 5,
+              completedRound: 5,
+              samples: 5,
+              representativeTimingMs: 82,
+            }],
+            partialTiming: { samples: [] },
+            totalTimingSamples: 5,
+          },
+        },
         immediateHands: {
-          [key]: {
+          [handKey]: {
             scope: { fromHand: "left" as const, toHand: "right" as const },
             timing: [{
               endingSample: 5,
@@ -106,7 +124,7 @@ describe("Analysis V2 model", () => {
       fromToken: "zhuyin:ㄆ",
       toToken: "zhuyin:ㄅ",
     });
-    expect(model.coordination.immediateTokens[0]?.history).toEqual([]);
+    expect(model.coordination.immediateTokens[0]?.history[0]?.representativeTimingMs).toBe(82);
     expect(model.coordination.readyScopes).toBe(1);
     expect(model.coordination.immediateHands[0]?.history[0]?.representativeTimingMs).toBe(42);
     expect(model.strategy.totalObservations).toBe(2);

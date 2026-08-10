@@ -172,7 +172,7 @@ test("keeps Semantic and Coordination keyboards at one fixed screen position and
   expect(semanticAfter.width).toBe(semanticBefore.width);
 });
 
-test("keeps exactly one red flyline and never turns Analysis text red on hover", async ({ page }) => {
+test("uses continuous red flyline intensity and never turns Analysis text red on hover", async ({ page }) => {
   await page.setViewportSize({ width: 1064, height: 665 });
   await installSpeedProgress(page, 24);
   await openAnalysis(page);
@@ -180,7 +180,6 @@ test("keeps exactly one red flyline and never turns Analysis text red on hover",
   const analysis = page.locator("#analysis-v2");
   await expect(analysis.locator('[data-tab="coordination"]')).toHaveAttribute("aria-selected", "true");
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(24);
-  await expect(analysis.locator(".analysis-v2-speed-path.is-slow")).toHaveCount(3);
   await expect(analysis.locator(".analysis-v2-speed-path.is-accent")).toHaveCount(1);
   await expect(analysis.locator(".analysis-v2-speed-readout")).toContainText("ms");
   await expect(analysis.locator(".analysis-v2-speed-readout")).toContainText("24 條可比較");
@@ -190,16 +189,15 @@ test("keeps exactly one red flyline and never turns Analysis text red on hover",
     const stage = host.querySelector<HTMLElement>(".analysis-v2-primary-stage")!;
     const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
     const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout")!;
-    const accentPath = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-accent")!;
-    const neutralSlow = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-slow:not(.is-accent)")!;
+    const paths = [...host.querySelectorAll<SVGPathElement>(".analysis-v2-speed-path")];
+    const fastest = paths[0]!;
+    const slowest = paths.at(-1)!;
     const probe = document.createElement("span");
     host.append(probe);
     probe.style.color = "var(--accent)";
     const accent = getComputedStyle(probe).color;
     probe.style.color = "var(--danger)";
     const danger = getComputedStyle(probe).color;
-    probe.style.color = "var(--ink)";
-    const ink = getComputedStyle(probe).color;
     probe.remove();
     const boardRect = board.getBoundingClientRect();
     const readoutRect = readout.getBoundingClientRect();
@@ -207,17 +205,21 @@ test("keeps exactly one red flyline and never turns Analysis text red on hover",
     return {
       accent,
       danger,
-      ink,
-      accentStroke: getComputedStyle(accentPath).stroke,
-      neutralSlowStroke: getComputedStyle(neutralSlow).stroke,
+      fastestStroke: getComputedStyle(fastest).stroke,
+      slowestStroke: getComputedStyle(slowest).stroke,
+      fastestOpacity: Number.parseFloat(fastest.style.getPropertyValue("--relation-opacity")),
+      slowestOpacity: Number.parseFloat(slowest.style.getPropertyValue("--relation-opacity")),
       stageHeight: stageRect.height,
       boardTopInsideStage: boardRect.top - stageRect.top,
       readoutGap: readoutRect.top - boardRect.bottom,
     };
   });
-  expect(palette.accentStroke).toBe(palette.accent);
-  expect(palette.neutralSlowStroke).toBe(palette.ink);
-  expect(palette.neutralSlowStroke).not.toBe(palette.accent);
+  expect(palette.fastestStroke).not.toBe(palette.slowestStroke);
+  expect(palette.fastestStroke).not.toBe(palette.accent);
+  expect(palette.slowestStroke).not.toBe(palette.accent);
+  expect(Number.isFinite(palette.fastestOpacity)).toBe(true);
+  expect(Number.isFinite(palette.slowestOpacity)).toBe(true);
+  expect(palette.slowestOpacity).toBeGreaterThan(palette.fastestOpacity);
   expect(palette.stageHeight).toBeLessThanOrEqual(470.5);
   expect(palette.boardTopInsideStage).toBeGreaterThan(8);
   expect(palette.readoutGap).toBeGreaterThanOrEqual(45);
@@ -255,15 +257,15 @@ test("keeps exactly one red flyline and never turns Analysis text red on hover",
 
   await page.evaluate(() => document.documentElement.setAttribute("data-theme", "dark"));
   await expect(analysis.locator(".analysis-v2-speed-path.is-accent")).toHaveCount(1);
-  const darkAccentMatches = await analysis.evaluate((host) => {
-    const path = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-accent")!;
+  const darkPalette = await analysis.evaluate((host) => {
+    const path = host.querySelector<SVGPathElement>(".analysis-v2-speed-path:not(.is-accent)")!;
     const probe = document.createElementNS("http://www.w3.org/2000/svg", "path");
     host.append(probe);
     probe.style.stroke = "var(--accent)";
     const accent = getComputedStyle(probe).stroke;
     const actual = getComputedStyle(path).stroke;
     probe.remove();
-    return actual === accent;
+    return { actual, accent };
   });
-  expect(darkAccentMatches).toBe(true);
+  expect(darkPalette.actual).not.toBe(darkPalette.accent);
 });

@@ -243,7 +243,7 @@ describe("Analysis V2 panel", () => {
     expect(svg?.getAttribute("aria-label")).toContain("實際鍵間軌跡");
     expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
     expect(readout?.textContent).toContain("1 條可比較");
-    expect(readout?.textContent).toContain("線粗代表樣本支持");
+    expect(readout?.textContent).toContain("線粗＝樣本支持；越深紅＝相對越慢");
     expect(host.querySelector(".analysis-v2-speed-caption")).toBeNull();
     expect(host.querySelector(".analysis-v2-method")?.textContent)
       .toContain("每一條至少 5 個時間樣本");

@@ -1,6 +1,7 @@
 import { tokenLabel } from "../diagnostics/labels.js";
 import type { ImmediateTokenAggregateScope } from "../measurement-v2/aggregate.js";
 import type { AnalysisV2Model, AnalysisV2MotorCell } from "./analysis-v2-model.js";
+import { exactTransitionHistoryLabel } from "./analysis-v2-speed-network.js";
 
 const SPEED_TARGET_SELECTOR = ".analysis-v2-speed-path, .analysis-v2-speed-hit";
 
@@ -8,25 +9,35 @@ export interface AnalysisV2SpeedPreviewController {
   destroy(): void;
 }
 
+interface PreviewOwner {
+  readonly id: string;
+  readonly board: Element;
+}
+
 function relationTarget(target: EventTarget | null): SVGPathElement | null {
   if (!(target instanceof Element)) return null;
   return target.closest<SVGPathElement>(SPEED_TARGET_SELECTOR);
 }
 
-function relationId(target: EventTarget | null): string | null {
-  return relationTarget(target)?.dataset.speedId ?? null;
+function relationOwner(target: EventTarget | null): PreviewOwner | null {
+  const relation = relationTarget(target);
+  const id = relation?.dataset.speedId;
+  const board = relation?.closest(".analysis-v2-speed-board");
+  return id === undefined || board === null || board === undefined ? null : { id, board };
 }
 
 /**
- * Coordination flylines use hover as a transient preview and click as the
- * persistent selection owned by analysis-v2-panel. This controller only swaps
- * the current lower readout/accent while the pointer is over a relation; it
- * never changes aria-pressed or the panel's selected path state.
+ * Coordination flylines use hover/focus as transient preview owners and click as
+ * the persistent selection owned by analysis-v2-panel. Pointer preview wins while
+ * it exists, then keyboard focus resumes; neither temporary owner may restore a
+ * baseline captured from an obsolete board after the panel rerenders.
  */
 export function mountAnalysisV2SpeedPreview(
   host: HTMLElement,
   getModel: () => AnalysisV2Model,
 ): AnalysisV2SpeedPreviewController {
+  let pointerOwner: PreviewOwner | null = null;
+  let focusOwner: PreviewOwner | null = null;
   let activePreviewId: string | null = null;
   let previewBoard: Element | null = null;
   let baselineReadoutHtml: string | null = null;
@@ -34,7 +45,7 @@ export function mountAnalysisV2SpeedPreview(
   let cachedBoard: Element | null = null;
   let cachedCells: ReadonlyMap<string, AnalysisV2MotorCell<ImmediateTokenAggregateScope>> = new Map();
 
-  const clearPreviewState = (): void => {
+  const clearRenderedPreviewState = (): void => {
     activePreviewId = null;
     previewBoard = null;
     baselineReadoutHtml = null;
@@ -43,111 +54,108 @@ export function mountAnalysisV2SpeedPreview(
 
   const currentBoard = (): Element | null => host.querySelector(".analysis-v2-speed-board");
 
-  const cellFor = (
-    pathId: string,
-  ): AnalysisV2MotorCell<ImmediateTokenAggregateScope> | undefined => {
-    const board = currentBoard();
-    if (board === null) return undefined;
-    if (board !== cachedBoard) {
+  const cellsForBoard = (board: Element): ReadonlyMap<string, AnalysisV2MotorCell<ImmediateTokenAggregateScope>> => {
+    if (cachedBoard !== board) {
       cachedBoard = board;
-      cachedCells = new Map(
-        getModel().coordination.immediateTokens.map((cell) => [cell.id, cell]),
-      );
+      cachedCells = new Map(getModel().coordination.immediateTokens.map((cell) => [cell.id, cell]));
     }
-    return cachedCells.get(pathId);
+    return cachedCells;
   };
 
-  const setAccent = (pathId: string | null): void => {
-    for (const path of host.querySelectorAll<SVGPathElement>(".analysis-v2-speed-path")) {
-      path.classList.toggle("is-accent", pathId !== null && path.dataset.speedId === pathId);
+  const setAccent = (board: Element, id: string | null): void => {
+    for (const path of board.querySelectorAll<SVGPathElement>(".analysis-v2-speed-path")) {
+      path.classList.toggle("is-accent", id !== null && path.dataset.speedId === id);
     }
   };
 
-  const updateReadout = (
-    cell: AnalysisV2MotorCell<ImmediateTokenAggregateScope>,
-  ): boolean => {
-    if (cell.currentTimeToTypeMs === null) return false;
-    const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout");
-    if (readout === null) return false;
-    const strong = readout.querySelector<HTMLElement>("strong");
-    const small = readout.querySelector<HTMLElement>("small");
-    if (strong === null || small === null) return false;
-
-    const pair = document.createElement("b");
-    pair.textContent = `${tokenLabel(cell.scope.fromToken)} → ${tokenLabel(cell.scope.toToken)}`;
-    const timing = document.createElement("em");
-    timing.textContent = `${Math.round(cell.currentTimeToTypeMs)} ms`;
-    strong.replaceChildren(pair, timing);
-    small.textContent = `${cell.timingSamples} 個乾淨樣本 · 僅在畫面中的同類實際鍵間轉換中比較`;
-    return true;
-  };
-
-  const preview = (pathId: string): void => {
-    if (activePreviewId === pathId) return;
+  const showPreview = (owner: PreviewOwner): void => {
     const board = currentBoard();
-    const cell = cellFor(pathId);
     const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout");
-    if (board === null || cell === undefined || readout === null) return;
+    if (board === null || owner.board !== board || readout === null) return;
+    if (activePreviewId === owner.id && previewBoard === board) return;
+    const cell = cellsForBoard(board).get(owner.id);
+    if (cell === undefined || cell.currentTimeToTypeMs === null) return;
 
-    if (activePreviewId === null) {
+    if (previewBoard !== board || baselineReadoutHtml === null) {
       previewBoard = board;
       baselineReadoutHtml = readout.innerHTML;
-      baselineAccentId = host.querySelector<SVGPathElement>(
-        ".analysis-v2-speed-path.is-accent",
-      )?.dataset.speedId ?? null;
+      baselineAccentId = board.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-accent")
+        ?.dataset.speedId ?? null;
     }
-
-    if (!updateReadout(cell)) return;
-    activePreviewId = pathId;
-    setAccent(pathId);
+    activePreviewId = owner.id;
+    setAccent(board, owner.id);
+    readout.innerHTML = `<strong><b>${tokenLabel(cell.scope.fromToken)} → ${tokenLabel(cell.scope.toToken)}</b><em>${Math.round(cell.currentTimeToTypeMs)} ms</em></strong><small>${cell.timingSamples} 個乾淨樣本 · 僅在畫面中的同類實際鍵間轉換中比較</small><span>${exactTransitionHistoryLabel(cell)} · 暫時預覽；點擊後固定 · 線粗＝樣本支持；越深紅＝相對越慢</span>`;
   };
 
-  const restore = (): void => {
-    if (activePreviewId === null) return;
+  const restorePreview = (): void => {
+    const board = previewBoard;
+    const boardStillCurrent = board !== null && board === currentBoard();
+    const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout");
+    if (boardStillCurrent && readout !== null && baselineReadoutHtml !== null) {
+      readout.innerHTML = baselineReadoutHtml;
+      setAccent(board, baselineAccentId);
+    }
+    clearRenderedPreviewState();
+  };
+
+  const syncPreview = (): void => {
     const board = currentBoard();
-    if (board === previewBoard) {
-      const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout");
-      if (readout !== null && baselineReadoutHtml !== null) {
-        readout.innerHTML = baselineReadoutHtml;
-      }
-      setAccent(baselineAccentId);
-    }
-    clearPreviewState();
-  };
-
-  const onPointerOver = (event: PointerEvent): void => {
-    const pathId = relationId(event.target);
-    if (pathId !== null) preview(pathId);
-  };
-
-  const onPointerOut = (event: PointerEvent): void => {
-    if (relationTarget(event.target) === null) return;
-    const nextId = relationId(event.relatedTarget);
-    if (nextId !== null) {
-      preview(nextId);
+    if (pointerOwner !== null && pointerOwner.board !== board) pointerOwner = null;
+    if (focusOwner !== null && focusOwner.board !== board) focusOwner = null;
+    const owner = pointerOwner ?? focusOwner;
+    if (owner !== null) {
+      showPreview(owner);
       return;
     }
-    restore();
+    restorePreview();
   };
 
-  const onClick = (event: MouseEvent): void => {
-    if (relationTarget(event.target) === null) return;
-    // The panel owns click selection and re-renders synchronously. Clear the
-    // transient snapshot after that event finishes so an old hover baseline can
-    // never overwrite the newly pinned relation.
-    queueMicrotask(clearPreviewState);
+  const pointerOver = (event: PointerEvent): void => {
+    const owner = relationOwner(event.target);
+    if (owner === null) return;
+    pointerOwner = owner;
+    syncPreview();
   };
 
-  host.addEventListener("pointerover", onPointerOver);
-  host.addEventListener("pointerout", onPointerOut);
-  host.addEventListener("click", onClick);
+  const pointerOut = (event: PointerEvent): void => {
+    const from = relationOwner(event.target);
+    if (from === null || pointerOwner?.id !== from.id || pointerOwner.board !== from.board) return;
+    const to = relationOwner(event.relatedTarget);
+    if (to?.id === from.id && to.board === from.board) return;
+    pointerOwner = to;
+    syncPreview();
+  };
+
+  const focusIn = (event: FocusEvent): void => {
+    const owner = relationOwner(event.target);
+    if (owner === null) return;
+    focusOwner = owner;
+    syncPreview();
+  };
+
+  const focusOut = (event: FocusEvent): void => {
+    const from = relationOwner(event.target);
+    if (from === null || focusOwner?.id !== from.id || focusOwner.board !== from.board) return;
+    const to = relationOwner(event.relatedTarget);
+    if (to?.id === from.id && to.board === from.board) return;
+    focusOwner = to;
+    syncPreview();
+  };
+
+  host.addEventListener("pointerover", pointerOver);
+  host.addEventListener("pointerout", pointerOut);
+  host.addEventListener("focusin", focusIn);
+  host.addEventListener("focusout", focusOut);
 
   return {
     destroy(): void {
-      restore();
-      host.removeEventListener("pointerover", onPointerOver);
-      host.removeEventListener("pointerout", onPointerOut);
-      host.removeEventListener("click", onClick);
+      host.removeEventListener("pointerover", pointerOver);
+      host.removeEventListener("pointerout", pointerOut);
+      host.removeEventListener("focusin", focusIn);
+      host.removeEventListener("focusout", focusOut);
+      pointerOwner = null;
+      focusOwner = null;
+      clearRenderedPreviewState();
     },
   };
 }

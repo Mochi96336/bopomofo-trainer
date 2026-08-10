@@ -23,7 +23,7 @@ There is no validated predictive learning model behind this feature. The product
 
 ## Stored series
 
-Progress-history schema 3 stores two evidence groups.
+Progress-history schema 8 stores per-key semantic history plus bounded V2 motor history.
 
 ### Per-key semantic history
 
@@ -36,22 +36,23 @@ These two series remain separate. They are never combined into one progress or w
 
 ### V2 motor history
 
-Motor timing history uses the same **low-dimensional** scope identities as these cumulative Measurement V2 aggregates:
+Motor timing history uses the same scope identity as its cumulative Measurement V2 aggregate. The persisted families are:
 
-- syllable coordination;
+- exact accepted-token transition (`immediateTokens`);
+- syllable word-structure coordination;
 - immediate standard-fingering side transition;
 - same-side revisit;
 - tone commit.
 
 Every scope has its own timing series. Different motor families are not compared by raw milliseconds as if they measured the same action.
 
+Exact accepted-token transitions are the intentionally higher-cardinality family. Their identity is the actual directed `fromToken → toToken` pair already used by the `鍵間` speed map. They are bounded by the valid token domain squared; no potential or canonical pair is synthesized merely to create history.
+
 ### Not stored as history
 
-The exact accepted-token transition speed map is cumulative Measurement V2 evidence, but it does **not** currently have one history series per token pair. The speed map reads the current bounded aggregate and clean sample support only. This keeps progress-history schema 3 low-dimensional while the usefulness and storage cost of pair-level history remain unproven.
+Directional confusion history is not currently persisted. A trustworthy confusion trend needs an exposure denominator for the expected token, not just cumulative pair counts, so it requires a different bucket shape before it can be added.
 
-Directional confusion history is also not currently persisted. A trustworthy confusion trend needs an exposure denominator for the expected token, not just cumulative pair counts, so it requires a different bucket shape before it can be added.
-
-Input-strategy position aggregates are currently cumulative bounded counts, not trend series.
+Input-strategy position and whole-word-order aggregates are cumulative bounded counts, not trend series.
 
 ## Dependency direction
 
@@ -61,22 +62,31 @@ interaction / measurement-v2
 progress-history
         ↓ accumulates selected legal observations into bounded buckets
 Analysis V2 model
-        ↓ joins cumulative aggregates with matching histories when one exists
+        ↓ joins cumulative aggregates with matching histories
 Analysis V2 UI
-        renders exact values and recent points
+        renders current values and bounded recent points
 ```
 
-UI code does not decide timing eligibility, reconstruct raw traces, or reclassify canonical order as motor evidence. An Analysis V2 motor aggregate may legitimately have no progress-history series; exact accepted-token transitions are the current example.
+UI code does not decide timing eligibility, reconstruct raw traces, or reclassify canonical order as motor evidence. Exact transition history uses the same `immediateTokenTimingSample` eligibility as the cumulative speed-map aggregate: the observation must be a clean, actual, within-syllable accepted transition.
 
 ## Schema and migration
 
-`PROGRESS_HISTORY_SCHEMA_VERSION` is currently **3**.
+`PROGRESS_HISTORY_SCHEMA_VERSION` is currently **8**.
 
-Schema 3 added bounded V2 motor histories for the four low-dimensional motor families. Schema 2 is safely migratable because it already used unordered input-order V2 semantics; migration adds empty motor histories rather than reinterpreting old observations.
+Schema 8 adds `motor.immediateTokens`, keyed by the existing exact directed token-pair aggregate identity. Migration is explicit across the two immediately preceding generations:
 
-Adding the cumulative exact accepted-token transition map to Measurement V2 does not manufacture pair histories during migration. Existing history remains valid and the new cumulative map starts empty for an older Measurement V2 record.
+- schema 7 → 8 preserves tone-aware same-hand-revisit history and starts `immediateTokens: {}` because schema 7 never stored pair-level history;
+- schema 6 → 8 validates then discards body-only same-hand-revisit history and also starts `immediateTokens: {}`.
 
-Older strict-order measurement epochs are not silently carried across the input-order semantic boundary.
+The parser does **not** take a cumulative pair aggregate and manufacture historical points from it: the joint sequence of past buckets is not recoverable from one cumulative value.
+
+Older migration semantics remain unchanged:
+
+- schema 5 preserves word-structure coordination, immediate-hand, and tone history but discards the old same-hand-revisit series whose semantics were later tightened;
+- schemas 3/4 validate and discard obsolete coordination identities rather than guessing a conversion;
+- schema 2 migrates with empty motor history.
+
+Older strict-order measurement epochs are not silently carried across an input-order semantic boundary.
 
 ## Bucket policy
 
@@ -133,9 +143,7 @@ Non-finite or negative timing values are never allowed to become history samples
 
 Semantic binding timing and V2 motor timing are different evidence even when both are expressed in milliseconds.
 
-Semantic timing is attached to an expected binding observation. Low-dimensional motor history is attached to a native V2 motor scope such as a side transition, coordination shape, revisit class, or tone commit.
-
-Exact accepted-token transition timing is another motor family, but currently remains cumulative-only rather than being projected into progress history.
+Semantic timing is attached to an expected binding observation. Motor history is attached to a native V2 motor scope: an exact directed token pair, side transition, word-structure shape, revisit class, or tone commit.
 
 Analysis V2 must not copy one family into another or use a global millisecond ranking across heterogeneous scopes. Exact token transitions may be compared among exact token transitions because they share one measurement shape.
 
@@ -147,24 +155,22 @@ The current aggregate and a history point answer different questions.
 | --- | --- | --- |
 | Correctness | all mapped observations to date | one 8-observation slice |
 | Semantic timing | current smoothed aggregate | median of one 5-sample slice |
+| Exact accepted-token timing | current V2 pair aggregate | median of one 5-sample slice for the same directed pair |
 | Low-dimensional motor timing | current V2 scope aggregate | median of one 5-sample slice for the same scope |
-| Exact accepted-token timing | current V2 pair aggregate | not currently persisted |
 
-The UI may show both aggregate and history where both exist, but must not imply they are the same computation or fabricate a history point from the cumulative value.
+The UI may show both aggregate and history, but must not imply they are the same computation or fabricate a history point from the cumulative value. For example, `ㄅ → ㄆ = 123 ms` is the current cumulative pair aggregate; `180 → 160 → 123 ms` may be a sequence of recent completed five-sample bucket medians. The last historical point happening to equal the current aggregate does not make the computations equivalent.
 
 ## Motor scope identity
 
-`MotorTimingProgressHistory<Scope>` stores the exact low-dimensional scope object used by its cumulative aggregate plus:
+`MotorTimingProgressHistory<Scope>` stores the exact scope object used by its cumulative aggregate plus:
 
 - completed timing points;
 - one partial timing bucket;
 - cumulative timing-sample count.
 
-The four motor-history dictionaries are keyed by bounded low-dimensional aggregate identity. They do not grow by arbitrary token pairs or raw event traces.
+The low-dimensional dictionaries remain finitely bounded by their small canonical identity sets. `immediateTokens` is separately bounded by the current valid token set squared, matching the cumulative Measurement V2 parser boundary. It remains sparse in practice because history entries are created only for exact directed pairs that actually produce eligible observations.
 
-Measurement V2 separately permits a sparse exact accepted-token aggregate map for the speed network. That map is bounded by the valid layout token set squared and is not copied into `ProgressHistory.motor`.
-
-This is a core storage boundary: richer cumulative observation identities may exist where the product has a concrete use for them, while longitudinal learner history remains intentionally stricter until a history contract is justified.
+No raw event trace is persisted in a motor-history dictionary.
 
 ## Round update semantics
 
@@ -174,7 +180,7 @@ History is appended on completed rounds.
 
 The history update consumes observations that have already passed the relevant measurement eligibility rules. It does not perform a second, UI-specific interpretation of keyboard order.
 
-Exact accepted-token aggregates are updated in Measurement V2 aggregation during the same completed-round flow, but they are not appended to progress history.
+For exact transitions, each clean within-syllable immediate-token observation is appended to the history entry for its actual directed pair. Five accepted timing samples close one history point using the same median bucket policy as the other timing families.
 
 ## Persistence boundary
 
@@ -183,13 +189,12 @@ Progress history is local learner data stored independently from the current cum
 The persisted history representation is bounded by:
 
 - a finite set of key identities;
-- a finite set of four low-dimensional V2 motor aggregate identity families;
+- four low-dimensional V2 motor identity families;
+- one sparse exact-transition family bounded by `validTokens.size²` pair identities;
 - at most 10 completed points per series;
 - at most one partial bucket per series.
 
-No raw per-keystroke history is retained after a bucket closes.
-
-The cumulative Measurement V2 record has its own additional bound for the sparse exact transition map: at most `validTokens.size²` pair identities, with no raw trace attached to an aggregate.
+No raw per-keystroke history is retained after a bucket closes. The exact transition family stores only pair scope, bounded timing points, one bounded partial timing bucket, and a cumulative timing-sample count.
 
 ## Analysis V2 rendering
 
@@ -197,11 +202,9 @@ Semantic selected-key detail may show the newest correctness and semantic-timing
 
 Low-dimensional coordination cells may show the newest motor-timing points for their own scope.
 
-The exact transition speed network shows current cumulative timing and clean sample support only. Its lack of historical points must not be represented as a flat trend.
+The exact transition speed network may expose the current cumulative timing/sample support together with recent completed history points for that same directed pair. An empty pair history is a normal state, especially immediately after schema-6 migration; it must be described as missing/accumulating history rather than as a flat trend.
 
-Strategy currently has no progress-history chart because its position matrices are cumulative bounded aggregates rather than time series.
-
-Empty history is a normal state. The UI should say that there are no completed history points yet rather than infer stability from the absence of points.
+Strategy currently has no progress-history chart because its position and complete-order measurements are cumulative bounded aggregates rather than time series.
 
 ## Language boundary
 

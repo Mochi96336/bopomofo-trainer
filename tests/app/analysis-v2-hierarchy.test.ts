@@ -168,7 +168,13 @@ describe("Analysis V2 visual hierarchy", () => {
     const readout = host.querySelector(".analysis-v2-speed-readout");
     expect(readout?.textContent).toContain("ㄍ → ㄎ");
     expect(readout?.textContent).toContain("180 ms");
-    expect(host.querySelectorAll(".analysis-v2-speed-path.is-slow")).toHaveLength(3);
+    const speedPaths = [...host.querySelectorAll<SVGPathElement>(".analysis-v2-speed-path")];
+    expect(speedPaths).toHaveLength(5);
+    const opacities = speedPaths.map((path) => Number.parseFloat(
+      path.style.getPropertyValue("--relation-opacity"),
+    ));
+    expect(opacities.every(Number.isFinite)).toBe(true);
+    expect(opacities.at(-1)).toBeGreaterThan(opacities[0] ?? 0);
     expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
     expect(host.querySelector(".analysis-v2-speed-stage")?.classList.contains("has-selection"))
       .toBe(false);

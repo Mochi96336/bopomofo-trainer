@@ -14,8 +14,10 @@ const SPARKLINE = {
 } as const;
 
 /**
- * The domain is the data's own range, so a flat series still draws as a line
- * rather than collapsing: `span` falls back to 1 when every value is equal.
+ * Keep enough vertical context that tiny changes do not consume the full chart
+ * height. The observed range still drives meaningful changes, but every series
+ * gets modest headroom plus a minimum span relative to its own magnitude. This
+ * keeps a 1 ms wobble near 200 ms visibly small while preserving large moves.
  */
 export function sparklinePoints(
   values: readonly number[],
@@ -23,15 +25,20 @@ export function sparklinePoints(
   height: number,
   pad: number,
 ): readonly { readonly x: number; readonly y: number }[] {
+  if (values.length === 0) return [];
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const span = max - min || 1;
+  const midpoint = (min + max) / 2;
+  const observedSpan = max - min;
+  const minimumSpan = Math.max(1, Math.abs(midpoint) * 0.18);
+  const span = Math.max(observedSpan, minimumSpan) * 1.2;
+  const domainMin = midpoint - span / 2;
   const innerWidth = width - pad * 2;
   const innerHeight = height - pad * 2;
   const step = values.length > 1 ? innerWidth / (values.length - 1) : 0;
   return values.map((value, index) => ({
     x: pad + step * index,
-    y: pad + innerHeight - ((value - min) / span) * innerHeight,
+    y: pad + innerHeight - ((value - domainMin) / span) * innerHeight,
   }));
 }
 

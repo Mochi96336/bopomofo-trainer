@@ -227,7 +227,7 @@ describe("Analysis V2 evidence honesty", () => {
     expect(readout?.textContent)
       .toContain("僅在畫面中的同類實際鍵間轉換中比較");
     expect(readout?.textContent).toContain("2 條可比較");
-    expect(readout?.textContent).toContain("線粗代表樣本支持");
+    expect(readout?.textContent).toContain("線粗＝樣本支持；越深紅＝相對越慢");
     expect(host.querySelector(".analysis-v2-speed-caption")).toBeNull();
     expect(host.querySelectorAll(".analysis-v2-speed-hit")).toHaveLength(2);
     expect(host.querySelectorAll(".analysis-v2-speed-path")).toHaveLength(2);
