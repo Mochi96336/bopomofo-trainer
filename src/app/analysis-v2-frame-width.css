@@ -9,10 +9,27 @@
       92vw,
       clamp(760px, min(42vw, 60dvh), 1080px)
     );
-    --analysis-key-height: clamp(23px, min(3.7vw, 3.2dvh), 48px);
-    --analysis-key-gap: clamp(3px, min(0.55vw, 0.55dvh), 9px);
-    --analysis-key-font: clamp(7px, min(0.85vw, 0.9dvh), 14px);
-    --analysis-key-perspective: clamp(520px, min(28vw, 48dvh), 720px);
+
+    /* These preferred values are proportional to the same 42vw / 60dvh board
+       scale. The outer width terms preserve the old narrow-desktop geometry; on
+       roomy displays the whole keyboard grows as one object instead of becoming
+       disproportionately tall or widely spaced. */
+    --analysis-key-height: clamp(
+      23px,
+      min(3.7vw, max(35px, min(1.94vw, 2.76dvh))),
+      48px
+    );
+    --analysis-key-gap: clamp(
+      3px,
+      min(0.55vw, max(6px, min(0.332vw, 0.474dvh))),
+      9px
+    );
+    --analysis-key-font: clamp(
+      7px,
+      min(0.85vw, max(10px, min(0.553vw, 0.789dvh))),
+      14px
+    );
+    --analysis-key-perspective: clamp(520px, min(28.74vw, 41.05dvh), 720px);
   }
 
   /* Keyboard geometry follows the same two-dimensional scale as the shared
