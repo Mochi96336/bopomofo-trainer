@@ -82,11 +82,11 @@ describe("valency reachability audit", () => {
     expect(audit.profileCount).toBe(SYNTAX_PROFILES.length);
     expect(audit.entryCount).toBeGreaterThan(0);
     expect(audit.zeroSupportFrames).toEqual([
-      "subject-controlled-open-complement",
-      "object-controlled-open-complement",
       "serial-verb",
       "causative",
       "resultative",
+      "subject-controlled-open-complement",
+      "object-controlled-open-complement",
     ]);
     expect(audit.zeroSupportSlots.map((slot) => [slot.ruleId, slot.constituentKey])).toEqual([
       ["clause.causative", "predicate"],
