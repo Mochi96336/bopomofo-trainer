@@ -96,7 +96,7 @@ test("keeps the medium keyboard width stable when a semantic inspector opens", a
   await analysis.locator('[data-action="select-key"]').first().click();
   const after = await keyboard.evaluate((node) => (node as HTMLElement).offsetWidth);
 
-  expect(before).toBe(860);
+  expect(before).toBe(760);
   expect(after).toBe(before);
   await expect(analysis.locator(".analysis-v2-semantic-stage")).toHaveClass(/has-selection/);
 });
@@ -121,7 +121,7 @@ test("keeps flyline width stable on selection and exposes a wider pointer target
     node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
   const after = await board.evaluate((node) => (node as HTMLElement).offsetWidth);
-  expect(before).toBe(860);
+  expect(before).toBe(760);
   expect(after).toBe(before);
   await expect(analysis.locator(".analysis-v2-speed-stage")).toHaveClass(/has-selection/);
   await expect(analysis.locator(".analysis-v2-speed-inspector")).toHaveCount(0);
