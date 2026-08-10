@@ -6,13 +6,14 @@ import type {
   ToneCommitAggregateScope,
 } from "../measurement-v2/aggregate.js";
 
-// Schema 6 keeps same-hand revisit evidence inside one syllable. Accepted body
-// components and the final accepted tone may complete a revisit, while schema 5
-// remains readable: its word-structure, immediate-hand and tone histories are
-// preserved, and its old revisit series is validated then discarded because it
-// may contain cross-word predecessors. Schema 4/3 also discard their obsolete
-// coordination series; schema 2 migrates with empty motor history.
-export const PROGRESS_HISTORY_SCHEMA_VERSION = 6 as const;
+// Schema 7 keeps same-hand revisit evidence inside one syllable and lets the
+// final accepted tone complete a revisit. Schema 6 used body-only revisit
+// semantics, so its word-structure, immediate-hand and tone histories are
+// preserved while its revisit series is validated then discarded. Schema 5 is
+// handled the same way because its revisit predecessor rules are also obsolete.
+// Schema 4/3 discard obsolete coordination series; schema 2 migrates with empty
+// motor history.
+export const PROGRESS_HISTORY_SCHEMA_VERSION = 7 as const;
 
 export interface CorrectnessTrendPoint {
   readonly endingObservation: number;
