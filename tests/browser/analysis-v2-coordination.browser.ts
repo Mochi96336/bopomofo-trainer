@@ -29,7 +29,7 @@ test("surfaces motor evidence through Coordination paths and Movement views", as
   await expect(movement).toBeVisible();
   await expect(movement.locator(".analysis-v2-movement-family")).toHaveCount(4);
   await expect(movement).toContainText("手別轉換");
-  await expect(movement).toContainText("同側再出手");
+  await expect(movement).toContainText("同側回返");
   await expect(movement).toContainText("字內結構");
   await expect(movement).toContainText("聲調收尾");
   await expect(movement.locator(".analysis-v2-word-structure")).toContainText("聲母");
