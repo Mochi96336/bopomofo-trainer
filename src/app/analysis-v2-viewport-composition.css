@@ -47,6 +47,17 @@
     transform: translate(-50%, -50%);
   }
 
+  /* Strategy keeps the same fixed slot center without transforming the slot
+     itself. Its position projection is nested inside that slot in the markup;
+     avoiding a transformed ancestor lets the projection use the viewport as its
+     own fixed-position containing block, just like the other lower-rail items. */
+  .analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot {
+    top: calc(50dvh - var(--analysis-object-slot-height) / 2);
+    left: calc(50vw - var(--analysis-board-width) / 2);
+    height: var(--analysis-object-slot-height);
+    transform: none;
+  }
+
   .analysis-v2 .analysis-v2-speed-primary .analysis-v2-speed-scroll {
     overflow: clip;
   }
@@ -252,6 +263,7 @@
   .analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot {
     position: static;
     width: auto;
+    height: auto;
     transform: none;
   }
 
