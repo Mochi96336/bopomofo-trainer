@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator, Literal
@@ -12,11 +13,12 @@ from .common import (
 )
 
 ControllerKind = Literal["subject", "object", "other", "unresolved"]
+ENHANCED_HEAD_RE = re.compile(r"^[0-9]+(?:\.[0-9]+)?$")
 
 
 @dataclass(frozen=True)
 class EnhancedDependency:
-    head: int
+    head: str
     relation: str
 
 
@@ -58,9 +60,9 @@ def parse_enhanced_dependencies(value: str) -> tuple[EnhancedDependency, ...]:
     result: list[EnhancedDependency] = []
     for item in value.split("|"):
         head_source, separator, relation = item.partition(":")
-        if not separator or not head_source.isdigit() or not relation:
+        if not separator or ENHANCED_HEAD_RE.fullmatch(head_source) is None or not relation:
             raise ValueError(f"invalid enhanced dependency {item!r}")
-        result.append(EnhancedDependency(head=int(head_source), relation=relation))
+        result.append(EnhancedDependency(head=head_source, relation=relation))
     return tuple(result)
 
 
@@ -108,7 +110,6 @@ def is_external_subject_relation(relation: str) -> bool:
 
 
 def audit_sentence(sentence: list[AuditToken]) -> list[XcompControllerObservation]:
-    by_id = {token.identifier: token for token in sentence}
     children: dict[int, list[AuditToken]] = {}
     for token in sentence:
         children.setdefault(token.head, []).append(token)
@@ -132,10 +133,11 @@ def audit_sentence(sentence: list[AuditToken]) -> list[XcompControllerObservatio
         )
 
         for xcomp in xcomps:
+            xcomp_head = str(xcomp.identifier)
             controllers = [
                 argument for argument in matrix_arguments
                 if any(
-                    edge.head == xcomp.identifier
+                    edge.head == xcomp_head
                     and is_external_subject_relation(edge.relation)
                     for edge in argument.deps
                 )
