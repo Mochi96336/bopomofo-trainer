@@ -1,5 +1,6 @@
 import type { PracticeMode } from "../core/model.js";
 import {
+  BODY_ONLY_REVISIT_MEASUREMENT_V2_POLICY_VERSION,
   HANDSHAPE_MEASUREMENT_V2_POLICY_VERSION,
   LEGACY_MEASUREMENT_V2_POLICY_VERSION,
   MEASUREMENT_V2_POLICY_VERSION,
@@ -330,6 +331,7 @@ export function parseMeasurementSummaryV2(
 ): MeasurementSummaryV2 | null {
   if (!isRecord(value)
     || (value.policyVersion !== MEASUREMENT_V2_POLICY_VERSION
+      && value.policyVersion !== BODY_ONLY_REVISIT_MEASUREMENT_V2_POLICY_VERSION
       && value.policyVersion !== PREVIOUS_MEASUREMENT_V2_POLICY_VERSION
       && value.policyVersion !== HANDSHAPE_MEASUREMENT_V2_POLICY_VERSION
       && value.policyVersion !== LEGACY_MEASUREMENT_V2_POLICY_VERSION)
