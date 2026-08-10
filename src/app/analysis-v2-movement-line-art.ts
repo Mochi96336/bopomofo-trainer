@@ -50,14 +50,16 @@ const sameSideRevisit = `${svgOpen}
   ${keyCluster(174, "另一側")}
   <path d="M130 15V57" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 4" opacity=".14"/>
 
-  <circle cx="52" cy="31" r="2.7" fill="currentColor" opacity=".68"/>
-  <circle cx="76" cy="31" r="2.7" fill="currentColor" opacity=".68"/>
-  <path d="M55 29C61 21 69 21 73 29" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" marker-end="url(#${revisitMarkerPrimary})" opacity=".82"/>
+  <!-- Primary pattern: a short movement that stays entirely inside the same-side cluster. -->
+  <circle cx="43" cy="27" r="2.5" fill="currentColor" opacity=".68"/>
+  <circle cx="75" cy="27" r="2.5" fill="currentColor" opacity=".68"/>
+  <path d="M45.5 26.5C53 22 64 22 72.5 26.5" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" marker-end="url(#${revisitMarkerPrimary})" opacity=".82"/>
 
-  <circle cx="52" cy="49" r="2.5" fill="currentColor" opacity=".40"/>
-  <circle cx="198" cy="47" r="2.5" fill="currentColor" opacity=".40"/>
-  <circle cx="87" cy="53" r="2.5" fill="currentColor" opacity=".40"/>
-  <path d="M55 48C91 39 165 39 195 46C166 59 122 61 90 53" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="4 3" marker-end="url(#${revisitMarkerSecondary})" opacity=".48"/>
+  <!-- Secondary pattern: cross to the other side, then return; only the final return carries an arrow. -->
+  <circle cx="48" cy="41" r="2.4" fill="currentColor" opacity=".42"/>
+  <circle cx="201" cy="41" r="2.4" fill="currentColor" opacity=".42"/>
+  <circle cx="80" cy="41" r="2.4" fill="currentColor" opacity=".42"/>
+  <path d="M50.5 41C91 50 159 50 198.5 41C166 54 114 55 82.5 41" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="4 3" marker-end="url(#${revisitMarkerSecondary})" opacity=".48"/>
 ${svgClose}`;
 
 const wordStructure = `${svgOpen}
