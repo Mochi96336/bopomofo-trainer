@@ -3,7 +3,9 @@ import type {
   CoordinationAggregateScope,
   ImmediateHandAggregateScope,
   ImmediateTokenAggregateScope,
+  InputOrderPermutationAggregate,
   InputOrderPositionAggregate,
+  InputOrderTrajectorySample,
   MeasurementSummaryV2,
   MotorTimingAggregate,
   SameHandRevisitAggregateScope,
@@ -58,6 +60,10 @@ export interface AnalysisV2CoordinationModel {
 
 export interface AnalysisV2StrategyModel {
   readonly inputOrderPositions: readonly InputOrderPositionAggregate[];
+  /** Complete three-part word orders. Optional only for transitional fixtures. */
+  readonly inputOrderPermutations?: readonly InputOrderPermutationAggregate[];
+  /** Bounded newest clean complete three-part input paths. */
+  readonly recentInputOrderTrajectories?: readonly InputOrderTrajectorySample[];
   readonly totalObservations: number;
   readonly bodySizeBucketsWithData: number;
 }
@@ -135,6 +141,8 @@ export function buildAnalysisV2Model(
       const b = JSON.stringify(right.scope);
       return a < b ? -1 : a > b ? 1 : 0;
     });
+  const permutations = Object.values(measurements.strategy.inputOrderPermutations ?? {})
+    .sort((left, right) => left.scope.permutation.localeCompare(right.scope.permutation));
 
   return {
     semantic,
@@ -152,6 +160,8 @@ export function buildAnalysisV2Model(
     },
     strategy: {
       inputOrderPositions: positions,
+      inputOrderPermutations: permutations,
+      recentInputOrderTrajectories: measurements.strategy.recentInputOrderTrajectories ?? [],
       totalObservations: positions.reduce((sum, row) => sum + row.observations, 0),
       bodySizeBucketsWithData: new Set(positions.map((row) => row.scope.bodySize)).size,
     },

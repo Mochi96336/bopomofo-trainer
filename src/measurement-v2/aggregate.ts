@@ -10,12 +10,18 @@ import type {
   CoordinationBodyShape,
   ExplicitHand,
   MeasurementObservationsV2,
+  ThreePartInputElapsedMs,
+  ThreePartInputOrderPermutation,
+  TwoPartInputElapsedMs,
+  TwoPartInputOrderPermutation,
 } from "./types.js";
 
 export const LEGACY_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-1" as const;
 export const HANDSHAPE_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-2" as const;
 export const PREVIOUS_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-3" as const;
 export const MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-4" as const;
+/** Maximum recent clean trajectory samples retained independently for each body size. */
+export const STRATEGY_TRAJECTORY_LIMIT = 80;
 const SMOOTHING_ALPHA = 0.25;
 
 /**
@@ -53,6 +59,29 @@ export interface InputOrderPositionAggregate {
   readonly scope: InputOrderPositionAggregateScope;
   readonly observations: number;
 }
+
+export interface InputOrderPermutationAggregateScope {
+  readonly bodySize: "3";
+  readonly permutation: ThreePartInputOrderPermutation;
+}
+
+export interface InputOrderPermutationAggregate {
+  readonly scope: InputOrderPermutationAggregateScope;
+  readonly observations: number;
+}
+
+/** Recent clean input path, with the first accepted component at t=0. */
+export type InputOrderTrajectorySample =
+  | {
+      readonly bodySize: "2";
+      readonly permutation: TwoPartInputOrderPermutation;
+      readonly elapsedMs: TwoPartInputElapsedMs;
+    }
+  | {
+      readonly bodySize: "3";
+      readonly permutation: ThreePartInputOrderPermutation;
+      readonly elapsedMs: ThreePartInputElapsedMs;
+    };
 
 export interface MotorTimingAggregate<Scope> {
   readonly scope: Scope;
@@ -97,6 +126,10 @@ export interface MeasurementSummaryV2 {
   };
   readonly strategy: {
     readonly inputOrderPositions: Readonly<Record<string, InputOrderPositionAggregate>>;
+    /** Additive bounded joint-order channel; older persisted summaries may omit it. */
+    readonly inputOrderPermutations?: Readonly<Record<string, InputOrderPermutationAggregate>>;
+    /** Newest clean two- and three-part paths; older records may omit it. */
+    readonly recentInputOrderTrajectories?: readonly InputOrderTrajectorySample[];
   };
   readonly motor: {
     readonly coordination: Readonly<Record<string, MotorTimingAggregate<CoordinationAggregateScope>>>;
@@ -181,6 +214,16 @@ export function inputOrderPositionAggregateKey(scope: InputOrderPositionAggregat
   ]);
 }
 
+export function inputOrderPermutationAggregateKey(
+  scope: InputOrderPermutationAggregateScope,
+): string {
+  return JSON.stringify([
+    "input-order-permutation",
+    scope.bodySize,
+    scope.permutation,
+  ]);
+}
+
 export function coordinationAggregateKey(scope: CoordinationAggregateScope): string {
   return JSON.stringify(["coordination", scope.bodyShape]);
 }
@@ -213,6 +256,8 @@ export function createEmptyMeasurementSummaryV2(): MeasurementSummaryV2 {
     },
     strategy: {
       inputOrderPositions: {},
+      inputOrderPermutations: {},
+      recentInputOrderTrajectories: [],
     },
     motor: {
       coordination: {},
@@ -314,6 +359,45 @@ export function aggregateMeasurementObservationsV2(
     });
   }
 
+  const inputOrderPermutations = seedMap(prior.strategy.inputOrderPermutations ?? {});
+  for (const observation of observations.inputOrderPermutations ?? []) {
+    const scope: InputOrderPermutationAggregateScope = {
+      bodySize: "3",
+      permutation: observation.permutation,
+    };
+    const key = inputOrderPermutationAggregateKey(scope);
+    const previous = inputOrderPermutations.get(key);
+    inputOrderPermutations.set(key, {
+      scope,
+      observations: (previous?.observations ?? 0) + 1,
+    });
+  }
+
+  const trajectoryCandidates: readonly InputOrderTrajectorySample[] = [
+    ...(prior.strategy.recentInputOrderTrajectories ?? []),
+    ...(observations.inputOrderTrajectories ?? []).map((observation): InputOrderTrajectorySample => (
+      observation.bodySize === 2
+        ? {
+            bodySize: "2",
+            permutation: observation.permutation,
+            elapsedMs: observation.elapsedMs,
+          }
+        : {
+            bodySize: "3",
+            permutation: observation.permutation,
+            elapsedMs: observation.elapsedMs,
+          }
+    )),
+  ];
+  const recentInputOrderTrajectories: readonly InputOrderTrajectorySample[] = [
+    ...trajectoryCandidates
+      .filter((sample) => sample.bodySize === "2")
+      .slice(-STRATEGY_TRAJECTORY_LIMIT),
+    ...trajectoryCandidates
+      .filter((sample) => sample.bodySize === "3")
+      .slice(-STRATEGY_TRAJECTORY_LIMIT),
+  ];
+
   const coordination = seedMap(prior.motor.coordination);
   for (const observation of observations.coordination) {
     const scope: CoordinationAggregateScope = { bodyShape: observation.bodyShape };
@@ -379,6 +463,8 @@ export function aggregateMeasurementObservationsV2(
     },
     strategy: {
       inputOrderPositions: sortedRecord(inputOrderPositions),
+      inputOrderPermutations: sortedRecord(inputOrderPermutations),
+      recentInputOrderTrajectories,
     },
     motor: {
       coordination: sortedRecord(coordination),

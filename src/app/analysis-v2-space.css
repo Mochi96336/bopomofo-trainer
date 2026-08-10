@@ -12,9 +12,101 @@
   width: min(860px, 92%);
 }
 
-/* Strategy keeps the compact stage it had before the keyboard-space pass. */
+/* Strategy keeps its taller object, but its reading still belongs to the same
+   lower rail as the other Analysis views. */
 .analysis-v2 .analysis-v2-domain:has(.analysis-v2-strategy-stage) {
   width: min(1080px, 100%);
+}
+
+.analysis-v2 .analysis-v2-strategy-stage {
+  padding-top: 14px;
+  grid-template-rows: minmax(var(--analysis-strategy-object-slot-height), max-content) minmax(0, 1fr);
+  align-content: stretch;
+  gap: 0;
+}
+
+/* Three-part Strategy is a real-time trajectory field, not a table. Keep it
+   broad enough to read the millisecond axis, but still smaller than the full
+   Analysis canvas so the object has deliberate side breathing room. */
+.analysis-v2 .analysis-v2-strategy-trajectory-object {
+  width: min(820px, 92%);
+  max-width: none;
+  margin-inline: auto;
+}
+
+.analysis-v2 .analysis-v2-strategy-trajectory {
+  display: grid;
+  width: 100%;
+  gap: 8px;
+}
+
+.analysis-v2 .analysis-v2-strategy-trajectory-meta {
+  display: flex;
+  min-width: 0;
+  padding-inline: 4px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.analysis-v2 .analysis-v2-strategy-trajectory-meta strong {
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: .01em;
+}
+
+.analysis-v2 .analysis-v2-strategy-trajectory-meta span {
+  color: var(--ink-faint);
+  font-size: 10px;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.analysis-v2 .analysis-v2-strategy-trajectory svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.analysis-v2 .analysis-v2-strategy-trajectory-rail line {
+  stroke: var(--hairline);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.analysis-v2 .analysis-v2-strategy-trajectory-rail text {
+  fill: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.analysis-v2 .analysis-v2-strategy-trajectory-tick line {
+  stroke: color-mix(in srgb, var(--hairline) 65%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 2 5;
+  vector-effect: non-scaling-stroke;
+}
+
+.analysis-v2 .analysis-v2-strategy-trajectory-tick text,
+.analysis-v2 .analysis-v2-strategy-trajectory-axis-label {
+  fill: var(--ink-faint);
+  font-size: 9px;
+}
+
+.analysis-v2 .analysis-v2-strategy-trajectory-path {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: .75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-opacity: var(--trajectory-opacity, .06);
+  vector-effect: non-scaling-stroke;
+}
+
+.analysis-v2 .analysis-v2-strategy-trajectory-path.is-clipped {
+  stroke-dasharray: 2 2;
 }
 
 /* Keyboard-led stages reserve the upper slot for the board and let all text
@@ -61,7 +153,8 @@
 
 /* The readings are one lower editorial block, not another centered object. */
 .analysis-v2 .analysis-v2-semantic-readout,
-.analysis-v2 .analysis-v2-speed-readout {
+.analysis-v2 .analysis-v2-speed-readout,
+.analysis-v2 .analysis-v2-strategy-readout {
   width: var(--analysis-board-width);
   min-height: 58px;
   margin-inline: auto;
@@ -72,7 +165,8 @@
 }
 
 .analysis-v2 .analysis-v2-semantic-readout > strong,
-.analysis-v2 .analysis-v2-speed-readout > strong {
+.analysis-v2 .analysis-v2-speed-readout > strong,
+.analysis-v2 .analysis-v2-strategy-readout > strong {
   justify-content: flex-start;
 }
 
@@ -109,9 +203,10 @@
   text-align: left;
 }
 
-/* Semantic uses the same lower rhythm. Lead + summary stay beneath the keyboard;
-   the summary is a compact two-line rail rather than a second dashboard. */
-.analysis-v2 .analysis-v2-semantic-domain {
+/* Semantic and Strategy use the same lower rhythm. Lead + summary stay beneath
+   the primary object; methodology occupies the opposite end of that floor. */
+.analysis-v2 .analysis-v2-semantic-domain,
+.analysis-v2 .analysis-v2-strategy-domain {
   position: relative;
   padding-bottom: 30px;
 }
@@ -131,7 +226,8 @@
 }
 
 .analysis-v2 .analysis-v2-speed-field > .analysis-v2-method,
-.analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method {
+.analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method,
+.analysis-v2 .analysis-v2-strategy-domain > .analysis-v2-method {
   position: absolute;
   right: 0;
   bottom: 0;
@@ -250,31 +346,9 @@
 
 .analysis-v2 .analysis-v2-movement-stat {
   min-height: 32px;
-  grid-template-columns: minmax(72px, auto) 104px minmax(0, auto);
+  grid-template-columns: minmax(72px, auto) 104px auto;
   justify-content: start;
   gap: 12px;
-}
-
-.analysis-v2 .analysis-v2-movement-reading {
-  display: inline-flex;
-  min-width: 0;
-  align-items: baseline;
-  gap: 5px;
-  white-space: nowrap;
-}
-
-.analysis-v2 .analysis-v2-movement-reading > strong {
-  color: var(--ink-muted);
-  font-size: 10px;
-  font-weight: 560;
-  font-variant-numeric: tabular-nums;
-}
-
-.analysis-v2 .analysis-v2-movement-reading > small {
-  color: var(--ink-faint);
-  font-size: 9px;
-  font-weight: 500;
-  white-space: nowrap;
 }
 
 .analysis-v2 .analysis-v2-motor-sparkline {
@@ -329,6 +403,27 @@
     grid-template-rows: var(--analysis-object-slot-height) minmax(0, 1fr);
   }
 
+  .analysis-v2 .analysis-v2-strategy-stage {
+    padding-top: 8px;
+    grid-template-rows: minmax(var(--analysis-strategy-object-slot-height), max-content) auto;
+    align-content: center;
+    gap: 20px;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-trajectory-object {
+    width: 100%;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-trajectory-meta {
+    display: grid;
+    gap: 2px;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-trajectory-meta span {
+    font-size: 9px;
+    text-align: left;
+  }
+
   .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-keyboard,
   .analysis-v2 .analysis-v2-speed-board {
     width: 100%;
@@ -346,19 +441,22 @@
   }
 
   .analysis-v2 .analysis-v2-semantic-readout,
-  .analysis-v2 .analysis-v2-speed-readout {
+  .analysis-v2 .analysis-v2-speed-readout,
+  .analysis-v2 .analysis-v2-strategy-readout {
     width: 100%;
     justify-items: center;
     text-align: center;
   }
 
   .analysis-v2 .analysis-v2-semantic-readout > strong,
-  .analysis-v2 .analysis-v2-speed-readout > strong {
+  .analysis-v2 .analysis-v2-speed-readout > strong,
+  .analysis-v2 .analysis-v2-strategy-readout > strong {
     justify-content: center;
   }
 
   .analysis-v2 .analysis-v2-speed-field,
-  .analysis-v2 .analysis-v2-semantic-domain {
+  .analysis-v2 .analysis-v2-semantic-domain,
+  .analysis-v2 .analysis-v2-strategy-domain {
     width: 100%;
     padding-bottom: 0;
   }
@@ -371,7 +469,8 @@
   }
 
   .analysis-v2 .analysis-v2-speed-field > .analysis-v2-method,
-  .analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method {
+  .analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method,
+  .analysis-v2 .analysis-v2-strategy-domain > .analysis-v2-method {
     position: static;
     width: 100%;
     margin-top: 8px;
@@ -390,7 +489,7 @@
   }
 
   .analysis-v2 .analysis-v2-movement-stat {
-    grid-template-columns: minmax(64px, auto) 92px minmax(0, auto);
+    grid-template-columns: minmax(64px, auto) 92px auto;
     gap: 8px;
   }
 

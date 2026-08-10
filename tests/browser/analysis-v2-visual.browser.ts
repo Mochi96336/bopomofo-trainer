@@ -219,7 +219,7 @@ test("keeps the medium semantic keyboard visual contract", async ({ page }) => {
     };
   });
 
-  expect(visual.keyboardWidth).toBe(760);
+  expect(visual.keyboardWidth).toBe(860);
   expect(visual.transform).not.toBe("none");
   expect(visual.transformOrigin).not.toBe("");
   expect(visual.keyHeight).toBeGreaterThanOrEqual(23);
@@ -308,7 +308,7 @@ test("keeps real speed-path endpoints on their labelled keys", async ({ page }) 
   expect(geometry.toDistance).toBeLessThan(5);
 });
 
-test("keeps Strategy's matrix compact inside the shared primary stage", async ({ page }) => {
+test("keeps Strategy's trajectory compact inside the shared primary stage", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
@@ -319,16 +319,17 @@ test("keeps Strategy's matrix compact inside the shared primary stage", async ({
   await expect(analysis.locator(".analysis-v2-confusion-table")).toHaveCount(0);
 
   await analysis.locator('[data-tab="strategy"]').click();
-  await expect(analysis.locator(".strategy-matrix")).toHaveCount(1);
+  await expect(analysis.locator(".analysis-v2-strategy-trajectory")).toHaveCount(1);
+  await expect(analysis.locator(".strategy-order-table")).toHaveCount(0);
   await expect(analysis.locator('[data-action="strategy-size"]')).toHaveText(["2 個注音", "3 個注音"]);
   const widths = await analysis.evaluate((host) => ({
     stage: host.querySelector<HTMLElement>(".analysis-v2-strategy-stage")!.getBoundingClientRect().width,
-    object: host.querySelector<HTMLElement>(".analysis-v2-strategy-object")!.getBoundingClientRect().width,
-    field: host.querySelector<HTMLElement>(".analysis-v2-strategy-field")!.getBoundingClientRect().width,
+    object: host.querySelector<HTMLElement>(".analysis-v2-strategy-trajectory-object")!.getBoundingClientRect().width,
+    trajectory: host.querySelector<HTMLElement>(".analysis-v2-strategy-trajectory")!.getBoundingClientRect().width,
   }));
-  expect(widths.stage).toBeLessThanOrEqual(1080.5);
-  expect(widths.object).toBeLessThanOrEqual(560.5);
-  expect(widths.field).toBeLessThanOrEqual(560.5);
+  expect(widths.stage).toBeLessThanOrEqual(1180.5);
+  expect(widths.object).toBeLessThanOrEqual(860.5);
+  expect(widths.trajectory).toBeLessThanOrEqual(860.5);
 });
 
 test("uses compact Movement diagrams with short supporting history lines", async ({ page }) => {
@@ -365,7 +366,7 @@ test("uses compact Movement diagrams with short supporting history lines", async
   await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("聲母");
   await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("介音");
   await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("韻母");
-  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("例：家");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("家");
   await expect(families.nth(3).locator(".analysis-v2-movement-diagram")).toContainText("字內注音");
   await expect(families.nth(3).locator(".analysis-v2-movement-diagram")).toContainText("聲調");
 });

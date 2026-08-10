@@ -20,6 +20,27 @@ export type CoordinationBodyShape =
   | "medial-final"
   | "initial-medial-final";
 
+/** Complete accepted order of a two-part body, expressed in canonical positions. */
+export type TwoPartInputOrderPermutation = "first-last" | "last-first";
+
+/**
+ * Complete accepted order of a three-part Bopomofo body, expressed in canonical
+ * position labels. One value represents one completed word, unlike the position
+ * marginals which cannot tell whether several moved positions belonged together.
+ */
+export type ThreePartInputOrderPermutation =
+  | "first-middle-last"
+  | "middle-first-last"
+  | "first-last-middle"
+  | "middle-last-first"
+  | "last-first-middle"
+  | "last-middle-first";
+
+/** Relative accepted-component time inside one complete two-part word. */
+export type TwoPartInputElapsedMs = readonly [0, number];
+/** Relative accepted-component time inside one complete three-part word. */
+export type ThreePartInputElapsedMs = readonly [0, number, number];
+
 export interface BindingObservationV2 {
   readonly traceSequence: number;
   readonly scope: BindingSkillScope;
@@ -48,6 +69,32 @@ export interface InputOrderPositionObservation {
   readonly canonicalBodyIndex: number;
   readonly acceptedBodyIndex: number;
 }
+
+/** One completed three-part word projected into its full accepted-order permutation. */
+export interface InputOrderPermutationObservation {
+  readonly syllableOrdinal: number;
+  readonly permutation: ThreePartInputOrderPermutation;
+}
+
+/**
+ * One clean completed two- or three-part word projected into a time-aware
+ * strategy path. The first accepted body component is always t=0; later values
+ * are elapsed milliseconds from that first accepted component, so trajectories
+ * from different words can share one real millisecond axis without wall-clock data.
+ */
+export type InputOrderTrajectoryObservation =
+  | {
+      readonly syllableOrdinal: number;
+      readonly bodySize: 2;
+      readonly permutation: TwoPartInputOrderPermutation;
+      readonly elapsedMs: TwoPartInputElapsedMs;
+    }
+  | {
+      readonly syllableOrdinal: number;
+      readonly bodySize: 3;
+      readonly permutation: ThreePartInputOrderPermutation;
+      readonly elapsedMs: ThreePartInputElapsedMs;
+    };
 
 /**
  * Total clean time from the first accepted body component to the final accepted
@@ -108,6 +155,10 @@ export interface MeasurementObservationsV2 {
   readonly bindings: readonly BindingObservationV2[];
   readonly confusions: readonly ConfusionObservationV2[];
   readonly inputOrderPositions: readonly InputOrderPositionObservation[];
+  /** Additive bounded channel; legacy/test producers may omit it. */
+  readonly inputOrderPermutations?: readonly InputOrderPermutationObservation[];
+  /** Additive recent clean trajectories; legacy/test producers may omit it. */
+  readonly inputOrderTrajectories?: readonly InputOrderTrajectoryObservation[];
   readonly coordination: readonly CoordinationObservation[];
   readonly immediateTokens: readonly ImmediateTokenObservation[];
   readonly immediateHands: readonly ImmediateHandObservation[];

@@ -1,0 +1,137 @@
+/* Strategy uses the same primary frame as Coordination and Semantic. The
+   trajectory remains the centered primary object; the marginal position matrix
+   belongs to the same shared lower rail as the textual conclusion. */
+.analysis-v2 .analysis-v2-domain:has(.analysis-v2-strategy-stage) {
+  width: min(1180px, 100%);
+}
+
+.analysis-v2 .analysis-v2-strategy-stage {
+  min-height: var(--analysis-primary-stage-height);
+  padding-top: 14px;
+  grid-template-rows: var(--analysis-object-slot-height) minmax(0, 1fr);
+  align-content: stretch;
+  gap: 0;
+}
+
+.analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot {
+  min-height: var(--analysis-object-slot-height);
+}
+
+.analysis-v2 .analysis-v2-strategy-trajectory-object {
+  position: relative;
+  width: var(--analysis-board-width);
+  max-width: none;
+  margin-inline: auto;
+}
+
+.analysis-v2 .analysis-v2-strategy-projection {
+  position: absolute;
+  z-index: 2;
+  left: 4px;
+  bottom: 22px;
+  width: 126px;
+  color: var(--ink-muted);
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+  padding-top: 5px;
+  border-top: 1px solid var(--hairline);
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-heading strong {
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-heading span {
+  color: var(--ink-faint);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-matrix {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 2px;
+  table-layout: fixed;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-matrix th {
+  height: 15px;
+  padding: 0;
+  color: var(--ink-faint);
+  font-size: 8px;
+  font-weight: 560;
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-matrix tbody th {
+  width: 20px;
+  color: var(--ink-muted);
+  font-size: 9px;
+  font-weight: 620;
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-matrix td {
+  height: 20px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--hairline) 78%, transparent);
+  background: color-mix(in srgb, var(--ink) calc(var(--analysis-strength) * 14%), transparent);
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-matrix td strong {
+  color: color-mix(in srgb, var(--ink-muted) calc(42% + var(--analysis-strength) * 58%), var(--ink-faint));
+  font-size: 9px;
+  font-weight: 560;
+}
+
+/* Desktop Strategy shares the same 760px board/readout rail used by the other
+   Analysis views. Projection first, conclusion second; both finish on the same
+   stage baseline while the trajectory stays centered above them. */
+@media (min-width: 641px) {
+  .analysis-v2 .analysis-v2-strategy-stage {
+    position: relative;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot {
+    position: static;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-trajectory-object {
+    position: static;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-projection {
+    left: calc((100% - var(--analysis-board-width)) / 2);
+    bottom: 0;
+    width: 126px;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-readout {
+    box-sizing: border-box;
+    width: var(--analysis-board-width);
+    min-height: 88px;
+    margin-inline: auto;
+    padding-left: 154px;
+    justify-self: center;
+  }
+}
+
+/* Narrow screens keep the projection subordinate and flowing below the plot;
+   desktop frame alignment must not turn into a squeezed two-column footer. */
+@media (max-width: 640px) {
+  .analysis-v2 .analysis-v2-strategy-projection {
+    position: static;
+    width: 126px;
+    min-height: 88px;
+    margin: -12px 0 0 4px;
+  }
+}

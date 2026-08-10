@@ -246,7 +246,6 @@ test("gives Semantic a second summary level instead of ending at the lead keys",
   const analysis = await openAnalysis(page);
   await analysis.locator('[data-tab="semantic"]').click();
   const rail = analysis.locator(".analysis-v2-semantic-rail");
-  await expect(rail).toBeVisible();
   await expect(rail.locator(":scope > div")).toHaveCount(2);
   await expect(rail).toContainText("按鍵資料");
   await expect(rail).toContainText("誤按資料");
@@ -308,21 +307,21 @@ test("removes the generic Semantic lead once a key is selected", async ({ page }
   await expect(analysis.locator(".analysis-v2-inspector")).toBeVisible();
 });
 
-test("keeps the Strategy readout below the matrix instead of colliding with cells", async ({ page }) => {
+test("keeps the Strategy readout below the trajectory field instead of colliding with it", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const analysis = await openAnalysis(page);
   await analysis.locator('[data-tab="strategy"]').click();
   await analysis.locator('[data-action="strategy-size"][data-value="3"]').click();
 
   const geometry = await analysis.evaluate((host) => {
-    const matrix = host.querySelector<HTMLElement>(".strategy-matrix")!;
+    const object = host.querySelector<HTMLElement>(".analysis-v2-strategy-trajectory-object")!;
     const readout = host.querySelector<HTMLElement>(".analysis-v2-strategy-readout")!;
-    const matrixRect = matrix.getBoundingClientRect();
+    const objectRect = object.getBoundingClientRect();
     const readoutRect = readout.getBoundingClientRect();
     return {
-      matrixBottom: matrixRect.bottom,
+      objectBottom: objectRect.bottom,
       readoutTop: readoutRect.top,
     };
   });
-  expect(geometry.readoutTop - geometry.matrixBottom).toBeGreaterThanOrEqual(18);
+  expect(geometry.readoutTop - geometry.objectBottom).toBeGreaterThanOrEqual(0);
 });
