@@ -70,7 +70,7 @@ describe("measurement v2 observation projection", () => {
     state = apply(state, 100, "KeyM", "zhuyin:ㄩ"); // right
     state = apply(state, 132, "KeyV", "zhuyin:ㄒ"); // left
     state = apply(state, 170, "Comma", "zhuyin:ㄝ"); // right
-    state = apply(state, 205, "Digit6", "tone:2"); // right tone, not a revisit input
+    state = apply(state, 205, "Digit6", "tone:2"); // right tone
 
     const result = deriveMeasurementObservationsV2(exercise, state.traces);
 
@@ -120,6 +120,7 @@ describe("measurement v2 observation projection", () => {
       opposite: observation.oppositeHandEventsBetween,
     }))).toEqual([
       { hand: "right", timing: 70, opposite: 1 },
+      { hand: "right", timing: 35, opposite: 0 },
     ]);
     expect(result.toneCommits).toEqual([
       {
@@ -131,7 +132,7 @@ describe("measurement v2 observation projection", () => {
     ]);
   });
 
-  it("does not turn a left-right-left tone ending into a same-hand revisit", () => {
+  it("lets a tone key complete a same-hand revisit inside the syllable", () => {
     const hao: Exercise = {
       id: "tone-revisit-test",
       mode: "guided",
@@ -150,7 +151,14 @@ describe("measurement v2 observation projection", () => {
     state = apply(state, 180, "Digit3", "tone:3"); // left tone
 
     const result = deriveMeasurementObservationsV2(hao, state.traces);
-    expect(result.sameHandRevisits).toEqual([]);
+    expect(result.sameHandRevisits).toEqual([
+      expect.objectContaining({
+        hand: "left",
+        timingMs: 80,
+        oppositeHandEventsBetween: 1,
+        clean: true,
+      }),
+    ]);
     expect(result.toneCommits).toEqual([
       expect.objectContaining({ toneToken: "tone:3", timingMs: 40 }),
     ]);
@@ -221,6 +229,7 @@ describe("measurement v2 observation projection", () => {
     expect(result.immediateHands[0]).toEqual(expect.objectContaining({ clean: false }));
     expect(result.sameHandRevisits).toEqual([
       expect.objectContaining({ hand: "right", timingMs: 70, clean: false }),
+      expect.objectContaining({ hand: "right", timingMs: 40, clean: false }),
     ]);
     expect(result.toneCommits).toEqual([
       expect.objectContaining({ timingMs: 40, clean: false }),
@@ -228,7 +237,7 @@ describe("measurement v2 observation projection", () => {
     expect(result.bindings.find((observation) => observation.traceSequence === 3)?.timingMs).toBeNull();
   });
 
-  it("keeps exact predecessors across entry boundaries but resets body revisits", () => {
+  it("keeps exact predecessors across entry boundaries but resets same-hand revisits", () => {
     const multi: Exercise = {
       id: "boundary-test",
       mode: "guided",
@@ -262,7 +271,14 @@ describe("measurement v2 observation projection", () => {
       boundary: "entry-boundary",
       timingMs: 40,
     }));
-    expect(result.sameHandRevisits).toEqual([]);
+    expect(result.sameHandRevisits).toEqual([
+      expect.objectContaining({
+        hand: "right",
+        traceSequence: 2,
+        timingMs: 20,
+        oppositeHandEventsBetween: 0,
+      }),
+    ]);
   });
 
   it("treats ambiguous-hand accepted keys as a predecessor barrier only for hand evidence", () => {
