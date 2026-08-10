@@ -12,6 +12,7 @@ import type {
   StructuralLexicalSlot,
   StructuralSyntaxNode,
 } from "./derive.js";
+import { presenceConstraintsSatisfied } from "./presence-constraints.js";
 import {
   EMPTY_SYNTAX_REQUIREMENTS,
   requirementsForConstituent,
@@ -156,10 +157,8 @@ function sampleCategory(
     const byKey = new Map(rule.constituents.map((item) => [item.key, item]));
     const ordered = order.constituentKeys.map((key) => byKey.get(key));
     if (ordered.some((item) => item === undefined)) continue;
-    let workingState = state;
-    const children: StructuralElement[] = [];
-    const slots: StructuralLexicalSlot[] = [];
-    const rulePath: string[] = [rule.id];
+
+    const counts: Record<string, number> = {};
     let failed = false;
     for (const maybeConstituent of ordered) {
       const constituent = maybeConstituent!;
@@ -169,7 +168,17 @@ function sampleCategory(
         break;
       }
       const range = maximum - constituent.minimum + 1;
-      const count = constituent.minimum + chooseIndex(random, range);
+      counts[constituent.key] = constituent.minimum + chooseIndex(random, range);
+    }
+    if (failed || !presenceConstraintsSatisfied(rule.constraints, counts)) continue;
+
+    let workingState = state;
+    const children: StructuralElement[] = [];
+    const slots: StructuralLexicalSlot[] = [];
+    const rulePath: string[] = [rule.id];
+    for (const maybeConstituent of ordered) {
+      const constituent = maybeConstituent!;
+      const count = counts[constituent.key] ?? 0;
       for (let occurrenceIndex = 0; occurrenceIndex < count; occurrenceIndex += 1) {
         const afterDepth = decrement(workingState, constituent);
         if (afterDepth === null) {
