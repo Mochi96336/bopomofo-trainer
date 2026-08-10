@@ -194,7 +194,7 @@
   .analysis-v2 .analysis-v2-movement-view > .analysis-v2-method {
     position: fixed;
     z-index: 6;
-    right: max(3vw, calc((100vw - 1040px) / 2));
+    right: max(3vw, calc((100vw - 900px) / 2));
     bottom: clamp(30px, 4dvh, 48px);
     width: auto;
     margin: 0;
