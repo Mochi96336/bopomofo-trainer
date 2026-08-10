@@ -83,9 +83,8 @@ describe("Clause-model v2 predicate argument ownership", () => {
     }
   });
 
-  it("leaves only explicitly deferred legacy paths on VerbPhrase", () => {
-    expect(rule("clause.causative").constituents.find((item) => item.key === "predicate")?.category)
-      .toBe("VerbPhrase");
+  it("leaves only explicitly deferred live paths on VerbPhrase", () => {
+    expect(FORMAL_SYNTAX_RULES.some((item) => item.id === "clause.causative")).toBe(false);
     expect(rule("clause.serial-verb").constituents.find((item) => item.key === "firstPredicate")?.category)
       .toBe("VerbPhrase");
     expect(rule("clause.topic-comment").constituents.find((item) => item.key === "comment")?.category)
