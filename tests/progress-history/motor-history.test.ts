@@ -3,6 +3,7 @@ import type { Exercise } from "../../src/core/model.js";
 import {
   coordinationAggregateKey,
   immediateHandAggregateKey,
+  sameHandRevisitAggregateKey,
   toneCommitAggregateKey,
 } from "../../src/measurement-v2/aggregate.js";
 import type { PracticeInput } from "../../src/practice/interaction-input.js";
@@ -81,6 +82,24 @@ describe("bounded motor progress history", () => {
     expect(history.motor.immediateHands[handKey]?.timing[0]).toMatchObject({
       samples: 5,
       representativeTimingMs: 30,
+    });
+
+    const revisitAcrossKey = sameHandRevisitAggregateKey({
+      hand: "right",
+      oppositeHandIntervened: true,
+    });
+    expect(history.motor.sameHandRevisits[revisitAcrossKey]?.timing[0]).toMatchObject({
+      samples: 5,
+      representativeTimingMs: 70,
+    });
+
+    const revisitToneKey = sameHandRevisitAggregateKey({
+      hand: "right",
+      oppositeHandIntervened: false,
+    });
+    expect(history.motor.sameHandRevisits[revisitToneKey]?.timing[0]).toMatchObject({
+      samples: 5,
+      representativeTimingMs: 25,
     });
 
     const toneKey = toneCommitAggregateKey({ toneToken: "tone:2" });
