@@ -233,11 +233,11 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     subject({ minimum: 0, maximum: 1 }),
     constituent("firstPredicate", "VerbPhrase", {
       requiredFunctions: ["predicate"],
-      requiredValencyFrames: ["serial-verb", "intransitive", "transitive", "ambitransitive"],
+      requiredValencyFrames: ["serial-verb"],
     }),
     constituent("secondPredicate", "VerbPhrase", {
       requiredFunctions: ["predicate"],
-      requiredValencyFrames: ["serial-verb", "intransitive", "transitive", "ambitransitive"],
+      requiredValencyFrames: ["serial-verb"],
     }),
     constituent("object", "NounPhrase", { minimum: 0, maximum: 1 }),
   ]),
