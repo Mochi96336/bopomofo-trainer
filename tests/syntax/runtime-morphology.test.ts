@@ -84,7 +84,7 @@ describe("reviewed runtime morphology", () => {
     expect(legacy.morphologyKeys).toEqual([]);
     expect(legacy.profiles[0]).toHaveLength(6);
 
-    const reviewed = encodeSyntaxProfiles([profile({ "Voice=Cau": 5 })], [ENTRY]);
+    const reviewed = encodeSyntaxProfiles([profile({ "Voice=Cau": 1 })], [ENTRY]);
     expect(reviewed.morphologyKeys).toEqual(["Voice=Cau"]);
     expect(reviewed.profiles[0]).toHaveLength(7);
     expect(decodeSyntaxProfiles(
