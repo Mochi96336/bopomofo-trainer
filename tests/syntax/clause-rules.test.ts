@@ -29,7 +29,6 @@ const REQUIRED_CONSTRUCTIONS = [
   "clause.ba",
   "clause.bei",
   "clause.causative",
-  "clause.pivotal",
   "clause.serial-verb",
   "clause.comparative",
   "clause.topic-comment",
@@ -52,6 +51,7 @@ describe("formal clause and question production inventory", () => {
   it("contains every required executable basic, special, omitted, and question construction", () => {
     const ids = new Set(CLAUSE_PRODUCTION_RULES.map((rule) => rule.id));
     expect(REQUIRED_CONSTRUCTIONS.filter((id) => !ids.has(id))).toEqual([]);
+    expect(ids.has("clause.pivotal")).toBe(false);
   });
 
   it("represents BA patient as a construction role instead of an ordinary object", () => {
