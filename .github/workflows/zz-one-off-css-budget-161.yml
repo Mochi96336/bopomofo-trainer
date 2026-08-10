@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   compact:
-    if: ${{ github.event.before == '43006acc135d2e4139211e34c859281440c43810' && contains(github.event.head_commit.message, '[retry2-css-compact-161]') }}
+    if: ${{ github.event.before == '6251f08646298788be04151ed1453b8ebaf7e6a5' && contains(github.event.head_commit.message, '[retry3-css-compact-161]') }}
     runs-on: ubuntu-latest
     env:
       PARENT_SHA: 79fe520e8821f0df5530d17c623d691e44c7a812
@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python scripts/zz_one_off_css_compact_161_v2.py
+          python scripts/zz_one_off_css_compact_161_v3.py
           git diff --check
 
       - name: Prove existing bundle budget
@@ -62,6 +62,7 @@ jobs:
           rm .github/workflows/zz-one-off-css-budget-161.yml
           rm scripts/zz_one_off_css_compact_161.py
           rm scripts/zz_one_off_css_compact_161_v2.py
+          rm scripts/zz_one_off_css_compact_161_v3.py
           git add -A
           git diff --cached --check
           git config user.name 'github-actions[bot]'
