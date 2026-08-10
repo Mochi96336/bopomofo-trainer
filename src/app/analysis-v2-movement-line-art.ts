@@ -55,11 +55,12 @@ const sameSideRevisit = `${svgOpen}
   <circle cx="75" cy="27" r="2.5" fill="currentColor" opacity=".68"/>
   <path d="M45.5 26.5C53 22 64 22 72.5 26.5" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" marker-end="url(#${revisitMarkerPrimary})" opacity=".82"/>
 
-  <!-- Secondary pattern: cross to the other side, then return; only the final return carries an arrow. -->
-  <circle cx="48" cy="41" r="2.4" fill="currentColor" opacity=".42"/>
-  <circle cx="201" cy="41" r="2.4" fill="currentColor" opacity=".42"/>
-  <circle cx="80" cy="41" r="2.4" fill="currentColor" opacity=".42"/>
-  <path d="M50.5 41C91 50 159 50 198.5 41C166 54 114 55 82.5 41" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="4 3" marker-end="url(#${revisitMarkerSecondary})" opacity=".48"/>
+  <!-- Secondary pattern: cross to the other side, then return on a visually separate lane. -->
+  <circle cx="48" cy="42" r="2.4" fill="currentColor" opacity=".42"/>
+  <circle cx="201" cy="42" r="2.4" fill="currentColor" opacity=".42"/>
+  <circle cx="80" cy="42" r="2.4" fill="currentColor" opacity=".42"/>
+  <path d="M50.5 41.5C92 49 158 49 198.5 41.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="4 3" opacity=".44"/>
+  <path d="M198.5 43.5C160 55 118 55 82.5 42.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="4 3" marker-end="url(#${revisitMarkerSecondary})" opacity=".50"/>
 ${svgClose}`;
 
 const wordStructure = `${svgOpen}
