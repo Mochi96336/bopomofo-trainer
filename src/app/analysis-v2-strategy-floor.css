@@ -93,12 +93,22 @@
   font-weight: 560;
 }
 
-/* Desktop Strategy shares the same board/readout rail used by the other
-   Analysis views. Projection first, conclusion second; both finish on the same
-   stage baseline while the trajectory stays centered above them. */
+/* Desktop Strategy fills the available Analysis workspace. The trajectory
+   stays in the shared upper object slot while projection + conclusion settle on
+   the true workspace floor, rather than the bottom of a shorter intrinsic stage. */
 @media (min-width: 641px) {
+  .analysis-v2-main > [role="tabpanel"]:has(.analysis-v2-strategy-domain) {
+    min-height: 100%;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-domain {
+    min-height: 100%;
+    grid-template-rows: auto minmax(var(--analysis-primary-stage-height), 1fr);
+  }
+
   .analysis-v2 .analysis-v2-strategy-stage {
     position: relative;
+    height: 100%;
   }
 
   .analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot {
