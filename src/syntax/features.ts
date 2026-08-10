@@ -4,6 +4,7 @@ export const SYNTAX_CATEGORIES = [
   "Document",
   "Sentence",
   "Clause",
+  "OpenClause",
   "ClauseSequence",
   "Coordination",
   "Topic",
