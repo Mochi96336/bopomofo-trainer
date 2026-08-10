@@ -1,0 +1,54 @@
+name: one-off two-part Strategy readout cleanup
+
+on:
+  push:
+    branches:
+      - agent/analysis-v2-immediate-token-history
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message, '[two-part-readout-cleaned]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Remove duplicated two-part direction line
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          panel = Path('src/app/analysis-v2-panel.ts')
+          text = panel.read_text(encoding='utf-8')
+          pattern = r'  const directions = rows\.map\(\(row\) => \{.*?\n  \}\)\.join\(" · "\);\n'
+          text, count = re.subn(pattern, '', text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit(f'expected exactly one duplicated direction block, got {count}')
+          replacements = {
+              '<small>前、後位置各累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察後顯示換序輸入</small><span>${escapeHtml(directions)}</span>': '<small>前、後位置各累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察後顯示換序輸入</small>',
+              '<small>${shifted} / ${total} 個位置觀察</small><span>${escapeHtml(directions)}</span>': '<small>${shifted} / ${total} 個位置觀察</small>',
+          }
+          for old, new in replacements.items():
+              if text.count(old) != 1:
+                  raise SystemExit(f'expected exactly one readout fragment {old!r}, got {text.count(old)}')
+              text = text.replace(old, new)
+          panel.write_text(text, encoding='utf-8')
+
+          test = Path('tests/browser/analysis-v2-strategy-layout.browser.ts')
+          text = test.read_text(encoding='utf-8')
+          anchor = '  await expect(analysis.locator(".analysis-v2-strategy-readout")).not.toContainText("位置偏移");\n'
+          addition = anchor + '  await expect(analysis.locator(".analysis-v2-strategy-readout")).not.toContainText("前 → 後");\n  await expect(analysis.locator(".analysis-v2-strategy-readout")).not.toContainText("後 → 前");\n'
+          if text.count(anchor) != 1:
+              raise SystemExit(f'expected exactly one browser anchor, got {text.count(anchor)}')
+          test.write_text(text.replace(anchor, addition), encoding='utf-8')
+      - name: Commit repair
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/app/analysis-v2-panel.ts tests/browser/analysis-v2-strategy-layout.browser.ts
+          git diff --cached --check
+          git commit -m 'fix(analysis): remove duplicate two-part direction copy [two-part-readout-cleaned]'
+          git push
