@@ -84,10 +84,9 @@ interface AnalysisV2TopLayer {
 }
 
 function findAnalysisSummarySlot(content: HTMLElement): HTMLElement | null {
-  // The shell still emits the old placeholder attribute before this integration
-  // replaces its contents. Keeping this compatibility lookup here prevents the
-  // shell from learning any Analysis V2 rendering details.
-  return content.querySelector<HTMLElement>('section[data-legacy-weak-section="true"]');
+  return content.querySelector<HTMLElement>(
+    'section[data-analysis-v2-summary-slot="true"]',
+  );
 }
 
 function openAnalysisFromPractice(
@@ -102,7 +101,7 @@ function openAnalysisFromPractice(
 function mountAnalysisTopLayer(analysis: HTMLElement): AnalysisV2TopLayer {
   const modal = document.createElement("dialog");
   modal.className = "analysis-v2-modal";
-  modal.setAttribute("aria-labelledby", "diagnostic-analysis-title");
+  modal.setAttribute("aria-labelledby", "analysis-v2-title");
   analysis.removeAttribute("role");
   analysis.removeAttribute("aria-modal");
   analysis.removeAttribute("aria-labelledby");

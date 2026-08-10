@@ -147,14 +147,14 @@ describe("practice shell mounting", () => {
   });
 });
 
-describe("diagnostics over a degraded session", () => {
-  // Diagnostics used to read module-level mirrors of what had last reached
+describe("analysis over a degraded session", () => {
+  // Analysis used to read module-level mirrors of what had last reached
   // storage. With every write refused nothing was ever mirrored, so the panel
   // described an empty session while practice carried on in memory -- two
   // answers about one session, from a product that promises the session
   // continues. It is handed the shell's live state now.
   it("describes the running session when storage refuses every write", () => {
-    const app = mountApp({ storage: createUnwritableStorage(), diagnostics: true });
+    const app = mountApp({ storage: createUnwritableStorage(), analysisV2: true });
     mounted = app;
     // Finishes a round, so there are real measurements that no write preserved.
     document.dispatchEvent(new KeyboardEvent("keydown", {
@@ -164,7 +164,7 @@ describe("diagnostics over a degraded session", () => {
     }));
     app.openPanel();
 
-    const signals = app.find(".diagnostic-summary-signals");
+    const signals = app.find(".analysis-v2-summary-signals");
     expect(signals.children).toHaveLength(3);
     expect(signals.textContent).toContain("語意");
     expect(signals.textContent).toContain("協調");
@@ -465,27 +465,27 @@ describe("clearing local progress", () => {
   });
 });
 
-describe("opening analysis from the panel", () => {
-  function mountWithDiagnostics(): MountedApp {
-    mounted = mountApp({ diagnostics: true });
+describe("opening Analysis V2 from the panel", () => {
+  function mountWithAnalysisV2(): MountedApp {
+    mounted = mountApp({ analysisV2: true });
     return mounted;
   }
 
-  // The diagnostics layer reaches the shell only through the handles the two
-  // exchange, so this is the composition `browser.ts` performs, driven.
-  it("replaces the weak-keys section with the richer summary", () => {
-    const app = mountWithDiagnostics();
+  // The Analysis V2 integration reaches the shell only through the handles the
+  // two exchange, so this is the composition `browser.ts` performs, driven.
+  it("replaces the weak-keys slot with the richer summary", () => {
+    const app = mountWithAnalysisV2();
     app.openPanel();
-    // The enhancement claims the section by rewriting it and dropping the marker
+    // The integration claims the section by rewriting it and dropping the marker
     // the shell left for it, so the marker's absence is the evidence it ran.
-    expect(document.querySelector('[data-legacy-weak-section="true"]')).toBeNull();
-    const section = app.find<HTMLElement>(".diagnostic-summary-section");
+    expect(document.querySelector('[data-analysis-v2-summary-slot="true"]')).toBeNull();
+    const section = app.find<HTMLElement>(".analysis-v2-summary");
     expect(section.textContent).toContain("學習分析");
-    expect(section.querySelectorAll(".diagnostic-summary-signals > div")).toHaveLength(3);
+    expect(section.querySelectorAll(".analysis-v2-summary-signals > div")).toHaveLength(3);
     expect(section.textContent).toContain("語意");
     expect(section.textContent).toContain("協調");
     expect(section.textContent).toContain("策略");
-    expect(section.querySelector(".diagnostic-open-analysis")).not.toBeNull();
+    expect(section.querySelector(".analysis-v2-open")).not.toBeNull();
   });
 
   /**
@@ -496,14 +496,14 @@ describe("opening analysis from the panel", () => {
    * longer open.
    */
   it("closes the panel and anchors focus on practice before opening", () => {
-    const app = mountWithDiagnostics();
+    const app = mountWithAnalysisV2();
     app.openPanel();
     expect(app.dialog.open).toBe(true);
 
-    app.find<HTMLButtonElement>(".diagnostic-open-analysis").click();
+    app.find<HTMLButtonElement>(".analysis-v2-open").click();
 
     expect(app.dialog.open).toBe(false);
-    expect(app.find<HTMLElement>("#diagnostic-analysis").hidden).toBe(false);
+    expect(app.find<HTMLElement>("#analysis-v2").hidden).toBe(false);
     expect(document.activeElement).toBe(app.capture);
   });
 
@@ -517,15 +517,15 @@ describe("opening analysis from the panel", () => {
   it("returns to practice on close rather than reopening the panel", () => {
     vi.useFakeTimers();
     try {
-      const app = mountWithDiagnostics();
+      const app = mountWithAnalysisV2();
       app.openPanel();
-      app.find<HTMLButtonElement>(".diagnostic-open-analysis").click();
+      app.find<HTMLButtonElement>(".analysis-v2-open").click();
 
-      app.find<HTMLButtonElement>('#diagnostic-analysis [data-action="close-analysis"]').click();
+      app.find<HTMLButtonElement>('#analysis-v2 [data-action="close-analysis"]').click();
       vi.advanceTimersByTime(1000);
 
       expect(app.dialog.open).toBe(false);
-      expect(app.find<HTMLElement>("#diagnostic-analysis").hidden).toBe(true);
+      expect(app.find<HTMLElement>("#analysis-v2").hidden).toBe(true);
       expect(document.activeElement).toBe(app.capture);
     } finally {
       vi.useRealTimers();

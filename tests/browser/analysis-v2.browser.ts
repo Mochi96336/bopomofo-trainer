@@ -3,11 +3,11 @@ import { expect, test } from "@playwright/test";
 test("opens Analysis V2 without reviving the legacy transition network", async ({ page }) => {
   await page.goto("/");
   await page.locator("#open-information").click();
-  await page.locator(".diagnostic-open-analysis").click();
+  await page.locator(".analysis-v2-open").click();
   await expect(page.locator(".analysis-v2-modal")).toBeVisible();
-  await expect(page.locator("#diagnostic-analysis")).toBeVisible();
+  await expect(page.locator("#analysis-v2")).toBeVisible();
 
-  const tabs = page.locator('#diagnostic-analysis [role="tab"]');
+  const tabs = page.locator('#analysis-v2 [role="tab"]');
   await expect(tabs).toHaveText(["語意", "協調", "策略"]);
   await expect(page.locator('[data-action="toggle-network"]')).toHaveCount(0);
   await expect(page.locator(".diagnostic-relationship-svg")).toHaveCount(0);
@@ -26,10 +26,10 @@ test("contains Analysis V2 at a narrow phone viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.locator("#open-information").click();
-  await page.locator(".diagnostic-open-analysis").click();
+  await page.locator(".analysis-v2-open").click();
 
   const modal = page.locator(".analysis-v2-modal");
-  const analysis = page.locator("#diagnostic-analysis");
+  const analysis = page.locator("#analysis-v2");
   await expect(modal).toBeVisible();
   await expect(analysis).toBeVisible();
 
@@ -61,5 +61,5 @@ test("contains Analysis V2 at a narrow phone viewport", async ({ page }) => {
   expect(overflow.scrollWidth).toBeGreaterThanOrEqual(overflow.clientWidth);
 
   await expect(analysis.locator('[role="tab"]')).toHaveCount(3);
-  await expect(analysis.locator(".diagnostic-analysis-close")).toBeVisible();
+  await expect(analysis.locator(".analysis-v2-close")).toBeVisible();
 });

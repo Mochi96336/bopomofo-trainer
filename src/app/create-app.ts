@@ -100,7 +100,7 @@ import {
   rarityProgressText,
   type PanelActionStatus,
 } from "./information-panel-model.js";
-import type { DiagnosticSnapshot } from "./diagnostic-snapshot.js";
+import type { AnalysisV2Snapshot } from "./analysis-v2-snapshot.js";
 import { createExpiringValue } from "./expiring-value.js";
 import {
   KEYBOARD_GEOMETRY_ROWS,
@@ -141,7 +141,7 @@ export interface AppDependencies {
 export interface App {
   closePanel(): void;
   focusPractice(): void;
-  getDiagnosticSnapshot(): DiagnosticSnapshot;
+  getAnalysisV2Snapshot(): AnalysisV2Snapshot;
   destroy(): void;
 }
 
@@ -702,7 +702,7 @@ export function createApp(deps: AppDependencies): App {
     const content = requireElement<HTMLElement>("#information-content");
     const focusIdentity = captureFocusIdentity(content);
     content.innerHTML = `
-      <section class="panel-section" data-legacy-weak-section="true">
+      <section class="panel-section" data-analysis-v2-summary-slot="true">
         <div class="panel-heading"><h3>較弱按鍵</h3></div>
         ${weakBindingsMarkup(weakestBindings(product.progress.curriculum.bindings), reverseBindings)}
       </section>
@@ -1212,7 +1212,7 @@ export function createApp(deps: AppDependencies): App {
     focusPractice(): void {
       focusCapture(true);
     },
-    getDiagnosticSnapshot(): DiagnosticSnapshot {
+    getAnalysisV2Snapshot(): AnalysisV2Snapshot {
       return { progress: product.progress, progressHistory, selectionTuning };
     },
     destroy(): void {

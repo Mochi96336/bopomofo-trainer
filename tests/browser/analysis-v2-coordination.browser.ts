@@ -4,15 +4,15 @@ test("surfaces motor evidence through the integrated Analysis V2 summary", async
   await page.goto("/");
   await page.locator("#open-information").click();
 
-  const summary = page.locator(".diagnostic-summary-section");
+  const summary = page.locator(".analysis-v2-summary");
   await expect(summary).toBeVisible();
-  await expect(summary.locator(".diagnostic-summary-signals > div")).toHaveCount(3);
+  await expect(summary.locator(".analysis-v2-summary-signals > div")).toHaveCount(3);
   await expect(summary).toContainText("語意");
   await expect(summary).toContainText("協調");
   await expect(summary).toContainText("策略");
   await expect(page.locator(".motor-diagnostic-section")).toHaveCount(0);
 
-  await summary.locator(".diagnostic-open-analysis").click();
+  await summary.locator(".analysis-v2-open").click();
   await page.locator('[data-action="select-tab"][data-tab="coordination"]').click();
   const coordination = page.locator("#analysis-v2-coordination-title").locator("..");
   await expect(coordination).toContainText("不同動作類型不以絕對毫秒互相比弱");
@@ -28,12 +28,12 @@ test("retires canonical transition diagnostics from every production navigation 
   await page.goto("/");
   await page.locator("#open-information").click();
 
-  const summary = page.locator(".diagnostic-summary-section");
-  await expect(summary.locator(".diagnostic-summary-signals > div")).toHaveCount(3);
+  const summary = page.locator(".analysis-v2-summary");
+  await expect(summary.locator(".analysis-v2-summary-signals > div")).toHaveCount(3);
   await expect(summary).not.toContainText("轉換總覽");
 
-  await summary.locator(".diagnostic-open-analysis").click();
-  const analysis = page.locator("#diagnostic-analysis");
+  await summary.locator(".analysis-v2-open").click();
+  const analysis = page.locator("#analysis-v2");
   await expect(analysis.locator('[role="tab"]')).toHaveText(["語意", "協調", "策略"]);
   await expect(analysis.locator('[data-tab="transition"]')).toHaveCount(0);
   await expect(analysis.locator('[data-action="toggle-network"]')).toHaveCount(0);
