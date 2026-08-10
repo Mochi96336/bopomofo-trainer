@@ -114,7 +114,7 @@ const SUBJECT_CONTROL_RULE: ProductionRule = {
     constituent("controller", "Subject", { minimum: 0, maximum: 1 }),
     constituent("predicate", "Predicate", {
       requiredFunctions: ["predicate"],
-      requiredValencyFrames: ["open-clausal-complement"],
+      requiredValencyFrames: ["subject-controlled-open-complement"],
     }),
     constituent("openClause", "OpenClause", {
       recursive: true,
@@ -142,7 +142,7 @@ const OBJECT_CONTROL_RULE: ProductionRule = {
     constituent("subject", "Subject", { minimum: 0, maximum: 1 }),
     constituent("predicate", "Predicate", {
       requiredFunctions: ["predicate"],
-      requiredValencyFrames: ["open-clausal-complement"],
+      requiredValencyFrames: ["object-controlled-open-complement"],
     }),
     constituent("controller", "Object", { minimum: 0, maximum: 1 }),
     constituent("openClause", "OpenClause", {
