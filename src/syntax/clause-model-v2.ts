@@ -28,6 +28,25 @@ export interface ClauseRuleV2Migration {
   readonly note: string;
 }
 
+export interface RetiredClauseRuleV2Decision {
+  readonly targetAxes: readonly ClauseModelV2Axis[];
+  readonly evidenceContract: string;
+  readonly note: string;
+}
+
+/**
+ * Clause productions deliberately removed from the executable grammar during
+ * the v2 migration. Keeping the decision separate from the current inventory
+ * preserves the audit trail without making a retired rule look executable.
+ */
+export const RETIRED_CLAUSE_RULE_V2_DECISIONS = {
+  "clause.causative": {
+    targetAxes: ["predicate-marking", "embedding"],
+    evidenceContract: "causative-evidence-audit-v1",
+    note: "Voice=Cau is lexical/morphological evidence while causative ccomp and controlled xcomp are distinct embedding shapes; the legacy causee + resultPredicate production must not stand in for either.",
+  },
+} as const satisfies Readonly<Record<string, RetiredClauseRuleV2Decision>>;
+
 /**
  * Migration inventory for every current v1 `Clause` production.
  *
@@ -172,12 +191,6 @@ export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
     targetAxis: "predicate-frame",
     target: "locative:TBD",
     note: "Current copula + adposition rule is narrower than Mandarin locative predication; rebuild from observed patterns.",
-  },
-  "clause.causative": {
-    group: "hold-for-corpus-rebuild",
-    targetAxis: "predicate-structure",
-    target: "causative:TBD",
-    note: "Do not preserve the legacy valency label until the evidence pipeline can actually derive it.",
   },
   "clause.serial-verb": {
     group: "hold-for-corpus-rebuild",
