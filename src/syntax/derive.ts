@@ -80,7 +80,7 @@ interface ExpandedElement {
 }
 
 const CLAUSE_LIKE = new Set<SyntaxCategory>([
-  "Sentence", "Clause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
+  "Sentence", "Clause", "OpenClause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
 ]);
 
 function compareText(left: string, right: string): number {
@@ -291,7 +291,7 @@ function* expandCategory(
   excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
 ): Generator<ExpandedElement> {
   let state = inputState;
-  if (category === "Clause") {
+  if (category === "Clause" || category === "OpenClause") {
     if (state.clauseCount >= bounds.maximumClausesPerSentence) return;
     state = { ...state, clauseCount: state.clauseCount + 1 };
   }
