@@ -72,6 +72,8 @@ describe("Clause-model v2 predicate argument ownership", () => {
       "clause.bei",
       "clause.subject-omission",
       "clause.object-omission",
+      "clause.xcomp-subject-control",
+      "clause.xcomp-object-control",
       "sentence.constituent-question",
     ] as const;
 
@@ -81,10 +83,8 @@ describe("Clause-model v2 predicate argument ownership", () => {
     }
   });
 
-  it("leaves explicitly deferred legacy paths on VerbPhrase until their v2 rebuild", () => {
+  it("leaves only explicitly deferred legacy paths on VerbPhrase", () => {
     expect(rule("clause.causative").constituents.find((item) => item.key === "predicate")?.category)
-      .toBe("VerbPhrase");
-    expect(rule("clause.pivotal").constituents.find((item) => item.key === "predicate")?.category)
       .toBe("VerbPhrase");
     expect(rule("clause.serial-verb").constituents.find((item) => item.key === "firstPredicate")?.category)
       .toBe("VerbPhrase");
