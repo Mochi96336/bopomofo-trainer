@@ -59,6 +59,7 @@ test("uses the same desktop viewport anchors for Strategy and Coordination", asy
       projectionBottom: projectionRect.bottom,
       methodRight: methodRect.right,
       methodBottom: methodRect.bottom,
+      viewportHeight: window.innerHeight,
     };
   });
 
@@ -77,7 +78,7 @@ test("uses the same desktop viewport anchors for Strategy and Coordination", asy
   expect(Math.abs(strategy.projectionBottom - coordination.readoutBottom)).toBeLessThanOrEqual(1);
   expect(Math.abs(strategy.methodBottom - coordination.methodBottom)).toBeLessThanOrEqual(1);
 
-  const floorGap = window.innerHeight - strategy.readoutBottom;
+  const floorGap = strategy.viewportHeight - strategy.readoutBottom;
   expect(floorGap).toBeGreaterThanOrEqual(29);
   expect(floorGap).toBeLessThanOrEqual(49);
 });
