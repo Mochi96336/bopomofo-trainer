@@ -4,12 +4,6 @@ export type DiagnosticDataState = "insufficient" | "preliminary" | "sufficient";
 export type DiagnosticMetricAvailability = "available" | "not-applicable";
 export type DiagnosticReinforcementState = "sampling" | "neutral" | "reinforced";
 
-export interface DiagnosticSummary {
-  readonly keysWithData: number;
-  readonly repeatedConfusions: number;
-  readonly slowerTransitions: number;
-}
-
 export interface KeyDiagnostic {
   readonly tokenId: TokenId;
   readonly symbol: string;
@@ -39,21 +33,6 @@ export interface KeyDiagnostic {
     readonly reason: string;
     readonly expectedTokenBoost: number;
   };
-}
-
-export interface TransitionDiagnostic {
-  readonly id: string;
-  readonly fromTokenId: TokenId;
-  readonly toTokenId: TokenId;
-  readonly fromSymbol: string;
-  readonly toSymbol: string;
-  readonly fromPhysicalKey: string;
-  readonly toPhysicalKey: string;
-  readonly timingMs: number;
-  readonly bestTimingMs: number;
-  readonly timingSamples: number;
-  readonly dataState: DiagnosticDataState;
-  readonly includesTone: boolean;
 }
 
 export interface ConfusionDiagnostic {
@@ -136,17 +115,4 @@ export interface KeyProgressTrends {
   readonly tokenId: TokenId;
   readonly correctness: KeyProgressSeries;
   readonly timing: KeyProgressSeries;
-}
-
-export interface DiagnosticModel {
-  readonly summary: DiagnosticSummary;
-  readonly keys: readonly KeyDiagnostic[];
-  readonly transitions: readonly TransitionDiagnostic[];
-  readonly confusions: readonly ConfusionDiagnostic[];
-  /**
-   * Bounded per-key progress history, projected for display. Relationship
-   * history (transition timing, directional confusion) is deliberately not part
-   * of this milestone; see docs/diagnostic-progress-history.md.
-   */
-  readonly keyProgress: Readonly<Record<TokenId, KeyProgressTrends>>;
 }
