@@ -164,9 +164,12 @@ describe("Analysis V2 evidence honesty", () => {
     const lead = host.querySelector(".analysis-v2-semantic-symbols");
     expect(lead?.textContent?.trim().startsWith("ㄆ")).toBe(true);
     expect(host.querySelector(".analysis-v2-semantic-readout")?.textContent)
-      .toContain("可歸因誤按較多");
-    expect(host.querySelector('[data-token="zhuyin:ㄆ"]')?.classList.contains("is-salient"))
-      .toBe(true);
+      .toContain("較常發生誤按的按鍵");
+    const p = host.querySelector<HTMLElement>('[data-token="zhuyin:ㄆ"]')!;
+    const b = host.querySelector<HTMLElement>('[data-token="zhuyin:ㄅ"]')!;
+    expect(p.classList.contains("has-data")).toBe(true);
+    expect(Number.parseFloat(p.style.getPropertyValue("--analysis-strength")))
+      .toBeGreaterThan(Number.parseFloat(b.style.getPropertyValue("--analysis-strength")));
   });
 
   it("does not promote a one-observation strategy deviation to a 100% hero", () => {
@@ -216,12 +219,14 @@ describe("Analysis V2 evidence honesty", () => {
     expect(lead?.textContent).toContain("4 / 10");
   });
 
-  it("keeps visible-family scope explicit without adding copy above the keyboard", () => {
+  it("keeps visible-family scope explicit in the single lower readout without adding copy above the keyboard", () => {
     const host = open(model());
-    expect(host.querySelector(".analysis-v2-speed-readout")?.textContent)
+    const readout = host.querySelector(".analysis-v2-speed-readout");
+    expect(readout?.textContent)
       .toContain("僅在畫面中的同類實際鍵間轉換中比較");
-    expect(host.querySelector(".analysis-v2-speed-caption")?.textContent)
-      .toContain("2 條可比較");
+    expect(readout?.textContent).toContain("2 條可比較");
+    expect(readout?.textContent).toContain("線粗代表樣本支持");
+    expect(host.querySelector(".analysis-v2-speed-caption")).toBeNull();
     expect(host.querySelectorAll(".analysis-v2-speed-hit")).toHaveLength(2);
     expect(host.querySelectorAll(".analysis-v2-speed-path")).toHaveLength(2);
     expect(host.querySelector(".analysis-v2-speed-hit")?.getAttribute("aria-hidden")).toBe("true");

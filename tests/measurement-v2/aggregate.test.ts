@@ -9,6 +9,7 @@ import {
   sameHandRevisitAggregateKey,
 } from "../../src/measurement-v2/aggregate.js";
 import type {
+  CoordinationBodyShape,
   ExplicitHand,
   MeasurementObservationsV2,
 } from "../../src/measurement-v2/types.js";
@@ -144,7 +145,7 @@ describe("measurement v2 aggregation", () => {
     });
   });
 
-  it("keeps low-dimensional motor aggregate cardinality bounded by the real 2/3 body domain", () => {
+  it("keeps low-dimensional motor aggregate cardinality bounded by four word structures", () => {
     const hands: readonly ExplicitHand[] = ["left", "right"];
     const immediateHands: MeasurementObservationsV2["immediateHands"][number][] = [];
     const sameHandRevisits: MeasurementObservationsV2["sameHandRevisits"][number][] = [];
@@ -174,16 +175,19 @@ describe("measurement v2 aggregation", () => {
       }
     }
 
-    for (const bodySize of [2, 3]) {
-      for (const handShape of ["left-only", "right-only", "mixed", "unknown"] as const) {
-        coordination.push({
-          syllableOrdinal: sequence++,
-          bodySize,
-          handShape,
-          timingMs: bodySize * 10,
-          clean: true,
-        });
-      }
+    const bodyShapes: readonly CoordinationBodyShape[] = [
+      "initial-medial",
+      "initial-final",
+      "medial-final",
+      "initial-medial-final",
+    ];
+    for (const bodyShape of bodyShapes) {
+      coordination.push({
+        syllableOrdinal: sequence++,
+        bodyShape,
+        timingMs: bodyShape === "initial-medial-final" ? 30 : 20,
+        clean: true,
+      });
     }
 
     const summary = aggregateMeasurementObservationsV2({
@@ -195,24 +199,17 @@ describe("measurement v2 aggregation", () => {
 
     expect(Object.keys(summary.motor.immediateHands)).toHaveLength(4);
     expect(Object.keys(summary.motor.sameHandRevisits)).toHaveLength(4);
-    expect(Object.keys(summary.motor.coordination)).toHaveLength(8);
+    expect(Object.keys(summary.motor.coordination)).toHaveLength(4);
+    expect(Object.values(summary.motor.coordination).map((row) => row.scope.bodyShape).sort()).toEqual(
+      [...bodyShapes].sort(),
+    );
   });
 
-  it("fails closed instead of inventing a catch-all body-size bucket", () => {
+  it("keeps the 2/3 bucket helper limited to the separate input-order strategy domain", () => {
     expect(coordinationBodySizeBucket(2)).toBe("2");
     expect(coordinationBodySizeBucket(3)).toBe("3");
     expect(() => coordinationBodySizeBucket(1)).toThrow(RangeError);
     expect(() => coordinationBodySizeBucket(4)).toThrow(RangeError);
-    expect(() => aggregateMeasurementObservationsV2({
-      ...emptyObservations(),
-      coordination: [{
-        syllableOrdinal: 0,
-        bodySize: 4,
-        handShape: "mixed",
-        timingMs: 120,
-        clean: true,
-      }],
-    })).toThrow(RangeError);
   });
 
   it("distinguishes same-hand revisit only by hand and opposite-hand presence", () => {
@@ -277,7 +274,6 @@ describe("measurement v2 aggregation", () => {
         },
       ],
     }, first);
-
     const key = immediateHandAggregateKey({ fromHand: "right", toHand: "left" });
     expect(second.motor.immediateHands[key]).toEqual({
       scope: { fromHand: "right", toHand: "left" },

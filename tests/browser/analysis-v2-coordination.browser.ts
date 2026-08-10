@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("surfaces motor evidence through the integrated Analysis V2 summary", async ({ page }) => {
+test("surfaces motor evidence through Coordination paths and Movement views", async ({ page }) => {
   await page.goto("/");
   await page.locator("#open-information").click();
 
@@ -18,26 +18,25 @@ test("surfaces motor evidence through the integrated Analysis V2 summary", async
   const analysis = page.locator("#analysis-v2");
   await expect(analysis.locator("#analysis-v2-title")).toHaveText("分析");
   await expect(analysis.locator('[data-tab="coordination"]')).toHaveAttribute("aria-selected", "true");
+  await expect(analysis.locator('[data-action="coordination-view"]')).toHaveText(["鍵間", "動作"]);
   await expect(page.locator(".analysis-v2-speed-field")).toBeVisible();
   await expect(page.locator(".analysis-v2-speed-board")).toBeVisible();
   await expect(page.locator(".analysis-v2-speed-svg marker")).toHaveCount(0);
+  await expect(analysis.locator(".analysis-v2-movement-view")).toHaveCount(0);
 
-  const evidence = page.locator('[data-action="evidence-family"]');
-  await expect(evidence).toHaveCount(4);
-  await expect(evidence).toContainText([
-    /手別轉換/,
-    /同側再出手/,
-    /音節跨度/,
-    /聲調收尾/,
-  ]);
-  await expect(analysis.locator('[data-action="evidence-family"][aria-expanded="true"]')).toHaveCount(0);
-  await expect(analysis.locator("#analysis-v2-evidence-detail")).toBeHidden();
-
-  await evidence.first().click();
-  await expect(analysis.locator('[data-action="evidence-family"][aria-expanded="true"]')).toHaveCount(1);
-  await expect(analysis.locator('[data-family="hands"]')).toHaveAttribute("aria-expanded", "true");
-  await expect(analysis.locator("#analysis-v2-evidence-detail")).toContainText("依標準指法的鍵位分工推定");
-  await expect(analysis.locator("#analysis-v2-evidence-detail")).toContainText("不代表偵測到你實際使用哪隻手");
+  await analysis.locator('[data-action="coordination-view"][data-value="movement"]').click();
+  const movement = analysis.locator(".analysis-v2-movement-view");
+  await expect(movement).toBeVisible();
+  await expect(movement.locator(".analysis-v2-movement-family")).toHaveCount(4);
+  await expect(movement).toContainText("手別轉換");
+  await expect(movement).toContainText("同側回返");
+  await expect(movement).toContainText("字內結構");
+  await expect(movement).toContainText("聲調收尾");
+  await expect(movement.locator(".analysis-v2-word-structure")).toContainText("聲母");
+  await expect(movement.locator(".analysis-v2-word-structure")).toContainText("介音");
+  await expect(movement.locator(".analysis-v2-word-structure")).toContainText("韻母");
+  await expect(movement.locator("table")).toHaveCount(0);
+  await expect(analysis.locator(".analysis-v2-speed-board")).toHaveCount(0);
 });
 
 test("retires canonical transition diagnostics from every production navigation path", async ({ page }) => {

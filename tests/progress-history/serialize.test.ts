@@ -85,7 +85,7 @@ describe("progress history persistence", () => {
     expect(parse(serializeProgressHistory(original))).toEqual(original);
   });
 
-  it("migrates schema 3 by dropping only impossible 4+ coordination history", () => {
+  it("migrates schema 3 by dropping obsolete coordination while preserving other history", () => {
     const source = mutate((draft) => {
       draft.schemaVersion = 3;
       draft.motor = {
@@ -102,16 +102,14 @@ describe("progress history persistence", () => {
     });
     const migrated = parse(source);
     expect(migrated?.schemaVersion).toBe(PROGRESS_HISTORY_SCHEMA_VERSION);
-    expect(Object.keys(migrated?.motor.coordination ?? {})).toEqual([
-      '["coordination","2","mixed"]',
-    ]);
+    expect(migrated?.motor.coordination).toEqual({});
     expect(Object.keys(migrated?.motor.immediateHands ?? {})).toEqual([
       '["immediate-hand","left","right"]',
     ]);
     expect(migrated?.keys[TOKEN]).toEqual(history().keys[TOKEN]);
   });
 
-  it("rejects 4+ coordination history in the current schema", () => {
+  it("rejects legacy coordination identity in the current schema", () => {
     expect(parse(mutate((draft) => {
       const motor = draft.motor as Record<string, unknown>;
       motor.coordination = {

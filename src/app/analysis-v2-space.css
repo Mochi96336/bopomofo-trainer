@@ -1,0 +1,413 @@
+/* Analysis breathing-space ownership.
+   Keep keyboard-led views on one shared visual axis. The board stays medium;
+   the remaining viewport becomes intentional separation between object, reading,
+   summary, and methodology instead of being consumed by a larger keyboard. */
+.analysis-v2 {
+  --analysis-board-width: min(760px, 92%);
+  --analysis-primary-stage-height: clamp(470px, 60dvh, 540px);
+  --analysis-object-slot-height: 240px;
+}
+
+.analysis-v2 .analysis-v2-domain-controls {
+  width: min(860px, 92%);
+}
+
+/* Strategy keeps the compact stage it had before the keyboard-space pass. */
+.analysis-v2 .analysis-v2-domain:has(.analysis-v2-strategy-stage) {
+  width: min(1080px, 100%);
+}
+
+/* Keyboard-led stages reserve the upper slot for the board and let all text
+   settle into the lower rail. The object slot is identical across Coordination
+   and Semantic, so changing views never moves the keyboard. */
+.analysis-v2 .analysis-v2-primary-stage:not(.analysis-v2-strategy-stage),
+.analysis-v2 .analysis-v2-visual-stage:not(.analysis-v2-strategy-stage) {
+  min-height: var(--analysis-primary-stage-height);
+  padding-top: 14px;
+  grid-template-rows: var(--analysis-object-slot-height) minmax(0, 1fr);
+  align-content: stretch;
+  gap: 0;
+}
+
+.analysis-v2 .analysis-v2-primary-object-slot {
+  position: relative;
+  width: 100%;
+  justify-self: stretch;
+}
+
+.analysis-v2 .analysis-v2-primary-object-slot > .analysis-v2-keyboard,
+.analysis-v2 .analysis-v2-primary-object-slot > .analysis-v2-speed-scroll {
+  justify-self: center;
+  margin-inline: auto;
+}
+
+.analysis-v2 .analysis-v2-semantic-primary .analysis-v2-keyboard,
+.analysis-v2 .analysis-v2-speed-board {
+  width: var(--analysis-board-width);
+  margin-inline: auto;
+  transform: perspective(520px) rotateX(19deg);
+  transform-origin: 50% 100%;
+}
+
+.analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key,
+.analysis-v2 .analysis-v2-speed-board .analysis-v2-key {
+  height: clamp(23px, 3.7vw, 35px);
+}
+
+.analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key strong,
+.analysis-v2 .analysis-v2-speed-board .analysis-v2-key strong {
+  font-size: clamp(7px, 0.85vw, 10px);
+}
+
+/* The readings are one lower editorial block, not another centered object. */
+.analysis-v2 .analysis-v2-semantic-readout,
+.analysis-v2 .analysis-v2-speed-readout {
+  width: var(--analysis-board-width);
+  min-height: 58px;
+  margin-inline: auto;
+  align-self: end;
+  justify-items: start;
+  text-align: left;
+  transform: none;
+}
+
+.analysis-v2 .analysis-v2-semantic-readout > strong,
+.analysis-v2 .analysis-v2-speed-readout > strong {
+  justify-content: flex-start;
+}
+
+.analysis-v2 .analysis-v2-speed-caption,
+.analysis-v2 .analysis-v2-speed-legend,
+.analysis-v2 .analysis-v2-semantic-rail,
+.analysis-v2 .analysis-v2-semantic-stage > .analysis-v2-inspector,
+.analysis-v2 .analysis-v2-speed-inspector {
+  width: var(--analysis-board-width);
+}
+
+/* Coordination owns the full domain width so the keyboard is centered on the
+   Analysis canvas, never on a narrower left text column. */
+.analysis-v2 .analysis-v2-speed-field {
+  position: relative;
+  width: 100%;
+  margin-inline: auto;
+  padding-bottom: 30px;
+  grid-template-columns: minmax(0, 1fr);
+  row-gap: 0;
+}
+
+.analysis-v2 .analysis-v2-speed-stage {
+  grid-column: 1;
+}
+
+.analysis-v2 .analysis-v2-hero-readout.analysis-v2-speed-readout {
+  margin-inline: auto;
+}
+
+.analysis-v2 .analysis-v2-speed-caption {
+  margin: 8px auto 0;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+/* Semantic uses the same lower rhythm. Lead + summary stay beneath the keyboard;
+   the summary is a compact two-line rail rather than a second dashboard. */
+.analysis-v2 .analysis-v2-semantic-domain {
+  position: relative;
+  padding-bottom: 30px;
+}
+
+.analysis-v2 .analysis-v2-semantic-rail {
+  margin: 10px auto 0;
+  justify-self: center;
+}
+
+/* Methodology is a quiet disclosure at the far right of the bottom rail. Its
+   panel opens upward: closed points up, open points down to indicate collapse. */
+.analysis-v2 .analysis-v2-method {
+  width: auto;
+  margin: 6px 0 0;
+  justify-self: end;
+  text-align: right;
+}
+
+.analysis-v2 .analysis-v2-speed-field > .analysis-v2-method,
+.analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+}
+
+.analysis-v2 .analysis-v2-method summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+}
+
+.analysis-v2 .analysis-v2-method summary::-webkit-details-marker {
+  display: none;
+}
+
+.analysis-v2 .analysis-v2-method summary::marker {
+  content: "";
+}
+
+.analysis-v2 .analysis-v2-method summary::before {
+  content: "▴";
+  font-size: 9px;
+  line-height: 1;
+}
+
+.analysis-v2 .analysis-v2-method[open] summary::before {
+  content: "▾";
+}
+
+/* Movement remains a 2×2 reading surface. Each family gets a compact explanatory
+   diagram first; real history lines remain short annotations below it. */
+.analysis-v2 .analysis-v2-movement-view {
+  width: min(900px, 92%);
+  margin: clamp(44px, 6dvh, 64px) auto 0;
+  gap: 26px;
+}
+
+.analysis-v2 .analysis-v2-movement-grid {
+  gap: 38px 60px;
+}
+
+.analysis-v2 .analysis-v2-movement-family {
+  gap: 10px;
+}
+
+.analysis-v2 .analysis-v2-movement-diagram {
+  display: grid;
+  min-height: 68px;
+  margin: 2px 0 6px;
+  place-items: center;
+  color: var(--ink-muted);
+}
+
+.analysis-v2 .analysis-v2-movement-diagram-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: var(--ink-muted);
+  font-size: 17px;
+  font-weight: 560;
+  letter-spacing: .05em;
+}
+
+.analysis-v2 .analysis-v2-movement-diagram-line i {
+  color: var(--ink-faint);
+  font-style: normal;
+  font-weight: 400;
+}
+
+.analysis-v2 .analysis-v2-word-structure {
+  align-content: center;
+  gap: 7px;
+}
+
+.analysis-v2 .analysis-v2-word-structure-labels,
+.analysis-v2 .analysis-v2-word-structure-example {
+  display: grid;
+  width: min(330px, 100%);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  text-align: center;
+}
+
+.analysis-v2 .analysis-v2-word-structure-labels {
+  color: var(--ink-faint);
+  font-size: 10px;
+}
+
+.analysis-v2 .analysis-v2-word-structure-example {
+  color: var(--ink-muted);
+  font-size: 17px;
+  font-weight: 560;
+}
+
+.analysis-v2 .analysis-v2-word-structure-example span {
+  position: relative;
+}
+
+.analysis-v2 .analysis-v2-word-structure-example span:not(:last-child)::after {
+  position: absolute;
+  top: 50%;
+  left: calc(50% + 19px);
+  width: calc(100% - 38px);
+  height: 1px;
+  background: var(--hairline);
+  content: "";
+}
+
+.analysis-v2 .analysis-v2-word-structure small {
+  color: var(--ink-faint);
+  font-size: 9px;
+}
+
+.analysis-v2 .analysis-v2-movement-stats {
+  width: min(390px, 100%);
+  margin-inline: auto;
+}
+
+.analysis-v2 .analysis-v2-movement-stat {
+  min-height: 32px;
+  grid-template-columns: 112px 104px minmax(0, 1fr);
+  justify-content: stretch;
+  gap: 10px;
+}
+
+.analysis-v2 .analysis-v2-movement-stat > span {
+  text-align: right;
+}
+
+.analysis-v2 .analysis-v2-movement-reading {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 56px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.analysis-v2 .analysis-v2-movement-reading > strong {
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 560;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.analysis-v2 .analysis-v2-movement-reading > small {
+  color: var(--ink-faint);
+  font-size: 9px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.analysis-v2 .analysis-v2-motor-sparkline {
+  width: 104px;
+  height: 24px;
+  justify-self: center;
+}
+
+.analysis-v2 .analysis-v2-motor-sparkline-empty {
+  width: 104px;
+  justify-self: center;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .analysis-v2 {
+    --analysis-board-width: min(760px, 92%);
+    --analysis-primary-stage-height: clamp(420px, 56dvh, 480px);
+    --analysis-object-slot-height: 220px;
+  }
+
+  .analysis-v2 .analysis-v2-movement-view {
+    width: min(820px, 94%);
+    margin-top: 36px;
+  }
+}
+
+@media (max-width: 760px) {
+  .analysis-v2 .analysis-v2-movement-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
+  .analysis-v2 .analysis-v2-movement-diagram {
+    min-height: 54px;
+  }
+
+  .analysis-v2 .analysis-v2-movement-diagram-line,
+  .analysis-v2 .analysis-v2-word-structure-example {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 640px) {
+  .analysis-v2 {
+    --analysis-board-width: 100%;
+    --analysis-primary-stage-height: 340px;
+    --analysis-object-slot-height: 190px;
+  }
+
+  .analysis-v2 .analysis-v2-domain-controls {
+    width: 100%;
+  }
+
+  .analysis-v2 .analysis-v2-primary-stage:not(.analysis-v2-strategy-stage),
+  .analysis-v2 .analysis-v2-visual-stage:not(.analysis-v2-strategy-stage) {
+    grid-template-rows: var(--analysis-object-slot-height) minmax(0, 1fr);
+  }
+
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-keyboard,
+  .analysis-v2 .analysis-v2-speed-board {
+    width: 100%;
+    transform: perspective(420px) rotateX(12deg);
+  }
+
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key,
+  .analysis-v2 .analysis-v2-speed-board .analysis-v2-key {
+    height: 19px;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key strong,
+  .analysis-v2 .analysis-v2-speed-board .analysis-v2-key strong {
+    font-size: 7px;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-readout,
+  .analysis-v2 .analysis-v2-speed-readout {
+    width: 100%;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-readout > strong,
+  .analysis-v2 .analysis-v2-speed-readout > strong {
+    justify-content: center;
+  }
+
+  .analysis-v2 .analysis-v2-speed-field,
+  .analysis-v2 .analysis-v2-semantic-domain {
+    width: 100%;
+    padding-bottom: 0;
+  }
+
+  .analysis-v2 .analysis-v2-speed-caption,
+  .analysis-v2 .analysis-v2-semantic-rail {
+    width: 100%;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .analysis-v2 .analysis-v2-speed-field > .analysis-v2-method,
+  .analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method {
+    position: static;
+    width: 100%;
+    margin-top: 8px;
+    justify-self: stretch;
+    text-align: left;
+  }
+
+  .analysis-v2 .analysis-v2-movement-view {
+    width: 100%;
+    margin-top: 20px;
+  }
+
+  .analysis-v2 .analysis-v2-movement-stat {
+    grid-template-columns: 96px 92px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .analysis-v2 .analysis-v2-motor-sparkline,
+  .analysis-v2 .analysis-v2-motor-sparkline-empty {
+    width: 92px;
+  }
+}

@@ -85,7 +85,7 @@ async function installSpeedProgress(page: Page, edgeCount: number): Promise<void
   }, { key: PROGRESS_KEY, value: source });
 }
 
-test("keeps the protected keyboard primary while the readout stays nearby", async ({ page }) => {
+test("keeps a medium keyboard while using desktop space to separate the reading", async ({ page }) => {
   await page.setViewportSize({ width: 2000, height: 1100 });
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
@@ -110,19 +110,20 @@ test("keeps the protected keyboard primary while the readout stays nearby", asyn
     };
   });
 
-  expect(metrics.domainWidth).toBeLessThanOrEqual(1080.5);
-  expect(metrics.stageWidth).toBeLessThanOrEqual(1080.5);
-  expect(metrics.stageHeight).toBeLessThanOrEqual(390.5);
+  expect(metrics.domainWidth).toBeLessThanOrEqual(1180.5);
+  expect(metrics.stageWidth).toBeLessThanOrEqual(1180.5);
+  expect(metrics.stageHeight).toBeLessThanOrEqual(540.5);
+  expect(metrics.keyboardWidth).toBeGreaterThanOrEqual(759);
   expect(metrics.keyboardWidth).toBeLessThanOrEqual(760.5);
-  expect(metrics.keyboardShare).toBeGreaterThan(0.68);
-  expect(metrics.keyboardShare).toBeLessThan(0.73);
+  expect(metrics.keyboardShare).toBeGreaterThan(0.63);
+  expect(metrics.keyboardShare).toBeLessThan(0.66);
   expect(metrics.leadFont).toBeGreaterThanOrEqual(24);
-  expect(metrics.leadFont).toBeLessThanOrEqual(28.5);
-  expect(metrics.leadGap).toBeGreaterThanOrEqual(18);
-  expect(metrics.leadGap).toBeLessThanOrEqual(70);
+  expect(metrics.leadFont).toBeLessThanOrEqual(29.5);
+  expect(metrics.leadGap).toBeGreaterThanOrEqual(45);
+  expect(metrics.leadGap).toBeLessThanOrEqual(280);
 });
 
-test("keeps Semantic and Coordination keyboards at one fixed screen position", async ({ page }) => {
+test("keeps Semantic and Coordination keyboards at one fixed screen position and scale", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installSpeedProgress(page, 24);
   await openAnalysis(page);
@@ -131,8 +132,16 @@ test("keeps Semantic and Coordination keyboards at one fixed screen position", a
   const coordinationBoard = analysis.locator(".analysis-v2-speed-board");
   const coordinationBefore = await coordinationBoard.evaluate((node) => {
     const rect = node.getBoundingClientRect();
-    return { top: rect.top, width: (node as HTMLElement).offsetWidth };
+    return { top: rect.top, left: rect.left, right: rect.right, width: (node as HTMLElement).offsetWidth };
   });
+  const canvasBefore = await analysis.locator(".analysis-v2-main").evaluate((node) => {
+    const rect = node.getBoundingClientRect();
+    return { left: rect.left, right: rect.right };
+  });
+  const boardCenter = (coordinationBefore.left + coordinationBefore.right) / 2;
+  const canvasCenter = (canvasBefore.left + canvasBefore.right) / 2;
+  expect(Math.abs(boardCenter - canvasCenter)).toBeLessThan(1);
+
   await analysis.locator(".analysis-v2-speed-path").first().evaluate((node) => {
     node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
@@ -142,15 +151,17 @@ test("keeps Semantic and Coordination keyboards at one fixed screen position", a
   });
   expect(Math.abs(coordinationAfter.top - coordinationBefore.top)).toBeLessThan(0.5);
   expect(coordinationAfter.width).toBe(coordinationBefore.width);
+  expect(coordinationBefore.width).toBe(760);
 
   await analysis.locator('[data-tab="semantic"]').click();
   const semanticBoard = analysis.locator(".analysis-v2-keyboard");
   const semanticBefore = await semanticBoard.evaluate((node) => {
     const rect = node.getBoundingClientRect();
-    return { top: rect.top, width: (node as HTMLElement).offsetWidth };
+    return { top: rect.top, left: rect.left, right: rect.right, width: (node as HTMLElement).offsetWidth };
   });
   expect(Math.abs(semanticBefore.top - coordinationBefore.top)).toBeLessThan(0.5);
   expect(semanticBefore.width).toBe(coordinationBefore.width);
+  expect(Math.abs(((semanticBefore.left + semanticBefore.right) / 2) - canvasCenter)).toBeLessThan(1);
 
   await analysis.locator('[data-action="select-key"]').first().click();
   const semanticAfter = await semanticBoard.evaluate((node) => {
@@ -172,13 +183,13 @@ test("keeps exactly one red flyline and never turns Analysis text red on hover",
   await expect(analysis.locator(".analysis-v2-speed-path.is-slow")).toHaveCount(3);
   await expect(analysis.locator(".analysis-v2-speed-path.is-accent")).toHaveCount(1);
   await expect(analysis.locator(".analysis-v2-speed-readout")).toContainText("ms");
-  await expect(analysis.locator(".analysis-v2-speed-caption")).toContainText("24 條可比較");
+  await expect(analysis.locator(".analysis-v2-speed-readout")).toContainText("24 條可比較");
+  await expect(analysis.locator(".analysis-v2-speed-caption")).toHaveCount(0);
 
   const palette = await analysis.evaluate((host) => {
     const stage = host.querySelector<HTMLElement>(".analysis-v2-primary-stage")!;
     const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
     const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout")!;
-    const caption = host.querySelector<HTMLElement>(".analysis-v2-speed-caption")!;
     const accentPath = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-accent")!;
     const neutralSlow = host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-slow:not(.is-accent)")!;
     const probe = document.createElement("span");
@@ -202,20 +213,16 @@ test("keeps exactly one red flyline and never turns Analysis text red on hover",
       stageHeight: stageRect.height,
       boardTopInsideStage: boardRect.top - stageRect.top,
       readoutGap: readoutRect.top - boardRect.bottom,
-      captionBelowReadout: caption.getBoundingClientRect().top >= readoutRect.bottom - 1,
     };
   });
   expect(palette.accentStroke).toBe(palette.accent);
   expect(palette.neutralSlowStroke).toBe(palette.ink);
   expect(palette.neutralSlowStroke).not.toBe(palette.accent);
-  expect(palette.stageHeight).toBeLessThanOrEqual(390.5);
-  expect(palette.boardTopInsideStage).toBeGreaterThan(12);
-  expect(palette.readoutGap).toBeGreaterThanOrEqual(18);
-  expect(palette.readoutGap).toBeLessThanOrEqual(70);
-  expect(palette.captionBelowReadout).toBe(true);
+  expect(palette.stageHeight).toBeLessThanOrEqual(470.5);
+  expect(palette.boardTopInsideStage).toBeGreaterThan(8);
+  expect(palette.readoutGap).toBeGreaterThanOrEqual(45);
+  expect(palette.readoutGap).toBeLessThanOrEqual(190);
 
-  /* Relation hover is owned by the 10px transparent hit layer, not by asking
-     Playwright to guess a point on the 1–2px curved visual stroke. */
   await analysis.evaluate((host) => {
     const visual = host.querySelector<SVGPathElement>(".analysis-v2-speed-path:not(.is-accent)")!;
     const id = visual.dataset.speedId;
@@ -225,8 +232,7 @@ test("keeps exactly one red flyline and never turns Analysis text red on hover",
   });
   await expect(analysis.locator(".analysis-v2-speed-path.is-accent")).toHaveCount(1);
 
-  /* Real pointer hover on text-bearing controls must stay neutral. */
-  await analysis.locator('[data-action="evidence-family"]').first().hover();
+  await analysis.locator('[data-action="coordination-view"]').first().hover();
   await analysis.locator('[data-tab="semantic"]').hover();
   const redText = await analysis.evaluate((host) => {
     const probe = document.createElement("span");

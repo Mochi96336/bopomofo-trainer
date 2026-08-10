@@ -189,7 +189,7 @@ test("translates the analysis keyboard from the main-page keyboard origin withou
     .toBe(false);
 });
 
-test("keeps the original semantic keyboard visual contract", async ({ page }) => {
+test("keeps the medium semantic keyboard visual contract", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
@@ -222,8 +222,8 @@ test("keeps the original semantic keyboard visual contract", async ({ page }) =>
   expect(visual.keyboardWidth).toBe(760);
   expect(visual.transform).not.toBe("none");
   expect(visual.transformOrigin).not.toBe("");
-  expect(visual.keyHeight).toBeGreaterThanOrEqual(22);
-  expect(visual.keyHeight).toBeLessThanOrEqual(36);
+  expect(visual.keyHeight).toBeGreaterThanOrEqual(23);
+  expect(visual.keyHeight).toBeLessThanOrEqual(35.5);
   expect(visual.regularRadius).not.toBe("5px");
   expect(Number.parseFloat(visual.wideRadius)).toBeGreaterThan(100);
   expect(visual.metricDisplay).toBe("none");
@@ -331,22 +331,41 @@ test("keeps Strategy's matrix compact inside the shared primary stage", async ({
   expect(widths.field).toBeLessThanOrEqual(560.5);
 });
 
-test("keeps the single expanded evidence table compact inside the workspace", async ({ page }) => {
+test("uses compact Movement diagrams with short supporting history lines", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installSpeedProgress(page, 12);
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
-  await analysis.locator('[data-action="evidence-family"][data-family="hands"]').click();
-  await expect(analysis.locator("#analysis-v2-evidence-detail")).toBeVisible();
-  const widths = await analysis.locator("#analysis-v2-evidence-detail").evaluate((detail) => {
-    const body = detail.querySelector<HTMLElement>(".analysis-v2-evidence-body")!;
-    const table = detail.querySelector<HTMLElement>(".analysis-v2-motor-table")!;
+  await analysis.locator('[data-action="coordination-view"][data-value="movement"]').click();
+  const movement = analysis.locator(".analysis-v2-movement-view");
+  await expect(movement).toBeVisible();
+  const families = movement.locator(".analysis-v2-movement-family");
+  await expect(families).toHaveCount(4);
+  await expect(movement.locator("table")).toHaveCount(0);
+
+  const geometry = await movement.evaluate((view) => {
+    const grid = view.querySelector<HTMLElement>(".analysis-v2-movement-grid")!;
+    const sparkline = view.querySelector<SVGSVGElement>(".analysis-v2-motor-sparkline");
     return {
-      body: body.getBoundingClientRect().width,
-      table: table.getBoundingClientRect().width,
+      width: view.getBoundingClientRect().width,
       workspace: document.querySelector<HTMLElement>("#analysis-v2")!.getBoundingClientRect().width,
+      columns: getComputedStyle(grid).gridTemplateColumns.split(" ").length,
+      sparklineWidth: sparkline?.getBoundingClientRect().width ?? 0,
     };
   });
-  expect(widths.body).toBeLessThanOrEqual(760.5);
-  expect(widths.table).toBeLessThan(widths.workspace * 0.8);
+  expect(geometry.width).toBeLessThanOrEqual(900.5);
+  expect(geometry.width).toBeLessThan(geometry.workspace * 0.8);
+  expect(geometry.columns).toBe(2);
+  if (geometry.sparklineWidth > 0) expect(geometry.sparklineWidth).toBeLessThanOrEqual(104.5);
+
+  await expect(families.nth(0).locator(".analysis-v2-movement-diagram")).toContainText("左");
+  await expect(families.nth(0).locator(".analysis-v2-movement-diagram")).toContainText("右");
+  await expect(families.nth(1).locator(".analysis-v2-movement-diagram")).toContainText("同側");
+  await expect(families.nth(1).locator(".analysis-v2-movement-diagram")).toContainText("另一側");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("聲母");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("介音");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("韻母");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("例：家");
+  await expect(families.nth(3).locator(".analysis-v2-movement-diagram")).toContainText("字內注音");
+  await expect(families.nth(3).locator(".analysis-v2-movement-diagram")).toContainText("聲調");
 });

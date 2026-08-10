@@ -3,7 +3,22 @@ import type { AssignedHand } from "../motor/keyboard-geometry.js";
 
 export type ExplicitHand = Extract<AssignedHand, "left" | "right">;
 export type BoundaryClass = "within-syllable" | "syllable-boundary" | "entry-boundary";
+
+/**
+ * Legacy coordination dimension retained only so old persisted records can be
+ * validated before their obsolete coordination channel is discarded.
+ */
 export type CoordinationHandShape = "left-only" | "right-only" | "mixed" | "unknown";
+
+/**
+ * Canonical Bopomofo body structure for words with at least two non-tone parts.
+ * These are the complete multi-part combinations of initial / medial / final.
+ */
+export type CoordinationBodyShape =
+  | "initial-medial"
+  | "initial-final"
+  | "medial-final"
+  | "initial-medial-final";
 
 export interface BindingObservationV2 {
   readonly traceSequence: number;
@@ -34,10 +49,14 @@ export interface InputOrderPositionObservation {
   readonly acceptedBodyIndex: number;
 }
 
+/**
+ * Total clean time from the first accepted body component to the final accepted
+ * body component of one word. Identity is canonical word-body structure, never
+ * the hands used to enter it; hand timing has its own motor families below.
+ */
 export interface CoordinationObservation {
   readonly syllableOrdinal: number;
-  readonly bodySize: number;
-  readonly handShape: CoordinationHandShape;
+  readonly bodyShape: CoordinationBodyShape;
   readonly timingMs: number;
   readonly clean: boolean;
 }
@@ -64,6 +83,11 @@ export interface ImmediateHandObservation {
   readonly clean: boolean;
 }
 
+/**
+ * Reappearance of the same conventional hand assignment inside one syllable.
+ * Accepted body components and the final accepted tone can both complete a
+ * revisit; predecessors never cross a syllable or entry boundary.
+ */
 export interface SameHandRevisitObservation {
   readonly traceSequence: number;
   readonly hand: ExplicitHand;

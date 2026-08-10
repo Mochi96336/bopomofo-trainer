@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  BODY_ONLY_REVISIT_MEASUREMENT_V2_POLICY_VERSION,
   LEGACY_MEASUREMENT_V2_POLICY_VERSION,
+  PREVIOUS_MEASUREMENT_V2_POLICY_VERSION,
   createEmptyMeasurementSummaryV2,
+  coordinationAggregateKey,
   immediateHandAggregateKey,
   immediateTokenAggregateKey,
+  sameHandRevisitAggregateKey,
   type MeasurementSummaryV2,
 } from "../../src/measurement-v2/aggregate.js";
 import { parseMeasurementSummaryV2 } from "../../src/measurement-v2/serialize.js";
@@ -65,7 +69,7 @@ describe("measurement v2 persistence validation", () => {
     expect(parseMeasurementSummaryV2(withEdge, "guided", "zhuyin-standard", TOKENS)).toEqual(withEdge);
   });
 
-  it("loads an older V2 summary with no exact-token channel as an empty network", () => {
+  it("loads a summary with no exact-token channel as an empty network", () => {
     const summary = summaryWithImmediateHands(1);
     const oldShape = structuredClone(summary) as unknown as Record<string, unknown>;
     const motor = oldShape.motor as Record<string, unknown>;
@@ -79,7 +83,81 @@ describe("measurement v2 persistence validation", () => {
     });
   });
 
-  it("migrates aggregate-1 by preserving 2/3 evidence and dropping only recognized 4+ buckets", () => {
+  it("migrates aggregate-4 by preserving valid evidence while resetting body-only revisits", () => {
+    const current = summaryWithImmediateHands(1);
+    const structureScope = { bodyShape: "initial-medial-final" as const };
+    const revisitScope = { hand: "right" as const, oppositeHandIntervened: false };
+    const legacy = structuredClone({
+      ...current,
+      motor: {
+        ...current.motor,
+        coordination: {
+          [coordinationAggregateKey(structureScope)]: {
+            scope: structureScope,
+            observations: 8,
+            timingSamples: 7,
+            currentTimeToTypeMs: 180,
+            bestTimeToTypeMs: 150,
+          },
+        },
+        sameHandRevisits: {
+          [sameHandRevisitAggregateKey(revisitScope)]: {
+            scope: revisitScope,
+            observations: 9,
+            timingSamples: 8,
+            currentTimeToTypeMs: 210,
+            bestTimeToTypeMs: 170,
+          },
+        },
+      },
+    }) as unknown as Record<string, unknown>;
+    legacy.policyVersion = BODY_ONLY_REVISIT_MEASUREMENT_V2_POLICY_VERSION;
+
+    const migrated = parseMeasurementSummaryV2(legacy, "guided", "zhuyin-standard", TOKENS);
+    expect(migrated?.motor.coordination).toEqual((legacy.motor as Record<string, unknown>).coordination);
+    expect(migrated?.motor.sameHandRevisits).toEqual({});
+    expect(migrated?.motor.immediateHands).toEqual(current.motor.immediateHands);
+    expect(migrated?.policyVersion).toBe(createEmptyMeasurementSummaryV2().policyVersion);
+  });
+
+  it("migrates aggregate-3 by preserving word structure while dropping old revisit semantics", () => {
+    const current = summaryWithImmediateHands(1);
+    const structureScope = { bodyShape: "initial-medial-final" as const };
+    const revisitScope = { hand: "right" as const, oppositeHandIntervened: true };
+    const legacy = structuredClone({
+      ...current,
+      motor: {
+        ...current.motor,
+        coordination: {
+          [coordinationAggregateKey(structureScope)]: {
+            scope: structureScope,
+            observations: 8,
+            timingSamples: 7,
+            currentTimeToTypeMs: 180,
+            bestTimeToTypeMs: 150,
+          },
+        },
+        sameHandRevisits: {
+          [sameHandRevisitAggregateKey(revisitScope)]: {
+            scope: revisitScope,
+            observations: 9,
+            timingSamples: 8,
+            currentTimeToTypeMs: 210,
+            bestTimeToTypeMs: 170,
+          },
+        },
+      },
+    }) as unknown as Record<string, unknown>;
+    legacy.policyVersion = PREVIOUS_MEASUREMENT_V2_POLICY_VERSION;
+
+    const migrated = parseMeasurementSummaryV2(legacy, "guided", "zhuyin-standard", TOKENS);
+    expect(migrated?.motor.coordination).toEqual((legacy.motor as Record<string, unknown>).coordination);
+    expect(migrated?.motor.sameHandRevisits).toEqual({});
+    expect(migrated?.motor.immediateHands).toEqual(current.motor.immediateHands);
+    expect(migrated?.policyVersion).toBe(createEmptyMeasurementSummaryV2().policyVersion);
+  });
+
+  it("migrates aggregate-1 by preserving valid strategy and hand evidence while dropping obsolete coordination", () => {
     const current = summaryWithImmediateHands(1);
     const legacy = structuredClone(current) as unknown as Record<string, unknown>;
     legacy.policyVersion = LEGACY_MEASUREMENT_V2_POLICY_VERSION;
@@ -118,58 +196,34 @@ describe("measurement v2 persistence validation", () => {
     expect(Object.keys(migrated?.strategy.inputOrderPositions ?? {})).toEqual([
       '["input-order-position","3","first","last"]',
     ]);
-    expect(Object.keys(migrated?.motor.coordination ?? {})).toEqual([
-      '["coordination","2","mixed"]',
-    ]);
+    expect(migrated?.motor.coordination).toEqual({});
+    expect(migrated?.motor.sameHandRevisits).toEqual({});
     expect(migrated?.motor.immediateHands).toEqual(current.motor.immediateHands);
   });
 
-  it("rejects malformed obsolete 4+ buckets before discarding them", () => {
-    const malformedStrategyScopes = [
+  it("rejects malformed obsolete 4+ Strategy buckets before discarding them", () => {
+  for (const [key, candidate] of [
+    [
+      '["input-order-position","4+","garbage","last"]',
       {
-        key: '["input-order-position","4+","garbage","last"]',
-        candidate: {
-          scope: { bodySize: "4+", canonicalPosition: "garbage", acceptedPosition: "last" },
-          observations: 11,
-        },
+        scope: { bodySize: "4+", canonicalPosition: "garbage", acceptedPosition: "last" },
+        observations: 11,
       },
+    ],
+    [
+      '["input-order-position","4+","first","last"]',
       {
-        key: '["input-order-position","4+","first","last"]',
-        candidate: {
-          scope: { bodySize: "4+", canonicalPosition: "first", acceptedPosition: "last" },
-          observations: 0,
-        },
+        scope: { bodySize: "4+", canonicalPosition: "first", acceptedPosition: "last" },
+        observations: 0,
       },
-    ];
-
-    for (const { key, candidate } of malformedStrategyScopes) {
-      const legacy = structuredClone(createEmptyMeasurementSummaryV2()) as unknown as Record<string, unknown>;
-      legacy.policyVersion = LEGACY_MEASUREMENT_V2_POLICY_VERSION;
-      legacy.strategy = { inputOrderPositions: { [key]: candidate } };
-      expect(parseMeasurementSummaryV2(legacy, "guided", "zhuyin-standard", TOKENS)).toBeNull();
-    }
-
-    const malformedCoordination = structuredClone(
-      createEmptyMeasurementSummaryV2(),
-    ) as unknown as Record<string, unknown>;
-    malformedCoordination.policyVersion = LEGACY_MEASUREMENT_V2_POLICY_VERSION;
-    const motor = malformedCoordination.motor as Record<string, unknown>;
-    motor.coordination = {
-      '["coordination","4+","mixed"]': {
-        scope: { bodySize: "4+", handShape: "mixed" },
-        observations: 4,
-        timingSamples: 5,
-        currentTimeToTypeMs: 180,
-        bestTimeToTypeMs: 150,
-      },
-    };
-    expect(parseMeasurementSummaryV2(
-      malformedCoordination,
-      "guided",
-      "zhuyin-standard",
-      TOKENS,
-    )).toBeNull();
-  });
+    ],
+  ] as const) {
+    const legacy = structuredClone(createEmptyMeasurementSummaryV2()) as unknown as Record<string, unknown>;
+    legacy.policyVersion = LEGACY_MEASUREMENT_V2_POLICY_VERSION;
+    legacy.strategy = { inputOrderPositions: { [key]: candidate } };
+    expect(parseMeasurementSummaryV2(legacy, "guided", "zhuyin-standard", TOKENS)).toBeNull();
+  }
+});
 
   it("rejects 4+ in the current aggregate policy instead of silently dropping it", () => {
     const current = createEmptyMeasurementSummaryV2();

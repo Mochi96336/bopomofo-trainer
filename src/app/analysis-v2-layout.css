@@ -101,23 +101,28 @@
 .analysis-v2-speed-field,
 .analysis-v2-speed-stage,
 .analysis-v2-strategy-stage,
-.analysis-v2-evidence-rail {
+.analysis-v2-movement-view,
+.analysis-v2-semantic-rail {
   min-width: 0;
 }
 
+/* Give the page title and the tab strip a real frame instead of pinning both
+   to the hairline. The line remains structural, not decorative. */
 .analysis-v2-header {
-  min-height: 64px;
-  padding: 14px 24px 0;
+  --analysis-header-bottom-pad: 10px;
+  min-height: 72px;
+  padding: 18px 28px var(--analysis-header-bottom-pad);
 }
 
 .analysis-v2-header h2 {
   color: var(--ink);
   font-size: 16px;
   font-weight: 700;
+  line-height: 1.2;
 }
 
 .analysis-v2-header-actions {
-  gap: 22px;
+  gap: 24px;
 }
 
 .analysis-v2-tabs {
@@ -134,11 +139,21 @@
   padding: 7px 3px 10px;
 }
 
+/* Header padding keeps the title away from the divider, but the active tab
+   indicator itself should visually belong to that divider rather than float
+   above it. */
+.analysis-v2-header .analysis-v2-tabs button::after {
+  bottom: calc(-1px - var(--analysis-header-bottom-pad));
+}
+
+/* Reserve the scrollbar symmetrically so the usable content axis is the true
+   modal axis instead of being pulled left by half a right-side scrollbar. */
 .analysis-v2-main {
-  padding: 10px 24px 26px;
-  overflow: auto;
+  padding: 8px 28px 24px;
+  overflow-x: clip;
+  overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
+  scrollbar-gutter: stable both-edges;
 }
 
 .analysis-v2-close {
@@ -162,16 +177,62 @@
   outline-color: transparent;
 }
 
+/* Once a Semantic key is explicitly selected, the generic ranked lead is no
+   longer the thing the user is reading. Keep its track allocated so selecting
+   a key cannot move the protected keyboard. */
+.analysis-v2-semantic-stage.has-selection .analysis-v2-semantic-readout {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Semantic summary is deliberately one quiet lower block: two left-aligned
+   editorial lines, not another two-column dashboard beneath the keyboard. */
+.analysis-v2-semantic-rail {
+  display: grid;
+  width: var(--analysis-board-width, min(760px, 92%));
+  min-height: 0;
+  margin: 10px auto 0;
+  grid-template-columns: minmax(0, 1fr);
+  border-top: 1px solid var(--hairline);
+}
+
+.analysis-v2-semantic-rail > div {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  padding: 7px 0 0;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.analysis-v2-semantic-rail > div + div {
+  border-left: 0;
+}
+
+.analysis-v2-semantic-rail strong {
+  flex: 0 0 auto;
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.analysis-v2-semantic-rail span {
+  min-width: 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
 .analysis-v2-table-scroll {
   overflow-x: auto;
   overscroll-behavior-inline: contain;
   scrollbar-gutter: stable;
 }
 
-/* The protected board can overflow only inside its dedicated horizontal scroller
-   on narrow viewports. Desktop keeps the exact 760px geometry. */
 .analysis-v2-speed-board {
-  min-width: 680px;
+  min-width: 0;
 }
 
 @media (max-width: 900px) {
@@ -181,8 +242,9 @@
   }
 
   .analysis-v2-header {
-    min-height: 58px;
-    padding-top: 10px;
+    --analysis-header-bottom-pad: 8px;
+    min-height: 64px;
+    padding: 14px 20px var(--analysis-header-bottom-pad);
   }
 
   .analysis-v2-header-actions {
@@ -191,6 +253,10 @@
 
   .analysis-v2-tabs {
     gap: 12px;
+  }
+
+  .analysis-v2-main {
+    padding-inline: 20px;
   }
 }
 
@@ -201,8 +267,9 @@
   }
 
   .analysis-v2-header {
+    --analysis-header-bottom-pad: 7px;
     min-height: auto;
-    padding: 10px 14px 0;
+    padding: 12px 14px var(--analysis-header-bottom-pad);
     align-items: end;
   }
 
@@ -243,16 +310,26 @@
     flex: 1 1 0;
   }
 
+  .analysis-v2-semantic-rail {
+    width: 100%;
+  }
+
+  .analysis-v2-semantic-rail > div {
+    padding-top: 6px;
+    gap: 7px;
+  }
+
+  .analysis-v2-semantic-rail strong {
+    font-size: 9px;
+  }
+
+  .analysis-v2-semantic-rail span {
+    font-size: 10px;
+  }
+
   .analysis-v2-speed-board {
-    min-width: 600px;
-  }
-
-  .analysis-v2-motor-table {
-    min-width: 460px;
-  }
-
-  .analysis-v2-motor-table.wide {
-    min-width: 600px;
+    width: 100%;
+    min-width: 0;
   }
 
   .analysis-v2-method {
@@ -273,12 +350,6 @@
 
   .strategy-matrix {
     min-width: 360px;
-  }
-}
-
-@media (max-width: 420px) {
-  .analysis-v2-speed-board {
-    min-width: 560px;
   }
 }
 
