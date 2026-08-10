@@ -258,3 +258,18 @@
     text-align: center;
   }
 }
+
+/* Movement cards should read as data, not repeated prose. The detailed rules
+   remain available in the collapsed methodology disclosure below the grid. */
+.analysis-v2 .analysis-v2-movement-intro > span,
+.analysis-v2 .analysis-v2-movement-family > p {
+  display: none;
+}
+
+.analysis-v2 .analysis-v2-movement-intro {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.analysis-v2 .analysis-v2-movement-family {
+  gap: 8px;
+}
