@@ -1,0 +1,107 @@
+name: analysis-stack-migration-repair
+
+on:
+  push:
+    branches:
+      - agent/analysis-v2-feedback-polish
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/analysis-v2-feedback-polish
+          fetch-depth: 0
+
+      - name: Guard stack heads
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git log -1 --pretty=%s)" = "chore: stage analysis migration repair"
+          test "$(git rev-parse HEAD^)" = "1a38ab3a002d77ee980e35c3c095ccdf6c3b81f3"
+          git fetch origin agent/analysis-v2-visual-reset
+          test "$(git rev-parse origin/agent/analysis-v2-visual-reset)" = "b7631008619c8f4305a470727eba6fd9346dd845"
+
+      - name: Record repaired parent ancestry
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git merge -s ours --no-commit origin/agent/analysis-v2-visual-reset
+
+      - name: Patch legacy Strategy migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path("src/measurement-v2/serialize.ts")
+          text = source.read_text()
+          start = text.index("function migrateLegacyStrategyRecord(")
+          end = text.index("\nexport function parseMeasurementSummaryV2", start)
+          segment = text[start:end]
+          needle = "    const expectedKey = JSON.stringify([\n"
+          validation = '''    if (!bodyPosition(candidate.scope.canonicalPosition)
+              || !bodyPosition(candidate.scope.acceptedPosition)
+              || !isNonNegativeInteger(candidate.observations)
+              || candidate.observations === 0) return null;
+          '''
+          if segment.count(needle) != 1:
+              raise SystemExit(f"expected one Strategy expectedKey, found {segment.count(needle)}")
+          segment = segment.replace(needle, validation + needle, 1)
+          source.write_text(text[:start] + segment + text[end:])
+
+          test = Path("tests/measurement-v2/serialize.test.ts")
+          text = test.read_text()
+          anchor = '  it("rejects 4+ in the current aggregate policy instead of silently dropping it", () => {\n'
+          addition = '''  it("rejects malformed obsolete 4+ Strategy buckets before discarding them", () => {
+            for (const [key, candidate] of [
+              [
+                '["input-order-position","4+","garbage","last"]',
+                {
+                  scope: { bodySize: "4+", canonicalPosition: "garbage", acceptedPosition: "last" },
+                  observations: 11,
+                },
+              ],
+              [
+                '["input-order-position","4+","first","last"]',
+                {
+                  scope: { bodySize: "4+", canonicalPosition: "first", acceptedPosition: "last" },
+                  observations: 0,
+                },
+              ],
+            ] as const) {
+              const legacy = structuredClone(createEmptyMeasurementSummaryV2()) as unknown as Record<string, unknown>;
+              legacy.policyVersion = LEGACY_MEASUREMENT_V2_POLICY_VERSION;
+              legacy.strategy = { inputOrderPositions: { [key]: candidate } };
+              expect(parseMeasurementSummaryV2(legacy, "guided", "zhuyin-standard", TOKENS)).toBeNull();
+            }
+          });
+
+          '''
+          if text.count(anchor) != 1:
+              raise SystemExit(f"expected one serialize test anchor, found {text.count(anchor)}")
+          test.write_text(text.replace(anchor, addition + anchor, 1))
+          PY
+
+      - name: Validate targeted migration tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          npx vitest run tests/measurement-v2/serialize.test.ts
+
+      - name: Commit repaired stack child
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/analysis-stack-migration-repair.yml
+          git add src/measurement-v2/serialize.ts tests/measurement-v2/serialize.test.ts
+          git commit -m "fix: validate obsolete strategy migration"
+          git push origin HEAD:agent/analysis-v2-feedback-polish
