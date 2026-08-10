@@ -133,6 +133,33 @@ export function deriveMeasurementObservationsV2(
   const bodyEvents = new Map<number, InteractionTraceV2[]>();
   const dirtyCoordination = new Set<number>();
 
+  const recordSameHandRevisit = (trace: InteractionTraceV2): void => {
+    if (activeRevisitSyllable !== trace.syllableOrdinal) {
+      resetBodyRevisitState(previousByHand, dirtyByHand, oppositeEventsSince);
+      activeRevisitSyllable = trace.syllableOrdinal;
+    }
+    const hand = explicitHand(trace.physicalCode);
+    if (hand === null) {
+      resetBodyRevisitState(previousByHand, dirtyByHand, oppositeEventsSince);
+      return;
+    }
+    const previousSameHand = previousByHand[hand];
+    if (previousSameHand !== null) {
+      sameHandRevisits.push({
+        traceSequence: trace.sequence,
+        hand,
+        boundary: "within-syllable",
+        timingMs: Math.max(0, trace.timestampMs - previousSameHand.timestampMs),
+        oppositeHandEventsBetween: oppositeEventsSince[hand],
+        clean: !dirtyByHand[hand],
+      });
+    }
+    previousByHand[hand] = trace;
+    dirtyByHand[hand] = false;
+    oppositeEventsSince[hand] = 0;
+    oppositeEventsSince[otherHand(hand)] += 1;
+  };
+
   for (const trace of traces) {
     if (trace.exerciseId !== exercise.id) {
       throw new Error(
@@ -214,32 +241,9 @@ export function deriveMeasurementObservationsV2(
       const events = bodyEvents.get(trace.syllableOrdinal) ?? [];
       bodyEvents.set(trace.syllableOrdinal, [...events, trace]);
 
-      // Same-hand revisit is a word-body metric. Tone keys and earlier words
-      // must never become predecessors for this family.
-      if (activeRevisitSyllable !== trace.syllableOrdinal) {
-        resetBodyRevisitState(previousByHand, dirtyByHand, oppositeEventsSince);
-        activeRevisitSyllable = trace.syllableOrdinal;
-      }
-      const bodyHand = explicitHand(trace.physicalCode);
-      if (bodyHand === null) {
-        resetBodyRevisitState(previousByHand, dirtyByHand, oppositeEventsSince);
-      } else {
-        const previousSameHand = previousByHand[bodyHand];
-        if (previousSameHand !== null) {
-          sameHandRevisits.push({
-            traceSequence: trace.sequence,
-            hand: bodyHand,
-            boundary: "within-syllable",
-            timingMs: Math.max(0, trace.timestampMs - previousSameHand.timestampMs),
-            oppositeHandEventsBetween: oppositeEventsSince[bodyHand],
-            clean: !dirtyByHand[bodyHand],
-          });
-        }
-        previousByHand[bodyHand] = trace;
-        dirtyByHand[bodyHand] = false;
-        oppositeEventsSince[bodyHand] = 0;
-        oppositeEventsSince[otherHand(bodyHand)] += 1;
-      }
+      // Same-hand revisit follows accepted motor events inside one syllable.
+      // A later tone key may therefore complete a revisit before the state resets.
+      recordSameHandRevisit(trace);
     }
 
     if (trace.outcome === "accepted-tone") {
@@ -262,6 +266,7 @@ export function deriveMeasurementObservationsV2(
           clean: !noiseSinceAccepted,
         });
       }
+      recordSameHandRevisit(trace);
       bodyEvents.delete(trace.syllableOrdinal);
       dirtyCoordination.delete(trace.syllableOrdinal);
       resetBodyRevisitState(previousByHand, dirtyByHand, oppositeEventsSince);
