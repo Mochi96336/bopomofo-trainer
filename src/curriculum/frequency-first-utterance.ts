@@ -143,6 +143,8 @@ export interface FrequencyFirstUtteranceSelection {
   readonly grammarFallbackReasons: readonly string[];
 }
 
+export type LearnerEvidenceMode = "binding-only" | "legacy-binding-transition";
+
 export interface FrequencyFirstUtteranceInput {
   readonly entries: readonly CatalogEntry[];
   readonly annotations: Readonly<Record<string, GrammarAnnotation>>;
@@ -152,6 +154,8 @@ export interface FrequencyFirstUtteranceInput {
   readonly history: UtteranceSelectionHistory;
   readonly policy: FrequencyFirstUtterancePolicy;
   readonly random: RandomSource;
+  /** Legacy/research callers opt into canonical token-pair scoring by omission or explicitly. */
+  readonly learnerEvidenceMode?: LearnerEvidenceMode;
   /** Production path: compact profiles admitted by the formal syntax gate. */
   readonly profiles?: readonly RuntimeSyntaxProfile[];
   /** Explicit compatibility-only templates. Production has no built-in list. */
@@ -160,7 +164,7 @@ export interface FrequencyFirstUtteranceInput {
 
 export type FormalSyntaxUtteranceSelectionInput = Omit<
   FrequencyFirstUtteranceInput,
-  "annotations" | "profiles" | "templates"
+  "annotations" | "profiles" | "templates" | "learnerEvidenceMode"
 > & {
   readonly profiles: readonly RuntimeSyntaxProfile[];
 };
@@ -287,13 +291,20 @@ function transitionTrace(
   });
 }
 
+function learnerTransitionTrace(
+  entries: readonly CatalogEntry[],
+  input: FrequencyFirstUtteranceInput,
+): readonly TransitionBoostTrace[] {
+  return input.learnerEvidenceMode === "binding-only" ? [] : transitionTrace(entries, input);
+}
+
 function scoreEntry(
   entry: CatalogEntry,
   input: FrequencyFirstUtteranceInput,
 ): EntrySelectionScore {
   const frequencyBase = catalogEntryFrequencyWeight(entry);
   const expectedTrace = expectedTokenTrace([entry], input);
-  const transitions = transitionTrace([entry], input);
+  const transitions = learnerTransitionTrace([entry], input);
   const expectedTokenBoost = Math.max(1, ...expectedTrace.map((item) => item.boost));
   const transitionBoost = Math.max(1, ...transitions.map((item) => item.boost));
   const combinedLearnerBoost = Math.min(
@@ -338,7 +349,7 @@ function scoreCandidate(
     candidate.entries.map((entry) => catalogEntryFrequencyWeight(entry)),
   );
   const expectedTrace = expectedTokenTrace(candidate.entries, input);
-  const transitions = transitionTrace(candidate.entries, input);
+  const transitions = learnerTransitionTrace(candidate.entries, input);
   const expectedTokenBoost = Math.max(1, ...expectedTrace.map((item) => item.boost));
   const transitionBoost = Math.max(1, ...transitions.map((item) => item.boost));
   const combinedLearnerBoost = Math.min(
@@ -552,11 +563,20 @@ export function selectFrequencyFirstUtterance(
   };
 }
 
-/** Production selector: no template or standalone fallback is reachable. */
+/**
+ * Production selector. Input-order V2 allows canonical token adjacency to remain
+ * available to legacy/research callers, but production formal-syntax selection
+ * consumes binding evidence only. The mode is forced here so a future caller
+ * cannot accidentally reactivate canonical transition scoring by supplying data.
+ */
 export function selectFormalSyntaxUtterance(
   input: FormalSyntaxUtteranceSelectionInput,
 ): FrequencyFirstUtteranceSelection {
-  return selectFrequencyFirstUtterance({ ...input, annotations: {} });
+  return selectFrequencyFirstUtterance({
+    ...input,
+    annotations: {},
+    learnerEvidenceMode: "binding-only",
+  });
 }
 
 function appendRecent(

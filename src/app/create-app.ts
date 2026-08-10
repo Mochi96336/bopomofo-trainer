@@ -114,8 +114,10 @@ import { weakBindingsMarkup, weakestBindings } from "./weak-bindings.js";
 const UNLOCK_NOTICE_MS = 6000;
 const PREVIOUS_RESULT_MS = 1400;
 const RECOVERY_NOTICE_MS = 6000;
-const PROGRESS_RECOVERY_NOTICE =
+const PROGRESS_MIGRATION_NOTICE =
   "舊版量測已切換到新的輸入模型；舊量測證據已刪除，其他可相容的本機進度已保留。";
+const PROGRESS_INVALID_NOTICE =
+  "無效的本機進度已刪除，已重新建立新的練習進度。";
 const PILOT_RECOVERY_NOTICE =
   "舊版或無效的 Pilot 歷史已刪除；目前世代可由有效完成摘要補齊。";
 
@@ -1191,7 +1193,8 @@ export function createApp(deps: AppDependencies): App {
 
   mountShell();
   const recovered = [
-    boot.recoveredFromInvalidState ? PROGRESS_RECOVERY_NOTICE : "",
+    boot.progressLoadStatus === "migrated" ? PROGRESS_MIGRATION_NOTICE : "",
+    boot.progressLoadStatus === "invalid" ? PROGRESS_INVALID_NOTICE : "",
     boot.recoveredPilotHistory ? PILOT_RECOVERY_NOTICE : "",
   ].filter(Boolean);
   if (recovered.length > 0) recoveryNotices.set(recovered, RECOVERY_NOTICE_MS);
