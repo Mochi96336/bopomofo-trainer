@@ -109,7 +109,6 @@ import {
 import { loadAppState } from "./load-app-state.js";
 import type { StorageLike } from "./persistence-transaction.js";
 import { renderTrendSection } from "./practice-sparkline.js";
-import { weakBindingsMarkup, weakestBindings } from "./weak-bindings.js";
 
 const UNLOCK_NOTICE_MS = 6000;
 const PREVIOUS_RESULT_MS = 1400;
@@ -702,10 +701,7 @@ export function createApp(deps: AppDependencies): App {
     const content = requireElement<HTMLElement>("#information-content");
     const focusIdentity = captureFocusIdentity(content);
     content.innerHTML = `
-      <section class="panel-section" data-analysis-v2-summary-slot="true">
-        <div class="panel-heading"><h3>較弱按鍵</h3></div>
-        ${weakBindingsMarkup(weakestBindings(product.progress.curriculum.bindings), reverseBindings)}
-      </section>
+      <section class="panel-section" data-analysis-v2-summary-slot="true"></section>
 
       <section class="panel-section history-section">
         <details class="history-details" open>
@@ -1213,7 +1209,11 @@ export function createApp(deps: AppDependencies): App {
       focusCapture(true);
     },
     getAnalysisV2Snapshot(): AnalysisV2Snapshot {
-      return { progress: product.progress, progressHistory, selectionTuning };
+      return {
+        progress: product.progress,
+        progressHistory,
+        practiceSupport: storageEnvironment.practiceSupport,
+      };
     },
     destroy(): void {
       eventScope.abort();
