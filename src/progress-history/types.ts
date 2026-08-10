@@ -2,17 +2,19 @@ import type { PracticeMode, TokenId } from "../core/model.js";
 import type {
   CoordinationAggregateScope,
   ImmediateHandAggregateScope,
+  ImmediateTokenAggregateScope,
   SameHandRevisitAggregateScope,
   ToneCommitAggregateScope,
 } from "../measurement-v2/aggregate.js";
 
-// Schema 6 narrows same-hand revisit evidence to non-tone components inside one
-// word body. Schema 5 remains readable: its word-structure, immediate-hand and
-// tone histories are preserved, while its old revisit series is validated then
-// discarded because it may contain tone/cross-word predecessors. Schema 4/3
-// also discard their obsolete coordination series; schema 2 migrates with empty
-// motor history.
-export const PROGRESS_HISTORY_SCHEMA_VERSION = 6 as const;
+// Schema 7 adds bounded history for exact accepted-token transitions. Schema 6
+// remains readable: its word-structure, immediate-hand, same-hand revisit and
+// tone histories are preserved, while exact transition history starts empty
+// because older records never stored pair-level series. Schema 5 preserves
+// word-structure, immediate-hand and tone histories but discards its old revisit
+// series; schema 4/3 also discard obsolete coordination; schema 2 migrates with
+// empty motor history.
+export const PROGRESS_HISTORY_SCHEMA_VERSION = 7 as const;
 
 export interface CorrectnessTrendPoint {
   readonly endingObservation: number;
@@ -57,6 +59,7 @@ export interface MotorTimingProgressHistory<Scope> {
 
 export interface MotorProgressHistory {
   readonly coordination: Readonly<Record<string, MotorTimingProgressHistory<CoordinationAggregateScope>>>;
+  readonly immediateTokens: Readonly<Record<string, MotorTimingProgressHistory<ImmediateTokenAggregateScope>>>;
   readonly immediateHands: Readonly<Record<string, MotorTimingProgressHistory<ImmediateHandAggregateScope>>>;
   readonly sameHandRevisits: Readonly<Record<string, MotorTimingProgressHistory<SameHandRevisitAggregateScope>>>;
   readonly toneCommits: Readonly<Record<string, MotorTimingProgressHistory<ToneCommitAggregateScope>>>;

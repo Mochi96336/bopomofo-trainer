@@ -54,6 +54,7 @@ function storedHistory(lastCompletedRound: number): string {
     },
     motor: {
       coordination: {},
+      immediateTokens: {},
       immediateHands: {},
       sameHandRevisits: {},
       toneCommits: {},

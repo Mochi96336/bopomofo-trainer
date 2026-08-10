@@ -3,6 +3,7 @@ import type { Exercise } from "../../src/core/model.js";
 import {
   coordinationAggregateKey,
   immediateHandAggregateKey,
+  immediateTokenAggregateKey,
   toneCommitAggregateKey,
 } from "../../src/measurement-v2/aggregate.js";
 import type { PracticeInput } from "../../src/practice/interaction-input.js";
@@ -77,6 +78,15 @@ describe("bounded motor progress history", () => {
     }]);
     expect(coordination.partialTiming.samples).toEqual([]);
 
+    const exactKey = immediateTokenAggregateKey({
+      fromToken: "zhuyin:ㄩ",
+      toToken: "zhuyin:ㄒ",
+    });
+    expect(history.motor.immediateTokens[exactKey]?.timing[0]).toMatchObject({
+      samples: 5,
+      representativeTimingMs: 30,
+    });
+
     const handKey = immediateHandAggregateKey({ fromHand: "right", toHand: "left" });
     expect(history.motor.immediateHands[handKey]?.timing[0]).toMatchObject({
       samples: 5,
@@ -118,6 +128,7 @@ describe("bounded motor progress history", () => {
       ...history,
       motor: {
         coordination: {},
+        immediateTokens: {},
         immediateHands: {},
         sameHandRevisits: {},
         toneCommits: {},
@@ -135,6 +146,7 @@ describe("bounded motor progress history", () => {
     });
     const legacy = JSON.parse(serializeProgressHistory(history)) as Record<string, any>;
     legacy.schemaVersion = 4;
+    delete legacy.motor.immediateTokens;
     legacy.motor.coordination = {
       '["coordination","3","mixed"]': {
         scope: { bodySize: "3", handShape: "mixed" },
@@ -150,6 +162,7 @@ describe("bounded motor progress history", () => {
       validTokens,
     );
     expect(migrated?.motor.coordination).toEqual({});
+    expect(migrated?.motor.immediateTokens).toEqual({});
     expect(migrated?.motor.immediateHands).toEqual(history.motor.immediateHands);
     expect(migrated?.motor.toneCommits).toEqual(history.motor.toneCommits);
   });
@@ -166,6 +179,14 @@ describe("bounded motor progress history", () => {
         completedRound: round,
       });
     }
+    const exactKey = immediateTokenAggregateKey({
+      fromToken: "zhuyin:ㄩ",
+      toToken: "zhuyin:ㄒ",
+    });
+    const exact = history.motor.immediateTokens[exactKey]!;
+    expect(exact.timing).toHaveLength(PROGRESS_HISTORY_POLICY.completedPointLimit);
+    expect(exact.timing.at(-1)?.completedRound).toBe(rounds);
+
     const toneKey = toneCommitAggregateKey({ toneToken: "tone:2" });
     const tone = history.motor.toneCommits[toneKey]!;
     expect(tone.timing).toHaveLength(PROGRESS_HISTORY_POLICY.completedPointLimit);

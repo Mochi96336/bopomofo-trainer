@@ -62,7 +62,7 @@ export interface AnalysisV2StrategyModel {
   readonly inputOrderPositions: readonly InputOrderPositionAggregate[];
   /** Complete three-part word orders. Optional only for transitional fixtures. */
   readonly inputOrderPermutations?: readonly InputOrderPermutationAggregate[];
-  /** Bounded newest clean complete three-part input paths. */
+  /** Bounded newest clean complete input paths. */
   readonly recentInputOrderTrajectories?: readonly InputOrderTrajectorySample[];
   readonly totalObservations: number;
   readonly bodySizeBucketsWithData: number;
@@ -107,9 +107,10 @@ export function buildAnalysisV2Model(
   measurements: MeasurementSummaryV2,
   history: ProgressHistory | null,
 ): AnalysisV2Model {
-  // Exact token transitions intentionally have no history series yet. They are
-  // persisted only as bounded cumulative motor aggregates for the speed map.
-  const immediateTokens = joinMotorFamily(measurements.motor.immediateTokens, undefined);
+  const immediateTokens = joinMotorFamily(
+    measurements.motor.immediateTokens,
+    history?.motor.immediateTokens,
+  );
   const coordination = joinMotorFamily(
     measurements.motor.coordination,
     history?.motor.coordination,

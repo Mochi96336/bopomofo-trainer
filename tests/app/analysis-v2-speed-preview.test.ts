@@ -13,6 +13,15 @@ import {
 const FAST_ID = '["immediate-token","zhuyin:ㄅ","zhuyin:ㄆ"]';
 const SLOW_ID = '["immediate-token","zhuyin:ㄇ","zhuyin:ㄈ"]';
 
+function history(values: readonly number[]) {
+  return values.map((representativeTimingMs, index) => ({
+    endingSample: (index + 1) * 5,
+    completedRound: index + 1,
+    samples: 5,
+    representativeTimingMs,
+  }));
+}
+
 const MODEL = {
   coordination: {
     immediateTokens: [
@@ -24,7 +33,7 @@ const MODEL = {
         currentTimeToTypeMs: 120,
         bestTimeToTypeMs: 96,
         ready: true,
-        history: [],
+        history: history([297, 290, 297, 283, 287]),
         partialTimingSamples: 0,
       },
       {
@@ -35,7 +44,7 @@ const MODEL = {
         currentTimeToTypeMs: 240,
         bestTimeToTypeMs: 180,
         ready: true,
-        history: [],
+        history: history([277, 249, 247, 254, 256]),
         partialTimingSamples: 0,
       },
     ],
@@ -98,12 +107,14 @@ describe("Analysis V2 speed hover preview", () => {
     return controller.host;
   }
 
-  it("previews the relation under the pointer without pinning it", () => {
+  it("previews the relation under the pointer without pinning it", async () => {
     const host = open();
+    await Promise.resolve();
     const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
 
     expect(readout(host)).toContain("ㄇ → ㄈ");
     expect(readout(host)).toContain("240 ms");
+    expect(readout(host)).toContain("近期完成點 277 → 249 → 247 → 254 → 256 毫秒");
     expect(speedPath(host, SLOW_ID).classList.contains("is-accent")).toBe(true);
 
     pointer(speedHit(host, FAST_ID), "pointerover");
@@ -111,6 +122,8 @@ describe("Analysis V2 speed hover preview", () => {
     expect(readout(host)).toContain("ㄅ → ㄆ");
     expect(readout(host)).toContain("120 ms");
     expect(readout(host)).toContain("6 個乾淨樣本");
+    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
+    expect(readout(host)).not.toContain("277 → 249 → 247 → 254 → 256");
     expect(speedPath(host, FAST_ID).classList.contains("is-accent")).toBe(true);
     expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
     expect(speedPath(host, FAST_ID).getAttribute("aria-pressed")).toBe("false");
@@ -119,27 +132,32 @@ describe("Analysis V2 speed hover preview", () => {
 
     expect(readout(host)).toContain("ㄇ → ㄈ");
     expect(readout(host)).toContain("240 ms");
+    expect(readout(host)).toContain("近期完成點 277 → 249 → 247 → 254 → 256 毫秒");
     expect(speedPath(host, SLOW_ID).classList.contains("is-accent")).toBe(true);
   });
 
   it("keeps click as the pinned baseline while other hover remains temporary", async () => {
     const host = open();
+    await Promise.resolve();
     pointer(speedHit(host, FAST_ID), "pointerover");
     speedPath(host, FAST_ID).dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await Promise.resolve();
 
     expect(readout(host)).toContain("ㄅ → ㄆ");
+    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
     expect(speedPath(host, FAST_ID).getAttribute("aria-pressed")).toBe("true");
     expect(speedPath(host, FAST_ID).classList.contains("is-accent")).toBe(true);
 
     const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
     pointer(speedHit(host, SLOW_ID), "pointerover");
     expect(readout(host)).toContain("ㄇ → ㄈ");
+    expect(readout(host)).toContain("近期完成點 277 → 249 → 247 → 254 → 256 毫秒");
     expect(speedPath(host, SLOW_ID).classList.contains("is-accent")).toBe(true);
     expect(speedPath(host, FAST_ID).getAttribute("aria-pressed")).toBe("true");
 
     pointer(speedHit(host, SLOW_ID), "pointerout", board);
     expect(readout(host)).toContain("ㄅ → ㄆ");
+    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
     expect(speedPath(host, FAST_ID).classList.contains("is-accent")).toBe(true);
     expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
   });

@@ -142,6 +142,12 @@ test("keeps Semantic and Coordination keyboards at one fixed screen position and
   const canvasCenter = (canvasBefore.left + canvasBefore.right) / 2;
   expect(Math.abs(boardCenter - canvasCenter)).toBeLessThan(1);
 
+  const floorRail = await analysis.evaluate((host) => ({
+    readoutRight: host.querySelector<HTMLElement>(".analysis-v2-speed-readout")!.getBoundingClientRect().right,
+    methodRight: host.querySelector<HTMLElement>(".analysis-v2-speed-field > .analysis-v2-method")!.getBoundingClientRect().right,
+  }));
+  expect(Math.abs(floorRail.methodRight - floorRail.readoutRight)).toBeLessThanOrEqual(1);
+
   await analysis.locator(".analysis-v2-speed-path").first().evaluate((node) => {
     node.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });

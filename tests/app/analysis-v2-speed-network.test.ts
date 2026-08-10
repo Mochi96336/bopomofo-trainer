@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES,
   buildAnalysisV2SpeedPaths,
+  exactTransitionHistoryLabel,
 } from "../../src/app/analysis-v2-speed-network.js";
 import type { AnalysisV2MotorCell } from "../../src/app/analysis-v2-model.js";
 import type { ImmediateTokenAggregateScope } from "../../src/measurement-v2/aggregate.js";
@@ -12,6 +13,8 @@ function cell(
   toToken: string,
   timingMs: number | null,
   timingSamples: number,
+  history: readonly number[] = [],
+  partialTimingSamples = 0,
 ): AnalysisV2MotorCell<ImmediateTokenAggregateScope> {
   return {
     id,
@@ -21,8 +24,13 @@ function cell(
     currentTimeToTypeMs: timingMs,
     bestTimeToTypeMs: timingMs,
     ready: timingMs !== null && timingSamples >= 5,
-    history: [],
-    partialTimingSamples: 0,
+    history: history.map((representativeTimingMs, index) => ({
+      endingSample: (index + 1) * 5,
+      completedRound: index + 1,
+      samples: 5,
+      representativeTimingMs,
+    })),
+    partialTimingSamples,
   };
 }
 
@@ -36,6 +44,22 @@ describe("Analysis V2 observed speed network", () => {
     expect(paths).toHaveLength(1);
     expect(paths[0]?.id).toBe("ready");
     expect(paths[0]?.label).toContain("ㄩ 到 ㄒ");
+    expect(paths[0]?.label).toContain("近期歷史尚無完成點");
+  });
+
+  it("describes completed exact-transition history without converting it into a claim", () => {
+    const source = cell("trend", "zhuyin:ㄅ", "zhuyin:ㄆ", 123, 18, [180, 160, 123], 3);
+    expect(exactTransitionHistoryLabel(source)).toBe("近期完成點 180 → 160 → 123 毫秒");
+    const path = buildAnalysisV2SpeedPaths([source])[0]!;
+    expect(path.label).toContain("123 毫秒，18 個乾淨樣本");
+    expect(path.label).toContain("近期完成點 180 → 160 → 123 毫秒");
+    expect(path.label).not.toMatch(/進步|退步|改善/u);
+  });
+
+  it("reports an open exact-transition history bucket without fabricating a point", () => {
+    expect(exactTransitionHistoryLabel(
+      cell("partial", "zhuyin:ㄅ", "zhuyin:ㄆ", 123, 8, [], 3),
+    )).toBe("近期歷史累積中，3 個尚未成點樣本");
   });
 
   it("keeps actual direction instead of normalizing a pair to canonical order", () => {

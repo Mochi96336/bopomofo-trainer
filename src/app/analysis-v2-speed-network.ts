@@ -117,6 +117,17 @@ function compareSupport(
     || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
 }
 
+export function exactTransitionHistoryLabel(
+  cell: AnalysisV2MotorCell<ImmediateTokenAggregateScope>,
+): string {
+  const values = cell.history.slice(-5).map((point) => Math.round(point.representativeTimingMs));
+  if (values.length > 0) return `近期完成點 ${values.join(" → ")} 毫秒`;
+  if (cell.partialTimingSamples > 0) {
+    return `近期歷史累積中，${cell.partialTimingSamples} 個尚未成點樣本`;
+  }
+  return "近期歷史尚無完成點";
+}
+
 /**
  * Draws only exact accepted-token transitions with enough clean within-syllable
  * timing support to be comparable. If the family grows dense, the graph keeps
@@ -147,7 +158,7 @@ export function buildAnalysisV2SpeedPaths(
     return [{
       id: cell.id,
       path: pathFor(cell.id, from, to, includesTone),
-      label: `${tokenLabel(cell.scope.fromToken)} 到 ${tokenLabel(cell.scope.toToken)}，${Math.round(cell.currentTimeToTypeMs)} 毫秒，${cell.timingSamples} 個乾淨樣本`,
+      label: `${tokenLabel(cell.scope.fromToken)} 到 ${tokenLabel(cell.scope.toToken)}，${Math.round(cell.currentTimeToTypeMs)} 毫秒，${cell.timingSamples} 個乾淨樣本；${exactTransitionHistoryLabel(cell)}`,
       width: sampleWidth(cell.timingSamples),
       opacity: 0.48 + slowness * 0.34,
       slowness,

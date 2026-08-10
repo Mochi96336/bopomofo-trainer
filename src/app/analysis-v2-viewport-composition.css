@@ -1,0 +1,248 @@
+/* Desktop keyboard-led composition contract.
+   The keyboard and the lower reading must not participate in one flow/grid
+   calculation: changing copy, sample support, selection, or summary height must
+   never move the keyboard. Keyboard-led views therefore use viewport anchors on
+   desktop: the board is centered on the Analysis viewport and reading belongs to
+   a separate floor rail. Shared frame sizing is owned upstream; this layer only
+   composes those already-sized objects. Narrow screens keep normal document flow. */
+
+/* The compact SVGs deliberately stretch to the width of their reading column.
+   A filled SVG circle would inherit that non-uniform transform and become an
+   ellipse. Make the endpoint an almost-zero-radius non-scaling stroke instead:
+   its centre still follows the plotted SVG coordinate, while the visible mark is
+   a true screen-space circle. Movement sparklines use the same contract. */
+.analysis-v2 .analysis-v2-motor-sparkline circle {
+  r: 0.01px;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 3px;
+  vector-effect: non-scaling-stroke;
+}
+
+@media (min-width: 641px) {
+  .analysis-v2 .analysis-v2-speed-field,
+  .analysis-v2 .analysis-v2-semantic-domain {
+    padding-bottom: 0;
+  }
+
+  .analysis-v2 .analysis-v2-speed-stage,
+  .analysis-v2 .analysis-v2-speed-primary,
+  .analysis-v2 .analysis-v2-semantic-stage,
+  .analysis-v2 .analysis-v2-semantic-primary {
+    min-height: 0;
+  }
+
+  /* Absolute visual center. The object wrapper, never the readout, owns this
+     coordinate. This removes the old grid coupling that pulled the keyboard up
+     whenever the lower copy became taller. */
+  .analysis-v2 .analysis-v2-speed-primary .analysis-v2-primary-object-slot,
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-primary-object-slot {
+    position: fixed;
+    top: 50dvh;
+    left: 50vw;
+    width: var(--analysis-board-width);
+    transform: translate(-50%, -50%);
+  }
+
+  .analysis-v2 .analysis-v2-speed-primary .analysis-v2-speed-scroll {
+    overflow: clip;
+  }
+
+  /* Lower readings share the board rail but never participate in board layout. */
+  .analysis-v2 :is(
+    .analysis-v2-speed-readout,
+    .analysis-v2-semantic-readout,
+    .analysis-v2-semantic-rail,
+    .analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector
+  ) {
+    position: fixed;
+    z-index: 4;
+    left: 50vw;
+    width: var(--analysis-board-width);
+    transform: translateX(-50%);
+  }
+
+  .analysis-v2 .analysis-v2-speed-readout {
+    bottom: clamp(30px, 4dvh, 48px);
+  }
+
+  .analysis-v2 .analysis-v2-semantic-readout {
+    bottom: clamp(128px, 12dvh, 148px);
+  }
+
+  .analysis-v2 .analysis-v2-semantic-rail {
+    bottom: clamp(26px, 3.4dvh, 42px);
+  }
+
+  /* The lower-right methodology control owns a small lane of the shared floor.
+     Reserve that lane in copy-bearing rails so 641–900px layouts wrap instead of
+     painting text underneath the control. */
+  .analysis-v2 .analysis-v2-speed-readout > span,
+  .analysis-v2 .analysis-v2-semantic-rail {
+    box-sizing: border-box;
+    padding-right: 96px;
+  }
+
+  /* Selected-key detail replaces the semantic lead in the same lower band. */
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector {
+    z-index: 5;
+    bottom: clamp(128px, 12dvh, 148px);
+  }
+
+  /* A selected key owns one narrow identity column. Metrics and history share
+     the remaining width on separate rows instead of competing as peer columns. */
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content {
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 6px 20px;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection :is(
+    .analysis-v2-inspector-content dl,
+    .analysis-v2-trends
+  ) {
+    grid-column: 2;
+    min-width: 0;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dl {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dl > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dd {
+    white-space: normal;
+  }
+
+  /* Trends belong to the metric columns they explain. Error history sits under
+     the error metric, timing history under the timing metric; the middle evidence
+     column remains intentionally empty instead of stretching two charts across
+     the whole rail. */
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trends {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0 18px;
+    padding-top: 1px;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trend-chart {
+    min-width: 0;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trend-chart:first-child {
+    grid-column: 1;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trend-chart:nth-child(2) {
+    grid-column: 3;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trend-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    margin-bottom: 1px;
+  }
+
+  /* A sparkline is supporting evidence, not a miniature axis chart. Remove the
+     fake floor line, keep the stroke quiet, and give the actual series a compact
+     24px band so it reads as movement rather than a long diagonal divider. */
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trend-chart svg {
+    display: block;
+    width: 100%;
+    height: 24px;
+    overflow: visible;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trend-chart svg line {
+    display: none;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trend-chart svg path {
+    fill: none;
+    stroke: color-mix(in srgb, var(--ink) 72%, transparent);
+    stroke-width: 1.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trend-chart svg circle {
+    r: 0.01px;
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 4px;
+    vector-effect: non-scaling-stroke;
+  }
+
+  /* Methodology is independent vertically, but it belongs to the same editorial
+     rail as the keyboard/readout instead of drifting to the wider domain edge.
+     Movement owns the same viewport floor as the path view rather than leaving
+     its disclosure at the end of the long scrolling surface. */
+  .analysis-v2 .analysis-v2-speed-field > .analysis-v2-method,
+  .analysis-v2 .analysis-v2-semantic-domain > .analysis-v2-method,
+  .analysis-v2 .analysis-v2-movement-view > .analysis-v2-method {
+    position: fixed;
+    z-index: 6;
+    right: calc((100vw - var(--analysis-board-width)) / 2);
+    bottom: clamp(30px, 4dvh, 48px);
+    margin: 0;
+  }
+}
+
+/* A centered fixed board and a fixed lower rail cannot both remain legible once
+   the viewport is vertically compressed. Below this threshold, keep the shared
+   width but return keyboard-led content to normal vertical flow so the page can
+   scroll rather than letting the board cover its readout/inspector. */
+@media (min-width: 641px) and (max-height: 620px) {
+  .analysis-v2 .analysis-v2-speed-field,
+  .analysis-v2 .analysis-v2-semantic-domain {
+    padding-bottom: 30px;
+  }
+
+  .analysis-v2 .analysis-v2-speed-primary,
+  .analysis-v2 .analysis-v2-semantic-primary {
+    min-height: var(--analysis-primary-stage-height);
+  }
+
+  .analysis-v2 .analysis-v2-speed-primary .analysis-v2-primary-object-slot,
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-primary-object-slot {
+    position: static;
+    top: auto;
+    left: auto;
+    width: auto;
+    transform: none;
+  }
+
+  .analysis-v2 :is(
+    .analysis-v2-speed-readout,
+    .analysis-v2-semantic-readout,
+    .analysis-v2-semantic-rail,
+    .analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector
+  ) {
+    position: static;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: var(--analysis-board-width);
+    transform: none;
+  }
+
+  .analysis-v2 .analysis-v2-speed-readout,
+  .analysis-v2 .analysis-v2-semantic-readout,
+  .analysis-v2 .analysis-v2-semantic-rail {
+    margin-inline: auto;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-rail {
+    margin-top: 10px;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector {
+    max-height: none;
+    margin: 8px auto 0;
+    padding-top: 10px;
+  }
+}

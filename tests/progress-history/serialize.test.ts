@@ -42,6 +42,7 @@ function history(keyEntry: KeyProgressHistory = entry()): ProgressHistory {
     keys: { [TOKEN]: keyEntry },
     motor: {
       coordination: {},
+      immediateTokens: {},
       immediateHands: {},
       sameHandRevisits: {},
       toneCommits: {},
@@ -85,6 +86,44 @@ describe("progress history persistence", () => {
     expect(parse(serializeProgressHistory(original))).toEqual(original);
   });
 
+  it("migrates schema 6 without inventing exact transition history", () => {
+    const source = mutate((draft) => {
+      draft.schemaVersion = 6;
+      const motor = draft.motor as Record<string, unknown>;
+      delete motor.immediateTokens;
+      motor.coordination = {
+        '["coordination","initial-final"]': motorHistory({ bodyShape: "initial-final" }, 130),
+      };
+      motor.immediateHands = {
+        '["immediate-hand","left","right"]': motorHistory({ fromHand: "left", toHand: "right" }, 110),
+      };
+      motor.sameHandRevisits = {
+        '["same-hand-revisit","left",false]': motorHistory({
+          hand: "left",
+          oppositeHandIntervened: false,
+        }, 150),
+      };
+      motor.toneCommits = {
+        '["tone-commit","tone:2"]': motorHistory({ toneToken: "tone:2" }, 170),
+      };
+    });
+    const migrated = parse(source);
+    expect(migrated?.schemaVersion).toBe(PROGRESS_HISTORY_SCHEMA_VERSION);
+    expect(migrated?.motor.immediateTokens).toEqual({});
+    expect(Object.keys(migrated?.motor.coordination ?? {})).toEqual([
+      '["coordination","initial-final"]',
+    ]);
+    expect(Object.keys(migrated?.motor.immediateHands ?? {})).toEqual([
+      '["immediate-hand","left","right"]',
+    ]);
+    expect(Object.keys(migrated?.motor.sameHandRevisits ?? {})).toEqual([
+      '["same-hand-revisit","left",false]',
+    ]);
+    expect(Object.keys(migrated?.motor.toneCommits ?? {})).toEqual([
+      '["tone-commit","tone:2"]',
+    ]);
+  });
+
   it("migrates schema 3 by dropping obsolete coordination while preserving other history", () => {
     const source = mutate((draft) => {
       draft.schemaVersion = 3;
@@ -103,6 +142,7 @@ describe("progress history persistence", () => {
     const migrated = parse(source);
     expect(migrated?.schemaVersion).toBe(PROGRESS_HISTORY_SCHEMA_VERSION);
     expect(migrated?.motor.coordination).toEqual({});
+    expect(migrated?.motor.immediateTokens).toEqual({});
     expect(Object.keys(migrated?.motor.immediateHands ?? {})).toEqual([
       '["immediate-hand","left","right"]',
     ]);
