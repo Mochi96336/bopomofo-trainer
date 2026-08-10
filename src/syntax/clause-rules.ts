@@ -211,7 +211,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     subject(),
     lexical("marker", ["ADP"], { requiredFeatures: { voice: "disposal" } }),
     constituent("patient", "DisposalPatient"),
-    corePredicate(["transitive", "ambitransitive", "resultative"]),
+    corePredicate(["transitive", "ambitransitive"]),
   ]),
   production("clause.bei", "Clause", [
     constituent("patient", "Subject"),
