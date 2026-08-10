@@ -5,6 +5,7 @@ import {
   ruleAllowedByDerivationBounds,
 } from "./derivation-limits.js";
 import { DEFAULT_DERIVATION_BOUNDS, FORMAL_GRAMMAR_VERSION } from "./features.js";
+import { validPresenceAssignments } from "./presence-constraints.js";
 import {
   EMPTY_SYNTAX_REQUIREMENTS,
   requirementsForConstituent,
@@ -24,6 +25,7 @@ import type {
   SyntaxCategory,
   Upos,
 } from "./types.js";
+import { assertValidGrammar } from "./validate.js";
 
 export interface RankedSyntaxLexeme {
   readonly id: string;
@@ -156,6 +158,13 @@ function intersection(values: readonly ReadonlySet<string>[]): ReadonlySet<strin
   return new Set([...first].filter((value) => rest.every((set) => set.has(value))));
 }
 
+function blockerSummary(values: readonly ReadonlySet<string>[]): readonly string[] {
+  if (values.length === 0) return [];
+  const common = intersection(values);
+  if (common.size > 0) return [...common].sort(compareText);
+  return [...new Set(values.flatMap((value) => [...value]))].sort(compareText);
+}
+
 export function buildSyntaxRuleIndex(input: {
   readonly lexemes: readonly RankedSyntaxLexeme[];
   readonly profiles: readonly RuntimeSyntaxProfile[];
@@ -163,6 +172,7 @@ export function buildSyntaxRuleIndex(input: {
   readonly bounds?: DerivationBounds;
 }): SyntaxRuleIndex {
   const bounds = input.bounds ?? DEFAULT_DERIVATION_BOUNDS;
+  assertValidGrammar(input.rules, bounds);
   const lexemes = [...input.lexemes].sort((left, right) =>
     left.generalRank - right.generalRank || compareText(left.id, right.id)
   );
@@ -277,81 +287,107 @@ export function buildSyntaxRuleIndex(input: {
         lexicalEntryIdsByKey: new Map(),
       };
     }
-    const blockers = new Set<string>();
-    const lexicalEntryIdsByKey = new Map<string, ReadonlySet<string>>();
-    const childStatesByKey = new Map<string, AbstractState>();
-    const bindingSets = new Map<string, ReadonlySet<string>[]>();
 
+    const lexicalCandidatesByKey = new Map<string, ReadonlySet<string>>();
+    const childStatesByKey = new Map<string, AbstractState>();
     for (const constituent of rule.constituents) {
       const maximum = effectiveConstituentMaximum(constituent, bounds);
-      if (maximum < constituent.minimum) {
-        blockers.add(constituent.key);
-        continue;
-      }
+      if (maximum <= 0) continue;
       if (constituent.category === "Lexeme") {
         if (constituent.formalLiteral !== undefined || isSyntheticPunctuation(constituent)) {
-          lexicalEntryIdsByKey.set(constituent.key, new Set());
-          continue;
-        }
-        const candidates = lexicalEntriesFor(constituent, state.requirements);
-        lexicalEntryIdsByKey.set(constituent.key, candidates);
-        if (constituent.minimum > 0 && candidates.size === 0) blockers.add(constituent.key);
-        if (constituent.entryBinding !== undefined) {
-          const values = bindingSets.get(constituent.entryBinding) ?? [];
-          values.push(candidates);
-          bindingSets.set(constituent.entryBinding, values);
+          lexicalCandidatesByKey.set(constituent.key, new Set());
+        } else {
+          lexicalCandidatesByKey.set(
+            constituent.key,
+            lexicalEntriesFor(constituent, state.requirements),
+          );
         }
         continue;
       }
       const childState = childStateFor(constituent, state.requirements);
       if (childState !== null) childStatesByKey.set(constituent.key, childState);
-      if (constituent.minimum > 0
-        && (childState === null || !availableStates.has(childState.key))) {
-        blockers.add(constituent.key);
-      }
-    }
-
-    const boundEntryIdsByBinding = new Map<string, ReadonlySet<string>>();
-    for (const [binding, candidateSets] of bindingSets) {
-      const common = intersection(candidateSets);
-      boundEntryIdsByBinding.set(binding, common);
-      if (common.size === 0) {
-        for (const constituent of rule.constituents) {
-          if (constituent.entryBinding === binding) blockers.add(constituent.key);
-        }
-      }
-    }
-    if (blockers.size > 0) {
-      return {
-        realizable: false,
-        blockerKeys: [...blockers].sort(compareText),
-        participantEntryIds: new Set(),
-        lexicalEntryIdsByKey,
-      };
     }
 
     const participants = new Set<string>();
-    for (const constituent of rule.constituents) {
-      const maximum = effectiveConstituentMaximum(constituent, bounds);
-      if (maximum <= 0) continue;
-      if (constituent.category === "Lexeme") {
-        if (constituent.entryBinding !== undefined) {
-          addAll(participants, boundEntryIdsByBinding.get(constituent.entryBinding) ?? []);
-        } else {
-          addAll(participants, lexicalEntryIdsByKey.get(constituent.key) ?? []);
+    const viableLexicalEntriesByKey = new Map<string, Set<string>>();
+    const failedAssignmentBlockers: ReadonlySet<string>[] = [];
+    let hasViableAssignment = false;
+
+    for (const assignment of validPresenceAssignments(rule, bounds)) {
+      const blockers = new Set<string>();
+      const bindingSets = new Map<string, ReadonlySet<string>[]>();
+
+      for (const constituent of rule.constituents) {
+        if ((assignment[constituent.key] ?? 0) <= 0) continue;
+        if (constituent.category === "Lexeme") {
+          if (constituent.formalLiteral !== undefined || isSyntheticPunctuation(constituent)) continue;
+          const candidates = lexicalCandidatesByKey.get(constituent.key) ?? new Set<string>();
+          if (candidates.size === 0) blockers.add(constituent.key);
+          if (constituent.entryBinding !== undefined) {
+            const values = bindingSets.get(constituent.entryBinding) ?? [];
+            values.push(candidates);
+            bindingSets.set(constituent.entryBinding, values);
+          }
+          continue;
         }
+        const childState = childStatesByKey.get(constituent.key);
+        if (childState === undefined || !availableStates.has(childState.key)) {
+          blockers.add(constituent.key);
+        }
+      }
+
+      const boundEntryIdsByBinding = new Map<string, ReadonlySet<string>>();
+      for (const [binding, candidateSets] of bindingSets) {
+        const common = intersection(candidateSets);
+        boundEntryIdsByBinding.set(binding, common);
+        if (common.size === 0) {
+          for (const constituent of rule.constituents) {
+            if ((assignment[constituent.key] ?? 0) > 0
+              && constituent.entryBinding === binding) blockers.add(constituent.key);
+          }
+        }
+      }
+
+      if (blockers.size > 0) {
+        failedAssignmentBlockers.push(blockers);
         continue;
       }
-      const childState = childStatesByKey.get(constituent.key);
-      if (childState !== undefined && availableStates.has(childState.key)) {
-        addAll(participants, participantsByState.get(childState.key) ?? []);
+
+      hasViableAssignment = true;
+      for (const constituent of rule.constituents) {
+        if ((assignment[constituent.key] ?? 0) <= 0) continue;
+        if (constituent.category === "Lexeme") {
+          if (constituent.formalLiteral !== undefined || isSyntheticPunctuation(constituent)) continue;
+          const candidates = constituent.entryBinding === undefined
+            ? lexicalCandidatesByKey.get(constituent.key) ?? new Set<string>()
+            : boundEntryIdsByBinding.get(constituent.entryBinding) ?? new Set<string>();
+          const viable = viableLexicalEntriesByKey.get(constituent.key) ?? new Set<string>();
+          addAll(viable, candidates);
+          viableLexicalEntriesByKey.set(constituent.key, viable);
+          addAll(participants, candidates);
+          continue;
+        }
+        const childState = childStatesByKey.get(constituent.key);
+        if (childState !== undefined) {
+          addAll(participants, participantsByState.get(childState.key) ?? []);
+        }
       }
     }
+
+    if (!hasViableAssignment) {
+      return {
+        realizable: false,
+        blockerKeys: blockerSummary(failedAssignmentBlockers),
+        participantEntryIds: new Set(),
+        lexicalEntryIdsByKey: new Map(),
+      };
+    }
+
     return {
       realizable: true,
       blockerKeys: [],
       participantEntryIds: participants,
-      lexicalEntryIdsByKey,
+      lexicalEntryIdsByKey: viableLexicalEntriesByKey,
     };
   };
 
@@ -393,23 +429,12 @@ export function buildSyntaxRuleIndex(input: {
       if (!availableRules.has(rule.id)) continue;
       const evaluation = evaluateRule(state, rule);
       if (!evaluation.realizable) continue;
-      const bindingIntersections = new Map<string, ReadonlySet<string>>();
-      for (const binding of new Set(
-        rule.constituents.map((item) => item.entryBinding).filter((value): value is string => value !== undefined),
-      )) {
-        const sets = rule.constituents
-          .filter((item) => item.entryBinding === binding)
-          .map((item) => evaluation.lexicalEntryIdsByKey.get(item.key) ?? new Set<string>());
-        bindingIntersections.set(binding, intersection(sets));
-      }
       const directEntries = directEntriesByRule.get(rule.id) ?? new Set<string>();
       for (const constituent of rule.constituents) {
         if (constituent.category !== "Lexeme"
           || constituent.formalLiteral !== undefined
           || isSyntheticPunctuation(constituent)) continue;
-        const candidates = constituent.entryBinding === undefined
-          ? evaluation.lexicalEntryIdsByKey.get(constituent.key) ?? new Set<string>()
-          : bindingIntersections.get(constituent.entryBinding) ?? new Set<string>();
+        const candidates = evaluation.lexicalEntryIdsByKey.get(constituent.key) ?? new Set<string>();
         const positionId = `${rule.id}:${constituent.key}`;
         for (const entryId of candidates) {
           const positions = directPositionsByEntry.get(entryId) ?? new Set<string>();
