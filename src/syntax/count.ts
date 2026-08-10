@@ -4,6 +4,7 @@ import {
   ruleAllowedByDerivationBounds,
 } from "./derivation-limits.js";
 import { DEFAULT_DERIVATION_BOUNDS } from "./features.js";
+import { presenceConstraintsSatisfied } from "./presence-constraints.js";
 import type {
   DerivationBounds,
   ProductionConstituent,
@@ -136,6 +137,7 @@ export function countStructuralDerivationShapes(
     for (const rule of candidateRules) {
       const byKey = new Map(rule.constituents.map((item) => [item.key, item]));
       for (const vector of countVectors(rule.constituents, bounds)) {
+        if (!presenceConstraintsSatisfied(rule.constraints, vector)) continue;
         for (const order of rule.surfaceOrders) {
           const ordered = order.constituentKeys.map((constituentKey) => {
             const constituent = byKey.get(constituentKey);
