@@ -260,7 +260,7 @@ describe("Analysis V2 panel", () => {
     const families = [...host.querySelectorAll<HTMLElement>(".analysis-v2-movement-family")];
     expect(families.map((family) => family.querySelector("header strong")?.textContent)).toEqual([
       "手別轉換",
-      "同側再出手",
+      "同側回返",
       "字內結構",
       "聲調收尾",
     ]);
