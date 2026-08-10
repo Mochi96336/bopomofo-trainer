@@ -5,6 +5,7 @@ test("uses the same desktop viewport anchors for Strategy and Coordination", asy
   await page.goto("/");
   await page.locator("#open-information").click();
   await page.locator(".analysis-v2-open").click();
+  await page.waitForTimeout(340);
 
   const analysis = page.locator("#analysis-v2");
   await expect(analysis.locator(".analysis-v2-speed-board")).toBeVisible();
