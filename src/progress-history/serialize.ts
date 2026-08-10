@@ -25,7 +25,8 @@ import {
   type TimingTrendPoint,
 } from "./types.js";
 
-const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION = 2;
+const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_2 = 2;
+const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_3 = 3;
 export const PROGRESS_HISTORY_KEY_LIMIT = 128;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -212,8 +213,7 @@ function handShape(value: unknown): value is CoordinationHandShape {
 
 function parseCoordinationScope(value: unknown): CoordinationAggregateScope | null {
   if (!isRecord(value)) return null;
-  if ((value.bodySize !== "2" && value.bodySize !== "3" && value.bodySize !== "4+")
-    || !handShape(value.handShape)) return null;
+  if ((value.bodySize !== "2" && value.bodySize !== "3") || !handShape(value.handShape)) return null;
   return { bodySize: value.bodySize, handShape: value.handShape };
 }
 
@@ -275,6 +275,38 @@ function parseMotorFamily<Scope>(
   );
 }
 
+function migrateSchema3Coordination(
+  value: unknown,
+  policy: ProgressHistoryPolicy,
+  lastCompletedRound: number,
+): Readonly<Record<string, MotorTimingProgressHistory<CoordinationAggregateScope>>> | null {
+  if (!isRecord(value)) return null;
+  const entries = Object.entries(value);
+  if (entries.length > 12) return null;
+  const kept: Record<string, unknown> = {};
+  for (const [storedKey, candidate] of entries) {
+    if (!isRecord(candidate) || !isRecord(candidate.scope)) return null;
+    if (candidate.scope.bodySize !== "4+") {
+      kept[storedKey] = candidate;
+      continue;
+    }
+    if (!handShape(candidate.scope.handShape)) return null;
+    const legacyScope = { bodySize: "4+", handShape: candidate.scope.handShape } as const;
+    if (storedKey !== JSON.stringify(["coordination", "4+", legacyScope.handShape])) return null;
+    // Validate the discarded history too; migration never turns malformed data
+    // into a valid record merely because its scope is obsolete.
+    if (parseMotorTimingHistory(candidate, legacyScope, policy, lastCompletedRound) === null) return null;
+  }
+  return parseMotorFamily(
+    kept,
+    parseCoordinationScope,
+    coordinationAggregateKey,
+    8,
+    policy,
+    lastCompletedRound,
+  );
+}
+
 function emptyMotorProgressHistory(): MotorProgressHistory {
   return {
     coordination: {},
@@ -289,16 +321,19 @@ function parseMotorProgressHistory(
   validTokens: ReadonlySet<string>,
   policy: ProgressHistoryPolicy,
   lastCompletedRound: number,
+  legacySchema3: boolean,
 ): MotorProgressHistory | null {
   if (!isRecord(value)) return null;
-  const coordination = parseMotorFamily(
-    value.coordination,
-    parseCoordinationScope,
-    coordinationAggregateKey,
-    12,
-    policy,
-    lastCompletedRound,
-  );
+  const coordination = legacySchema3
+    ? migrateSchema3Coordination(value.coordination, policy, lastCompletedRound)
+    : parseMotorFamily(
+        value.coordination,
+        parseCoordinationScope,
+        coordinationAggregateKey,
+        8,
+        policy,
+        lastCompletedRound,
+      );
   const immediateHands = parseMotorFamily(
     value.immediateHands,
     parseImmediateHandScope,
@@ -350,7 +385,8 @@ export function parseProgressHistory(
   const schemaVersion = parsed.schemaVersion;
   if (
     schemaVersion !== PROGRESS_HISTORY_SCHEMA_VERSION
-    && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION
+    && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_3
+    && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_2
   ) return null;
   if (
     parsed.mode !== expectedMode
@@ -375,13 +411,14 @@ export function parseProgressHistory(
     keys.push([tokenId, entry]);
   }
 
-  const motor = schemaVersion === LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION
+  const motor = schemaVersion === LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_2
     ? emptyMotorProgressHistory()
     : parseMotorProgressHistory(
         parsed.motor,
         validTokens,
         policy,
         parsed.lastCompletedRound as number,
+        schemaVersion === LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION_3,
       );
   if (motor === null) return null;
 

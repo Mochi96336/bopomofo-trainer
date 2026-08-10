@@ -6,10 +6,11 @@ import type {
   ToneCommitAggregateScope,
 } from "../measurement-v2/aggregate.js";
 
-// Schema 3 adds bounded V2 motor histories. Schema 2 remains safely migratable:
-// it already used unordered input-order V2 semantics, so migration only adds
-// empty motor series and does not reinterpret any stored observation.
-export const PROGRESS_HISTORY_SCHEMA_VERSION = 3 as const;
+// Schema 4 narrows Bopomofo body-size-dependent motor history to the complete
+// product domain: 2 or 3 body components. Schema 3 remains migratable by
+// preserving valid 2/3 coordination histories and dropping only the impossible
+// legacy 4+ bucket. Schema 2 still migrates with empty motor series.
+export const PROGRESS_HISTORY_SCHEMA_VERSION = 4 as const;
 
 /**
  * One completed slice of correctness observations for a single expected token.

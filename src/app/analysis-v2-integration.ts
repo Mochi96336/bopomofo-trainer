@@ -49,13 +49,59 @@ function findAnalysisSummarySlot(content: HTMLElement): HTMLElement | null {
   );
 }
 
+function keyboardFlipOrigin(): DOMRect | null {
+  const sketch = document.querySelector<HTMLElement>("#keyboard-sketch");
+  if (sketch === null) return null;
+  const board = sketch.querySelector<HTMLElement>(".keyboard-sketch-board") ?? sketch;
+  const wasHidden = sketch.hidden;
+  const previousVisibility = sketch.style.visibility;
+  if (wasHidden) {
+    sketch.hidden = false;
+    sketch.style.visibility = "hidden";
+  }
+  const rect = board.getBoundingClientRect();
+  if (wasHidden) {
+    sketch.hidden = true;
+    sketch.style.visibility = previousVisibility;
+  }
+  return rect.width > 0 && rect.height > 0 ? rect : null;
+}
+
+function visibleAnalysisKeyboardBoard(analysis: HTMLElement): HTMLElement | null {
+  return analysis.querySelector<HTMLElement>(".analysis-v2-speed-board")
+    ?? analysis.querySelector<HTMLElement>(".analysis-v2-keyboard");
+}
+
+function animateKeyboardRise(board: HTMLElement, origin: DOMRect | null): void {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || origin === null) return;
+  const target = board.getBoundingClientRect();
+  if (target.width === 0 || target.height === 0) return;
+  const dx = (origin.left + origin.width / 2) - (target.left + target.width / 2);
+  const dy = (origin.top + origin.height / 2) - (target.top + target.height / 2);
+
+  // Motion and object geometry stay separate. The protected keyboard keeps its
+  // perspective/rotateX transform while the independent translate property moves
+  // that same object from the practice position into the shared Analysis slot.
+  board.animate([
+    { translate: `${dx}px ${dy}px`, opacity: 0.25 },
+    { translate: "0px 0px", opacity: 1 },
+  ], { duration: 320, easing: "cubic-bezier(.2, .75, .25, 1)" });
+}
+
 function openAnalysisFromPractice(
   analysis: AnalysisV2Controller,
   deps: AnalysisV2IntegrationDependencies,
 ): void {
+  const origin = keyboardFlipOrigin();
   deps.closePanel();
   deps.focusPractice();
-  analysis.open();
+  document.body.classList.add("analysis-v2-open");
+  analysis.open("coordination");
+  window.requestAnimationFrame(() => {
+    if (analysis.host.hidden) return;
+    const board = visibleAnalysisKeyboardBoard(analysis.host);
+    if (board !== null) animateKeyboardRise(board, origin);
+  });
 }
 
 function mountAnalysisTopLayer(analysis: HTMLElement): AnalysisV2TopLayer {
@@ -102,8 +148,7 @@ export function mountAnalysisV2Integration(
     getModel: currentAnalysisModel,
     storage: deps.storage,
     onClose: () => {
-      // Close the browser top layer before focusing practice. A still-open modal
-      // owns focus containment and would otherwise reclaim focus.
+      document.body.classList.remove("analysis-v2-open");
       topLayer?.close();
       deps.focusPractice();
     },
@@ -121,6 +166,7 @@ export function mountAnalysisV2Integration(
       );
     },
     destroy(): void {
+      document.body.classList.remove("analysis-v2-open");
       topLayer?.destroy();
       analysis.destroy();
     },
