@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CLAUSE_MODEL_V2_AXES,
   CURRENT_CLAUSE_RULE_V2_MIGRATION,
+  RETIRED_CLAUSE_RULE_V2_DECISIONS,
 } from "../../src/syntax/clause-model-v2.js";
 import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
 
@@ -22,6 +23,9 @@ describe("Clause model v2 migration inventory", () => {
     const axes = new Set<string>(CLAUSE_MODEL_V2_AXES);
     expect(Object.values(CURRENT_CLAUSE_RULE_V2_MIGRATION)
       .every((item) => axes.has(item.targetAxis)))
+      .toBe(true);
+    expect(Object.values(RETIRED_CLAUSE_RULE_V2_DECISIONS)
+      .every((item) => item.targetAxes.every((axis) => axes.has(axis))))
       .toBe(true);
   });
 
@@ -58,15 +62,21 @@ describe("Clause model v2 migration inventory", () => {
       "move-to-axis": 6,
       "rebuild-construction": 3,
       "rebuild-embedding-control": 5,
-      "hold-for-corpus-rebuild": 3,
+      "hold-for-corpus-rebuild": 2,
     });
   });
 
-  it("does not silently preserve the known high-risk constructions", () => {
-    for (const ruleId of ["clause.locative", "clause.causative", "clause.serial-verb"] as const) {
+  it("keeps unresolved live rules separate from deliberately retired rules", () => {
+    for (const ruleId of ["clause.locative", "clause.serial-verb"] as const) {
       expect(CURRENT_CLAUSE_RULE_V2_MIGRATION[ruleId].group)
         .toBe("hold-for-corpus-rebuild");
     }
+    expect(RETIRED_CLAUSE_RULE_V2_DECISIONS["clause.causative"]).toMatchObject({
+      targetAxes: ["predicate-marking", "embedding"],
+      evidenceContract: "causative-evidence-audit-v1",
+    });
+    expect(FORMAL_SYNTAX_RULES.some((rule) => rule.id === "clause.causative")).toBe(false);
+
     expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.bei"]).toMatchObject({
       group: "rebuild-construction",
       target: "passive.short|passive.long",
