@@ -7,6 +7,7 @@ import {
 } from "../syntax/types.js";
 
 const EMPTY_STRINGS: readonly string[] = [];
+const EMPTY_NUMBERS: readonly number[] = [];
 const EMPTY_COUNTS: Readonly<Record<string, number>> = {};
 
 export type EncodedCatalogEntry = readonly [
@@ -216,7 +217,7 @@ export function decodeSyntaxProfiles(
       valencyFrameIndices,
       relationIndices,
       positionIndices,
-      morphologyIndices = EMPTY_STRINGS as readonly number[],
+      morphologyIndices = EMPTY_NUMBERS,
     ] = profile;
     const entry = allEntries[entryIndex];
     if (entry === undefined) throw new Error(`catalog entry index ${entryIndex} out of range`);
