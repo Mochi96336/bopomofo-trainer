@@ -40,7 +40,9 @@ Semantic analysis answers questions about symbol choice:
 - which expected token was confused with which actual token;
 - how each binding's bounded correctness and accepted-timing history has changed.
 
-Production semantic evidence is built from the V2 binding/confusion compatibility projection. It deliberately contains no canonical token-pair transition rows.
+Production semantic evidence is projected directly from `MeasurementSummaryV2.semantic` by `src/app/analysis-v2-semantic-model.ts`. Analysis V2 does **not** convert that evidence through `legacySelectionMeasurementView()` or rebuild it through `DiagnosticModel`, and the native projector has no transition input at all.
+
+The legacy selection compatibility view still exists for frequency-first product selection and curriculum compatibility. That is a separate product boundary and is not an Analysis V2 data source.
 
 When an error cannot be attributed to one intended token without guessing, it is not invented as a confusion record.
 
@@ -115,7 +117,7 @@ row    = expected token
 column = actual token
 ```
 
-`A → B` and `B → A` remain different records. The matrix does not infer an expected token when multiple intended targets are still plausible.
+`A → B` and `B → A` remain different records. The native projector filters confusion aggregates to the active practice mode and layout before computing per-expected-token totals. The matrix does not infer an expected token when multiple intended targets are still plausible.
 
 There is no semantic/canonical transition-network overlay in this view. The speed network belongs to coordination and consumes observed accepted-token motor evidence, not confusion or canonical adjacency.
 
@@ -175,6 +177,8 @@ The strategy tab must never imply that the diagonal is automatically correct, th
 Analysis code consumes this shared geometry directly rather than maintaining a diagnostic-only keyboard definition. `src/app/analysis-v2-speed-network.ts` uses the same geometry only to route observed motor edges; geometry never decides which edges exist.
 
 ## Persistence boundary
+
+Semantic cumulative evidence comes directly from the bounded `MeasurementSummaryV2.semantic.bindings` and `.confusions` records. The Analysis projector adds labels, display readiness, selection-influence explanation, and bounded history presentation; it does not create a second stored semantic model.
 
 Exact accepted-token transition aggregates are cumulative sparse Measurement V2 data. Their identity space is bounded by the current valid layout token set squared. No raw keystroke log is persisted for the speed network.
 
