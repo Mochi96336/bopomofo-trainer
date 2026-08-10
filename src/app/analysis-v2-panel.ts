@@ -807,8 +807,8 @@ function twoPartStrategyFieldMarkup(model: AnalysisV2Model): string {
     return `${positionLabel(row.canonical)} → ${positionLabel(accepted)} ${Math.round(ratio * 100)}%`;
   }).join(" · ");
   const leadMarkup = !ready
-    ? `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><strong>仍在累積</strong><small>前、後位置各累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察後顯示位置偏移</small><span>${escapeHtml(directions)}</span></div>`
-    : `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><strong><b>位置偏移</b><em>${Math.round((total === 0 ? 0 : shifted / total) * 100)}%</em></strong><small>${shifted} / ${total} 個位置觀察</small><span>${escapeHtml(directions)}</span></div>`;
+    ? `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><strong>仍在累積</strong><small>前、後位置各累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察後顯示換序輸入</small><span>${escapeHtml(directions)}</span></div>`
+    : `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><strong><b>換序輸入</b><em>${Math.round((total === 0 ? 0 : shifted / total) * 100)}%</em></strong><small>${shifted} / ${total} 個位置觀察</small><span>${escapeHtml(directions)}</span></div>`;
   return primaryStageMarkup(
     strategyObjectMarkup(model, "2"),
     leadMarkup,
@@ -866,7 +866,7 @@ function strategyFieldMarkup(model: AnalysisV2Model, bodySize: CoordinationBodyS
 
 function strategyMarkup(model: AnalysisV2Model, bodySize: CoordinationBodySizeBucket): string {
   const rule = bodySize === "2"
-    ? "2 個注音也以最近乾淨完整字的真實相對毫秒畫軌跡：第一個成功接受的注音歸零，第二個點保留實際間隔；只保存最近 80 個二注音字，越新的線越清楚。因為二注音不一定是固定的聲母＋韻母，兩條軌只標前位、後位。左下位置投影只表示結構位置分別落在哪個完成位置，不把邊際分布當成另一種完整順序。位置偏移仍用累積位置觀察計算。"
+    ? "2 個注音也以最近乾淨完整字的真實相對毫秒畫軌跡：第一個成功接受的注音歸零，第二個點保留實際間隔；只保存最近 80 個二注音字，越新的線越清楚。因為二注音不一定是固定的聲母＋韻母，兩條軌只標前位、後位。左下位置投影只表示結構位置分別落在哪個完成位置，不把邊際分布當成另一種完整順序。二注音完整字每次固定產生前位、後位各一個位置觀察；換序時兩個位置會成對互換，所以換序比例可由累積位置觀察等價計算。"
     : "3 個注音以一整個字的完成順序為單位；聲母 → 介音 → 韻母視為結構順序，其餘五種算換序輸入。軌跡只保存最近 80 個乾淨完整三注音字：第一個成功接受的注音歸零，橫軸是真實相對毫秒，越新的線越清楚。左下位置投影是各結構成分的邊際完成位置分布，不用來反推完整順序。完整順序比例仍用累積計數，未滿 8 個完整字不下比例判斷。舊位置資料不能可靠反推完整順序或毫秒軌跡。";
   return `<section class="analysis-v2-domain analysis-v2-strategy-domain" aria-labelledby="analysis-v2-tab-strategy">
     <div class="analysis-v2-domain-controls"><div class="analysis-v2-segments analysis-v2-strategy-segments" role="group" aria-label="字內注音成分數，不含聲調">${BODY_SIZES.map((size) => `<button type="button" data-action="strategy-size" data-value="${size}" aria-pressed="${bodySize === size}" title="這個字有 ${size} 個注音，不含聲調">${size} 個注音</button>`).join("")}</div></div>
