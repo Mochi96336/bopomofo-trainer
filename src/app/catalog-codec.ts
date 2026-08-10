@@ -1,5 +1,9 @@
 import type { CatalogCommonnessBase, CatalogEntry, Syllable } from "../core/model.js";
 import {
+  isReviewedRuntimeMorphologicalFeature,
+  validRuntimeMorphologicalFeatureCounts,
+} from "../syntax/runtime-morphology.js";
+import {
   SYNTACTIC_FUNCTIONS,
   UPOS_VALUES,
   VALENCY_FRAMES,
@@ -120,9 +124,11 @@ export function deriveDependencyKeyTables(
     for (const [key, count] of Object.entries(profile.dependencyEvidence.surfacePositionCounts)) {
       if (count > 0) positionKeys.add(key);
     }
-    for (const [key, count] of Object.entries(
-      profile.dependencyEvidence.morphologicalFeatureCounts ?? EMPTY_COUNTS,
-    )) {
+    const morphology = profile.dependencyEvidence.morphologicalFeatureCounts;
+    if (!validRuntimeMorphologicalFeatureCounts(morphology)) {
+      throw new Error("runtime syntax profile contains unreviewed morphology evidence");
+    }
+    for (const [key, count] of Object.entries(morphology ?? EMPTY_COUNTS)) {
       if (count > 0) morphologyKeys.add(key);
     }
   }
@@ -209,6 +215,9 @@ export function decodeSyntaxProfiles(
   positionKeys: readonly string[],
   morphologyKeys: readonly string[] = EMPTY_STRINGS,
 ): readonly RuntimeSyntaxProfile[] {
+  if (morphologyKeys.some((feature) => !isReviewedRuntimeMorphologicalFeature(feature))) {
+    throw new Error("compact syntax profile contains an unreviewed morphology key");
+  }
   return encoded.map((profile, position): RuntimeSyntaxProfile => {
     const [
       entryIndex,
@@ -221,6 +230,7 @@ export function decodeSyntaxProfiles(
     ] = profile;
     const entry = allEntries[entryIndex];
     if (entry === undefined) throw new Error(`catalog entry index ${entryIndex} out of range`);
+    const morphologicalFeatureCounts = decodeEvidenceCounts(morphologyIndices, morphologyKeys);
     return {
       id: `runtime-syntax-profile:${position}`,
       entryId: entry.id,
@@ -230,7 +240,7 @@ export function decodeSyntaxProfiles(
       dependencyEvidence: {
         dependencyRelationCounts: decodeEvidenceCounts(relationIndices, relationKeys),
         surfacePositionCounts: decodeEvidenceCounts(positionIndices, positionKeys),
-        morphologicalFeatureCounts: decodeEvidenceCounts(morphologyIndices, morphologyKeys),
+        ...(Object.keys(morphologicalFeatureCounts).length === 0 ? {} : { morphologicalFeatureCounts }),
       },
       provenanceIds: EMPTY_STRINGS,
     };
