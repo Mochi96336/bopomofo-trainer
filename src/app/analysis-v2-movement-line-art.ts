@@ -3,66 +3,105 @@ interface MovementLineArt {
   readonly markup: string;
 }
 
-const svgOpen = '<svg width="260" height="78" viewBox="0 0 260 78" aria-hidden="true" focusable="false" style="max-width:82%;height:auto;font-family:inherit;overflow:visible">';
+const svgOpen = '<svg width="260" height="78" viewBox="0 0 260 78" aria-hidden="true" focusable="false" style="display:block;max-width:82%;height:auto;font-family:inherit;overflow:visible">';
 const svgClose = "</svg>";
 
-const keyboard = `
-  <g fill="none" stroke="currentColor" stroke-width="1" opacity=".38">
-    <path d="M25 8h210l8 54H17z"/>
-    <path d="M23 22h214M21 36h218M19 50h222"/>
-    <path d="M45 8l-3 54M66 8l-2 54M87 8l-1 54M108 8v54M130 8v54M152 8l1 54M173 8l2 54M194 8l3 54M215 8l4 54"/>
-    <path d="M130 7v56" stroke-dasharray="2 3" opacity=".65"/>
-  </g>`;
+function arrowMarker(id: string): string {
+  return `
+    <defs>
+      <marker id="${id}" viewBox="0 0 7 7" refX="6.2" refY="3.5" markerWidth="7" markerHeight="7" markerUnits="userSpaceOnUse" orient="auto">
+        <path d="M1 1.8L6.2 3.5L1 5.2" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+      </marker>
+    </defs>`;
+}
 
+function keyCluster(x: number, label: string): string {
+  return `
+    <g transform="translate(${x} 22)" fill="none" stroke="currentColor" stroke-width="1">
+      <g opacity=".28">
+        <rect x="0" y="0" width="12" height="10" rx="2"/>
+        <rect x="16" y="0" width="12" height="10" rx="2"/>
+        <rect x="32" y="0" width="12" height="10" rx="2"/>
+        <rect x="5" y="14" width="12" height="10" rx="2"/>
+        <rect x="21" y="14" width="12" height="10" rx="2"/>
+        <rect x="37" y="14" width="12" height="10" rx="2"/>
+      </g>
+      <text x="24.5" y="40" fill="currentColor" stroke="none" text-anchor="middle" font-size="9" opacity=".56">${label}</text>
+    </g>`;
+}
+
+const handSwitchMarker = "analysis-v2-arrow-hand-switch";
 const handSwitch = `${svgOpen}
-  ${keyboard}
-  <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".88">
-    <path d="M61 44C84 16 176 16 199 44"/>
-    <path d="m191 37 8 7-10 3"/>
-    <path d="M199 51C171 66 89 66 61 51" opacity=".55"/>
-    <path d="m69 46-8 5 9 4" opacity=".55"/>
-  </g>
-  <g fill="currentColor" stroke="none" font-size="10" opacity=".72">
-    <text x="49" y="19">左</text><text x="204" y="19">右</text>
-  </g>
+  ${arrowMarker(handSwitchMarker)}
+  ${keyCluster(37, "左")}
+  ${keyCluster(174, "右")}
+  <path d="M130 15V57" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 4" opacity=".16"/>
+  <circle cx="76" cy="36" r="2.8" fill="currentColor" opacity=".66"/>
+  <circle cx="184" cy="36" r="2.8" fill="currentColor" opacity=".66"/>
+  <path d="M79 34C106 24 153 24 181 34" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" marker-end="url(#${handSwitchMarker})" opacity=".82"/>
 ${svgClose}`;
 
+const revisitMarkerPrimary = "analysis-v2-arrow-revisit-short";
+const revisitMarkerSecondary = "analysis-v2-arrow-revisit-return";
 const sameSideRevisit = `${svgOpen}
-  ${keyboard}
-  <g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".88">
-    <path d="M57 43C61 16 103 15 108 42"/>
-    <path d="m101 35 7 7-9 3"/>
-    <path d="M59 51C91 34 168 34 199 50C166 67 92 67 61 53" stroke-dasharray="4 3" opacity=".48"/>
-    <path d="m69 47-8 6 9 3" opacity=".48"/>
-  </g>
-  <g fill="currentColor" stroke="none" font-size="9" opacity=".68">
-    <text x="47" y="19">同側</text><text x="196" y="19">另一側</text>
-  </g>
+  ${arrowMarker(revisitMarkerPrimary)}
+  ${arrowMarker(revisitMarkerSecondary)}
+  ${keyCluster(37, "同側")}
+  ${keyCluster(174, "另一側")}
+  <path d="M130 15V57" fill="none" stroke="currentColor" stroke-width="1" stroke-dasharray="2 4" opacity=".14"/>
+
+  <circle cx="52" cy="31" r="2.7" fill="currentColor" opacity=".68"/>
+  <circle cx="76" cy="31" r="2.7" fill="currentColor" opacity=".68"/>
+  <path d="M55 29C61 21 69 21 73 29" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" marker-end="url(#${revisitMarkerPrimary})" opacity=".82"/>
+
+  <circle cx="52" cy="49" r="2.5" fill="currentColor" opacity=".40"/>
+  <circle cx="198" cy="47" r="2.5" fill="currentColor" opacity=".40"/>
+  <circle cx="87" cy="53" r="2.5" fill="currentColor" opacity=".40"/>
+  <path d="M55 48C91 39 165 39 195 46C166 59 122 61 90 53" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="4 3" marker-end="url(#${revisitMarkerSecondary})" opacity=".48"/>
 ${svgClose}`;
 
 const wordStructure = `${svgOpen}
-  <g fill="none" stroke="currentColor" stroke-width="1" opacity=".55">
-    <path d="M78 45h28M154 45h28"/>
-    <rect x="36" y="28" width="42" height="34" rx="5"/>
-    <rect x="106" y="28" width="48" height="34" rx="5"/>
-    <rect x="182" y="28" width="42" height="34" rx="5"/>
+  <path d="M72 39H188" fill="none" stroke="currentColor" stroke-width="1" opacity=".20"/>
+  <g fill="var(--panel, transparent)" stroke="currentColor" stroke-width="1.05" opacity=".62">
+    <circle cx="72" cy="39" r="12"/>
+    <circle cx="130" cy="39" r="12"/>
+    <circle cx="188" cy="39" r="12"/>
   </g>
   <g fill="currentColor" stroke="none" text-anchor="middle">
-    <g font-size="9" opacity=".58"><text x="57" y="17">聲母</text><text x="130" y="17">介音</text><text x="203" y="17">韻母</text></g>
-    <g font-size="16" opacity=".82"><text x="57" y="51">ㄐ</text><text x="130" y="51">ㄧ</text><text x="203" y="51">ㄚ</text></g>
+    <g font-size="9" opacity=".56">
+      <text x="72" y="16">聲母</text>
+      <text x="130" y="16">介音</text>
+      <text x="188" y="16">韻母</text>
+    </g>
+    <g font-size="15" opacity=".84">
+      <text x="72" y="44">ㄐ</text>
+      <text x="130" y="44">ㄧ</text>
+      <text x="188" y="44">ㄚ</text>
+    </g>
+    <text x="130" y="70" font-size="9" opacity=".46">家：ㄐ ㄧ ㄚ</text>
   </g>
 ${svgClose}`;
 
+const toneMarker = "analysis-v2-arrow-tone-commit";
 const toneCommit = `${svgOpen}
-  <g fill="none" stroke="currentColor" stroke-width="1" opacity=".55">
-    <rect x="23" y="29" width="34" height="31" rx="4"/><rect x="61" y="29" width="34" height="31" rx="4"/><rect x="99" y="29" width="34" height="31" rx="4"/>
-    <path d="M144 45h27M164 39l7 6-7 6"/>
-    <rect x="184" y="25" width="54" height="39" rx="5"/>
+  ${arrowMarker(toneMarker)}
+  <g fill="var(--panel, transparent)" stroke="currentColor" stroke-width="1" opacity=".48">
+    <circle cx="52" cy="38" r="10"/>
+    <circle cx="86" cy="38" r="10"/>
+    <circle cx="120" cy="38" r="10"/>
   </g>
-  <g fill="currentColor" stroke="none" text-anchor="middle">
-    <g font-size="14" opacity=".76"><text x="40" y="50">ㄐ</text><text x="78" y="50">ㄧ</text><text x="116" y="50">ㄚ</text></g>
-    <text x="211" y="48" font-size="12" letter-spacing="2" opacity=".84">ˊˇˋ˙</text>
-    <g font-size="9" opacity=".55"><text x="78" y="18">字內注音</text><text x="211" y="18">聲調</text></g>
+  <path d="M62 38H76M96 38H110" fill="none" stroke="currentColor" stroke-width="1" opacity=".18"/>
+  <g fill="currentColor" stroke="none" text-anchor="middle" font-size="14" opacity=".76">
+    <text x="52" y="43">ㄐ</text>
+    <text x="86" y="43">ㄧ</text>
+    <text x="120" y="43">ㄚ</text>
+  </g>
+  <path d="M139 38H186" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" marker-end="url(#${toneMarker})" opacity=".76"/>
+  <rect x="199" y="22" width="34" height="32" rx="7" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".78"/>
+  <text x="216" y="44" fill="currentColor" stroke="none" text-anchor="middle" font-size="15" opacity=".90">ˇ</text>
+  <g fill="currentColor" stroke="none" text-anchor="middle" font-size="9" opacity=".50">
+    <text x="86" y="69">字內注音</text>
+    <text x="216" y="69">聲調</text>
   </g>
 ${svgClose}`;
 
