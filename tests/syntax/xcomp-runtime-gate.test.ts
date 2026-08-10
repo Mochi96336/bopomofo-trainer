@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { COMPLEMENT_PRODUCTION_RULES } from "../../src/syntax/rules.js";
 import { syntaxProfileMatchesRequirements } from "../../src/syntax/profile-match.js";
-import type { RuntimeSyntaxProfile, ValencyFrame } from "../../src/syntax/types.js";
+import {
+  VALENCY_FRAMES,
+  type RuntimeSyntaxProfile,
+  type ValencyFrame,
+} from "../../src/syntax/types.js";
 
 function profile(frame: ValencyFrame): RuntimeSyntaxProfile {
   return {
@@ -49,5 +53,26 @@ describe("xcomp controller-typed runtime gate", () => {
     expect(syntaxProfileMatchesRequirements(subject, objectPredicate)).toBe(false);
     expect(syntaxProfileMatchesRequirements(object, subjectPredicate)).toBe(false);
     expect(syntaxProfileMatchesRequirements(object, objectPredicate)).toBe(true);
+  });
+
+  it("appends controller frames without renumbering the compact catalog wire table", () => {
+    expect(VALENCY_FRAMES.slice(0, 12)).toEqual([
+      "avalent",
+      "intransitive",
+      "transitive",
+      "ditransitive",
+      "ambitransitive",
+      "copular",
+      "clausal-complement",
+      "open-clausal-complement",
+      "adpositional-complement",
+      "serial-verb",
+      "causative",
+      "resultative",
+    ]);
+    expect(VALENCY_FRAMES.slice(12)).toEqual([
+      "subject-controlled-open-complement",
+      "object-controlled-open-complement",
+    ]);
   });
 });
