@@ -107,6 +107,13 @@ jobs:
       - name: Browser smoke tests
         id: browser
         run: npm run test:browser
+      - name: Upload movement preview
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: analysis-v2-movement-preview
+          path: test-results/analysis-v2-movement-preview.png
+          if-no-files-found: ignore
       - name: Upload Playwright report
         if: failure() && steps.browser.outcome == 'failure'
         uses: actions/upload-artifact@v4
