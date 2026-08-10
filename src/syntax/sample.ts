@@ -68,7 +68,7 @@ interface SampledRuleChildren {
 }
 
 const CLAUSE_LIKE = new Set<SyntaxCategory>([
-  "Sentence", "Clause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
+  "Sentence", "Clause", "OpenClause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
 ]);
 
 function nextUnit(random: RandomSource): number {
@@ -222,7 +222,7 @@ function sampleCategory(
   isRoot: boolean,
 ): Sampled | null {
   let state = inputState;
-  if (category === "Clause") {
+  if (category === "Clause" || category === "OpenClause") {
     if (state.clauseCount >= bounds.maximumClausesPerSentence) return null;
     state = { ...state, clauseCount: state.clauseCount + 1 };
   }
