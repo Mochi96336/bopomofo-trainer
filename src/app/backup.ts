@@ -66,7 +66,6 @@ export function parseProductBackup(
     environment.practiceSupport,
     mode,
     layoutId,
-    environment.measurementPolicy,
     environment.curriculumPolicy.version,
     environment.utterancePolicy,
   );
