@@ -93,9 +93,10 @@
   font-weight: 560;
 }
 
-/* Desktop Strategy fills the available Analysis workspace. The trajectory
-   stays in the shared upper object slot while projection + conclusion settle on
-   the true workspace floor, rather than the bottom of a shorter intrinsic stage. */
+/* Desktop Strategy owns the available workspace height, but the primary stage
+   itself keeps the same fixed frame height as Coordination and Semantic. The
+   extra vertical room lives above that stage, so projection + conclusion can
+   settle on the workspace floor without stretching the object/readout frame. */
 @media (min-width: 641px) {
   .analysis-v2-main > [role="tabpanel"]:has(.analysis-v2-strategy-domain) {
     height: 100%;
@@ -108,7 +109,8 @@
 
   .analysis-v2 .analysis-v2-strategy-stage {
     position: relative;
-    height: 100%;
+    height: var(--analysis-primary-stage-height);
+    align-self: end;
   }
 
   .analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot {
