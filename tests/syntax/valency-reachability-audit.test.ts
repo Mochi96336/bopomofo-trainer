@@ -93,10 +93,7 @@ describe("valency reachability audit", () => {
       ["clause.serial-verb", "secondPredicate"],
       ["clause.xcomp-object-control", "predicate"],
       ["clause.xcomp-subject-control", "predicate"],
-      ["complement.result", "result"],
     ]);
-    expect(audit.mixedSupportSlots.map((slot) => [slot.ruleId, slot.constituentKey])).toEqual([
-      ["clause.ba", "predicate"],
-    ]);
+    expect(audit.mixedSupportSlots).toEqual([]);
   });
 });
