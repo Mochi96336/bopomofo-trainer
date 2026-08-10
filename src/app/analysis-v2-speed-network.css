@@ -132,24 +132,29 @@
   cursor: pointer;
 }
 
-/* Every comparable exact transition uses one speed scale: faint red is faster,
-   deeper red is slower inside the currently visible homogeneous family. Line
-   width remains sample support, so color and width carry separate evidence. */
+/* Speed starts from the original neutral evidence color and only drifts toward
+   accent red as a path gets slower inside the currently visible homogeneous
+   family. Line width remains sample support, so hue and width stay independent. */
 .analysis-v2-speed-path {
   fill: none;
-  stroke: var(--accent);
+  stroke: var(--ink-faint);
+  stroke: color-mix(
+    in oklab,
+    var(--ink-faint),
+    var(--accent) calc(6% + var(--relation-slowness, 0) * 28%)
+  );
   stroke-width: var(--relation-width);
-  stroke-opacity: var(--relation-opacity, 0.22);
+  stroke-opacity: var(--relation-opacity, 0.42);
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
   pointer-events: stroke;
   cursor: pointer;
-  transition: stroke-opacity 110ms ease, stroke-width 110ms ease;
+  transition: stroke 110ms ease, stroke-opacity 110ms ease, stroke-width 110ms ease;
 }
 
 /* Hover/pin is an interaction treatment only. It must not replace the speed
-   color encoding, so the path keeps its data-driven red intensity. */
+   color encoding, so the path keeps its data-driven neutral-to-red hue. */
 .analysis-v2-speed-path:hover,
 .analysis-v2-speed-path:focus-visible,
 .analysis-v2-speed-path.is-focused,
