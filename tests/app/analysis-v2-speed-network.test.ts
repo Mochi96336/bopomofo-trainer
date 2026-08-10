@@ -74,18 +74,16 @@ describe("Analysis V2 observed speed network", () => {
     expect(forward.path).not.toBe(reverse.path);
   });
 
-  it("maps relative slowness and red intensity only within the visible exact-transition family", () => {
+  it("tail-weights relative slowness so the slow end gets more red separation", () => {
     const paths = buildAnalysisV2SpeedPaths([
       cell("fast", "zhuyin:ㄅ", "zhuyin:ㄆ", 80, 8),
       cell("middle", "zhuyin:ㄩ", "zhuyin:ㄒ", 120, 5),
       cell("slow", "zhuyin:ㄝ", "tone:2", 200, 6),
     ]);
-    expect(paths.map((path) => [path.id, path.slowness])).toEqual([
-      ["fast", 0],
-      ["middle", 0.5],
-      ["slow", 1],
-    ]);
-    expect(paths.map((path) => Number(path.opacity.toFixed(2)))).toEqual([0.42, 0.57, 0.72]);
+    expect(paths.find((path) => path.id === "fast")?.slowness).toBe(0);
+    expect(paths.find((path) => path.id === "middle")?.slowness).toBeCloseTo(Math.pow(0.5, 1.8), 6);
+    expect(paths.find((path) => path.id === "slow")?.slowness).toBe(1);
+    expect(paths.map((path) => Number(path.opacity.toFixed(2)))).toEqual([0.42, 0.51, 0.72]);
     expect(paths.find((path) => path.id === "slow")?.includesTone).toBe(true);
   });
 
