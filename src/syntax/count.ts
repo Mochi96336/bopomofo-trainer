@@ -33,7 +33,7 @@ interface CountResult {
 }
 
 const CLAUSE_LIKE = new Set<SyntaxCategory>([
-  "Sentence", "Clause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
+  "Sentence", "Clause", "OpenClause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
 ]);
 
 function stateKey(state: BudgetState): string {
@@ -120,7 +120,7 @@ export function countStructuralDerivationShapes(
     excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
   ): readonly CountResult[] => {
     let state = inputState;
-    if (category === "Clause") {
+    if (category === "Clause" || category === "OpenClause") {
       if (state.clauseCount >= bounds.maximumClausesPerSentence) return [];
       state = { ...state, clauseCount: state.clauseCount + 1 };
     }
