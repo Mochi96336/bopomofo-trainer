@@ -82,19 +82,35 @@ test("uses the shared viewport-relative rail and reserves the methodology lane a
   expect(geometry.methodologyGap).toBeGreaterThanOrEqual(12);
 });
 
-test("keeps Movement data rules on the same viewport floor as the key-transition view", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
+test("keeps Movement data rules on the viewport floor without covering the final explanation", async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1000 });
   await openAnalysis(page);
   const analysis = page.locator("#analysis-v2");
   await analysis.locator('[data-action="coordination-view"][data-value="movement"]').click();
 
   const floor = await analysis.evaluate((host) => {
+    const view = host.querySelector<HTMLElement>(".analysis-v2-movement-view")!;
     const method = host.querySelector<HTMLElement>(".analysis-v2-movement-view > .analysis-v2-method")!;
-    const rect = method.getBoundingClientRect();
+    const summary = method.querySelector<HTMLElement>("summary")!;
+    const finalNote = host.querySelector<HTMLElement>(".analysis-v2-movement-family:last-child > p")!;
+    const viewRect = view.getBoundingClientRect();
+    const methodRect = method.getBoundingClientRect();
+    const summaryRect = summary.getBoundingClientRect();
+    const range = document.createRange();
+    range.selectNodeContents(finalNote);
+    const textRects = [...range.getClientRects()];
+    const collisionCount = textRects.filter((rect) => (
+      rect.right > summaryRect.left
+      && rect.left < summaryRect.right
+      && rect.bottom > summaryRect.top
+      && rect.top < summaryRect.bottom
+    )).length;
     return {
       position: getComputedStyle(method).position,
-      bottomGap: window.innerHeight - rect.bottom,
-      visibleBottom: rect.bottom <= window.innerHeight,
+      bottomGap: window.innerHeight - methodRect.bottom,
+      visibleBottom: methodRect.bottom <= window.innerHeight,
+      movementRightDelta: Math.abs(viewRect.right - methodRect.right),
+      collisionCount,
     };
   });
 
@@ -102,4 +118,6 @@ test("keeps Movement data rules on the same viewport floor as the key-transition
   expect(floor.visibleBottom).toBe(true);
   expect(floor.bottomGap).toBeGreaterThanOrEqual(29);
   expect(floor.bottomGap).toBeLessThanOrEqual(49);
+  expect(floor.movementRightDelta).toBeLessThanOrEqual(1);
+  expect(floor.collisionCount).toBe(0);
 });
