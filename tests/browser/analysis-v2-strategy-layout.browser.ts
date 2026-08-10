@@ -220,6 +220,11 @@ test("aligns Strategy height and width with Coordination and Semantic", async ({
     ".analysis-v2-strategy-readout",
   );
 
+  for (const frame of [coordination, semantic, strategy]) {
+    expect(frame.objectWidth).toBeGreaterThanOrEqual(759);
+    expect(frame.objectWidth).toBeLessThanOrEqual(760.5);
+  }
+
   for (const comparison of [semantic, strategy]) {
     expect(Math.abs(comparison.stageHeight - coordination.stageHeight)).toBeLessThanOrEqual(1);
     expect(Math.abs(comparison.slotHeight - coordination.slotHeight)).toBeLessThanOrEqual(1);
@@ -278,6 +283,8 @@ test("uses one fixed Strategy frame for two- and three-part real-millisecond tra
       mainScrollWidth: host.querySelector<HTMLElement>(".analysis-v2-main")!.scrollWidth,
     };
   });
+  expect(threePartGeometry.object.width).toBeGreaterThanOrEqual(759);
+  expect(threePartGeometry.object.width).toBeLessThanOrEqual(760.5);
   expect(threePartGeometry.svgLeft).toBeGreaterThanOrEqual(threePartGeometry.object.left - 1);
   expect(threePartGeometry.svgRight).toBeLessThanOrEqual(
     threePartGeometry.object.left + threePartGeometry.object.width + 1,
