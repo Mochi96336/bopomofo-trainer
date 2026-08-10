@@ -1,6 +1,4 @@
 .analysis-v2 {
-  width: min(1180px, calc(100vw - 32px));
-  height: min(820px, calc(100vh - 32px));
   color: inherit;
 }
 
@@ -106,12 +104,6 @@
   border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
   border-radius: 16px;
   background: color-mix(in srgb, currentColor 2%, transparent);
-}
-
-.analysis-v2-keyboard-wrap,
-.analysis-v2-side-detail,
-.analysis-v2-card,
-.analysis-v2-empty {
   padding: 16px;
 }
 
@@ -150,6 +142,18 @@
   pointer-events: none;
 }
 
+.analysis-v2-key.insufficient::before {
+  opacity: 0.03;
+}
+
+.analysis-v2-key.preliminary::before {
+  opacity: calc(0.03 + var(--analysis-strength, 0) * 0.14);
+}
+
+.analysis-v2-key.sufficient::before {
+  opacity: calc(0.03 + var(--analysis-strength, 0) * 0.28);
+}
+
 .analysis-v2-key strong,
 .analysis-v2-key small {
   display: block;
@@ -159,6 +163,10 @@
   margin-top: 2px;
   font-size: 0.68rem;
   opacity: 0.62;
+}
+
+.analysis-v2-key.insufficient small {
+  opacity: 0.5;
 }
 
 .analysis-v2-key.selected {
@@ -217,20 +225,23 @@
   font-weight: 700;
 }
 
-.analysis-v2-matrix-scroll {
+.analysis-v2-matrix-scroll,
+.analysis-v2-confusion-scroll {
   overflow: auto;
   border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
   border-radius: 14px;
 }
 
 .analysis-v2-matrix,
-.analysis-v2-motor-table {
+.analysis-v2-motor-table,
+.analysis-v2-confusion-table {
   width: 100%;
   border-collapse: collapse;
 }
 
 .analysis-v2-matrix caption,
-.analysis-v2-motor-table caption {
+.analysis-v2-motor-table caption,
+.analysis-v2-confusion-table caption {
   text-align: left;
   padding: 10px 12px;
   font-size: 0.78rem;
@@ -240,7 +251,9 @@
 .analysis-v2-matrix th,
 .analysis-v2-matrix td,
 .analysis-v2-motor-table th,
-.analysis-v2-motor-table td {
+.analysis-v2-motor-table td,
+.analysis-v2-confusion-table th,
+.analysis-v2-confusion-table td {
   border: 1px solid color-mix(in srgb, currentColor 10%, transparent);
   padding: 9px;
   text-align: center;
@@ -248,7 +261,8 @@
 }
 
 .analysis-v2-matrix th,
-.analysis-v2-motor-table th {
+.analysis-v2-motor-table th,
+.analysis-v2-confusion-table th {
   font-size: 0.76rem;
   font-weight: 700;
   background: color-mix(in srgb, currentColor 4%, transparent);
@@ -262,6 +276,52 @@
 
 .analysis-v2-matrix td.not-applicable {
   opacity: 0.35;
+}
+
+.analysis-v2-confusion-table {
+  min-width: 650px;
+}
+
+.analysis-v2-confusion-table td:first-child,
+.analysis-v2-confusion-table td:nth-child(3) {
+  text-align: left;
+}
+
+.analysis-v2-confusion-table td:nth-child(2) {
+  width: 32px;
+  color: var(--ink-muted);
+}
+
+.analysis-v2-confusion-table td strong,
+.analysis-v2-confusion-table td small {
+  display: block;
+}
+
+.analysis-v2-confusion-table td small {
+  margin-top: 2px;
+  color: var(--ink-muted);
+  font-size: 0.7rem;
+}
+
+.analysis-v2-confusion-table tr.insufficient {
+  color: var(--ink-muted);
+}
+
+.analysis-v2-evidence-state {
+  display: inline-block;
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.analysis-v2-evidence-state.preliminary {
+  border-style: dashed;
+}
+
+.analysis-v2-evidence-state.sufficient {
+  border-color: color-mix(in srgb, var(--accent) 36%, transparent);
 }
 
 .analysis-v2-card-grid,
@@ -362,36 +422,4 @@
 
 .analysis-v2-empty.compact {
   min-height: 60px;
-}
-
-.analysis-v2-summary .analysis-v2-summary-signals > div {
-  min-width: 0;
-}
-
-@media (max-width: 900px) {
-  .analysis-v2 {
-    width: calc(100vw - 16px);
-    height: calc(100vh - 16px);
-  }
-
-  .analysis-v2-header,
-  .analysis-v2-domain-head {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .analysis-v2-header-actions {
-    justify-content: space-between;
-  }
-
-  .analysis-v2-semantic-layout,
-  .analysis-v2-card-grid,
-  .analysis-v2-strategy-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .analysis-v2-card-grid .analysis-v2-card:nth-child(3),
-  .analysis-v2-card-grid .analysis-v2-card:nth-child(4) {
-    grid-column: auto;
-  }
 }

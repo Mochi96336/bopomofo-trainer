@@ -1,5 +1,4 @@
 import type { InputLayout, TokenId } from "../core/model.js";
-import type { FrequencyFirstUtterancePolicy } from "../curriculum/frequency-first-utterance.js";
 import type {
   CatalogSupportIndex,
   CurriculumProfile,
@@ -16,12 +15,10 @@ import {
   tokenLabel,
 } from "../diagnostics/labels.js";
 import {
-  conservativeDataState,
   dataStateForSamples,
   DIAGNOSTIC_POLICY,
 } from "../diagnostics/policy.js";
 import { buildProgressTrendIndex } from "../diagnostics/progress-trends.js";
-import { selectionInfluence } from "../diagnostics/selection-influence.js";
 import type {
   ConfusionDiagnostic,
   KeyDiagnostic,
@@ -34,7 +31,6 @@ export interface BuildAnalysisV2SemanticModelInput {
   readonly curriculum: CurriculumProfile;
   readonly support: CatalogSupportIndex;
   readonly layout: InputLayout;
-  readonly selectionPolicy: FrequencyFirstUtterancePolicy;
   readonly progressHistory?: ProgressHistory | null;
 }
 
@@ -81,9 +77,6 @@ function buildKeys(
     const timingDataState = timingAvailable
       ? dataStateForSamples(timingSamples, DIAGNOSTIC_POLICY.timingSamples)
       : null;
-    const overallDataState = timingDataState === null
-      ? errorDataState
-      : conservativeDataState(errorDataState, timingDataState);
 
     return {
       tokenId,
@@ -93,22 +86,11 @@ function buildKeys(
       attempts,
       errors,
       displayedErrorRatio: attempts === 0 ? null : errors / attempts,
-      errorMetricLabel: "錯誤觀察比例",
       errorDataState,
       timingAvailability,
       timingMs: aggregate?.currentTimeToTypeMs ?? null,
       timingSamples,
-      bestTimingMs: aggregate?.bestTimeToTypeMs ?? null,
       timingDataState,
-      // Measurement V2 keeps eligible timing totals but intentionally does not
-      // persist a synthetic breakdown of why non-samples were excluded.
-      excludedSamples: null,
-      overallDataState,
-      reinforcement: selectionInfluence(
-        aggregate,
-        timingAvailable,
-        input.selectionPolicy,
-      ),
     };
   });
 }
@@ -173,7 +155,8 @@ function keyProgress(
  *
  * This consumes Measurement V2 directly. It never converts the summary to the
  * legacy measurement shape and therefore cannot accidentally revive canonical
- * transition rows while building semantic UI evidence.
+ * transition rows while building semantic UI evidence. Only evidence that the
+ * Analysis surface actually exposes belongs in this projection.
  */
 export function buildAnalysisV2SemanticModel(
   input: BuildAnalysisV2SemanticModelInput,

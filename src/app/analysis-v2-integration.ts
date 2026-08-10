@@ -60,7 +60,6 @@ function analysisModelFrom(snapshot: AnalysisV2Snapshot | null) {
     curriculum: progress.curriculum,
     support: environment.practiceSupport,
     layout: STANDARD_BOPOMOFO_LAYOUT,
-    selectionPolicy: environment.utterancePolicy,
     progressHistory: history,
   });
   return buildAnalysisV2Model(semantic, progress.measurements, history);

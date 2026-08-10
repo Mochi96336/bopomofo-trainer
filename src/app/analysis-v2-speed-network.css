@@ -13,6 +13,13 @@
   opacity: 0.7;
 }
 
+.analysis-v2-speed-scroll {
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+
 .analysis-v2-speed-board {
   position: relative;
   min-width: 720px;
@@ -57,7 +64,7 @@
   stroke: color-mix(
     in srgb,
     var(--ink-muted),
-    var(--danger) calc(var(--relation-slowness) * 100%)
+    var(--ink) calc(var(--relation-slowness) * 100%)
   );
   stroke-width: var(--relation-width);
   stroke-opacity: var(--relation-opacity);
@@ -76,10 +83,6 @@
   stroke-dasharray: 3 2;
 }
 
-.analysis-v2-speed-path.sampling {
-  stroke-dasharray: 2.5 2.5;
-}
-
 .analysis-v2-speed-empty {
   position: absolute;
   z-index: 3;
@@ -95,9 +98,10 @@
 
 .analysis-v2-speed-legend {
   display: grid;
-  grid-template-columns: auto minmax(120px, 220px) auto 1fr;
+  grid-template-columns: auto minmax(120px, 220px) auto minmax(0, 1fr);
   align-items: center;
   gap: 9px;
+  min-width: 0;
   color: var(--ink-muted);
   font-size: 0.72rem;
 }
@@ -105,22 +109,19 @@
 .analysis-v2-speed-legend i {
   height: 2px;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--ink-muted), var(--danger));
+  background: linear-gradient(90deg, var(--ink-muted), var(--ink));
 }
 
 .analysis-v2-speed-legend small {
+  min-width: 0;
   justify-self: end;
   text-align: right;
   line-height: 1.4;
 }
 
 @media (max-width: 900px) {
-  .analysis-v2-speed-card {
-    overflow: auto;
-  }
-
   .analysis-v2-speed-legend {
-    grid-template-columns: auto minmax(100px, 1fr) auto;
+    grid-template-columns: auto minmax(80px, 1fr) auto;
   }
 
   .analysis-v2-speed-legend small {
