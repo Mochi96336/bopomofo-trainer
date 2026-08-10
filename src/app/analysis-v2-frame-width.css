@@ -1,8 +1,8 @@
 /* Shared non-phone Analysis primary-frame width.
-   Coordination, Semantic, and Strategy consume the same viewport-relative token;
-   composition may position those objects, but must not redefine or re-nest their size. */
+   Coordination, Semantic, and Strategy consume the same medium-width token;
+   Strategy must adapt to this frame rather than widening the other domains. */
 @media (min-width: 641px) {
   .analysis-v2 {
-    --analysis-board-width: min(860px, 92vw);
+    --analysis-board-width: min(760px, 92vw);
   }
 }
