@@ -126,11 +126,6 @@ const corePredicate = (frames: readonly ValencyFrame[]) => constituent("predicat
   requiredValencyFrames: frames,
 });
 
-const legacyVerbPredicate = (frames: readonly ValencyFrame[]) => constituent("predicate", "VerbPhrase", {
-  requiredFunctions: ["predicate"],
-  requiredValencyFrames: frames,
-});
-
 const aNotALexeme = (
   key: string,
   frames: readonly ValencyFrame[],
@@ -222,12 +217,6 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     constituent("patient", "Subject"),
     constituent("passive", "PassivePhrase"),
     corePredicate(["transitive", "ambitransitive"]),
-  ]),
-  production("clause.causative", "Clause", [
-    subject(),
-    legacyVerbPredicate(["causative"]),
-    constituent("causee", "NounPhrase", { requiredFunctions: ["object"] }),
-    constituent("resultPredicate", "VerbPhrase", { requiredFunctions: ["complement"] }),
   ]),
   production("clause.serial-verb", "Clause", [
     subject({ minimum: 0, maximum: 1 }),
