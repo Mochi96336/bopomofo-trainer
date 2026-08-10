@@ -248,18 +248,28 @@
   font-size: 9px;
 }
 
+.analysis-v2 .analysis-v2-movement-stats {
+  width: min(390px, 100%);
+  margin-inline: auto;
+}
+
 .analysis-v2 .analysis-v2-movement-stat {
   min-height: 32px;
-  grid-template-columns: minmax(72px, auto) 104px minmax(0, auto);
-  justify-content: start;
-  gap: 12px;
+  grid-template-columns: 112px 104px minmax(0, 1fr);
+  justify-content: stretch;
+  gap: 10px;
+}
+
+.analysis-v2 .analysis-v2-movement-stat > span {
+  text-align: right;
 }
 
 .analysis-v2 .analysis-v2-movement-reading {
-  display: inline-flex;
+  display: grid;
   min-width: 0;
+  grid-template-columns: 56px minmax(0, 1fr);
   align-items: baseline;
-  gap: 5px;
+  gap: 6px;
   white-space: nowrap;
 }
 
@@ -268,24 +278,26 @@
   font-size: 10px;
   font-weight: 560;
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .analysis-v2 .analysis-v2-movement-reading > small {
   color: var(--ink-faint);
   font-size: 9px;
   font-weight: 500;
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .analysis-v2 .analysis-v2-motor-sparkline {
   width: 104px;
   height: 24px;
-  justify-self: start;
+  justify-self: center;
 }
 
 .analysis-v2 .analysis-v2-motor-sparkline-empty {
   width: 104px;
-  justify-self: start;
+  justify-self: center;
   text-align: center;
 }
 
@@ -303,6 +315,11 @@
 }
 
 @media (max-width: 760px) {
+  .analysis-v2 .analysis-v2-movement-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 28px;
+  }
+
   .analysis-v2 .analysis-v2-movement-diagram {
     min-height: 54px;
   }
@@ -384,13 +401,8 @@
     margin-top: 20px;
   }
 
-  .analysis-v2 .analysis-v2-movement-grid {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 28px;
-  }
-
   .analysis-v2 .analysis-v2-movement-stat {
-    grid-template-columns: minmax(64px, auto) 92px minmax(0, auto);
+    grid-template-columns: 96px 92px minmax(0, 1fr);
     gap: 8px;
   }
 
