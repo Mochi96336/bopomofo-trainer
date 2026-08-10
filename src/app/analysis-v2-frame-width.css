@@ -5,13 +5,4 @@
   .analysis-v2 {
     --analysis-board-width: min(760px, 92vw);
   }
-
-  /* The base keyboard rule already has its own 92% cap for standalone layouts.
-     Inside the shared Analysis frame that would apply the cap a second time
-     (760px -> ~699px) and make Semantic visibly smaller than Coordination.
-     The fixed primary slot is already the responsive boundary, so Semantic owns
-     the full slot on non-phone layouts. */
-  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-keyboard {
-    width: 100%;
-  }
 }
