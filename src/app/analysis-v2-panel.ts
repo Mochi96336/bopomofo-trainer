@@ -808,16 +808,9 @@ function twoPartStrategyFieldMarkup(model: AnalysisV2Model): string {
     positions[index] === row.canonical ? rowSum : rowSum + count
   ), 0), 0);
   const ready = rows.every((row) => row.total >= STRATEGY_LEAD_MIN_ROW_OBSERVATIONS);
-  const directions = rows.map((row) => {
-    const accepted = row.canonical === "first" ? "last" : "first";
-    const index = positions.indexOf(accepted);
-    const count = index < 0 ? 0 : row.values[index] ?? 0;
-    const ratio = row.total === 0 ? 0 : count / row.total;
-    return `${positionLabel(row.canonical)} → ${positionLabel(accepted)} ${Math.round(ratio * 100)}%`;
-  }).join(" · ");
   const leadMarkup = !ready
-    ? `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><strong>仍在累積</strong><small>前、後位置各累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察後顯示換序輸入</small><span>${escapeHtml(directions)}</span></div>`
-    : `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><strong><b>換序輸入</b><em>${Math.round((total === 0 ? 0 : shifted / total) * 100)}%</em></strong><small>${shifted} / ${total} 個位置觀察</small><span>${escapeHtml(directions)}</span></div>`;
+    ? `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><strong>仍在累積</strong><small>前、後位置各累積 ${STRATEGY_LEAD_MIN_ROW_OBSERVATIONS} 個觀察後顯示換序輸入</small></div>`
+    : `<div class="analysis-v2-hero-readout analysis-v2-strategy-readout"><strong><b>換序輸入</b><em>${Math.round((total === 0 ? 0 : shifted / total) * 100)}%</em></strong><small>${shifted} / ${total} 個位置觀察</small></div>`;
   return primaryStageMarkup(
     strategyObjectMarkup(model, "2"),
     leadMarkup,

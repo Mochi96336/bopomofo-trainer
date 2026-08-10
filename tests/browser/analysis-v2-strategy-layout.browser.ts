@@ -310,6 +310,8 @@ test("uses one fixed Strategy frame for two- and three-part real-millisecond tra
   await expect(analysis.locator(".strategy-matrix")).toHaveCount(0);
   await expect(analysis.locator(".analysis-v2-strategy-readout")).toContainText("換序輸入");
   await expect(analysis.locator(".analysis-v2-strategy-readout")).not.toContainText("位置偏移");
+  await expect(analysis.locator(".analysis-v2-strategy-readout")).not.toContainText("前 → 後");
+  await expect(analysis.locator(".analysis-v2-strategy-readout")).not.toContainText("後 → 前");
   await expect(analysis.locator(".analysis-v2-strategy-readout")).toContainText("20%");
 
   const twoPartGeometry = await analysis.evaluate((host) => {
