@@ -90,9 +90,14 @@ describe("valency reachability audit", () => {
     ]);
     expect(audit.zeroSupportSlots.map((slot) => [slot.ruleId, slot.constituentKey])).toEqual([
       ["clause.causative", "predicate"],
+      ["clause.serial-verb", "firstPredicate"],
+      ["clause.serial-verb", "secondPredicate"],
       ["clause.xcomp-object-control", "predicate"],
       ["clause.xcomp-subject-control", "predicate"],
       ["complement.result", "result"],
+    ]);
+    expect(audit.mixedSupportSlots.map((slot) => [slot.ruleId, slot.constituentKey])).toEqual([
+      ["clause.ba", "predicate"],
     ]);
   });
 });
