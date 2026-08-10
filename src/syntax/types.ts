@@ -41,11 +41,15 @@ export interface AnonymousDependencySkeletonEvidence {
 export interface SyntaxCompatibilityEvidence {
   readonly dependencyRelationCounts: DependencyCountMap;
   readonly surfacePositionCounts: DependencyCountMap;
+  /**
+   * Runtime only needs feature presence, but keeps the count-map shape shared
+   * with full source profiles. The compact codec collapses positive counts to 1.
+   */
+  readonly morphologicalFeatureCounts: DependencyCountMap;
 }
 export interface DependencyEvidence extends SyntaxCompatibilityEvidence {
   readonly evidenceScope: SyntaxEvidenceScope;
   readonly occurrenceCount: number;
-  readonly morphologicalFeatureCounts: DependencyCountMap;
   readonly parentUposCounts: DependencyCountMap;
   readonly headDirectionCounts: DependencyCountMap;
   readonly surfacePositionCounts: DependencyCountMap;
