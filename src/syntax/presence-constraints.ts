@@ -33,6 +33,35 @@ export function presenceConstraintsSatisfied(
   return true;
 }
 
+export function* validConstituentCountAssignments(
+  rule: ProductionRule,
+  bounds: DerivationBounds,
+  index = 0,
+  current: ConstituentCounts = {},
+): Generator<ConstituentCounts> {
+  const constituent = rule.constituents[index];
+  if (constituent === undefined) {
+    if (presenceConstraintsSatisfied(rule.constraints, current)) yield current;
+    return;
+  }
+
+  const maximum = effectiveConstituentMaximum(constituent, bounds);
+  if (maximum < constituent.minimum) return;
+  for (let count = constituent.minimum; count <= maximum; count += 1) {
+    yield* validConstituentCountAssignments(
+      rule,
+      bounds,
+      index + 1,
+      { ...current, [constituent.key]: count },
+    );
+  }
+}
+
+/**
+ * Presence-only assignments are enough for abstract rule-index reachability.
+ * Multiplicity above one cannot change a structural presence constraint, so
+ * collapsing present repetitions to one avoids multiplying equivalent states.
+ */
 export function* validPresenceAssignments(
   rule: ProductionRule,
   bounds: DerivationBounds,
