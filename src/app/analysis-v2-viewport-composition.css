@@ -55,6 +55,7 @@
     top: calc(50dvh - var(--analysis-object-slot-height) / 2);
     left: calc(50vw - var(--analysis-board-width) / 2);
     height: var(--analysis-object-slot-height);
+    min-height: var(--analysis-object-slot-height);
     transform: none;
   }
 
