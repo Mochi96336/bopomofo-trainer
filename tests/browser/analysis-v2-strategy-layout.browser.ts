@@ -130,12 +130,12 @@ test("pairs the desktop Strategy projection with the shared lower-left rail", as
   await expect(projection).toBeVisible();
 
   const layout = await analysis.evaluate((host) => {
-    const stage = host.querySelector<HTMLElement>(".analysis-v2-strategy-stage")!;
+    const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
     const object = host.querySelector<HTMLElement>(".analysis-v2-strategy-object")!;
     const readout = host.querySelector<HTMLElement>(".analysis-v2-strategy-readout")!;
     const headline = readout.querySelector<HTMLElement>("strong")!;
     const projection = host.querySelector<HTMLElement>(".analysis-v2-strategy-projection")!;
-    const stageRect = stage.getBoundingClientRect();
+    const mainRect = main.getBoundingClientRect();
     const objectRect = object.getBoundingClientRect();
     const readoutRect = readout.getBoundingClientRect();
     const headlineRect = headline.getBoundingClientRect();
@@ -146,7 +146,7 @@ test("pairs the desktop Strategy projection with the shared lower-left rail", as
       alignSelf: readoutStyle.alignSelf,
       justifyItems: readoutStyle.justifyItems,
       textAlign: readoutStyle.textAlign,
-      stageBottom: stageRect.bottom,
+      mainBottom: mainRect.bottom,
       readoutLeft: readoutRect.left,
       readoutTop: readoutRect.top,
       readoutBottom: readoutRect.bottom,
@@ -162,8 +162,8 @@ test("pairs the desktop Strategy projection with the shared lower-left rail", as
   expect(layout.alignSelf).toBe("end");
   expect(layout.justifyItems).toBe("start");
   expect(layout.textAlign).toBe("left");
-  expect(Math.abs(layout.stageBottom - layout.readoutBottom)).toBeLessThanOrEqual(1);
-  expect(Math.abs(layout.stageBottom - layout.projectionBottom)).toBeLessThanOrEqual(1);
+  expect(Math.abs((layout.mainBottom - 30) - layout.readoutBottom)).toBeLessThanOrEqual(1);
+  expect(Math.abs((layout.mainBottom - 30) - layout.projectionBottom)).toBeLessThanOrEqual(1);
   expect(Math.abs(layout.projectionLeft - layout.readoutLeft)).toBeLessThanOrEqual(1);
   expect(Math.abs(layout.objectLeft - layout.readoutLeft)).toBeLessThanOrEqual(1);
   expect(layout.headlineLeft - layout.projectionRight).toBeGreaterThanOrEqual(16);
@@ -261,13 +261,13 @@ test("uses one fixed Strategy frame for two- and three-part real-millisecond tra
   await expect(analysis.locator(".analysis-v2-strategy-readout")).toContainText("換序輸入");
 
   const threePartGeometry = await analysis.evaluate((host) => {
-    const stage = host.querySelector<HTMLElement>(".analysis-v2-strategy-stage")!;
+    const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
     const object = host.querySelector<HTMLElement>(".analysis-v2-strategy-trajectory-object")!;
     const svg = host.querySelector<SVGSVGElement>(".analysis-v2-strategy-trajectory svg")!;
     const projectionNode = host.querySelector<HTMLElement>(".analysis-v2-strategy-projection")!;
     const headline = host.querySelector<HTMLElement>(".analysis-v2-strategy-readout strong")!;
     const paths = [...host.querySelectorAll<SVGPathElement>(".analysis-v2-strategy-trajectory-path")];
-    const stageRect = stage.getBoundingClientRect();
+    const mainRect = main.getBoundingClientRect();
     const objectRect = object.getBoundingClientRect();
     const svgRect = svg.getBoundingClientRect();
     const projectionRect = projectionNode.getBoundingClientRect();
@@ -278,11 +278,11 @@ test("uses one fixed Strategy frame for two- and three-part real-millisecond tra
       svgRight: svgRect.right,
       projectionBelowObject: projectionRect.top >= objectRect.bottom - 1,
       projectionLeftOfReadout: projectionRect.right <= headlineRect.left - 16,
-      projectionBottomDelta: Math.abs(stageRect.bottom - projectionRect.bottom),
+      projectionFloorGap: mainRect.bottom - projectionRect.bottom,
       oldestOpacity: Number.parseFloat(getComputedStyle(paths[0]!).strokeOpacity),
       newestOpacity: Number.parseFloat(getComputedStyle(paths.at(-1)!).strokeOpacity),
-      mainClientWidth: host.querySelector<HTMLElement>(".analysis-v2-main")!.clientWidth,
-      mainScrollWidth: host.querySelector<HTMLElement>(".analysis-v2-main")!.scrollWidth,
+      mainClientWidth: main.clientWidth,
+      mainScrollWidth: main.scrollWidth,
     };
   });
   expect(threePartGeometry.object.width).toBeGreaterThanOrEqual(759);
@@ -293,7 +293,8 @@ test("uses one fixed Strategy frame for two- and three-part real-millisecond tra
   );
   expect(threePartGeometry.projectionBelowObject).toBe(true);
   expect(threePartGeometry.projectionLeftOfReadout).toBe(true);
-  expect(threePartGeometry.projectionBottomDelta).toBeLessThanOrEqual(1);
+  expect(threePartGeometry.projectionFloorGap).toBeGreaterThanOrEqual(29);
+  expect(threePartGeometry.projectionFloorGap).toBeLessThanOrEqual(31);
   expect(threePartGeometry.newestOpacity).toBeGreaterThan(threePartGeometry.oldestOpacity);
   expect(threePartGeometry.mainScrollWidth).toBeLessThanOrEqual(threePartGeometry.mainClientWidth + 1);
 
