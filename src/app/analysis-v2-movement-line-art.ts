@@ -78,7 +78,7 @@ const wordStructure = `${svgOpen}
       <text x="130" y="44">ㄧ</text>
       <text x="188" y="44">ㄚ</text>
     </g>
-    <text x="130" y="70" font-size="9" opacity=".46">家：ㄐ ㄧ ㄚ</text>
+    <text x="130" y="70" font-size="9" opacity=".46">例：家 · ㄐ ㄧ ㄚ</text>
   </g>
 ${svgClose}`;
 
