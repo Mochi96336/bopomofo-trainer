@@ -17,13 +17,14 @@ test("uses the same desktop viewport anchors for Strategy and Coordination", asy
     const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
     const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout")!;
     const method = host.querySelector<HTMLElement>(".analysis-v2-speed-field > .analysis-v2-method")!;
+    const slotRect = slot.getBoundingClientRect();
     const boardRect = board.getBoundingClientRect();
     const readoutRect = readout.getBoundingClientRect();
     const methodRect = method.getBoundingClientRect();
     return {
       slotPosition: getComputedStyle(slot).position,
+      slotCenterY: slotRect.top + slotRect.height / 2,
       centerX: boardRect.left + boardRect.width / 2,
-      centerY: boardRect.top + boardRect.height / 2,
       width: boardRect.width,
       readoutBottom: readoutRect.bottom,
       methodBottom: methodRect.bottom,
@@ -43,14 +44,15 @@ test("uses the same desktop viewport anchors for Strategy and Coordination", asy
     const readout = host.querySelector<HTMLElement>(".analysis-v2-strategy-readout")!;
     const projection = host.querySelector<HTMLElement>(".analysis-v2-strategy-projection")!;
     const method = host.querySelector<HTMLElement>(".analysis-v2-strategy-domain > .analysis-v2-method")!;
+    const slotRect = slot.getBoundingClientRect();
     const trajectoryRect = trajectory.getBoundingClientRect();
     const readoutRect = readout.getBoundingClientRect();
     const projectionRect = projection.getBoundingClientRect();
     const methodRect = method.getBoundingClientRect();
     return {
       slotPosition: getComputedStyle(slot).position,
+      slotCenterY: slotRect.top + slotRect.height / 2,
       centerX: trajectoryRect.left + trajectoryRect.width / 2,
-      centerY: trajectoryRect.top + trajectoryRect.height / 2,
       left: trajectoryRect.left,
       right: trajectoryRect.right,
       width: trajectoryRect.width,
@@ -67,7 +69,7 @@ test("uses the same desktop viewport anchors for Strategy and Coordination", asy
   expect(coordination.slotPosition).toBe("fixed");
   expect(strategy.slotPosition).toBe("fixed");
   expect(Math.abs(strategy.centerX - coordination.centerX)).toBeLessThanOrEqual(1);
-  expect(Math.abs(strategy.centerY - coordination.centerY)).toBeLessThanOrEqual(1);
+  expect(Math.abs(strategy.slotCenterY - coordination.slotCenterY)).toBeLessThanOrEqual(1);
   expect(Math.abs(strategy.width - coordination.width)).toBeLessThanOrEqual(1);
   expect(strategy.width).toBeGreaterThanOrEqual(759);
   expect(strategy.width).toBeLessThanOrEqual(760.5);
