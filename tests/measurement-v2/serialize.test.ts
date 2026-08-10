@@ -124,6 +124,53 @@ describe("measurement v2 persistence validation", () => {
     expect(migrated?.motor.immediateHands).toEqual(current.motor.immediateHands);
   });
 
+  it("rejects malformed obsolete 4+ buckets before discarding them", () => {
+    const malformedStrategyScopes = [
+      {
+        key: '["input-order-position","4+","garbage","last"]',
+        candidate: {
+          scope: { bodySize: "4+", canonicalPosition: "garbage", acceptedPosition: "last" },
+          observations: 11,
+        },
+      },
+      {
+        key: '["input-order-position","4+","first","last"]',
+        candidate: {
+          scope: { bodySize: "4+", canonicalPosition: "first", acceptedPosition: "last" },
+          observations: 0,
+        },
+      },
+    ];
+
+    for (const { key, candidate } of malformedStrategyScopes) {
+      const legacy = structuredClone(createEmptyMeasurementSummaryV2()) as unknown as Record<string, unknown>;
+      legacy.policyVersion = LEGACY_MEASUREMENT_V2_POLICY_VERSION;
+      legacy.strategy = { inputOrderPositions: { [key]: candidate } };
+      expect(parseMeasurementSummaryV2(legacy, "guided", "zhuyin-standard", TOKENS)).toBeNull();
+    }
+
+    const malformedCoordination = structuredClone(
+      createEmptyMeasurementSummaryV2(),
+    ) as unknown as Record<string, unknown>;
+    malformedCoordination.policyVersion = LEGACY_MEASUREMENT_V2_POLICY_VERSION;
+    const motor = malformedCoordination.motor as Record<string, unknown>;
+    motor.coordination = {
+      '["coordination","4+","mixed"]': {
+        scope: { bodySize: "4+", handShape: "mixed" },
+        observations: 4,
+        timingSamples: 5,
+        currentTimeToTypeMs: 180,
+        bestTimeToTypeMs: 150,
+      },
+    };
+    expect(parseMeasurementSummaryV2(
+      malformedCoordination,
+      "guided",
+      "zhuyin-standard",
+      TOKENS,
+    )).toBeNull();
+  });
+
   it("rejects 4+ in the current aggregate policy instead of silently dropping it", () => {
     const current = createEmptyMeasurementSummaryV2();
     const invalid = structuredClone(current) as unknown as Record<string, unknown>;
