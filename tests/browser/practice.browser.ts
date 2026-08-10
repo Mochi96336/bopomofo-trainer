@@ -40,6 +40,11 @@ function codeForLabel(label: string): string {
   return code;
 }
 
+async function currentRoundCodes(page: Page): Promise<string[]> {
+  const labels = await page.locator(".reading-token").allTextContents();
+  return labels.map(codeForLabel);
+}
+
 async function currentPendingBodyLabels(page: Page): Promise<string[]> {
   return page.locator(".practice-glyph.current .reading-token.pending").allTextContents();
 }
@@ -125,6 +130,20 @@ test("accepts body components in reverse canonical order before tone commit", as
   throw new Error("expected a multi-component syllable within the first 20 syllables");
 });
 
+test("accepts overlapping keydown events without dropping the second key", async ({ page }) => {
+  await page.goto("/");
+  const codes = await currentRoundCodes(page);
+  expect(codes.length).toBeGreaterThanOrEqual(2);
+  expect(codes[0]).not.toBe(codes[1]);
+
+  await page.keyboard.down(codes[0] ?? "");
+  await page.keyboard.down(codes[1] ?? "");
+  await page.keyboard.up(codes[0] ?? "");
+  await page.keyboard.up(codes[1] ?? "");
+
+  await expect(page.locator("#progress-count")).toHaveText(/^2 \/ \d+$/);
+});
+
 test("completes a full round with zero-delay reverse-body input", async ({ page }) => {
   await page.goto("/");
   const before = await completedRoundCount(page);
@@ -136,6 +155,52 @@ test("completes a full round with zero-delay reverse-body input", async ({ page 
   await expect.poll(() => completedRoundCount(page)).toBe(before + 1);
   await expect(page.locator("#progress-count")).toHaveText(/^0 \/ \d+$/);
   await expect(page.locator("#keyboard-capture")).toBeFocused();
+});
+
+test("keeps practice focus through a synchronous round-boundary burst", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator("#keyboard-capture")).toBeFocused();
+  const firstRoundCodes = await currentRoundCodes(page);
+
+  const result = await page.evaluate(({ codes, codeByLabel }) => {
+    const targets: string[] = [];
+    const dispatch = (code: string): void => {
+      const target = document.activeElement;
+      if (!(target instanceof HTMLElement)) {
+        throw new Error("practice has no active HTMLElement");
+      }
+      targets.push(target.id || target.tagName);
+      target.dispatchEvent(new KeyboardEvent("keydown", {
+        code,
+        key: code === "Space" ? " " : code,
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        repeat: false,
+      }));
+    };
+
+    for (const code of codes) dispatch(code);
+
+    const nextLabel = document.querySelector<HTMLElement>(".reading-token.current")?.textContent?.trim() ?? "";
+    const nextCode = codeByLabel[nextLabel];
+    if (nextCode === undefined) {
+      throw new Error(`next rendered token has no physical key: ${nextLabel}`);
+    }
+    dispatch(nextCode);
+
+    return {
+      targets,
+      progress: document.querySelector<HTMLElement>("#progress-count")?.textContent ?? "",
+    };
+  }, {
+    codes: firstRoundCodes,
+    codeByLabel: Object.fromEntries(CODE_BY_TOKEN_LABEL),
+  });
+
+  expect(result.targets.every((target) => target === "keyboard-capture")).toBe(true);
+  expect(result.progress).toMatch(/^1 \/ \d+$/);
+  await expect.poll(() => completedRoundCount(page)).toBe(1);
 });
 
 test("opens and closes the panel with Escape and returns focus to practice", async ({ page }) => {

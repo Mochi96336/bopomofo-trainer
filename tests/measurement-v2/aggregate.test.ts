@@ -49,7 +49,7 @@ describe("measurement v2 aggregation", () => {
     expect(summary.semantic.ambiguousErrors).toBe(3);
   });
 
-  it("retains dirty and entry-boundary motor observations without admitting them as timing samples", () => {
+  it("retains dirty and boundary motor observations without admitting them as timing samples", () => {
     const observations: MeasurementObservationsV2 = {
       ...emptyObservations(),
       immediateHands: [
@@ -73,6 +73,14 @@ describe("measurement v2 aggregation", () => {
           traceSequence: 4,
           fromHand: "left",
           toHand: "right",
+          boundary: "syllable-boundary",
+          timingMs: 100,
+          clean: true,
+        },
+        {
+          traceSequence: 5,
+          fromHand: "left",
+          toHand: "right",
           boundary: "entry-boundary",
           timingMs: 120,
           clean: true,
@@ -84,7 +92,7 @@ describe("measurement v2 aggregation", () => {
     const key = immediateHandAggregateKey({ fromHand: "left", toHand: "right" });
     expect(summary.motor.immediateHands[key]).toEqual({
       scope: { fromHand: "left", toHand: "right" },
-      observations: 3,
+      observations: 4,
       timingSamples: 1,
       currentTimeToTypeMs: 40,
       bestTimeToTypeMs: 40,
@@ -170,11 +178,17 @@ describe("measurement v2 aggregation", () => {
 
     const summary = aggregateMeasurementObservationsV2(observations);
     const key = sameHandRevisitAggregateKey({ hand: "left", oppositeHandIntervened: true });
-    expect(summary.motor.sameHandRevisits[key]?.observations).toBe(2);
+    expect(summary.motor.sameHandRevisits[key]).toEqual({
+      scope: { hand: "left", oppositeHandIntervened: true },
+      observations: 2,
+      timingSamples: 1,
+      currentTimeToTypeMs: 50,
+      bestTimeToTypeMs: 50,
+    });
     expect(Object.keys(summary.motor.sameHandRevisits)).toHaveLength(1);
   });
 
-  it("updates cumulative timing with the same bounded identity", () => {
+  it("updates cumulative timing with the same bounded identity without admitting boundary pauses", () => {
     const first = aggregateMeasurementObservationsV2({
       ...emptyObservations(),
       immediateHands: [
@@ -206,9 +220,9 @@ describe("measurement v2 aggregation", () => {
     expect(second.motor.immediateHands[key]).toEqual({
       scope: { fromHand: "right", toHand: "left" },
       observations: 2,
-      timingSamples: 2,
-      currentTimeToTypeMs: 90,
-      bestTimeToTypeMs: 60,
+      timingSamples: 1,
+      currentTimeToTypeMs: 100,
+      bestTimeToTypeMs: 100,
     });
     expect(createEmptyMeasurementSummaryV2().motor.immediateHands).toEqual({});
   });
