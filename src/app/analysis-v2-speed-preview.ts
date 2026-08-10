@@ -9,25 +9,35 @@ export interface AnalysisV2SpeedPreviewController {
   destroy(): void;
 }
 
+interface PreviewOwner {
+  readonly id: string;
+  readonly board: Element;
+}
+
 function relationTarget(target: EventTarget | null): SVGPathElement | null {
   if (!(target instanceof Element)) return null;
   return target.closest<SVGPathElement>(SPEED_TARGET_SELECTOR);
 }
 
-function relationId(target: EventTarget | null): string | null {
-  return relationTarget(target)?.dataset.speedId ?? null;
+function relationOwner(target: EventTarget | null): PreviewOwner | null {
+  const relation = relationTarget(target);
+  const id = relation?.dataset.speedId;
+  const board = relation?.closest(".analysis-v2-speed-board");
+  return id === undefined || board === null || board === undefined ? null : { id, board };
 }
 
 /**
- * Coordination flylines use hover/focus as a transient preview and click as the
- * persistent selection owned by analysis-v2-panel. The panel renders the full
- * baseline readout synchronously; this controller only swaps that readout and
- * accent while a temporary relation is being previewed.
+ * Coordination flylines use hover/focus as transient preview owners and click as
+ * the persistent selection owned by analysis-v2-panel. Pointer preview wins while
+ * it exists, then keyboard focus resumes; neither temporary owner may restore a
+ * baseline captured from an obsolete board after the panel rerenders.
  */
 export function mountAnalysisV2SpeedPreview(
   host: HTMLElement,
   getModel: () => AnalysisV2Model,
 ): AnalysisV2SpeedPreviewController {
+  let pointerOwner: PreviewOwner | null = null;
+  let focusOwner: PreviewOwner | null = null;
   let activePreviewId: string | null = null;
   let previewBoard: Element | null = null;
   let baselineReadoutHtml: string | null = null;
@@ -35,7 +45,7 @@ export function mountAnalysisV2SpeedPreview(
   let cachedBoard: Element | null = null;
   let cachedCells: ReadonlyMap<string, AnalysisV2MotorCell<ImmediateTokenAggregateScope>> = new Map();
 
-  const clearPreviewState = (): void => {
+  const clearRenderedPreviewState = (): void => {
     activePreviewId = null;
     previewBoard = null;
     baselineReadoutHtml = null;
@@ -43,10 +53,6 @@ export function mountAnalysisV2SpeedPreview(
   };
 
   const currentBoard = (): Element | null => host.querySelector(".analysis-v2-speed-board");
-
-  const isCurrentPreview = (id: string): boolean => (
-    id === activePreviewId && previewBoard !== null && previewBoard === currentBoard()
-  );
 
   const cellsForBoard = (board: Element): ReadonlyMap<string, AnalysisV2MotorCell<ImmediateTokenAggregateScope>> => {
     if (cachedBoard !== board) {
@@ -62,11 +68,12 @@ export function mountAnalysisV2SpeedPreview(
     }
   };
 
-  const showPreview = (id: string): void => {
+  const showPreview = (owner: PreviewOwner): void => {
     const board = currentBoard();
     const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout");
-    if (board === null || readout === null) return;
-    const cell = cellsForBoard(board).get(id);
+    if (board === null || owner.board !== board || readout === null) return;
+    if (activePreviewId === owner.id && previewBoard === board) return;
+    const cell = cellsForBoard(board).get(owner.id);
     if (cell === undefined || cell.currentTimeToTypeMs === null) return;
 
     if (previewBoard !== board || baselineReadoutHtml === null) {
@@ -75,8 +82,8 @@ export function mountAnalysisV2SpeedPreview(
       baselineAccentId = board.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-accent")
         ?.dataset.speedId ?? null;
     }
-    activePreviewId = id;
-    setAccent(board, id);
+    activePreviewId = owner.id;
+    setAccent(board, owner.id);
     readout.innerHTML = `<strong><b>${tokenLabel(cell.scope.fromToken)} → ${tokenLabel(cell.scope.toToken)}</b><em>${Math.round(cell.currentTimeToTypeMs)} ms</em></strong><small>${cell.timingSamples} 個乾淨樣本 · 僅在畫面中的同類實際鍵間轉換中比較</small><span>${exactTransitionHistoryLabel(cell)} · 暫時預覽；點擊後固定 · 線粗＝樣本支持；越深紅＝相對越慢</span>`;
   };
 
@@ -88,43 +95,51 @@ export function mountAnalysisV2SpeedPreview(
       readout.innerHTML = baselineReadoutHtml;
       setAccent(board, baselineAccentId);
     }
-    clearPreviewState();
+    clearRenderedPreviewState();
+  };
+
+  const syncPreview = (): void => {
+    const board = currentBoard();
+    if (pointerOwner !== null && pointerOwner.board !== board) pointerOwner = null;
+    if (focusOwner !== null && focusOwner.board !== board) focusOwner = null;
+    const owner = pointerOwner ?? focusOwner;
+    if (owner !== null) {
+      showPreview(owner);
+      return;
+    }
+    restorePreview();
   };
 
   const pointerOver = (event: PointerEvent): void => {
-    const id = relationId(event.target);
-    if (id === null || isCurrentPreview(id)) return;
-    showPreview(id);
+    const owner = relationOwner(event.target);
+    if (owner === null) return;
+    pointerOwner = owner;
+    syncPreview();
   };
 
   const pointerOut = (event: PointerEvent): void => {
-    const from = relationId(event.target);
-    if (from === null || from !== activePreviewId) return;
-    const to = relationId(event.relatedTarget);
-    if (to === from) return;
-    if (to !== null) {
-      showPreview(to);
-      return;
-    }
-    restorePreview();
+    const from = relationOwner(event.target);
+    if (from === null || pointerOwner?.id !== from.id || pointerOwner.board !== from.board) return;
+    const to = relationOwner(event.relatedTarget);
+    if (to?.id === from.id && to.board === from.board) return;
+    pointerOwner = to;
+    syncPreview();
   };
 
   const focusIn = (event: FocusEvent): void => {
-    const id = relationId(event.target);
-    if (id === null || isCurrentPreview(id)) return;
-    showPreview(id);
+    const owner = relationOwner(event.target);
+    if (owner === null) return;
+    focusOwner = owner;
+    syncPreview();
   };
 
   const focusOut = (event: FocusEvent): void => {
-    const from = relationId(event.target);
-    if (from === null || from !== activePreviewId) return;
-    const to = relationId(event.relatedTarget);
-    if (to === from) return;
-    if (to !== null) {
-      showPreview(to);
-      return;
-    }
-    restorePreview();
+    const from = relationOwner(event.target);
+    if (from === null || focusOwner?.id !== from.id || focusOwner.board !== from.board) return;
+    const to = relationOwner(event.relatedTarget);
+    if (to?.id === from.id && to.board === from.board) return;
+    focusOwner = to;
+    syncPreview();
   };
 
   host.addEventListener("pointerover", pointerOver);
@@ -138,7 +153,9 @@ export function mountAnalysisV2SpeedPreview(
       host.removeEventListener("pointerout", pointerOut);
       host.removeEventListener("focusin", focusIn);
       host.removeEventListener("focusout", focusOut);
-      clearPreviewState();
+      pointerOwner = null;
+      focusOwner = null;
+      clearRenderedPreviewState();
     },
   };
 }
