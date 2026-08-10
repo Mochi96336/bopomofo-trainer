@@ -119,6 +119,7 @@ async function openAnalysis(page: Page): Promise<void> {
   await page.goto("/");
   await page.locator("#open-information").click();
   await page.locator(".analysis-v2-open").click();
+  await page.waitForTimeout(340);
 }
 
 test("pairs Strategy projection and readout on the same viewport rail as other Analysis views", async ({ page }) => {
