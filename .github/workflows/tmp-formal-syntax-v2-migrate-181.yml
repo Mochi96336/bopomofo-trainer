@@ -1,0 +1,35 @@
+name: tmp formal syntax v2 morphology migration
+
+on:
+  push:
+    branches:
+      - agent/formal-syntax-v2-active-morphology-evidence
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Rebuild pinned runtime morphology
+        run: npx tsx scripts/migrate-active-runtime-morphology.ts --write
+      - name: Commit generated active profiles
+        shell: bash
+        run: |
+          if git diff --quiet -- data/grammar/formal-syntax-active-catalog-profiles.json; then
+            echo "active morphology artifact already current"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/grammar/formal-syntax-active-catalog-profiles.json
+          git commit -m "feat: activate reviewed runtime morphology evidence"
+          git push
