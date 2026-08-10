@@ -1,5 +1,16 @@
 import type { PracticeMode, TokenId } from "../core/model.js";
 import {
+  coordinationAggregateKey,
+  immediateHandAggregateKey,
+  sameHandRevisitAggregateKey,
+  toneCommitAggregateKey,
+  type CoordinationAggregateScope,
+  type ImmediateHandAggregateScope,
+  type SameHandRevisitAggregateScope,
+  type ToneCommitAggregateScope,
+} from "../measurement-v2/aggregate.js";
+import type { CoordinationHandShape, ExplicitHand } from "../measurement-v2/types.js";
+import {
   PROGRESS_HISTORY_POLICY,
   validateProgressHistoryPolicy,
   type ProgressHistoryPolicy,
@@ -8,16 +19,13 @@ import {
   PROGRESS_HISTORY_SCHEMA_VERSION,
   type CorrectnessTrendPoint,
   type KeyProgressHistory,
+  type MotorProgressHistory,
+  type MotorTimingProgressHistory,
   type ProgressHistory,
   type TimingTrendPoint,
 } from "./types.js";
 
-/**
- * Upper bound on distinct keys a stored history may describe. The standard
- * layout binds far fewer tokens than this; the gate exists so an imported
- * backup cannot inject an arbitrarily large payload before token identity is
- * even checked.
- */
+const LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION = 2;
 export const PROGRESS_HISTORY_KEY_LIMIT = 128;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -53,8 +61,6 @@ function parseCorrectnessPoint(
     || !isFiniteNonNegative(value.errorRatio)
     || (value.errorRatio as number) > 1
   ) return null;
-  // The ratio is derived, so a stored value that disagrees with its own counts
-  // is a corrupted or hand-edited record rather than something to recompute.
   const expected = Math.round(
     ((value.errors as number) / (value.attempts as number)) * 1e6,
   ) / 1e6;
@@ -105,13 +111,45 @@ function parseSeries<T>(
     if (previous !== undefined) {
       const before = order(previous);
       const current = order(point);
-      // Points are cumulative slices of the same series: they must advance and
-      // must never repeat, so duplicates and reordered arrays are rejected.
       if (current.ending <= before.ending || current.round < before.round) return null;
     }
     points.push(point);
   }
   return points;
+}
+
+function parsePartialTimingState(
+  value: Record<string, unknown>,
+  policy: ProgressHistoryPolicy,
+  lastCompletedRound: number,
+): {
+  readonly timing: readonly TimingTrendPoint[];
+  readonly partialTiming: { readonly samples: readonly number[] };
+  readonly totalTimingSamples: number;
+} | null {
+  if (
+    !isRecord(value.partialTiming)
+    || !Array.isArray(value.partialTiming.samples)
+    || value.partialTiming.samples.length >= policy.timingBucketSize
+    || value.partialTiming.samples.some((sample) => !isFiniteNonNegative(sample))
+    || !isNonNegativeInteger(value.totalTimingSamples)
+  ) return null;
+  const timing = parseSeries(
+    value.timing,
+    policy,
+    (candidate) => parseTimingPoint(candidate, policy),
+    (point) => ({ ending: point.endingSample, round: point.completedRound }),
+  );
+  if (timing === null || (timing.at(-1)?.completedRound ?? 0) > lastCompletedRound) return null;
+  if (
+    (value.totalTimingSamples as number)
+      !== (timing.at(-1)?.endingSample ?? 0) + value.partialTiming.samples.length
+  ) return null;
+  return {
+    timing,
+    partialTiming: { samples: value.partialTiming.samples as number[] },
+    totalTimingSamples: value.totalTimingSamples as number,
+  };
 }
 
 function parseKeyProgressHistory(
@@ -122,18 +160,12 @@ function parseKeyProgressHistory(
 ): KeyProgressHistory | null {
   if (!isRecord(value) || !isRecord(value.partialCorrectness)) return null;
   const partialCorrectness = value.partialCorrectness;
-  const partialTiming = value.partialTiming;
   if (
     !isNonNegativeInteger(partialCorrectness.attempts)
     || !isNonNegativeInteger(partialCorrectness.errors)
     || (partialCorrectness.errors as number) > (partialCorrectness.attempts as number)
     || (partialCorrectness.attempts as number) >= policy.correctnessBucketSize
-    || !isRecord(partialTiming)
-    || !Array.isArray(partialTiming.samples)
-    || partialTiming.samples.length >= policy.timingBucketSize
-    || partialTiming.samples.some((sample) => !isFiniteNonNegative(sample))
     || !isNonNegativeInteger(value.totalObservations)
-    || !isNonNegativeInteger(value.totalTimingSamples)
   ) return null;
 
   const correctness = parseSeries(
@@ -142,43 +174,158 @@ function parseKeyProgressHistory(
     (candidate) => parseCorrectnessPoint(candidate, policy),
     (point) => ({ ending: point.endingObservation, round: point.completedRound }),
   );
-  const timing = parseSeries(
-    value.timing,
-    policy,
-    (candidate) => parseTimingPoint(candidate, policy),
-    (point) => ({ ending: point.endingSample, round: point.completedRound }),
-  );
-  if (correctness === null || timing === null) return null;
+  const timingState = parsePartialTimingState(value, policy, lastCompletedRound);
+  if (correctness === null || timingState === null) return null;
 
   const latestCorrectness = correctness.at(-1);
-  const latestTiming = timing.at(-1);
-  if (
-    (latestCorrectness?.completedRound ?? 0) > lastCompletedRound
-    || (latestTiming?.completedRound ?? 0) > lastCompletedRound
-  ) return null;
-  // A total is exactly the newest closed point's cumulative index plus the open
-  // bucket, even after the oldest points have been dropped by the history
-  // limit. Anything else was not produced by the append path.
+  if ((latestCorrectness?.completedRound ?? 0) > lastCompletedRound) return null;
   if (
     (value.totalObservations as number)
       !== (latestCorrectness?.endingObservation ?? 0) + (partialCorrectness.attempts as number)
-    || (value.totalTimingSamples as number)
-      !== (latestTiming?.endingSample ?? 0) + partialTiming.samples.length
-    || (value.totalTimingSamples as number) > (value.totalObservations as number)
+    || timingState.totalTimingSamples > (value.totalObservations as number)
   ) return null;
 
   return {
     tokenId,
     correctness,
-    timing,
+    timing: timingState.timing,
     partialCorrectness: {
       attempts: partialCorrectness.attempts as number,
       errors: partialCorrectness.errors as number,
     },
-    partialTiming: { samples: partialTiming.samples as number[] },
+    partialTiming: timingState.partialTiming,
     totalObservations: value.totalObservations as number,
-    totalTimingSamples: value.totalTimingSamples as number,
+    totalTimingSamples: timingState.totalTimingSamples,
   };
+}
+
+function explicitHand(value: unknown): value is ExplicitHand {
+  return value === "left" || value === "right";
+}
+
+function handShape(value: unknown): value is CoordinationHandShape {
+  return value === "left-only"
+    || value === "right-only"
+    || value === "mixed"
+    || value === "unknown";
+}
+
+function parseCoordinationScope(value: unknown): CoordinationAggregateScope | null {
+  if (!isRecord(value)) return null;
+  if ((value.bodySize !== "2" && value.bodySize !== "3" && value.bodySize !== "4+")
+    || !handShape(value.handShape)) return null;
+  return { bodySize: value.bodySize, handShape: value.handShape };
+}
+
+function parseImmediateHandScope(value: unknown): ImmediateHandAggregateScope | null {
+  if (!isRecord(value) || !explicitHand(value.fromHand) || !explicitHand(value.toHand)) return null;
+  return { fromHand: value.fromHand, toHand: value.toHand };
+}
+
+function parseSameHandScope(value: unknown): SameHandRevisitAggregateScope | null {
+  if (!isRecord(value) || !explicitHand(value.hand) || typeof value.oppositeHandIntervened !== "boolean") {
+    return null;
+  }
+  return { hand: value.hand, oppositeHandIntervened: value.oppositeHandIntervened };
+}
+
+function parseToneScope(
+  value: unknown,
+  validTokens: ReadonlySet<string>,
+): ToneCommitAggregateScope | null {
+  if (!isRecord(value) || typeof value.toneToken !== "string") return null;
+  if (!value.toneToken.startsWith("tone:") || !validTokens.has(value.toneToken)) return null;
+  return { toneToken: value.toneToken };
+}
+
+function parseMotorTimingHistory<Scope>(
+  value: unknown,
+  scope: Scope,
+  policy: ProgressHistoryPolicy,
+  lastCompletedRound: number,
+): MotorTimingProgressHistory<Scope> | null {
+  if (!isRecord(value)) return null;
+  const timingState = parsePartialTimingState(value, policy, lastCompletedRound);
+  if (timingState === null) return null;
+  return { scope, ...timingState };
+}
+
+function parseMotorFamily<Scope>(
+  value: unknown,
+  parseScope: (value: unknown) => Scope | null,
+  keyOf: (scope: Scope) => string,
+  maximumKeys: number,
+  policy: ProgressHistoryPolicy,
+  lastCompletedRound: number,
+): Readonly<Record<string, MotorTimingProgressHistory<Scope>>> | null {
+  if (!isRecord(value)) return null;
+  const entries = Object.entries(value);
+  if (entries.length > maximumKeys) return null;
+  const parsed: [string, MotorTimingProgressHistory<Scope>][] = [];
+  for (const [storedKey, candidate] of entries) {
+    if (!isRecord(candidate)) return null;
+    const scope = parseScope(candidate.scope);
+    if (scope === null || keyOf(scope) !== storedKey) return null;
+    const history = parseMotorTimingHistory(candidate, scope, policy, lastCompletedRound);
+    if (history === null) return null;
+    parsed.push([storedKey, history]);
+  }
+  return Object.fromEntries(
+    parsed.sort(([left], [right]) => codeUnitCompare(left, right)),
+  );
+}
+
+function emptyMotorProgressHistory(): MotorProgressHistory {
+  return {
+    coordination: {},
+    immediateHands: {},
+    sameHandRevisits: {},
+    toneCommits: {},
+  };
+}
+
+function parseMotorProgressHistory(
+  value: unknown,
+  validTokens: ReadonlySet<string>,
+  policy: ProgressHistoryPolicy,
+  lastCompletedRound: number,
+): MotorProgressHistory | null {
+  if (!isRecord(value)) return null;
+  const coordination = parseMotorFamily(
+    value.coordination,
+    parseCoordinationScope,
+    coordinationAggregateKey,
+    12,
+    policy,
+    lastCompletedRound,
+  );
+  const immediateHands = parseMotorFamily(
+    value.immediateHands,
+    parseImmediateHandScope,
+    immediateHandAggregateKey,
+    4,
+    policy,
+    lastCompletedRound,
+  );
+  const sameHandRevisits = parseMotorFamily(
+    value.sameHandRevisits,
+    parseSameHandScope,
+    sameHandRevisitAggregateKey,
+    4,
+    policy,
+    lastCompletedRound,
+  );
+  const toneCommits = parseMotorFamily(
+    value.toneCommits,
+    (scope) => parseToneScope(scope, validTokens),
+    toneCommitAggregateKey,
+    Math.max(1, [...validTokens].filter((token) => token.startsWith("tone:")).length),
+    policy,
+    lastCompletedRound,
+  );
+  if (coordination === null || immediateHands === null
+    || sameHandRevisits === null || toneCommits === null) return null;
+  return { coordination, immediateHands, sameHandRevisits, toneCommits };
 }
 
 export function serializeProgressHistory(history: ProgressHistory): string {
@@ -199,10 +346,14 @@ export function parseProgressHistory(
   } catch {
     return null;
   }
+  if (!isRecord(parsed)) return null;
+  const schemaVersion = parsed.schemaVersion;
   if (
-    !isRecord(parsed)
-    || parsed.schemaVersion !== PROGRESS_HISTORY_SCHEMA_VERSION
-    || parsed.mode !== expectedMode
+    schemaVersion !== PROGRESS_HISTORY_SCHEMA_VERSION
+    && schemaVersion !== LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION
+  ) return null;
+  if (
+    parsed.mode !== expectedMode
     || parsed.layoutId !== expectedLayoutId
     || !isNonNegativeInteger(parsed.lastCompletedRound)
     || !isRecord(parsed.keys)
@@ -224,6 +375,16 @@ export function parseProgressHistory(
     keys.push([tokenId, entry]);
   }
 
+  const motor = schemaVersion === LEGACY_PROGRESS_HISTORY_SCHEMA_VERSION
+    ? emptyMotorProgressHistory()
+    : parseMotorProgressHistory(
+        parsed.motor,
+        validTokens,
+        policy,
+        parsed.lastCompletedRound as number,
+      );
+  if (motor === null) return null;
+
   return {
     schemaVersion: PROGRESS_HISTORY_SCHEMA_VERSION,
     mode: expectedMode,
@@ -232,5 +393,6 @@ export function parseProgressHistory(
     keys: Object.fromEntries(
       keys.sort(([left], [right]) => codeUnitCompare(left, right)),
     ),
+    motor,
   };
 }
