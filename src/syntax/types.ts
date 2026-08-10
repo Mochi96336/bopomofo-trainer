@@ -42,14 +42,16 @@ export interface SyntaxCompatibilityEvidence {
   readonly dependencyRelationCounts: DependencyCountMap;
   readonly surfacePositionCounts: DependencyCountMap;
   /**
-   * Runtime only needs feature presence, but keeps the count-map shape shared
-   * with full source profiles. The compact codec collapses positive counts to 1.
+   * Runtime morphology was added after the v1 active-profile artifact shipped.
+   * Keep it optional so those committed profiles remain readable; source-profile
+   * projections below still require the complete morphology count map.
    */
-  readonly morphologicalFeatureCounts: DependencyCountMap;
+  readonly morphologicalFeatureCounts?: DependencyCountMap;
 }
 export interface DependencyEvidence extends SyntaxCompatibilityEvidence {
   readonly evidenceScope: SyntaxEvidenceScope;
   readonly occurrenceCount: number;
+  readonly morphologicalFeatureCounts: DependencyCountMap;
   readonly parentUposCounts: DependencyCountMap;
   readonly headDirectionCounts: DependencyCountMap;
   readonly surfacePositionCounts: DependencyCountMap;
