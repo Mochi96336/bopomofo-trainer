@@ -18,7 +18,7 @@ function expectedKeyHeight(width: number, height: number): number {
   return Math.max(23, Math.min(48, Math.min(width * 0.037, height * 0.032)));
 }
 
-test("scales Coordination and Semantic together only when width and height both have room", async ({ page }) => {
+test("scales all primary frames together only when width and height both have room", async ({ page }) => {
   for (const viewport of [
     { width: 700, height: 900 },
     { width: 1440, height: 900 },
@@ -57,17 +57,22 @@ test("scales Coordination and Semantic together only when width and height both 
       };
     });
 
+    await analysis.locator('[data-tab="strategy"]').click();
+    const strategyWidth = await analysis.locator(".analysis-v2-strategy-trajectory")
+      .evaluate((node) => (node as HTMLElement).getBoundingClientRect().width);
+
     const expectedWidth = expectedBoardWidth(viewport.width, viewport.height);
     const expectedHeight = expectedKeyHeight(viewport.width, viewport.height);
     expect(Math.abs(coordination.width - expectedWidth)).toBeLessThanOrEqual(1);
     expect(Math.abs(semantic.slotWidth - expectedWidth)).toBeLessThanOrEqual(1);
     expect(Math.abs(semantic.keyboardWidth - coordination.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(strategyWidth - coordination.width)).toBeLessThanOrEqual(1);
     expect(Math.abs(coordination.keyHeight - expectedHeight)).toBeLessThanOrEqual(1);
     expect(Math.abs(semantic.keyHeight - coordination.keyHeight)).toBeLessThanOrEqual(1);
   }
 });
 
-test("keeps enlarged high-resolution keyboards clear of fixed evidence and methodology", async ({ page }) => {
+test("keeps enlarged high-resolution primary objects clear of fixed evidence and methodology", async ({ page }) => {
   for (const viewport of [
     { width: 1920, height: 1440 },
     { width: 2560, height: 1440 },
@@ -86,13 +91,13 @@ test("keeps enlarged high-resolution keyboards clear of fixed evidence and metho
       const methodRect = method.getBoundingClientRect();
       return {
         boardReadoutGap: readoutRect.top - boardRect.bottom,
-        methodReadoutGap: methodRect.left - readoutRect.right,
-        methodRight: methodRect.right,
-        readoutRight: readoutRect.right,
+        methodRightDelta: Math.abs(methodRect.right - readoutRect.right),
+        viewportOverflow: Math.max(0, boardRect.right - innerWidth, -boardRect.left),
       };
     });
     expect(coordination.boardReadoutGap).toBeGreaterThanOrEqual(12);
-    expect(Math.abs(coordination.methodRight - coordination.readoutRight)).toBeLessThanOrEqual(1);
+    expect(coordination.methodRightDelta).toBeLessThanOrEqual(1);
+    expect(coordination.viewportOverflow).toBeLessThanOrEqual(1);
 
     await analysis.locator('[data-tab="semantic"]').click();
     await analysis.locator('[data-action="select-key"]').first().click();
@@ -120,6 +125,30 @@ test("keeps enlarged high-resolution keyboards clear of fixed evidence and metho
     expect(semantic.inspectorRailGap).toBeGreaterThanOrEqual(-1);
     expect(semantic.methodRightDelta).toBeLessThanOrEqual(1);
     expect(semantic.viewportOverflow).toBeLessThanOrEqual(1);
+
+    await analysis.locator('[data-tab="strategy"]').click();
+    const strategy = await analysis.evaluate((host) => {
+      const trajectory = host.querySelector<HTMLElement>(".analysis-v2-strategy-trajectory")!;
+      const projection = host.querySelector<HTMLElement>(".analysis-v2-strategy-projection")!;
+      const readout = host.querySelector<HTMLElement>(".analysis-v2-strategy-readout")!;
+      const headline = readout.querySelector<HTMLElement>("strong")!;
+      const method = host.querySelector<HTMLElement>(".analysis-v2-strategy-domain > .analysis-v2-method")!;
+      const trajectoryRect = trajectory.getBoundingClientRect();
+      const projectionRect = projection.getBoundingClientRect();
+      const readoutRect = readout.getBoundingClientRect();
+      const headlineRect = headline.getBoundingClientRect();
+      const methodRect = method.getBoundingClientRect();
+      return {
+        trajectoryReadoutGap: readoutRect.top - trajectoryRect.bottom,
+        projectionHeadlineGap: headlineRect.left - projectionRect.right,
+        methodRightDelta: Math.abs(methodRect.right - trajectoryRect.right),
+        viewportOverflow: Math.max(0, trajectoryRect.right - innerWidth, -trajectoryRect.left),
+      };
+    });
+    expect(strategy.trajectoryReadoutGap).toBeGreaterThanOrEqual(12);
+    expect(strategy.projectionHeadlineGap).toBeGreaterThanOrEqual(16);
+    expect(strategy.methodRightDelta).toBeLessThanOrEqual(1);
+    expect(strategy.viewportOverflow).toBeLessThanOrEqual(1);
   }
 });
 
