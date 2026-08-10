@@ -18,7 +18,12 @@ export interface ActiveCatalogSyntaxProfilesArtifact {
   readonly determinismDigest: string;
 }
 
+function validCountMap(value: unknown): boolean {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function validProfile(profile: RuntimeSyntaxProfile): boolean {
+  const morphology = profile.dependencyEvidence?.morphologicalFeatureCounts;
   return typeof profile.id === "string"
     && profile.id.length > 0
     && typeof profile.entryId === "string"
@@ -29,9 +34,11 @@ function validProfile(profile: RuntimeSyntaxProfile): boolean {
     && Array.isArray(profile.provenanceIds)
     && typeof profile.dependencyEvidence === "object"
     && profile.dependencyEvidence !== null
-    && typeof profile.dependencyEvidence.dependencyRelationCounts === "object"
-    && typeof profile.dependencyEvidence.surfacePositionCounts === "object"
-    && typeof profile.dependencyEvidence.morphologicalFeatureCounts === "object";
+    && validCountMap(profile.dependencyEvidence.dependencyRelationCounts)
+    && validCountMap(profile.dependencyEvidence.surfacePositionCounts)
+    // v1 active profiles predate runtime morphology. Missing means no reviewed
+    // runtime morphology evidence; malformed present values still fail closed.
+    && (morphology === undefined || validCountMap(morphology));
 }
 
 /**
