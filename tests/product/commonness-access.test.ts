@@ -66,6 +66,7 @@ function measurements(practised: number, cleanInputs = 8): MeasurementSummaryV2 
     },
     motor: {
       coordination: {},
+      immediateTokens: {},
       immediateHands: {},
       sameHandRevisits: {},
       toneCommits: {},

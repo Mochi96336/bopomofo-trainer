@@ -59,6 +59,7 @@ export function deriveMeasurementObservationsV2(
   const confusions: MeasurementObservationsV2["confusions"][number][] = [];
   const inputOrderPositions: MeasurementObservationsV2["inputOrderPositions"][number][] = [];
   const coordination: MeasurementObservationsV2["coordination"][number][] = [];
+  const immediateTokens: MeasurementObservationsV2["immediateTokens"][number][] = [];
   const immediateHands: MeasurementObservationsV2["immediateHands"][number][] = [];
   const sameHandRevisits: MeasurementObservationsV2["sameHandRevisits"][number][] = [];
   const toneCommits: MeasurementObservationsV2["toneCommits"][number][] = [];
@@ -193,13 +194,24 @@ export function deriveMeasurementObservationsV2(
     if (isAccepted(trace)) {
       const hand = explicitHand(trace.physicalCode);
       if (previousAccepted !== null) {
+        const boundary = boundaryBetween(previousAccepted, trace);
+        if (previousAccepted.matchedToken !== null && trace.matchedToken !== null) {
+          immediateTokens.push({
+            traceSequence: trace.sequence,
+            fromToken: previousAccepted.matchedToken,
+            toToken: trace.matchedToken,
+            boundary,
+            timingMs: trace.elapsedSincePreviousAcceptedMs,
+            clean: !noiseSinceAccepted,
+          });
+        }
         const previousHand = explicitHand(previousAccepted.physicalCode);
         if (hand !== null && previousHand !== null) {
           immediateHands.push({
             traceSequence: trace.sequence,
             fromHand: previousHand,
             toHand: hand,
-            boundary: boundaryBetween(previousAccepted, trace),
+            boundary,
             timingMs: trace.elapsedSincePreviousAcceptedMs,
             clean: !noiseSinceAccepted,
           });
@@ -252,6 +264,7 @@ export function deriveMeasurementObservationsV2(
     confusions,
     inputOrderPositions,
     coordination,
+    immediateTokens,
     immediateHands,
     sameHandRevisits,
     toneCommits,

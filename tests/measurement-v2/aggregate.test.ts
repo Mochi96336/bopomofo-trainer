@@ -4,6 +4,7 @@ import {
   bindingAggregateKey,
   createEmptyMeasurementSummaryV2,
   immediateHandAggregateKey,
+  immediateTokenAggregateKey,
   sameHandRevisitAggregateKey,
 } from "../../src/measurement-v2/aggregate.js";
 import type {
@@ -17,6 +18,7 @@ function emptyObservations(): MeasurementObservationsV2 {
     confusions: [],
     inputOrderPositions: [],
     coordination: [],
+    immediateTokens: [],
     immediateHands: [],
     sameHandRevisits: [],
     toneCommits: [],
@@ -48,6 +50,47 @@ describe("measurement v2 aggregation", () => {
       bestTimeToTypeMs: 100,
     });
     expect(summary.semantic.ambiguousErrors).toBe(3);
+  });
+
+  it("keeps exact accepted-token identity while rejecting dirty and boundary timing", () => {
+    const observations: MeasurementObservationsV2 = {
+      ...emptyObservations(),
+      immediateTokens: [
+        {
+          traceSequence: 2,
+          fromToken: "zhuyin:ㄩ",
+          toToken: "zhuyin:ㄒ",
+          boundary: "within-syllable",
+          timingMs: 40,
+          clean: true,
+        },
+        {
+          traceSequence: 3,
+          fromToken: "zhuyin:ㄩ",
+          toToken: "zhuyin:ㄒ",
+          boundary: "within-syllable",
+          timingMs: 80,
+          clean: false,
+        },
+        {
+          traceSequence: 4,
+          fromToken: "zhuyin:ㄩ",
+          toToken: "zhuyin:ㄒ",
+          boundary: "syllable-boundary",
+          timingMs: 100,
+          clean: true,
+        },
+      ],
+    };
+    const summary = aggregateMeasurementObservationsV2(observations);
+    const key = immediateTokenAggregateKey({ fromToken: "zhuyin:ㄩ", toToken: "zhuyin:ㄒ" });
+    expect(summary.motor.immediateTokens[key]).toEqual({
+      scope: { fromToken: "zhuyin:ㄩ", toToken: "zhuyin:ㄒ" },
+      observations: 3,
+      timingSamples: 1,
+      currentTimeToTypeMs: 40,
+      bestTimeToTypeMs: 40,
+    });
   });
 
   it("retains dirty and boundary motor observations without admitting them as timing samples", () => {
@@ -100,7 +143,7 @@ describe("measurement v2 aggregation", () => {
     });
   });
 
-  it("keeps motor aggregate cardinality bounded instead of multiplying observation features", () => {
+  it("keeps low-dimensional motor aggregate cardinality bounded instead of multiplying observation features", () => {
     const hands: readonly ExplicitHand[] = ["left", "right"];
     const immediateHands: MeasurementObservationsV2["immediateHands"][number][] = [];
     const sameHandRevisits: MeasurementObservationsV2["sameHandRevisits"][number][] = [];
@@ -225,6 +268,7 @@ describe("measurement v2 aggregation", () => {
       currentTimeToTypeMs: 100,
       bestTimeToTypeMs: 100,
     });
+    expect(createEmptyMeasurementSummaryV2().motor.immediateTokens).toEqual({});
     expect(createEmptyMeasurementSummaryV2().motor.immediateHands).toEqual({});
   });
 });

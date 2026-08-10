@@ -16,6 +16,9 @@ test("surfaces motor evidence through the integrated Analysis V2 summary", async
   await page.locator('[data-action="select-tab"][data-tab="coordination"]').click();
   const coordination = page.locator("#analysis-v2-coordination-title").locator("..");
   await expect(coordination).toContainText("不同動作類型不以絕對毫秒互相比弱");
+  await expect(page.getByRole("heading", { name: "實際鍵間速度" })).toBeVisible();
+  await expect(page.locator(".analysis-v2-speed-board")).toBeVisible();
+  await expect(page.locator(".analysis-v2-speed-svg marker")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "標準指法手別轉換" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "同側鍵位再出手" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "聲調完成" })).toBeVisible();

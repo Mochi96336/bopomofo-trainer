@@ -2,6 +2,7 @@ import type { TokenId } from "../core/model.js";
 import type {
   CoordinationAggregateScope,
   ImmediateHandAggregateScope,
+  ImmediateTokenAggregateScope,
   InputOrderPositionAggregate,
   MeasurementSummaryV2,
   MotorTimingAggregate,
@@ -43,10 +44,14 @@ export interface AnalysisV2SemanticModel {
 }
 
 export interface AnalysisV2CoordinationModel {
+  /** Exact observed accepted-token edges used by the keyboard speed map. */
+  readonly immediateTokens: readonly AnalysisV2MotorCell<ImmediateTokenAggregateScope>[];
   readonly coordination: readonly AnalysisV2MotorCell<CoordinationAggregateScope>[];
   readonly immediateHands: readonly AnalysisV2MotorCell<ImmediateHandAggregateScope>[];
   readonly sameHandRevisits: readonly AnalysisV2MotorCell<SameHandRevisitAggregateScope>[];
   readonly toneCommits: readonly AnalysisV2MotorCell<ToneCommitAggregateScope>[];
+  readonly observedTokenTransitions: number;
+  readonly readyTokenTransitions: number;
   readonly observedScopes: number;
   readonly readyScopes: number;
   readonly cleanTimingSamples: number;
@@ -96,6 +101,9 @@ export function buildAnalysisV2Model(
   measurements: MeasurementSummaryV2,
   history: ProgressHistory | null,
 ): AnalysisV2Model {
+  // Exact token transitions intentionally have no history series yet. They are
+  // persisted only as bounded cumulative motor aggregates for the speed map.
+  const immediateTokens = joinMotorFamily(measurements.motor.immediateTokens, undefined);
   const coordination = joinMotorFamily(
     measurements.motor.coordination,
     history?.motor.coordination,
@@ -112,6 +120,9 @@ export function buildAnalysisV2Model(
     measurements.motor.toneCommits,
     history?.motor.toneCommits,
   );
+  // Keep the summary count on the four low-dimensional comparable families.
+  // Exact token pairs are reported separately so a growing sparse network does
+  // not make "coordination scopes" look like a single giant metric family.
   const motor = [
     ...coordination,
     ...immediateHands,
@@ -134,10 +145,13 @@ export function buildAnalysisV2Model(
       repeatedConfusions: countRepeatedConfusions(semantic.confusions),
     },
     coordination: {
+      immediateTokens,
       coordination,
       immediateHands,
       sameHandRevisits,
       toneCommits,
+      observedTokenTransitions: immediateTokens.filter((row) => row.observations > 0).length,
+      readyTokenTransitions: immediateTokens.filter((row) => row.ready).length,
       observedScopes: motor.filter((row) => row.observations > 0).length,
       readyScopes: motor.filter((row) => row.ready).length,
       cleanTimingSamples: motor.reduce((sum, row) => sum + row.timingSamples, 0),

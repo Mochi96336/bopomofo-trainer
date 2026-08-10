@@ -2,6 +2,7 @@ import type { BindingSkillScope, PracticeMode, TokenId } from "../core/model.js"
 import {
   coordinationTimingSample,
   immediateHandTimingSample,
+  immediateTokenTimingSample,
   sameHandRevisitTimingSample,
   toneCommitTimingSample,
 } from "./timing-eligibility.js";
@@ -58,6 +59,12 @@ export interface CoordinationAggregateScope {
   readonly handShape: CoordinationHandShape;
 }
 
+/** Exact pair of actually accepted tokens, never canonical adjacency. */
+export interface ImmediateTokenAggregateScope {
+  readonly fromToken: TokenId;
+  readonly toToken: TokenId;
+}
+
 export interface ImmediateHandAggregateScope {
   readonly fromHand: ExplicitHand;
   readonly toHand: ExplicitHand;
@@ -86,6 +93,7 @@ export interface MeasurementSummaryV2 {
   };
   readonly motor: {
     readonly coordination: Readonly<Record<string, MotorTimingAggregate<CoordinationAggregateScope>>>;
+    readonly immediateTokens: Readonly<Record<string, MotorTimingAggregate<ImmediateTokenAggregateScope>>>;
     readonly immediateHands: Readonly<Record<string, MotorTimingAggregate<ImmediateHandAggregateScope>>>;
     readonly sameHandRevisits: Readonly<Record<string, MotorTimingAggregate<SameHandRevisitAggregateScope>>>;
     readonly toneCommits: Readonly<Record<string, MotorTimingAggregate<ToneCommitAggregateScope>>>;
@@ -170,6 +178,10 @@ export function coordinationAggregateKey(scope: CoordinationAggregateScope): str
   return JSON.stringify(["coordination", scope.bodySize, scope.handShape]);
 }
 
+export function immediateTokenAggregateKey(scope: ImmediateTokenAggregateScope): string {
+  return JSON.stringify(["immediate-token", scope.fromToken, scope.toToken]);
+}
+
 export function immediateHandAggregateKey(scope: ImmediateHandAggregateScope): string {
   return JSON.stringify(["immediate-hand", scope.fromHand, scope.toHand]);
 }
@@ -197,6 +209,7 @@ export function createEmptyMeasurementSummaryV2(): MeasurementSummaryV2 {
     },
     motor: {
       coordination: {},
+      immediateTokens: {},
       immediateHands: {},
       sameHandRevisits: {},
       toneCommits: {},
@@ -306,6 +319,18 @@ export function aggregateMeasurementObservationsV2(
     coordination.set(key, { scope, ...timing });
   }
 
+  const immediateTokens = seedMap(prior.motor.immediateTokens);
+  for (const observation of observations.immediateTokens) {
+    const scope: ImmediateTokenAggregateScope = {
+      fromToken: observation.fromToken,
+      toToken: observation.toToken,
+    };
+    const key = immediateTokenAggregateKey(scope);
+    const previous = immediateTokens.get(key);
+    const timing = addTiming(timingStateOf(previous), immediateTokenTimingSample(observation));
+    immediateTokens.set(key, { scope, ...timing });
+  }
+
   const immediateHands = seedMap(prior.motor.immediateHands);
   for (const observation of observations.immediateHands) {
     const scope: ImmediateHandAggregateScope = {
@@ -353,6 +378,7 @@ export function aggregateMeasurementObservationsV2(
     },
     motor: {
       coordination: sortedRecord(coordination),
+      immediateTokens: sortedRecord(immediateTokens),
       immediateHands: sortedRecord(immediateHands),
       sameHandRevisits: sortedRecord(sameHandRevisits),
       toneCommits: sortedRecord(toneCommits),
