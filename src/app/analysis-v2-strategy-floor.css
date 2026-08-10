@@ -93,7 +93,7 @@
   font-weight: 560;
 }
 
-/* Desktop Strategy shares the same 760px board/readout rail used by the other
+/* Desktop Strategy shares the same board/readout rail used by the other
    Analysis views. Projection first, conclusion second; both finish on the same
    stage baseline while the trajectory stays centered above them. */
 @media (min-width: 641px) {
@@ -125,9 +125,18 @@
   }
 }
 
-/* Narrow screens keep the projection subordinate and flowing below the plot;
-   desktop frame alignment must not turn into a squeezed two-column footer. */
+/* Narrow screens keep the projection subordinate and flowing below the plot.
+   Once the projection becomes part of normal flow, the object row must be able
+   to grow with it instead of inheriting the fixed desktop slot height. */
 @media (max-width: 640px) {
+  .analysis-v2 .analysis-v2-strategy-stage {
+    min-height: 0;
+    padding-top: 8px;
+    grid-template-rows: minmax(var(--analysis-object-slot-height), max-content) auto;
+    align-content: center;
+    gap: 20px;
+  }
+
   .analysis-v2 .analysis-v2-strategy-projection {
     position: static;
     width: 126px;
