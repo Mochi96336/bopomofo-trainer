@@ -5,6 +5,7 @@ import {
   ruleAllowedByDerivationBounds,
 } from "./derivation-limits.js";
 import { DEFAULT_DERIVATION_BOUNDS, FORMAL_GRAMMAR_VERSION } from "./features.js";
+import { presenceConstraintsSatisfied } from "./presence-constraints.js";
 import {
   EMPTY_SYNTAX_REQUIREMENTS,
   requirementsForConstituent,
@@ -299,6 +300,7 @@ function* expandCategory(
   for (const rule of rules) {
     const constituentsByKey = new Map(rule.constituents.map((item) => [item.key, item]));
     for (const counts of countVectors(rule.constituents, bounds)) {
+      if (!presenceConstraintsSatisfied(rule.constraints, counts)) continue;
       for (const order of [...rule.surfaceOrders].sort((left, right) => compareText(left.id, right.id))) {
         const ordered = order.constituentKeys.map((key) => {
           const item = constituentsByKey.get(key);
