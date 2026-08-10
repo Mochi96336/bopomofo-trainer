@@ -67,6 +67,30 @@ test("returns keyboard-led views and methodology to flow before a short desktop 
   expect(coordination.scrollable).toBe(true);
 });
 
+test("returns Movement methodology to flow in a short desktop viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 400 });
+  await openAnalysis(page);
+  const analysis = page.locator("#analysis-v2");
+  await analysis.locator('[data-action="coordination-view"][data-value="movement"]').click();
+
+  const movement = await analysis.evaluate((host) => {
+    const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
+    const grid = host.querySelector<HTMLElement>(".analysis-v2-movement-grid")!;
+    const method = host.querySelector<HTMLElement>(".analysis-v2-movement-view > .analysis-v2-method")!;
+    const gridRect = grid.getBoundingClientRect();
+    const methodRect = method.getBoundingClientRect();
+    return {
+      methodPosition: getComputedStyle(method).position,
+      methodGap: methodRect.top - gridRect.bottom,
+      scrollable: main.scrollHeight > main.clientHeight,
+    };
+  });
+
+  expect(movement.methodPosition).toBe("static");
+  expect(movement.methodGap).toBeGreaterThanOrEqual(0);
+  expect(movement.scrollable).toBe(true);
+});
+
 test("uses the shared viewport-relative rail and reserves the methodology lane at 700px", async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 900 });
   await openAnalysis(page);
