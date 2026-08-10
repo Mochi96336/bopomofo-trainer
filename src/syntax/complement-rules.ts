@@ -222,13 +222,6 @@ const CONTROL_FIXTURES: readonly ProductionFixture[] = [
 ];
 
 export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
-  production("complement.result", "Complement", [
-    constituent("result", "AdjectivePhrase", {
-      recursive: true,
-      requiredFunctions: ["complement"],
-      requiredValencyFrames: ["resultative"],
-    }),
-  ]),
   production("complement.directional", "Complement", [
     lexical("direction", ["VERB"], { requiredFeatures: { complementType: "directional" } }),
   ]),
