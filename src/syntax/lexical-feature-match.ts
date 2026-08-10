@@ -128,9 +128,9 @@ function relationSeen(profile: RuntimeSyntaxProfile, ...relations: readonly stri
 }
 
 function morphologySeen(profile: RuntimeSyntaxProfile, ...features: readonly string[]): boolean {
-  return features.some(
-    (feature) => (profile.dependencyEvidence.morphologicalFeatureCounts[feature] ?? 0) > 0,
-  );
+  const morphology = profile.dependencyEvidence.morphologicalFeatureCounts;
+  if (morphology === undefined) return false;
+  return features.some((feature) => (morphology[feature] ?? 0) > 0);
 }
 
 function negatorEvidence(profile: RuntimeSyntaxProfile): boolean {
