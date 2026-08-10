@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BODY_ONLY_REVISIT_MEASUREMENT_V2_POLICY_VERSION,
   LEGACY_MEASUREMENT_V2_POLICY_VERSION,
   PREVIOUS_MEASUREMENT_V2_POLICY_VERSION,
   createEmptyMeasurementSummaryV2,
@@ -80,6 +81,43 @@ describe("measurement v2 persistence validation", () => {
         immediateTokens: {},
       },
     });
+  });
+
+  it("migrates aggregate-4 by preserving valid evidence while resetting body-only revisits", () => {
+    const current = summaryWithImmediateHands(1);
+    const structureScope = { bodyShape: "initial-medial-final" as const };
+    const revisitScope = { hand: "right" as const, oppositeHandIntervened: false };
+    const legacy = structuredClone({
+      ...current,
+      motor: {
+        ...current.motor,
+        coordination: {
+          [coordinationAggregateKey(structureScope)]: {
+            scope: structureScope,
+            observations: 8,
+            timingSamples: 7,
+            currentTimeToTypeMs: 180,
+            bestTimeToTypeMs: 150,
+          },
+        },
+        sameHandRevisits: {
+          [sameHandRevisitAggregateKey(revisitScope)]: {
+            scope: revisitScope,
+            observations: 9,
+            timingSamples: 8,
+            currentTimeToTypeMs: 210,
+            bestTimeToTypeMs: 170,
+          },
+        },
+      },
+    }) as unknown as Record<string, unknown>;
+    legacy.policyVersion = BODY_ONLY_REVISIT_MEASUREMENT_V2_POLICY_VERSION;
+
+    const migrated = parseMeasurementSummaryV2(legacy, "guided", "zhuyin-standard", TOKENS);
+    expect(migrated?.motor.coordination).toEqual((legacy.motor as Record<string, unknown>).coordination);
+    expect(migrated?.motor.sameHandRevisits).toEqual({});
+    expect(migrated?.motor.immediateHands).toEqual(current.motor.immediateHands);
+    expect(migrated?.policyVersion).toBe(createEmptyMeasurementSummaryV2().policyVersion);
   });
 
   it("migrates aggregate-3 by preserving word structure while dropping old revisit semantics", () => {
