@@ -8,6 +8,8 @@ import type {
   CoordinationBodyShape,
   ExplicitHand,
   MeasurementObservationsV2,
+  ThreePartInputOrderPermutation,
+  TwoPartInputOrderPermutation,
 } from "./types.js";
 
 const INITIAL_SET = new Set<string>(INITIALS);
@@ -66,6 +68,42 @@ export function coordinationBodyShape(
   return null;
 }
 
+export function twoPartInputOrderPermutation(
+  canonicalIndicesInAcceptedOrder: readonly number[],
+): TwoPartInputOrderPermutation | null {
+  if (canonicalIndicesInAcceptedOrder.length !== 2) return null;
+  if (canonicalIndicesInAcceptedOrder[0] === 0 && canonicalIndicesInAcceptedOrder[1] === 1) {
+    return "first-last";
+  }
+  if (canonicalIndicesInAcceptedOrder[0] === 1 && canonicalIndicesInAcceptedOrder[1] === 0) {
+    return "last-first";
+  }
+  return null;
+}
+
+export function threePartInputOrderPermutation(
+  canonicalIndicesInAcceptedOrder: readonly number[],
+): ThreePartInputOrderPermutation | null {
+  if (canonicalIndicesInAcceptedOrder.length !== 3) return null;
+  if (new Set(canonicalIndicesInAcceptedOrder).size !== 3) return null;
+  if (canonicalIndicesInAcceptedOrder.some((index) => index < 0 || index > 2)) return null;
+  const labels = canonicalIndicesInAcceptedOrder.map((index) => (
+    index === 0 ? "first" : index === 1 ? "middle" : "last"
+  ));
+  const candidate = labels.join("-");
+  switch (candidate) {
+    case "first-middle-last":
+    case "middle-first-last":
+    case "first-last-middle":
+    case "middle-last-first":
+    case "last-first-middle":
+    case "last-middle-first":
+      return candidate;
+    default:
+      return null;
+  }
+}
+
 function isAccepted(trace: InteractionTraceV2): boolean {
   return trace.outcome === "accepted-component" || trace.outcome === "accepted-tone";
 }
@@ -105,6 +143,8 @@ export function deriveMeasurementObservationsV2(
   const bindings: MeasurementObservationsV2["bindings"][number][] = [];
   const confusions: MeasurementObservationsV2["confusions"][number][] = [];
   const inputOrderPositions: MeasurementObservationsV2["inputOrderPositions"][number][] = [];
+  const inputOrderPermutations: NonNullable<MeasurementObservationsV2["inputOrderPermutations"]>[number][] = [];
+  const inputOrderTrajectories: NonNullable<MeasurementObservationsV2["inputOrderTrajectories"]>[number][] = [];
   const coordination: MeasurementObservationsV2["coordination"][number][] = [];
   const immediateTokens: MeasurementObservationsV2["immediateTokens"][number][] = [];
   const immediateHands: MeasurementObservationsV2["immediateHands"][number][] = [];
@@ -248,6 +288,44 @@ export function deriveMeasurementObservationsV2(
 
     if (trace.outcome === "accepted-tone") {
       const events = bodyEvents.get(trace.syllableOrdinal) ?? [];
+      const canonicalIndices = events.map((event) => event.canonicalTokenIndex);
+      const completeCanonicalIndices = canonicalIndices.every(
+        (index): index is number => index !== null,
+      ) ? canonicalIndices : null;
+
+      if (events.length === 2 && completeCanonicalIndices !== null) {
+        const permutation = twoPartInputOrderPermutation(completeCanonicalIndices);
+        if (permutation !== null && !dirtyCoordination.has(trace.syllableOrdinal)) {
+          const firstTimestamp = events[0]!.timestampMs;
+          inputOrderTrajectories.push({
+            syllableOrdinal: trace.syllableOrdinal,
+            bodySize: 2,
+            permutation,
+            elapsedMs: [0, Math.max(0, events[1]!.timestampMs - firstTimestamp)],
+          });
+        }
+      }
+
+      if (events.length === 3 && completeCanonicalIndices !== null) {
+        const permutation = threePartInputOrderPermutation(completeCanonicalIndices);
+        if (permutation !== null) {
+          inputOrderPermutations.push({
+            syllableOrdinal: trace.syllableOrdinal,
+            permutation,
+          });
+          if (!dirtyCoordination.has(trace.syllableOrdinal)) {
+            const firstTimestamp = events[0]!.timestampMs;
+            const secondElapsed = Math.max(0, events[1]!.timestampMs - firstTimestamp);
+            const thirdElapsed = Math.max(0, events[2]!.timestampMs - firstTimestamp);
+            inputOrderTrajectories.push({
+              syllableOrdinal: trace.syllableOrdinal,
+              bodySize: 3,
+              permutation,
+              elapsedMs: [0, secondElapsed, thirdElapsed],
+            });
+          }
+        }
+      }
       const bodyShape = expectedBodyShape.get(trace.syllableOrdinal) ?? null;
       if (events.length >= 2 && bodyShape !== null) {
         coordination.push({
@@ -320,6 +398,8 @@ export function deriveMeasurementObservationsV2(
     bindings,
     confusions,
     inputOrderPositions,
+    inputOrderPermutations,
+    inputOrderTrajectories,
     coordination,
     immediateTokens,
     immediateHands,

@@ -100,6 +100,7 @@ function model(overrides: Partial<AnalysisV2Model> = {}): AnalysisV2Model {
     },
     strategy: {
       inputOrderPositions: [],
+      inputOrderPermutations: [],
       totalObservations: 0,
       bodySizeBucketsWithData: 0,
     },
@@ -172,16 +173,15 @@ describe("Analysis V2 evidence honesty", () => {
       .toBeGreaterThan(Number.parseFloat(b.style.getPropertyValue("--analysis-strength")));
   });
 
-  it("does not promote a one-observation strategy deviation to a 100% hero", () => {
+  it("does not promote one completed reordered word to a 100% hero", () => {
     const source = model({
       strategy: {
-        inputOrderPositions: [
-          {
-            scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "first" },
-            observations: 1,
-          },
-        ],
-        totalObservations: 1,
+        inputOrderPositions: [],
+        inputOrderPermutations: [{
+          scope: { bodySize: "3", permutation: "last-first-middle" },
+          observations: 1,
+        }],
+        totalObservations: 0,
         bodySizeBucketsWithData: 1,
       },
     });
@@ -190,23 +190,24 @@ describe("Analysis V2 evidence honesty", () => {
 
     const lead = host.querySelector(".analysis-v2-strategy-readout");
     expect(lead?.textContent).toContain("仍在累積");
-    expect(lead?.textContent).not.toContain("100%");
+    expect(lead?.textContent).not.toContain("換序輸入100%");
   });
 
-  it("promotes a strategy deviation only after its canonical row has enough support", () => {
+  it("promotes whole-word reordering only after enough completed three-part words", () => {
     const source = model({
       strategy: {
-        inputOrderPositions: [
+        inputOrderPositions: [],
+        inputOrderPermutations: [
           {
-            scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "last" },
+            scope: { bodySize: "3", permutation: "first-middle-last" },
             observations: 6,
           },
           {
-            scope: { bodySize: "3", canonicalPosition: "last", acceptedPosition: "first" },
+            scope: { bodySize: "3", permutation: "last-first-middle" },
             observations: 4,
           },
         ],
-        totalObservations: 10,
+        totalObservations: 0,
         bodySizeBucketsWithData: 1,
       },
     });
@@ -214,9 +215,10 @@ describe("Analysis V2 evidence honesty", () => {
     selectTab(host, "strategy");
 
     const lead = host.querySelector(".analysis-v2-strategy-readout");
-    expect(lead?.textContent).toContain("後 → 前");
+    expect(lead?.textContent).toContain("換序輸入");
     expect(lead?.textContent).toContain("40%");
-    expect(lead?.textContent).toContain("4 / 10");
+    expect(lead?.textContent).toContain("4 / 10 個三注音字");
+    expect(lead?.textContent).toContain("韻母 → 聲母 → 介音 40%");
   });
 
   it("keeps visible-family scope explicit in the single lower readout without adding copy above the keyboard", () => {

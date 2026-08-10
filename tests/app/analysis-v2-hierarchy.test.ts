@@ -98,6 +98,16 @@ const MODEL: AnalysisV2Model = {
         observations: 4,
       },
     ],
+    inputOrderPermutations: [
+      {
+        scope: { bodySize: "3", permutation: "first-middle-last" },
+        observations: 6,
+      },
+      {
+        scope: { bodySize: "3", permutation: "last-first-middle" },
+        observations: 4,
+      },
+    ],
     totalObservations: 16,
     bodySizeBucketsWithData: 1,
   },
@@ -176,13 +186,16 @@ describe("Analysis V2 visual hierarchy", () => {
       .toBe("e1");
   });
 
-  it("gives strategy one supported deviation anchor without changing its bounded matrix", () => {
+  it("gives Strategy one whole-word reorder anchor instead of promoting a matrix cell", () => {
     const host = open();
     selectTab(host, "strategy");
     const lead = host.querySelector(".analysis-v2-strategy-readout");
-    expect(lead?.textContent).toContain("後 → 前");
+    expect(lead?.textContent).toContain("換序輸入");
     expect(lead?.textContent).toContain("40%");
-    expect(lead?.textContent).toContain("4 / 10");
-    expect(host.querySelectorAll(".strategy-matrix")).toHaveLength(1);
+    expect(lead?.textContent).toContain("4 / 10 個三注音字");
+    expect(lead?.textContent).toContain("韻母 → 聲母 → 介音 40%");
+    expect(host.querySelectorAll(".analysis-v2-strategy-trajectory")).toHaveLength(1);
+    expect(host.querySelector(".strategy-order-table")).toBeNull();
+    expect(host.querySelector(".strategy-matrix")).toBeNull();
   });
 });
