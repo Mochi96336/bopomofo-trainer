@@ -1,29 +1,35 @@
 import { describe, expect, it } from "vitest";
-import type { ImmediateTokenAggregateScope } from "../../src/measurement-v2/aggregate.js";
-import type { AnalysisV2MotorCell } from "../../src/app/analysis-v2-model.js";
 import {
   ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES,
   buildAnalysisV2SpeedPaths,
   exactTransitionHistoryLabel,
 } from "../../src/app/analysis-v2-speed-network.js";
+import type { AnalysisV2MotorCell } from "../../src/app/analysis-v2-model.js";
+import type { ImmediateTokenAggregateScope } from "../../src/measurement-v2/aggregate.js";
 
 function cell(
   id: string,
-  fromToken: ImmediateTokenAggregateScope["fromToken"],
-  toToken: ImmediateTokenAggregateScope["toToken"],
-  currentTimeToTypeMs: number | null,
+  fromToken: string,
+  toToken: string,
+  timingMs: number | null,
   timingSamples: number,
-  history: AnalysisV2MotorCell<ImmediateTokenAggregateScope>["history"] = [],
+  history: readonly number[] = [],
   partialTimingSamples = 0,
 ): AnalysisV2MotorCell<ImmediateTokenAggregateScope> {
   return {
     id,
     scope: { fromToken, toToken },
-    observations: timingSamples,
+    observations: Math.max(1, timingSamples),
     timingSamples,
-    currentTimeToTypeMs,
-    ready: timingSamples >= 5 && currentTimeToTypeMs !== null,
-    history,
+    currentTimeToTypeMs: timingMs,
+    bestTimeToTypeMs: timingMs,
+    ready: timingMs !== null && timingSamples >= 5,
+    history: history.map((representativeTimingMs, index) => ({
+      endingSample: (index + 1) * 5,
+      completedRound: index + 1,
+      samples: 5,
+      representativeTimingMs,
+    })),
     partialTimingSamples,
   };
 }
@@ -31,21 +37,21 @@ function cell(
 describe("Analysis V2 observed speed network", () => {
   it("draws only exact edges that reached the clean timing support threshold", () => {
     const paths = buildAnalysisV2SpeedPaths([
-      cell("ready", "zhuyin:ㄅ", "zhuyin:ㄆ", 123, 5),
-      cell("sampling", "zhuyin:ㄩ", "zhuyin:ㄒ", 234, 4),
-      cell("untimed", "zhuyin:ㄝ", "tone:2", null, 8),
+      cell("ready", "zhuyin:ㄩ", "zhuyin:ㄒ", 120, 5),
+      cell("sampling", "zhuyin:ㄒ", "zhuyin:ㄩ", 110, 4),
+      cell("coverage-only", "zhuyin:ㄝ", "tone:2", null, 0),
     ]);
-    expect(paths.map((path) => path.id)).toEqual(["ready"]);
+    expect(paths).toHaveLength(1);
+    expect(paths[0]?.id).toBe("ready");
+    expect(paths[0]?.label).toContain("ㄩ 到 ㄒ");
+    expect(paths[0]?.label).toContain("近期歷史尚無完成點");
   });
 
   it("describes completed exact-transition history without converting it into a claim", () => {
-    const path = buildAnalysisV2SpeedPaths([
-      cell("history", "zhuyin:ㄅ", "zhuyin:ㄆ", 123, 8, [
-        { representativeTimingMs: 180 },
-        { representativeTimingMs: 160 },
-        { representativeTimingMs: 123 },
-      ]),
-    ])[0]!;
+    const source = cell("trend", "zhuyin:ㄅ", "zhuyin:ㄆ", 123, 18, [180, 160, 123], 3);
+    expect(exactTransitionHistoryLabel(source)).toBe("近期完成點 180 → 160 → 123 毫秒");
+    const path = buildAnalysisV2SpeedPaths([source])[0]!;
+    expect(path.label).toContain("123 毫秒，18 個乾淨樣本");
     expect(path.label).toContain("近期完成點 180 → 160 → 123 毫秒");
     expect(path.label).not.toMatch(/進步|退步|改善/u);
   });
