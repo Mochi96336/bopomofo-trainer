@@ -171,7 +171,7 @@ test("pairs the desktop Strategy projection with the shared lower-left rail", as
     - Math.max(layout.readoutTop, layout.projectionTop)).toBeGreaterThan(40);
 });
 
-test("aligns Strategy height and width with Coordination and Semantic", async ({ page }) => {
+test("aligns Strategy object frame with Coordination and Semantic while extending to the workspace floor", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installTrajectoryProgress(page);
   await page.goto("/");
@@ -225,8 +225,10 @@ test("aligns Strategy height and width with Coordination and Semantic", async ({
     expect(frame.objectWidth).toBeLessThanOrEqual(760.5);
   }
 
+  expect(Math.abs(semantic.stageHeight - coordination.stageHeight)).toBeLessThanOrEqual(1);
+  expect(strategy.stageHeight).toBeGreaterThanOrEqual(coordination.stageHeight);
+
   for (const comparison of [semantic, strategy]) {
-    expect(Math.abs(comparison.stageHeight - coordination.stageHeight)).toBeLessThanOrEqual(1);
     expect(Math.abs(comparison.slotHeight - coordination.slotHeight)).toBeLessThanOrEqual(1);
     expect(Math.abs(comparison.objectWidth - coordination.objectWidth)).toBeLessThanOrEqual(1);
     expect(Math.abs(comparison.readoutWidth - coordination.readoutWidth)).toBeLessThanOrEqual(1);
