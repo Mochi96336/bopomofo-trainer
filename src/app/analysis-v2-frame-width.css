@@ -1,8 +1,42 @@
-/* Shared non-phone Analysis primary-frame width.
-   Coordination, Semantic, and Strategy consume the same medium-width token;
-   Strategy must adapt to this frame rather than widening the other domains. */
+/* Shared non-phone Analysis primary-frame geometry.
+   The frame grows only when both viewport width and height provide room. Wide,
+   short desktops therefore keep the compact frame instead of growing a keyboard
+   into the lower reading floor. A 92vw cap preserves the existing narrow-desktop
+   behavior, while the 1080px ceiling keeps 4K layouts spacious rather than huge. */
 @media (min-width: 641px) {
   .analysis-v2 {
-    --analysis-board-width: min(760px, 92vw);
+    --analysis-board-width: min(
+      92vw,
+      clamp(760px, min(42vw, 60dvh), 1080px)
+    );
+    --analysis-key-height: clamp(23px, min(3.7vw, 3.2dvh), 48px);
+    --analysis-key-gap: clamp(3px, min(0.55vw, 0.55dvh), 9px);
+    --analysis-key-font: clamp(7px, min(0.85vw, 0.9dvh), 14px);
+    --analysis-key-perspective: clamp(520px, min(28vw, 48dvh), 720px);
+  }
+
+  /* Keyboard geometry follows the same two-dimensional scale as the shared
+     frame. Coordination and Semantic remain pixel-identical; only the primary
+     object grows, not the surrounding editorial text or controls. */
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-keyboard,
+  .analysis-v2 .analysis-v2-speed-board {
+    transform: perspective(var(--analysis-key-perspective)) rotateX(19deg);
+  }
+
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-keyboard,
+  .analysis-v2 .analysis-v2-speed-board .analysis-v2-keyboard,
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-keyboard-row,
+  .analysis-v2 .analysis-v2-speed-board .analysis-v2-keyboard-row {
+    gap: var(--analysis-key-gap);
+  }
+
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key,
+  .analysis-v2 .analysis-v2-speed-board .analysis-v2-key {
+    height: var(--analysis-key-height);
+  }
+
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key strong,
+  .analysis-v2 .analysis-v2-speed-board .analysis-v2-key strong {
+    font-size: var(--analysis-key-font);
   }
 }
