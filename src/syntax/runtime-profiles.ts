@@ -4,6 +4,15 @@ import { FORMAL_GRAMMAR_VERSION } from "./features.js";
 import { validRuntimeMorphologicalFeatureCounts } from "./runtime-morphology.js";
 import type { RuntimeSyntaxProfile } from "./types.js";
 
+export interface RuntimeMorphologyProjectionLineage {
+  readonly schemaVersion: "runtime-morphology-projection-v1";
+  readonly sourceProvenanceId: string;
+  readonly sourceVersion: string;
+  readonly sourceCommit: string;
+  readonly reviewedFeature: string;
+  readonly identityPolicy: "unique-active-entry-per-form-upos-v1";
+}
+
 export interface ActiveCatalogSyntaxProfilesArtifact {
   readonly schemaVersion: "formal-syntax-active-catalog-profiles-v1";
   readonly grammarVersion: string;
@@ -14,6 +23,7 @@ export interface ActiveCatalogSyntaxProfilesArtifact {
   readonly sourceProfileProjectionDigest: string;
   readonly sourceProfileArtifactDigest: string;
   readonly sourceRuleIndexDigest: string;
+  readonly runtimeMorphologyProjection?: RuntimeMorphologyProjectionLineage;
   readonly profileCount: number;
   readonly profiles: readonly RuntimeSyntaxProfile[];
   readonly determinismDigest: string;
@@ -21,6 +31,21 @@ export interface ActiveCatalogSyntaxProfilesArtifact {
 
 function validCountMap(value: unknown): boolean {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function validRuntimeMorphologyProjectionLineage(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+  const lineage = value as Record<string, unknown>;
+  return lineage.schemaVersion === "runtime-morphology-projection-v1"
+    && typeof lineage.sourceProvenanceId === "string"
+    && lineage.sourceProvenanceId.length > 0
+    && typeof lineage.sourceVersion === "string"
+    && lineage.sourceVersion.length > 0
+    && typeof lineage.sourceCommit === "string"
+    && /^[0-9a-f]{40}$/u.test(lineage.sourceCommit)
+    && typeof lineage.reviewedFeature === "string"
+    && lineage.reviewedFeature.length > 0
+    && lineage.identityPolicy === "unique-active-entry-per-form-upos-v1";
 }
 
 function validProfile(profile: RuntimeSyntaxProfile): boolean {
@@ -53,11 +78,17 @@ export function loadActiveCatalogSyntaxProfilesArtifact(
   artifact: ActiveCatalogSyntaxProfilesArtifact,
 ): readonly RuntimeSyntaxProfile[] {
   const { determinismDigest, ...core } = artifact;
+  const hasRuntimeMorphology = artifact.profiles.some(
+    (profile) => profile.dependencyEvidence?.morphologicalFeatureCounts !== undefined,
+  );
+  const morphologyLineage = artifact.runtimeMorphologyProjection;
   if (artifact.schemaVersion !== "formal-syntax-active-catalog-profiles-v1"
     || artifact.grammarVersion !== FORMAL_GRAMMAR_VERSION
     || artifact.catalogEntryCount !== entries.length
     || artifact.catalogDigest !== sha256Canonical(entries)
     || artifact.profileCount !== artifact.profiles.length
+    || (morphologyLineage !== undefined && !validRuntimeMorphologyProjectionLineage(morphologyLineage))
+    || (hasRuntimeMorphology && morphologyLineage === undefined)
     || determinismDigest !== sha256Canonical(core)) {
     throw new Error("active catalog syntax profiles artifact is stale or invalid");
   }
