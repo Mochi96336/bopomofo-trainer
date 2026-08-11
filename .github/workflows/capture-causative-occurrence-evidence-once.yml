@@ -1,0 +1,44 @@
+name: capture causative occurrence evidence once
+
+on:
+  push:
+    branches:
+      - agent/formal-syntax-v2-causative-occurrence-evidence-audit
+
+permissions:
+  contents: write
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/formal-syntax-v2-causative-occurrence-evidence-audit
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Capture occurrence evidence audit
+        run: npx tsx scripts/audit-causative-occurrence-evidence.ts > causative-occurrence-evidence.json
+      - name: Upload occurrence evidence audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: causative-occurrence-evidence-audit
+          path: causative-occurrence-evidence.json
+          if-no-files-found: ignore
+      - name: Remove one-shot workflow
+        if: always()
+        shell: bash
+        run: |
+          rm .github/workflows/capture-causative-occurrence-evidence-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/capture-causative-occurrence-evidence-once.yml
+          git commit -m "ci: remove causative occurrence evidence capture"
+          git push origin HEAD:agent/formal-syntax-v2-causative-occurrence-evidence-audit
