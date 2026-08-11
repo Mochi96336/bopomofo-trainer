@@ -71,11 +71,7 @@ const wordStructure = `${svgOpen}
     <circle cx="188" cy="39" r="12"/>
   </g>
   <g fill="currentColor" stroke="none" text-anchor="middle">
-    <g font-size="9" opacity=".56">
-      <text x="72" y="16">聲母</text>
-      <text x="130" y="16">介音</text>
-      <text x="188" y="16">韻母</text>
-    </g>
+    <g font-size="9" opacity=".56"><text x="72" y="16">聲母</text><text x="130" y="16">介音</text><text x="188" y="16">韻母</text></g>
     <g font-size="15" opacity=".84">
       <text x="72" y="44">ㄐ</text>
       <text x="130" y="44">ㄧ</text>
