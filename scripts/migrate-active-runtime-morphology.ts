@@ -184,17 +184,10 @@ const nextArtifact: ActiveCatalogSyntaxProfilesArtifact = {
 };
 const output = `${JSON.stringify(nextArtifact)}\n`;
 const isCurrent = output === profilesSource;
-if (candidateOutputPath !== undefined) {
-  await writeFile(resolve(candidateOutputPath), output, "utf8");
-}
-if (writeRequested && !isCurrent) await writeFile(PROFILES_URL, output, "utf8");
-if (!writeRequested && !isCurrent) {
-  throw new Error("active runtime morphology artifact is not current; rerun with --write");
-}
 const unmatchedSourceKeys = [...sourceEvidence.countsByLexemeUpos.keys()]
   .filter((key) => !identity.matchedSourceKeys.has(key))
   .sort();
-console.log(JSON.stringify({
+const summary = {
   sourceVersion: UD_SOURCE_VERSION,
   sourceCommit: UD_SOURCE_COMMIT,
   reviewedFeature: REVIEWED_FEATURE,
@@ -209,4 +202,12 @@ console.log(JSON.stringify({
   activatedProfileCount: activatedProfileIds.length,
   artifactChanged: !isCurrent,
   determinismDigest: nextArtifact.determinismDigest,
-}));
+};
+console.log(JSON.stringify(summary));
+if (candidateOutputPath !== undefined) {
+  await writeFile(resolve(candidateOutputPath), output, "utf8");
+}
+if (writeRequested && !isCurrent) await writeFile(PROFILES_URL, output, "utf8");
+if (!writeRequested && !isCurrent) {
+  throw new Error("active runtime morphology artifact is not current; rerun with --write");
+}
