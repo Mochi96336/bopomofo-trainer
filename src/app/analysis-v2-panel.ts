@@ -39,6 +39,7 @@ import {
 export type AnalysisV2Tab = "coordination" | "semantic" | "strategy";
 type SemanticView = "correctness" | "confusion";
 type CoordinationView = "paths" | "movement";
+export type MovementFamilyId = "hand-switch" | "same-side-revisit" | "word-structure" | "tone-commit";
 
 interface AnalysisV2Preferences {
   readonly activeTab: AnalysisV2Tab;
@@ -545,13 +546,14 @@ function sortedMovementRows<Scope>(
 }
 
 function movementFamilyMarkup(
+  family: MovementFamilyId,
   title: string,
   status: string,
   note: string,
   diagram: string,
   stats: readonly string[],
 ): string {
-  return `<section class="analysis-v2-movement-family">
+  return `<section class="analysis-v2-movement-family" data-movement-family="${family}">
     <header><strong>${escapeHtml(title)}</strong><small>${escapeHtml(status)}</small></header>
     ${diagram}
     ${stats.length === 0 ? "" : `<div class="analysis-v2-movement-stats">${stats.join("")}</div>`}
@@ -639,6 +641,7 @@ function movementFamiliesMarkup(model: AnalysisV2Model): string {
     <div class="analysis-v2-movement-intro"><strong>動作觀察</strong><span>diagram 先說明動作；折線只看近期變化。只有累積至少 5 個乾淨時間樣本的列才參與家族內慢→快排列；樣本中的列固定留在其後。</span></div>
     <div class="analysis-v2-movement-grid">
       ${movementFamilyMarkup(
+        "hand-switch",
         "手別轉換",
         familyStatus(model.coordination.immediateHands),
         "依標準指法鍵位分側，不代表偵測到實際使用哪隻手；可比較資料依目前代表時間由慢到快排列。",
@@ -646,6 +649,7 @@ function movementFamiliesMarkup(model: AnalysisV2Model): string {
         handStats,
       )}
       ${movementFamilyMarkup(
+        "same-side-revisit",
         "同側回返",
         familyStatus(observedRevisits),
         "比較同一音節內離開一側後回到原側的時間；連續同手已由手別轉換的左→左／右→右呈現。最後的聲調鍵可以成為回返終點，不跨音節。可比較資料依目前代表時間由慢到快排列。",
@@ -653,6 +657,7 @@ function movementFamiliesMarkup(model: AnalysisV2Model): string {
         revisitStats,
       )}
       ${movementFamilyMarkup(
+        "word-structure",
         "字內結構",
         familyStatus(observedStructures),
         "以聲母、介音、韻母的結構組合比較字內注音完成時間；可比較資料依目前代表時間由慢到快排列。",
@@ -660,6 +665,7 @@ function movementFamiliesMarkup(model: AnalysisV2Model): string {
         structureStats,
       )}
       ${movementFamilyMarkup(
+        "tone-commit",
         "聲調收尾",
         familyStatus(model.coordination.toneCommits),
         "最後一個字內注音到聲調鍵的乾淨時間；可比較資料依目前代表時間由慢到快排列。",
@@ -1077,7 +1083,6 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
       }
     }
   };
-
   host.onpointerover = (event) => {
     if (!(event.target instanceof Element)) return;
     const path = event.target.closest<SVGPathElement>(

@@ -131,6 +131,56 @@ describe("Analysis V2 model", () => {
     expect(model.strategy.bodySizeBucketsWithData).toBe(1);
   });
 
+  it("counts each clean accepted-token adjacency once across overlapping motor families", () => {
+    const measurements = aggregateMeasurementObservationsV2({
+      bindings: [],
+      confusions: [],
+      inputOrderPositions: [],
+      coordination: [],
+      immediateTokens: Array.from({ length: 5 }, (_, index) => ({
+        traceSequence: index,
+        fromToken: "zhuyin:ㄠ",
+        toToken: "zhuyin:ˇ",
+        boundary: "within-syllable" as const,
+        timingMs: 100 + index,
+        clean: true,
+      })),
+      immediateHands: Array.from({ length: 5 }, (_, index) => ({
+        traceSequence: index,
+        fromHand: "right" as const,
+        toHand: "left" as const,
+        boundary: "within-syllable" as const,
+        timingMs: 100 + index,
+        clean: true,
+      })),
+      sameHandRevisits: Array.from({ length: 5 }, (_, index) => ({
+        traceSequence: index,
+        hand: "left" as const,
+        boundary: "within-syllable" as const,
+        timingMs: 200 + index,
+        oppositeHandEventsBetween: 1,
+        clean: true,
+      })),
+      toneCommits: Array.from({ length: 5 }, (_, index) => ({
+        traceSequence: index,
+        toneToken: "zhuyin:ˇ",
+        timingMs: 100 + index,
+        clean: true,
+      })),
+      ambiguousErrorCount: 0,
+      duplicateComponentCount: 0,
+      prematureToneCount: 0,
+    });
+
+    const model = buildAnalysisV2Model(semantic, measurements, null);
+
+    expect(model.coordination.immediateTokens[0]?.timingSamples).toBe(5);
+    expect(model.coordination.immediateHands[0]?.timingSamples).toBe(5);
+    expect(model.coordination.sameHandRevisits[0]?.timingSamples).toBe(5);
+    expect(model.coordination.toneCommits[0]?.timingSamples).toBe(5);
+    expect(model.coordination.cleanTimingSamples).toBe(5);
+  });
+
   it("omits adjacent same-hand duplicates while keeping true return scopes", () => {
     let sequence = 0;
     const measurements = aggregateMeasurementObservationsV2({
@@ -173,7 +223,6 @@ describe("Analysis V2 model", () => {
     });
     expect(model.coordination.observedScopes).toBe(1);
     expect(model.coordination.readyScopes).toBe(1);
-    expect(model.coordination.cleanTimingSamples).toBe(5);
   });
 
   it("has no legacy transition domain to expose", () => {

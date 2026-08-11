@@ -1,3 +1,5 @@
+import type { MovementFamilyId } from "./analysis-v2-panel.js";
+
 interface MovementLineArt {
   readonly label: string;
   readonly markup: string;
@@ -101,20 +103,28 @@ const toneCommit = `${svgOpen}
   </g>
 ${svgClose}`;
 
-const lineArt: readonly MovementLineArt[] = [
-  { label: "鍵盤左右手切換示意", markup: handSwitch },
-  { label: "同側回返示意：離開一側後經另一側回到原側", markup: sameSideRevisit },
-  { label: "聲母、介音、韻母的字內結構示意", markup: wordStructure },
-  { label: "完成字內注音後按下聲調鍵示意", markup: toneCommit },
-];
+const lineArtByFamily: Readonly<Record<MovementFamilyId, MovementLineArt>> = {
+  "hand-switch": { label: "鍵盤左右手切換示意", markup: handSwitch },
+  "same-side-revisit": { label: "同側回返示意：離開一側後經另一側回到原側", markup: sameSideRevisit },
+  "word-structure": { label: "聲母、介音、韻母的字內結構示意", markup: wordStructure },
+  "tone-commit": { label: "完成字內注音後按下聲調鍵示意", markup: toneCommit },
+};
+
+function isMovementFamilyId(value: string | undefined): value is MovementFamilyId {
+  return value === "hand-switch"
+    || value === "same-side-revisit"
+    || value === "word-structure"
+    || value === "tone-commit";
+}
 
 function applyMovementLineArt(host: HTMLElement): void {
-  const diagrams = host.querySelectorAll<HTMLElement>(
-    ".analysis-v2-movement-grid .analysis-v2-movement-diagram",
-  );
-  diagrams.forEach((diagram, index) => {
-    const art = lineArt[index];
-    if (art === undefined || diagram.dataset.lineArt === "true") return;
+  const families = host.querySelectorAll<HTMLElement>(".analysis-v2-movement-family");
+  families.forEach((family) => {
+    const familyId = family.dataset.movementFamily;
+    if (!isMovementFamilyId(familyId)) return;
+    const diagram = family.querySelector<HTMLElement>(".analysis-v2-movement-diagram");
+    if (diagram === null || diagram.dataset.lineArt === "true") return;
+    const art = lineArtByFamily[familyId];
     diagram.dataset.lineArt = "true";
     diagram.innerHTML = art.markup;
     diagram.removeAttribute("aria-hidden");
