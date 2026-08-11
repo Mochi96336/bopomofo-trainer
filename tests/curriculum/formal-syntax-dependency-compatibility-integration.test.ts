@@ -78,6 +78,7 @@ const keep = new Set([
   "phrase.noun.bare",
   "phrase.nominal-head.noun",
   "predicate.verb.lexical",
+  "phrase.punctuation.lexical",
 ]);
 const RULES = FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id));
 const SUBJECT = entry("entry:subject", "我");
