@@ -47,10 +47,12 @@ describe("packaged causative construction reachability", () => {
     for (const candidate of result.candidates) {
       expect(candidate.kind).toBe("formal-syntax");
       expect(candidate.syntaxRootRuleId).toBe("sentence.declarative");
-      const selectedProfiles = candidate.syntaxProfileIds
+      expect(candidate.syntaxProfileIds).toBeDefined();
+      const syntaxProfileIds = candidate.syntaxProfileIds ?? [];
+      const selectedProfiles = syntaxProfileIds
         .map((profileId) => profilesById.get(profileId))
         .filter((profile) => profile !== undefined);
-      expect(selectedProfiles).toHaveLength(candidate.syntaxProfileIds.length);
+      expect(selectedProfiles).toHaveLength(syntaxProfileIds.length);
       expect(selectedProfiles.some((profile) =>
         profile.valencyFrames.includes("clausal-complement")
         && (profile.dependencyEvidence.morphologicalFeatureCounts?.["Voice=Cau"] ?? 0) > 0,
