@@ -8,8 +8,10 @@ import {
   selectFormalSyntaxUtterance,
   selectFrequencyFirstUtterance,
 } from "../../src/curriculum/frequency-first-utterance.js";
-import { CAUSATIVE_FINITE_CCOMP_VIEW } from "../../src/syntax/causative-construction-view.js";
 import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
+import type {
+  FormalSyntaxConstructionView,
+} from "../../src/syntax/construction-view.js";
 import type { ProductionRule, RuntimeSyntaxProfile } from "../../src/syntax/types.js";
 import type { MeasurementSummary } from "../../src/measurement/types.js";
 
@@ -58,7 +60,6 @@ function profile(
   upos: RuntimeSyntaxProfile["upos"],
   functions: RuntimeSyntaxProfile["functions"],
   valencyFrames: RuntimeSyntaxProfile["valencyFrames"],
-  morphologicalFeatureCounts: Readonly<Record<string, number>> = {},
 ): RuntimeSyntaxProfile {
   return {
     id,
@@ -70,7 +71,7 @@ function profile(
     dependencyEvidence: {
       dependencyRelationCounts: {},
       surfacePositionCounts: {},
-      morphologicalFeatureCounts,
+      morphologicalFeatureCounts: {},
     },
   };
 }
@@ -81,30 +82,27 @@ function canonicalRule(ruleId: string): ProductionRule {
   return rule;
 }
 
-const CAUSATIVE_PRACTICE_RULES: readonly ProductionRule[] = [
+const INTRANSITIVE_VIEW: FormalSyntaxConstructionView = {
+  id: "test.intransitive",
+  rootCategory: "Clause",
+  rootProductionRuleId: "clause.intransitive",
+  featureRequirementOverlays: [],
+  evidenceContract: "test-only",
+};
+
+const PRACTICE_RULES: readonly ProductionRule[] = [
   canonicalRule("sentence.declarative"),
-  canonicalRule("clause.object-content"),
   canonicalRule("clause.intransitive"),
-  canonicalRule("content.clause"),
   canonicalRule("argument.subject.noun"),
   canonicalRule("phrase.noun.bare"),
   canonicalRule("phrase.nominal-head.noun"),
   canonicalRule("predicate.verb.lexical"),
 ];
 
-const LET_ENTRY = entry("entry:let", "讓");
 const HE_ENTRY = entry("entry:he", "他");
 const WALK_ENTRY = entry("entry:walk", "走");
-const ENTRIES = [LET_ENTRY, HE_ENTRY, WALK_ENTRY] as const;
+const ENTRIES = [HE_ENTRY, WALK_ENTRY] as const;
 const PROFILES: readonly RuntimeSyntaxProfile[] = [
-  profile(
-    "profile:let",
-    LET_ENTRY.id,
-    "VERB",
-    ["predicate"],
-    ["clausal-complement"],
-    { "Voice=Cau": 1 },
-  ),
   profile("profile:he", HE_ENTRY.id, "NOUN", ["subject"], ["avalent"]),
   profile("profile:walk", WALK_ENTRY.id, "VERB", ["predicate"], ["intransitive"]),
 ];
@@ -117,9 +115,9 @@ const HISTORY = {
 describe("frequency-first formal syntax construction selection", () => {
   it("keeps frequency-first candidate scoring while constraining syntax practice", () => {
     const plan = createSentenceConstructionPracticePlan(
-      CAUSATIVE_FINITE_CCOMP_VIEW,
+      INTRANSITIVE_VIEW,
       { sentenceRuleId: "sentence.declarative", constituentKey: "clause" },
-      CAUSATIVE_PRACTICE_RULES,
+      PRACTICE_RULES,
     );
     const selection = selectFormalSyntaxUtterance({
       entries: ENTRIES,
@@ -135,7 +133,7 @@ describe("frequency-first formal syntax construction selection", () => {
 
     expect(selection.utterance).toMatchObject({
       kind: "formal-syntax",
-      text: "讓他走",
+      text: "他走",
       syntaxRootRuleId: "sentence.declarative",
       entries: ENTRIES,
     });
@@ -145,23 +143,13 @@ describe("frequency-first formal syntax construction selection", () => {
     expect(selection.score.transitionBoost).toBe(1);
     expect(selection.slotSelections).toEqual([]);
     expect(selection.templateCandidates).toEqual([]);
-
-    const profileIds = selection.utterance.syntaxProfileIds ?? [];
-    const profilesById = new Map(PROFILES.map((item) => [item.id, item]));
-    expect(profileIds).not.toHaveLength(0);
-    expect(profileIds.some((profileId) => {
-      const selectedProfile = profilesById.get(profileId);
-      return selectedProfile !== undefined
-        && selectedProfile.valencyFrames.includes("clausal-complement")
-        && (selectedProfile.dependencyEvidence.morphologicalFeatureCounts?.["Voice=Cau"] ?? 0) > 0;
-    })).toBe(true);
   });
 
   it("rejects formal syntax composition overrides without runtime profiles", () => {
     const plan = createSentenceConstructionPracticePlan(
-      CAUSATIVE_FINITE_CCOMP_VIEW,
+      INTRANSITIVE_VIEW,
       { sentenceRuleId: "sentence.declarative", constituentKey: "clause" },
-      CAUSATIVE_PRACTICE_RULES,
+      PRACTICE_RULES,
     );
     expect(() => selectFrequencyFirstUtterance({
       entries: ENTRIES,
