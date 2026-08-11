@@ -3,6 +3,8 @@ interface MovementLineArt {
   readonly markup: string;
 }
 
+type MovementFamilyTitle = "手別轉換" | "同側回返" | "字內結構" | "聲調收尾";
+
 const svgOpen = '<svg width="260" height="78" viewBox="0 0 260 78" aria-hidden="true" focusable="false" style="display:block;max-width:82%;height:auto;font-family:inherit;overflow:visible">';
 const svgClose = "</svg>";
 
@@ -101,20 +103,28 @@ const toneCommit = `${svgOpen}
   </g>
 ${svgClose}`;
 
-const lineArt: readonly MovementLineArt[] = [
-  { label: "鍵盤左右手切換示意", markup: handSwitch },
-  { label: "同側回返示意：離開一側後經另一側回到原側", markup: sameSideRevisit },
-  { label: "聲母、介音、韻母的字內結構示意", markup: wordStructure },
-  { label: "完成字內注音後按下聲調鍵示意", markup: toneCommit },
-];
+const lineArtByFamily: Readonly<Record<MovementFamilyTitle, MovementLineArt>> = {
+  手別轉換: { label: "鍵盤左右手切換示意", markup: handSwitch },
+  同側回返: { label: "同側回返示意：離開一側後經另一側回到原側", markup: sameSideRevisit },
+  字內結構: { label: "聲母、介音、韻母的字內結構示意", markup: wordStructure },
+  聲調收尾: { label: "完成字內注音後按下聲調鍵示意", markup: toneCommit },
+};
+
+function isMovementFamilyTitle(value: string): value is MovementFamilyTitle {
+  return value === "手別轉換"
+    || value === "同側回返"
+    || value === "字內結構"
+    || value === "聲調收尾";
+}
 
 function applyMovementLineArt(host: HTMLElement): void {
-  const diagrams = host.querySelectorAll<HTMLElement>(
-    ".analysis-v2-movement-grid .analysis-v2-movement-diagram",
-  );
-  diagrams.forEach((diagram, index) => {
-    const art = lineArt[index];
-    if (art === undefined || diagram.dataset.lineArt === "true") return;
+  const families = host.querySelectorAll<HTMLElement>(".analysis-v2-movement-family");
+  families.forEach((family) => {
+    const title = family.querySelector<HTMLElement>("header strong")?.textContent?.trim() ?? "";
+    if (!isMovementFamilyTitle(title)) return;
+    const diagram = family.querySelector<HTMLElement>(".analysis-v2-movement-diagram");
+    if (diagram === null || diagram.dataset.lineArt === "true") return;
+    const art = lineArtByFamily[title];
     diagram.dataset.lineArt = "true";
     diagram.innerHTML = art.markup;
     diagram.removeAttribute("aria-hidden");
