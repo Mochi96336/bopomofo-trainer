@@ -2,8 +2,7 @@ import type { CatalogEntry } from "../core/model.js";
 import { sha256Canonical } from "../reference/importers/canonical-json.js";
 import { FORMAL_GRAMMAR_VERSION } from "./features.js";
 import { validRuntimeMorphologicalFeatureCounts } from "./runtime-morphology.js";
-import { validRuntimeOccurrenceCapabilities } from "./runtime-occurrence-capabilities.js";
-import type { RuntimeOccurrenceCapability, RuntimeSyntaxProfile } from "./types.js";
+import type { RuntimeSyntaxProfile } from "./types.js";
 
 export interface RuntimeMorphologyProjectionLineage {
   readonly schemaVersion: "runtime-morphology-projection-v1";
@@ -11,16 +10,6 @@ export interface RuntimeMorphologyProjectionLineage {
   readonly sourceVersion: string;
   readonly sourceCommit: string;
   readonly reviewedFeature: string;
-  readonly identityPolicy: "unique-active-entry-per-form-upos-v1";
-}
-
-export interface RuntimeOccurrenceCapabilityProjectionLineage {
-  readonly schemaVersion: "runtime-occurrence-capability-projection-v1";
-  readonly sourceProvenanceId: string;
-  readonly sourceVersion: string;
-  readonly sourceCommit: string;
-  readonly reviewedCapability: RuntimeOccurrenceCapability;
-  readonly evidenceContract: "same-token-voice-cau-direct-ccomp-v1";
   readonly identityPolicy: "unique-active-entry-per-form-upos-v1";
 }
 
@@ -35,7 +24,6 @@ export interface ActiveCatalogSyntaxProfilesArtifact {
   readonly sourceProfileArtifactDigest: string;
   readonly sourceRuleIndexDigest: string;
   readonly runtimeMorphologyProjection?: RuntimeMorphologyProjectionLineage;
-  readonly runtimeOccurrenceCapabilityProjection?: RuntimeOccurrenceCapabilityProjectionLineage;
   readonly profileCount: number;
   readonly profiles: readonly RuntimeSyntaxProfile[];
   readonly determinismDigest: string;
@@ -60,21 +48,6 @@ function validRuntimeMorphologyProjectionLineage(value: unknown): boolean {
     && lineage.identityPolicy === "unique-active-entry-per-form-upos-v1";
 }
 
-function validRuntimeOccurrenceCapabilityProjectionLineage(value: unknown): boolean {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
-  const lineage = value as Record<string, unknown>;
-  return lineage.schemaVersion === "runtime-occurrence-capability-projection-v1"
-    && typeof lineage.sourceProvenanceId === "string"
-    && lineage.sourceProvenanceId.length > 0
-    && typeof lineage.sourceVersion === "string"
-    && lineage.sourceVersion.length > 0
-    && typeof lineage.sourceCommit === "string"
-    && /^[0-9a-f]{40}$/u.test(lineage.sourceCommit)
-    && lineage.reviewedCapability === "voice-cau-ccomp-same-occurrence"
-    && lineage.evidenceContract === "same-token-voice-cau-direct-ccomp-v1"
-    && lineage.identityPolicy === "unique-active-entry-per-form-upos-v1";
-}
-
 function validProfile(profile: RuntimeSyntaxProfile): boolean {
   const morphology = profile.dependencyEvidence?.morphologicalFeatureCounts;
   return typeof profile.id === "string"
@@ -84,7 +57,9 @@ function validProfile(profile: RuntimeSyntaxProfile): boolean {
     && typeof profile.upos === "string"
     && Array.isArray(profile.functions)
     && Array.isArray(profile.valencyFrames)
-    && validRuntimeOccurrenceCapabilities(profile.occurrenceCapabilities)
+    // Same-occurrence capabilities are owned by their small reviewed sidecar,
+    // never embedded into this aggregate source-profile artifact.
+    && profile.occurrenceCapabilities === undefined
     && Array.isArray(profile.provenanceIds)
     && typeof profile.dependencyEvidence === "object"
     && profile.dependencyEvidence !== null
@@ -109,11 +84,7 @@ export function loadActiveCatalogSyntaxProfilesArtifact(
   const hasRuntimeMorphology = artifact.profiles.some(
     (profile) => profile.dependencyEvidence?.morphologicalFeatureCounts !== undefined,
   );
-  const hasRuntimeOccurrenceCapabilities = artifact.profiles.some(
-    (profile) => (profile.occurrenceCapabilities?.length ?? 0) > 0,
-  );
   const morphologyLineage = artifact.runtimeMorphologyProjection;
-  const occurrenceCapabilityLineage = artifact.runtimeOccurrenceCapabilityProjection;
   if (artifact.schemaVersion !== "formal-syntax-active-catalog-profiles-v1"
     || artifact.grammarVersion !== FORMAL_GRAMMAR_VERSION
     || artifact.catalogEntryCount !== entries.length
@@ -121,9 +92,6 @@ export function loadActiveCatalogSyntaxProfilesArtifact(
     || artifact.profileCount !== artifact.profiles.length
     || (morphologyLineage !== undefined && !validRuntimeMorphologyProjectionLineage(morphologyLineage))
     || (hasRuntimeMorphology && morphologyLineage === undefined)
-    || (occurrenceCapabilityLineage !== undefined
-      && !validRuntimeOccurrenceCapabilityProjectionLineage(occurrenceCapabilityLineage))
-    || (hasRuntimeOccurrenceCapabilities && occurrenceCapabilityLineage === undefined)
     || determinismDigest !== sha256Canonical(core)) {
     throw new Error("active catalog syntax profiles artifact is stale or invalid");
   }

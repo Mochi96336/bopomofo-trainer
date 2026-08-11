@@ -4,10 +4,8 @@ import { compileCatalog } from "../src/catalog/compile-catalog.js";
 import { parseCsv } from "../src/catalog/csv.js";
 import { createProvenanceRegistry } from "../src/catalog/provenance.js";
 import { sha256Canonical } from "../src/reference/importers/canonical-json.js";
-import type {
-  ActiveCatalogSyntaxProfilesArtifact,
-  RuntimeOccurrenceCapabilityProjectionLineage,
-} from "../src/syntax/runtime-profiles.js";
+import type { ActiveCatalogSyntaxProfilesArtifact } from "../src/syntax/runtime-profiles.js";
+import type { RuntimeOccurrenceCapabilityProjectionArtifact } from "../src/syntax/runtime-occurrence-capability-projection.js";
 import type { RuntimeSyntaxProfile } from "../src/syntax/types.js";
 import {
   CAUSATIVE_OCCURRENCE_CAPABILITY,
@@ -27,16 +25,10 @@ const PROFILES_URL = new URL(
   "../data/grammar/formal-syntax-active-catalog-profiles.json",
   import.meta.url,
 );
-
-const OCCURRENCE_LINEAGE: RuntimeOccurrenceCapabilityProjectionLineage = {
-  schemaVersion: "runtime-occurrence-capability-projection-v1",
-  sourceProvenanceId: UD_GSD_PROVENANCE_ID,
-  sourceVersion: UD_GSD_SOURCE_VERSION,
-  sourceCommit: UD_GSD_SOURCE_COMMIT,
-  reviewedCapability: CAUSATIVE_OCCURRENCE_CAPABILITY,
-  evidenceContract: CAUSATIVE_OCCURRENCE_EVIDENCE_CONTRACT,
-  identityPolicy: IDENTITY_POLICY,
-};
+const OUTPUT_URL = new URL(
+  "../data/grammar/formal-syntax-runtime-occurrence-capabilities.json",
+  import.meta.url,
+);
 
 function optionValue(flag: string): string | undefined {
   const index = process.argv.indexOf(flag);
@@ -53,31 +45,20 @@ function hasAggregateCausativeCcomp(profile: RuntimeSyntaxProfile): boolean {
     && profile.valencyFrames.includes("clausal-complement");
 }
 
-function withOccurrenceCapability(
-  profile: RuntimeSyntaxProfile,
-  present: boolean,
-): RuntimeSyntaxProfile {
-  const existing = profile.occurrenceCapabilities;
-  if (existing !== undefined
-    && (existing.length !== 1 || existing[0] !== CAUSATIVE_OCCURRENCE_CAPABILITY)) {
-    throw new Error(`active runtime profile contains unexpected occurrence capability: ${profile.id}`);
-  }
-  const { occurrenceCapabilities: _oldCapabilities, ...baseProfile } = profile;
-  return present
-    ? { ...baseProfile, occurrenceCapabilities: [CAUSATIVE_OCCURRENCE_CAPABILITY] }
-    : baseProfile;
-}
-
 function sortedTexts(values: ReadonlySet<string>): readonly string[] {
   return [...values].sort((left, right) => left.localeCompare(right, "zh-Hant"));
 }
 
 const writeRequested = process.argv.includes("--write");
 const candidateOutputPath = optionValue("--output");
-const [resolvedSource, provenanceSource, profilesSource, sourceEvidence] = await Promise.all([
+const [resolvedSource, provenanceSource, profilesSource, currentProjectionSource, sourceEvidence] = await Promise.all([
   loadResolvedCatalogSource(),
   readFile(new URL("../data/provenance.csv", import.meta.url), "utf8"),
   readFile(PROFILES_URL, "utf8"),
+  readFile(OUTPUT_URL, "utf8").catch((error: unknown) => {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "";
+    throw error;
+  }),
   loadPinnedCausativeOccurrenceEvidence(),
 ]);
 
@@ -97,8 +78,8 @@ if (catalog.errors.length > 0) {
   throw new Error(catalog.errors.map((error) => error.message).join("\n"));
 }
 const textByEntryId = new Map(catalog.entries.map((entry) => [entry.id, entry.prompt.text]));
-const artifact = JSON.parse(profilesSource) as ActiveCatalogSyntaxProfilesArtifact;
-const identityCandidates = artifact.profiles.map((profile) => {
+const profilesArtifact = JSON.parse(profilesSource) as ActiveCatalogSyntaxProfilesArtifact;
+const identityCandidates = profilesArtifact.profiles.map((profile) => {
   const text = textByEntryId.get(profile.entryId);
   if (text === undefined) {
     throw new Error(`active runtime profile references unknown catalog entry: ${profile.entryId}`);
@@ -116,24 +97,20 @@ const activatedProfileIds = new Set<string>();
 const activatedEntryIds = new Set<string>();
 const aggregateOnlyTexts = new Set<string>();
 
-const profiles = artifact.profiles.map((profile, index) => {
+for (const [index, profile] of profilesArtifact.profiles.entries()) {
   const sourceKey = identityCandidates[index]?.sourceKey;
   if (sourceKey === undefined) throw new Error(`missing occurrence identity candidate for ${profile.id}`);
-  const aggregateEligible = hasAggregateCausativeCcomp(profile);
-  if (aggregateEligible) {
-    aggregateProfileIds.add(profile.id);
-    aggregateEntryIds.add(profile.entryId);
-  }
-  const present = aggregateEligible && identity.activatableSourceKeys.has(sourceKey);
-  if (present) {
+  if (!hasAggregateCausativeCcomp(profile)) continue;
+  aggregateProfileIds.add(profile.id);
+  aggregateEntryIds.add(profile.entryId);
+  if (identity.activatableSourceKeys.has(sourceKey)) {
     activatedProfileIds.add(profile.id);
     activatedEntryIds.add(profile.entryId);
-  } else if (aggregateEligible) {
+  } else {
     const text = textByEntryId.get(profile.entryId);
     if (text !== undefined) aggregateOnlyTexts.add(text);
   }
-  return withOccurrenceCapability(profile, present);
-});
+}
 
 const aggregateOnly = sortedTexts(aggregateOnlyTexts);
 if (aggregateProfileIds.size !== 122
@@ -152,22 +129,26 @@ if (aggregateProfileIds.size !== 122
   );
 }
 
-const {
-  determinismDigest: _oldDigest,
-  runtimeOccurrenceCapabilityProjection: _oldOccurrenceProjection,
-  ...artifactCore
-} = artifact;
-const nextCore = {
-  ...artifactCore,
-  runtimeOccurrenceCapabilityProjection: OCCURRENCE_LINEAGE,
-  profiles,
+const profileIds = [...activatedProfileIds].sort();
+const projectionCore = {
+  schemaVersion: "runtime-occurrence-capability-projection-v1" as const,
+  sourceProfileArtifactDigest: profilesArtifact.determinismDigest,
+  sourceProvenanceId: UD_GSD_PROVENANCE_ID,
+  sourceVersion: UD_GSD_SOURCE_VERSION,
+  sourceCommit: UD_GSD_SOURCE_COMMIT,
+  reviewedCapability: CAUSATIVE_OCCURRENCE_CAPABILITY,
+  evidenceContract: CAUSATIVE_OCCURRENCE_EVIDENCE_CONTRACT,
+  identityPolicy: IDENTITY_POLICY,
+  profileCount: profileIds.length,
+  entryCount: activatedEntryIds.size,
+  profileIds,
 };
-const nextArtifact: ActiveCatalogSyntaxProfilesArtifact = {
-  ...nextCore,
-  determinismDigest: sha256Canonical(nextCore),
+const nextArtifact: RuntimeOccurrenceCapabilityProjectionArtifact = {
+  ...projectionCore,
+  determinismDigest: sha256Canonical(projectionCore),
 };
-const output = `${JSON.stringify(nextArtifact)}\n`;
-const isCurrent = output === profilesSource;
+const output = `${JSON.stringify(nextArtifact, null, 2)}\n`;
+const isCurrent = output === currentProjectionSource;
 const summary = {
   sourceVersion: UD_GSD_SOURCE_VERSION,
   sourceCommit: UD_GSD_SOURCE_COMMIT,
@@ -192,7 +173,7 @@ console.log(JSON.stringify(summary));
 if (candidateOutputPath !== undefined) {
   await writeFile(resolve(candidateOutputPath), output, "utf8");
 }
-if (writeRequested && !isCurrent) await writeFile(PROFILES_URL, output, "utf8");
+if (writeRequested && !isCurrent) await writeFile(OUTPUT_URL, output, "utf8");
 if (!writeRequested && !isCurrent) {
-  throw new Error("active runtime occurrence-capability artifact is not current; rerun with --write");
+  throw new Error("runtime occurrence capability projection artifact is not current; rerun with --write");
 }
