@@ -5,6 +5,7 @@ import {
   confusionAggregateKey,
   coordinationAggregateKey,
   immediateHandAggregateKey,
+  immediateTokenAggregateKey,
   inputOrderPositionAggregateKey,
   sameHandRevisitAggregateKey,
   toneCommitAggregateKey,
@@ -14,6 +15,7 @@ import {
   type CoordinationAggregateScope,
   type CoordinationBodySizeBucket,
   type ImmediateHandAggregateScope,
+  type ImmediateTokenAggregateScope,
   type InputOrderPositionAggregate,
   type InputOrderPositionAggregateScope,
   type MeasurementSummaryV2,
@@ -182,6 +184,18 @@ function parseCoordinationScope(value: unknown): CoordinationAggregateScope | nu
   return { bodySize: value.bodySize, handShape: value.handShape };
 }
 
+function parseImmediateTokenScope(
+  value: unknown,
+  validTokens: ReadonlySet<string>,
+): ImmediateTokenAggregateScope | null {
+  if (!isRecord(value)
+    || typeof value.fromToken !== "string"
+    || typeof value.toToken !== "string"
+    || !validTokens.has(value.fromToken)
+    || !validTokens.has(value.toToken)) return null;
+  return { fromToken: value.fromToken, toToken: value.toToken };
+}
+
 function parseImmediateHandScope(value: unknown): ImmediateHandAggregateScope | null {
   if (!isRecord(value) || !explicitHand(value.fromHand) || !explicitHand(value.toHand)) return null;
   return { fromHand: value.fromHand, toHand: value.toHand };
@@ -270,6 +284,19 @@ export function parseMeasurementSummaryV2(
     (aggregate) => coordinationAggregateKey(aggregate.scope),
     12,
   );
+  // Exact accepted-token edges were added after the original V2 aggregate.
+  // Missing data is therefore an empty history, never reconstructed from
+  // canonical structure or from lower-dimensional hand aggregates.
+  const immediateTokenSource = value.motor.immediateTokens ?? {};
+  const immediateTokens = parseRecord(
+    immediateTokenSource,
+    (candidate) => parseMotor(
+      candidate,
+      (scope) => parseImmediateTokenScope(scope, validTokens),
+    ),
+    (aggregate) => immediateTokenAggregateKey(aggregate.scope),
+    validTokens.size * validTokens.size,
+  );
   const immediateHands = parseRecord(
     value.motor.immediateHands,
     (candidate) => parseMotor(candidate, parseImmediateHandScope),
@@ -288,7 +315,7 @@ export function parseMeasurementSummaryV2(
     (aggregate) => toneCommitAggregateKey(aggregate.scope),
   );
   if (bindings === null || confusions === null || inputOrderPositions === null
-    || coordination === null || immediateHands === null
+    || coordination === null || immediateTokens === null || immediateHands === null
     || sameHandRevisits === null || toneCommits === null) return null;
 
   return {
@@ -301,6 +328,6 @@ export function parseMeasurementSummaryV2(
       prematureTones: value.semantic.prematureTones as number,
     },
     strategy: { inputOrderPositions },
-    motor: { coordination, immediateHands, sameHandRevisits, toneCommits },
+    motor: { coordination, immediateTokens, immediateHands, sameHandRevisits, toneCommits },
   };
 }

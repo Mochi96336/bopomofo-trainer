@@ -42,6 +42,19 @@ export interface CoordinationObservation {
   readonly clean: boolean;
 }
 
+/**
+ * Exact motor edge between two actually accepted tokens. This is observational:
+ * neither endpoint nor direction is reconstructed from canonical syllable order.
+ */
+export interface ImmediateTokenObservation {
+  readonly traceSequence: number;
+  readonly fromToken: TokenId;
+  readonly toToken: TokenId;
+  readonly boundary: BoundaryClass;
+  readonly timingMs: number;
+  readonly clean: boolean;
+}
+
 export interface ImmediateHandObservation {
   readonly traceSequence: number;
   readonly fromHand: ExplicitHand;
@@ -72,6 +85,7 @@ export interface MeasurementObservationsV2 {
   readonly confusions: readonly ConfusionObservationV2[];
   readonly inputOrderPositions: readonly InputOrderPositionObservation[];
   readonly coordination: readonly CoordinationObservation[];
+  readonly immediateTokens: readonly ImmediateTokenObservation[];
   readonly immediateHands: readonly ImmediateHandObservation[];
   readonly sameHandRevisits: readonly SameHandRevisitObservation[];
   readonly toneCommits: readonly ToneCommitObservation[];

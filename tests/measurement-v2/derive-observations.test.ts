@@ -73,6 +73,19 @@ describe("measurement v2 observation projection", () => {
       { token: "tone:2", correct: true, timing: 35 },
     ]);
 
+    // Canonical body order is ㄒ / ㄩ / ㄝ, but the learner actually entered
+    // ㄩ / ㄒ / ㄝ. Exact motor edges must preserve that observed direction.
+    expect(result.immediateTokens.map((observation) => ({
+      from: observation.fromToken,
+      to: observation.toToken,
+      timing: observation.timingMs,
+      boundary: observation.boundary,
+    }))).toEqual([
+      { from: "zhuyin:ㄩ", to: "zhuyin:ㄒ", timing: 32, boundary: "within-syllable" },
+      { from: "zhuyin:ㄒ", to: "zhuyin:ㄝ", timing: 38, boundary: "within-syllable" },
+      { from: "zhuyin:ㄝ", to: "tone:2", timing: 35, boundary: "within-syllable" },
+    ]);
+
     expect(result.coordination).toEqual([
       {
         syllableOrdinal: 0,
@@ -149,7 +162,7 @@ describe("measurement v2 observation projection", () => {
     expect(result.confusions).toEqual([]);
   });
 
-  it("marks motor timing dirty without losing the underlying observation", () => {
+  it("marks exact and low-dimensional motor timing dirty without losing observations", () => {
     let state = createInteractionSessionV2(exercise, 90);
     state = apply(state, 100, "KeyM", "zhuyin:ㄩ");
     state = apply(state, 115, "ArrowDown", null);
@@ -163,6 +176,11 @@ describe("measurement v2 observation projection", () => {
     expect(result.coordination).toEqual([
       expect.objectContaining({ timingMs: 70, clean: false }),
     ]);
+    expect(result.immediateTokens[0]).toEqual(expect.objectContaining({
+      fromToken: "zhuyin:ㄩ",
+      toToken: "zhuyin:ㄒ",
+      clean: false,
+    }));
     expect(result.immediateHands[0]).toEqual(expect.objectContaining({ clean: false }));
     expect(result.toneCommits).toEqual([
       expect.objectContaining({ timingMs: 40, clean: false }),
@@ -170,7 +188,7 @@ describe("measurement v2 observation projection", () => {
     expect(result.bindings.find((observation) => observation.traceSequence === 3)?.timingMs).toBeNull();
   });
 
-  it("keeps same-hand predecessors across syllable and entry boundaries", () => {
+  it("keeps exact and same-hand predecessors across syllable and entry boundaries", () => {
     const multi: Exercise = {
       id: "boundary-test",
       mode: "guided",
@@ -198,8 +216,15 @@ describe("measurement v2 observation projection", () => {
     state = apply(state, 160, "KeyP", "zhuyin:ㄣ"); // R, next entry
 
     const result = deriveMeasurementObservationsV2(multi, state.traces);
+    const exact = result.immediateTokens.at(-1);
     const revisit = result.sameHandRevisits.at(-1);
 
+    expect(exact).toEqual(expect.objectContaining({
+      fromToken: "tone:2",
+      toToken: "zhuyin:ㄣ",
+      boundary: "entry-boundary",
+      timingMs: 40,
+    }));
     expect(revisit).toEqual(expect.objectContaining({
       hand: "right",
       boundary: "entry-boundary",
@@ -208,7 +233,7 @@ describe("measurement v2 observation projection", () => {
     }));
   });
 
-  it("treats ambiguous-hand accepted keys as a predecessor barrier", () => {
+  it("treats ambiguous-hand accepted keys as a predecessor barrier only for hand evidence", () => {
     const multi: Exercise = {
       id: "space-barrier",
       mode: "guided",
@@ -228,12 +253,23 @@ describe("measurement v2 observation projection", () => {
     };
     let state = createInteractionSessionV2(multi, 90);
     state = apply(state, 100, "KeyJ", "zhuyin:ㄨ"); // R
-    state = apply(state, 120, "Space", "tone:1"); // ambiguous, barrier
+    state = apply(state, 120, "Space", "tone:1"); // ambiguous hand, valid token
     state = apply(state, 160, "KeyP", "zhuyin:ㄣ"); // R
 
     const result = deriveMeasurementObservationsV2(multi, state.traces);
 
     expect(result.sameHandRevisits).toEqual([]);
     expect(result.immediateHands).toEqual([]);
+    expect(result.immediateTokens).toHaveLength(2);
+    expect(result.immediateTokens[0]).toEqual(expect.objectContaining({
+      fromToken: "zhuyin:ㄨ",
+      toToken: "tone:1",
+      boundary: "within-syllable",
+    }));
+    expect(result.immediateTokens[1]).toEqual(expect.objectContaining({
+      fromToken: "tone:1",
+      toToken: "zhuyin:ㄣ",
+      boundary: "syllable-boundary",
+    }));
   });
 });
