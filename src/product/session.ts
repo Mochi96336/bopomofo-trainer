@@ -1,14 +1,15 @@
-import type {
-  InteractionInput,
-  InteractionTrace,
-} from "../practice/interaction-session.js";
+import type { PracticeInput } from "../practice/interaction-input.js";
+import type { InteractionTraceV2 } from "../practice/interaction-session-v2.js";
 import {
-  applyInteractionInput,
-  createInteractionSession,
-} from "../practice/interaction-session.js";
-import { aggregateMeasurements } from "../measurement/aggregate.js";
-import { deriveMeasurementDecisions } from "../measurement/derive-observations.js";
-import { PHASE_3_MEASUREMENT_POLICY } from "../measurement/policy.js";
+  applyInteractionInputV2,
+  createInteractionSessionV2,
+} from "../practice/interaction-session-v2.js";
+import {
+  aggregateMeasurementObservationsV2,
+  type MeasurementSummaryV2,
+} from "../measurement-v2/aggregate.js";
+import { deriveMeasurementObservationsV2 } from "../measurement-v2/derive-observations.js";
+import { legacySelectionMeasurementView } from "../measurement-v2/legacy-selection-view.js";
 import {
   FREQUENCY_FIRST_UTTERANCE_POLICY,
   selectFormalSyntaxUtterance,
@@ -82,7 +83,6 @@ export function createProductEnvironment(
     catalogs,
     practiceSupport: createCatalogSupportIndex(catalogs.practice),
     evaluationSupport: createCatalogSupportIndex(catalogs.evaluation),
-    measurementPolicy: PHASE_3_MEASUREMENT_POLICY,
     curriculumPolicy: PHASE_4_CURRICULUM_POLICY,
     utterancePolicy,
   };
@@ -99,7 +99,6 @@ export function createFreshProgressForEnvironment(
     seed,
     mode,
     layoutId,
-    environment.measurementPolicy,
     environment.curriculumPolicy.version,
     environment.utterancePolicy,
   );
@@ -111,7 +110,10 @@ function selectRound(
 ): ProductRound {
   const selection = selectFormalSyntaxUtterance({
     entries: environment.catalogs.practice,
-    measurement: progress.measurements,
+    // Existing frequency-first selection may safely consume v2 binding evidence.
+    // Its legacy transition channel is deliberately empty until a future
+    // structural/motor curriculum explicitly defines what it is selecting.
+    measurement: legacySelectionMeasurementView(progress.measurements),
     mode: progress.mode,
     layoutId: progress.layoutId,
     history: {
@@ -147,36 +149,39 @@ export function createProductState(
   return {
     progress,
     round,
-    session: createInteractionSession(round.exercise, startedAtMs),
+    session: createInteractionSessionV2(round.exercise, startedAtMs),
     summary: null,
   };
 }
 
+function isMappedAttempt(trace: InteractionTraceV2): boolean {
+  return trace.outcome === "accepted-component"
+    || trace.outcome === "accepted-tone"
+    || trace.outcome === "unexpected-component"
+    || trace.outcome === "unexpected-tone"
+    || trace.outcome === "duplicate-component"
+    || trace.outcome === "premature-tone";
+}
+
+function isMappedError(trace: InteractionTraceV2): boolean {
+  return isMappedAttempt(trace) && !trace.accepted;
+}
+
 function sumSessionMetrics(
-  traces: readonly InteractionTrace[],
-  measurements: ReturnType<typeof aggregateMeasurements>,
+  traces: readonly InteractionTraceV2[],
+  measurements: MeasurementSummaryV2,
 ): {
   readonly attempts: number;
   readonly errors: number;
   readonly timingSamples: number;
 } {
-  const interaction = traces.reduce(
-    (totals, trace) => {
-      if (trace.outcome !== "correct" && trace.outcome !== "incorrect") {
-        return totals;
-      }
-      return {
-        attempts: totals.attempts + 1,
-        errors: totals.errors + (trace.outcome === "incorrect" ? 1 : 0),
-      };
-    },
-    { attempts: 0, errors: 0 },
-  );
-  const timingSamples = Object.values(measurements.bindings).reduce(
+  const attempts = traces.filter(isMappedAttempt).length;
+  const errors = traces.filter(isMappedError).length;
+  const timingSamples = Object.values(measurements.semantic.bindings).reduce(
     (total, aggregate) => total + aggregate.timingSamples,
     0,
   );
-  return { ...interaction, timingSamples };
+  return { attempts, errors, timingSamples };
 }
 
 function updateCurriculumAfterPractice(
@@ -184,8 +189,9 @@ function updateCurriculumAfterPractice(
   cumulativeMeasurements: ProductProgress["measurements"],
   round: ProductRound,
 ): CurriculumProfile {
+  const compatibility = legacySelectionMeasurementView(cumulativeMeasurements);
   const aggregates = new Map(
-    Object.values(cumulativeMeasurements.bindings).map((aggregate) => [
+    Object.values(compatibility.bindings).map((aggregate) => [
       aggregate.scope.tokenId,
       aggregate,
     ]),
@@ -214,15 +220,11 @@ function finalizeRound(
   state: ProductState,
   completedAt: string,
 ): ProductState {
-  const decisions = deriveMeasurementDecisions(
+  const observations = deriveMeasurementObservationsV2(
     state.round.exercise,
     state.session.traces,
-    environment.measurementPolicy,
   );
-  const sessionMeasurements = aggregateMeasurements(
-    decisions,
-    environment.measurementPolicy,
-  );
+  const sessionMeasurements = aggregateMeasurementObservationsV2(observations);
   const metrics = sumSessionMetrics(state.session.traces, sessionMeasurements);
   const summary: ProductRoundSummary = {
     kind: "practice",
@@ -236,9 +238,8 @@ function finalizeRound(
     ...metrics,
   };
 
-  const measurements = aggregateMeasurements(
-    decisions,
-    environment.measurementPolicy,
+  const measurements = aggregateMeasurementObservationsV2(
+    observations,
     state.progress.measurements,
   );
   const curriculum = updateCurriculumAfterPractice(
@@ -265,11 +266,11 @@ function finalizeRound(
 export function applyProductInput(
   environment: ProductEnvironment,
   state: ProductState,
-  input: InteractionInput,
+  input: PracticeInput,
   completedAt: string,
 ): ProductState {
   if (state.summary !== null || state.session.completed) return state;
-  const session = applyInteractionInput(state.session, input);
+  const session = applyInteractionInputV2(state.session, input);
   const next = { ...state, session };
   return session.completed ? finalizeRound(environment, next, completedAt) : next;
 }

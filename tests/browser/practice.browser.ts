@@ -1,17 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
-
-/**
- * Six checks, chosen because each one fails for a reason jsdom cannot produce.
- *
- * The shim in the unit harness reproduces a dialog's bookkeeping and nothing of
- * its modality -- no top layer, no backdrop, no focus containment -- so the
- * rules about stacking, focus and layout have until now lived only in a manual
- * protocol. They live here instead. The suite is kept deliberately small: it is
- * a smoke test for the platform's half of the behaviour, not a second home for
- * assertions the unit tests already make better.
- */
+import { tokenLabel } from "../../src/diagnostics/labels.js";
+import { STANDARD_BOPOMOFO_LAYOUT } from "../../src/scheme/standard-layout.js";
 
 const PROGRESS_KEY = "bopomofo-trainer.progress.v4";
+const CODE_BY_TOKEN_LABEL = new Map(
+  Object.entries(STANDARD_BOPOMOFO_LAYOUT.bindings).map(([code, token]) => [tokenLabel(token), code]),
+);
 
 function dialog(page: Page) {
   return page.locator("#information-dialog");
@@ -26,24 +20,52 @@ async function openPanel(page: Page): Promise<void> {
   await expect(dialog(page)).toHaveJSProperty("open", true);
 }
 
-/**
- * The physical key the current token wants, read the way the shell marks it.
- *
- * The keyboard hint is off by default, and turning it on is the only honest way
- * for a test to find that key rather than reimplement the layout.
- */
 async function revealWantedKey(page: Page): Promise<string> {
   await openPanel(page);
   await page.locator("#toggle-keyboard-sketch").check();
   await page.locator("#information-dialog .dialog-close").click();
   await expect(dialog(page)).toHaveJSProperty("open", false);
-  const code = await page.locator(".keyboard-sketch-key.current").getAttribute("data-code");
-  expect(code, "the shell marks which key the current token wants").not.toBeNull();
+  const code = await page.locator(".keyboard-sketch-key.current").first().getAttribute("data-code");
+  expect(code, "the shell marks at least one acceptable current key").not.toBeNull();
   return code ?? "";
 }
 
 function storedProgress(page: Page): Promise<string | null> {
   return page.evaluate((key) => window.localStorage.getItem(key), PROGRESS_KEY);
+}
+
+function codeForLabel(label: string): string {
+  const code = CODE_BY_TOKEN_LABEL.get(label.trim());
+  if (code === undefined) throw new Error(`no standard-layout key for token label ${label}`);
+  return code;
+}
+
+async function currentPendingBodyLabels(page: Page): Promise<string[]> {
+  return page.locator(".practice-glyph.current .reading-token.pending").allTextContents();
+}
+
+async function currentToneCode(page: Page): Promise<string> {
+  const label = await page.locator(".practice-glyph.current .reading-token.commit-ready").textContent();
+  if (label === null) throw new Error("expected current syllable tone to be commit-ready");
+  return codeForLabel(label);
+}
+
+async function completeCurrentSyllableInReverse(page: Page): Promise<void> {
+  const labels = await currentPendingBodyLabels(page);
+  for (const label of [...labels].reverse()) {
+    await page.keyboard.press(codeForLabel(label), { delay: 0 });
+  }
+  await expect(page.locator(".practice-glyph.current .reading-token.pending")).toHaveCount(0);
+  await expect(page.locator(".practice-glyph.current .reading-token.commit-ready")).toHaveCount(1);
+  await page.keyboard.press(await currentToneCode(page), { delay: 0 });
+}
+
+async function completedRoundCount(page: Page): Promise<number> {
+  return page.evaluate((key) => {
+    const source = window.localStorage.getItem(key);
+    if (source === null) return 0;
+    return Number((JSON.parse(source) as { practiceRoundsCompleted?: number }).practiceRoundsCompleted ?? 0);
+  }, PROGRESS_KEY);
 }
 
 test("loads the practice page with a round and a clean console", async ({ page }) => {
@@ -56,11 +78,10 @@ test("loads the practice page with a round and a clean console", async ({ page }
   await page.goto("/");
   await expect(page.locator(".practice-glyph").first()).toBeVisible();
   await expect(page.locator("#progress-count")).toHaveText(/^0 \/ \d+$/);
-
   expect(problems).toEqual([]);
 });
 
-test("advances the round on the key the current token wants", async ({ page }) => {
+test("advances the round on any key the current syllable accepts", async ({ page }) => {
   await page.goto("/");
   const code = await revealWantedKey(page);
   const total = (await page.locator("#progress-count").textContent())?.split(" / ").at(-1);
@@ -71,10 +92,52 @@ test("advances the round on the key the current token wants", async ({ page }) =
   await expect(page.locator(".reading-token.done").first()).toBeVisible();
 });
 
-// Escape is the panel's only keyboard route in and out, and closing it has to
-// put the learner back on the capture surface -- otherwise the next keystroke
-// goes nowhere. Focus after a native dialog closes is the platform's to decide,
-// which is exactly why this cannot be asserted in jsdom.
+test("accepts body components in reverse canonical order before tone commit", async ({ page }) => {
+  await page.goto("/");
+
+  // Walk to a multi-component syllable if the first one is a one-key body.
+  for (let guard = 0; guard < 20; guard += 1) {
+    const labels = await currentPendingBodyLabels(page);
+    if (labels.length >= 2) {
+      const firstCanonical = labels[0]!;
+      const lastCanonical = labels.at(-1)!;
+      const before = await page.locator("#progress-count").textContent();
+
+      await page.keyboard.press(codeForLabel(lastCanonical), { delay: 0 });
+      await expect(page.locator(".practice-glyph.current .reading-token.done").filter({ hasText: lastCanonical }))
+        .toHaveCount(1);
+      await expect(page.locator("#practice-feedback")).not.toHaveClass(/error/);
+      expect(await page.locator("#progress-count").textContent()).not.toBe(before);
+
+      const stillPending = await currentPendingBodyLabels(page);
+      expect(stillPending).toContain(firstCanonical);
+      await expect(page.locator(".practice-glyph.current .reading-token.commit-locked")).toHaveCount(1);
+
+      for (const label of [...stillPending].reverse()) {
+        await page.keyboard.press(codeForLabel(label), { delay: 0 });
+      }
+      await expect(page.locator(".practice-glyph.current .reading-token.pending")).toHaveCount(0);
+      await expect(page.locator(".practice-glyph.current .reading-token.commit-ready")).toHaveCount(1);
+      return;
+    }
+    await completeCurrentSyllableInReverse(page);
+  }
+  throw new Error("expected a multi-component syllable within the first 20 syllables");
+});
+
+test("completes a full round with zero-delay reverse-body input", async ({ page }) => {
+  await page.goto("/");
+  const before = await completedRoundCount(page);
+
+  for (let guard = 0; guard < 80 && await completedRoundCount(page) === before; guard += 1) {
+    await completeCurrentSyllableInReverse(page);
+  }
+
+  await expect.poll(() => completedRoundCount(page)).toBe(before + 1);
+  await expect(page.locator("#progress-count")).toHaveText(/^0 \/ \d+$/);
+  await expect(page.locator("#keyboard-capture")).toBeFocused();
+});
+
 test("opens and closes the panel with Escape and returns focus to practice", async ({ page }) => {
   await page.goto("/");
   await expect(page.locator("#keyboard-capture")).toBeFocused();
@@ -87,12 +150,6 @@ test("opens and closes the panel with Escape and returns focus to practice", asy
   await expect(page.locator("#keyboard-capture")).toBeFocused();
 });
 
-// Two dialogs in the top layer at once: Escape belongs to the upper one alone.
-// The shell owns Escape globally -- it is how the panel opens and closes -- and
-// that handler cancels the default, so without the interception the confirmation
-// installs, the browser never gets to close the dialog the learner is looking at.
-// Removing `stopImmediatePropagation` from the confirmation was confirmed to
-// leave the confirmation stuck open, which is what this catches.
 test("closes only the top dialog when a confirmation stacks over the panel", async ({ page }) => {
   await page.goto("/");
   await openPanel(page);
@@ -118,9 +175,6 @@ test("fits the narrowest supported viewport without scrolling sideways", async (
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 });
 
-// The whole round trip through the file system, which is the one path where a
-// learner can lose everything if it is wrong. F10 finishes a round so there is
-// earned progress to lose in the first place.
 test("restores progress through export, clear and import", async ({ page }, testInfo) => {
   await page.goto("/");
   await page.keyboard.press("F10");
