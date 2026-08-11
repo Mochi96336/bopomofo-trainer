@@ -147,7 +147,9 @@ test("uses current-key accent only for the explicitly selected Semantic key", as
 });
 
 test("keeps aggregate movement families out of the default Coordination viewport", async ({ page }) => {
-  await page.setViewportSize({ width: 1064, height: 665 });
+  // This test owns the normal-height default-view contract. Compact-height flow
+  // behavior is covered separately at and below the 700px fallback boundary.
+  await page.setViewportSize({ width: 1064, height: 720 });
   await page.goto("/");
   await page.locator("#open-information").click();
   await page.locator(".analysis-v2-open").click();

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function openStrategy(page: Page): Promise<ReturnType<Page["locator"]>> {
+async function openStrategy(page: Page) {
   await page.goto("/");
   await page.locator("#open-information").click();
   await page.locator(".analysis-v2-open").click();

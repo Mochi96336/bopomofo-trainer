@@ -2,10 +2,12 @@ import type { Exercise, PracticeMode, TokenId } from "../core/model.js";
 import {
   coordinationAggregateKey,
   immediateHandAggregateKey,
+  immediateTokenAggregateKey,
   sameHandRevisitAggregateKey,
   toneCommitAggregateKey,
   type CoordinationAggregateScope,
   type ImmediateHandAggregateScope,
+  type ImmediateTokenAggregateScope,
   type SameHandRevisitAggregateScope,
   type ToneCommitAggregateScope,
 } from "../measurement-v2/aggregate.js";
@@ -13,6 +15,7 @@ import { deriveMeasurementObservationsV2 } from "../measurement-v2/derive-observ
 import {
   coordinationTimingSample,
   immediateHandTimingSample,
+  immediateTokenTimingSample,
   sameHandRevisitTimingSample,
   toneCommitTimingSample,
 } from "../measurement-v2/timing-eligibility.js";
@@ -58,6 +61,7 @@ interface MotorRoundSamples<Scope> {
 export function createEmptyMotorProgressHistory(): MotorProgressHistory {
   return {
     coordination: {},
+    immediateTokens: {},
     immediateHands: {},
     sameHandRevisits: {},
     toneCommits: {},
@@ -228,6 +232,7 @@ function motorSamples(
   observations: MeasurementObservationsV2,
 ): {
   readonly coordination: ReadonlyMap<string, MotorRoundSamples<CoordinationAggregateScope>>;
+  readonly immediateTokens: ReadonlyMap<string, MotorRoundSamples<ImmediateTokenAggregateScope>>;
   readonly immediateHands: ReadonlyMap<string, MotorRoundSamples<ImmediateHandAggregateScope>>;
   readonly sameHandRevisits: ReadonlyMap<string, MotorRoundSamples<SameHandRevisitAggregateScope>>;
   readonly toneCommits: ReadonlyMap<string, MotorRoundSamples<ToneCommitAggregateScope>>;
@@ -240,6 +245,20 @@ function motorSamples(
       coordinationAggregateKey(scope),
       scope,
       coordinationTimingSample(observation),
+    );
+  }
+
+  const immediateTokens = new Map<string, MotorRoundSamples<ImmediateTokenAggregateScope>>();
+  for (const observation of observations.immediateTokens) {
+    const scope: ImmediateTokenAggregateScope = {
+      fromToken: observation.fromToken,
+      toToken: observation.toToken,
+    };
+    pushMotorSample(
+      immediateTokens,
+      immediateTokenAggregateKey(scope),
+      scope,
+      immediateTokenTimingSample(observation),
     );
   }
 
@@ -282,7 +301,7 @@ function motorSamples(
     );
   }
 
-  return { coordination, immediateHands, sameHandRevisits, toneCommits };
+  return { coordination, immediateTokens, immediateHands, sameHandRevisits, toneCommits };
 }
 
 function appendMotorFamily<Scope>(
@@ -338,6 +357,12 @@ export function appendRoundToProgressHistory(
     coordination: appendMotorFamily(
       history.motor.coordination,
       roundMotor.coordination,
+      completedRound,
+      policy,
+    ),
+    immediateTokens: appendMotorFamily(
+      history.motor.immediateTokens,
+      roundMotor.immediateTokens,
       completedRound,
       policy,
     ),

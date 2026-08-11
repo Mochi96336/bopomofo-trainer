@@ -42,6 +42,7 @@ function history(keyEntry: KeyProgressHistory = entry()): ProgressHistory {
     keys: { [TOKEN]: keyEntry },
     motor: {
       coordination: {},
+      immediateTokens: {},
       immediateHands: {},
       sameHandRevisits: {},
       toneCommits: {},
@@ -85,6 +86,105 @@ describe("progress history persistence", () => {
     expect(parse(serializeProgressHistory(original))).toEqual(original);
   });
 
+  it("migrates schema 6 by dropping body-only revisit and starting exact history empty", () => {
+    const source = mutate((draft) => {
+      draft.schemaVersion = 6;
+      const motor = draft.motor as Record<string, unknown>;
+      delete motor.immediateTokens;
+      motor.coordination = {
+        '["coordination","initial-final"]': motorHistory({ bodyShape: "initial-final" }, 130),
+      };
+      motor.immediateHands = {
+        '["immediate-hand","left","right"]': motorHistory({ fromHand: "left", toHand: "right" }, 110),
+      };
+      motor.sameHandRevisits = {
+        '["same-hand-revisit","left",true]': motorHistory({
+          hand: "left",
+          oppositeHandIntervened: true,
+        }, 150),
+      };
+      motor.toneCommits = {
+        '["tone-commit","tone:2"]': motorHistory({ toneToken: "tone:2" }, 170),
+      };
+    });
+    const migrated = parse(source);
+    expect(migrated?.schemaVersion).toBe(PROGRESS_HISTORY_SCHEMA_VERSION);
+    expect(migrated?.motor.immediateTokens).toEqual({});
+    expect(Object.keys(migrated?.motor.coordination ?? {})).toEqual([
+      '["coordination","initial-final"]',
+    ]);
+    expect(Object.keys(migrated?.motor.immediateHands ?? {})).toEqual([
+      '["immediate-hand","left","right"]',
+    ]);
+    expect(migrated?.motor.sameHandRevisits).toEqual({});
+    expect(Object.keys(migrated?.motor.toneCommits ?? {})).toEqual([
+      '["tone-commit","tone:2"]',
+    ]);
+  });
+
+  it("migrates schema 7 by preserving tone-aware revisit and starting exact history empty", () => {
+    const source = mutate((draft) => {
+      draft.schemaVersion = 7;
+      const motor = draft.motor as Record<string, unknown>;
+      delete motor.immediateTokens;
+      motor.sameHandRevisits = {
+        '["same-hand-revisit","left",true]': motorHistory({
+          hand: "left",
+          oppositeHandIntervened: true,
+        }, 150),
+      };
+    });
+    const migrated = parse(source);
+    expect(migrated?.schemaVersion).toBe(PROGRESS_HISTORY_SCHEMA_VERSION);
+    expect(migrated?.motor.immediateTokens).toEqual({});
+    expect(Object.keys(migrated?.motor.sameHandRevisits ?? {})).toEqual([
+      '["same-hand-revisit","left",true]',
+    ]);
+  });
+
+  it("round-trips current exact-transition history and rejects corrupted pair identity", () => {
+    const exactKey = '["immediate-token","zhuyin:A","zhuyin:B"]';
+    const source = mutate((draft) => {
+      const motor = draft.motor as Record<string, unknown>;
+      motor.immediateTokens = {
+        [exactKey]: motorHistory({ fromToken: TOKEN, toToken: "zhuyin:B" }, 125),
+      };
+    });
+    const parsed = parse(source);
+    expect(parsed?.motor.immediateTokens[exactKey]?.timing[0]?.representativeTimingMs).toBe(125);
+
+    expect(parse(mutate((draft) => {
+      const motor = draft.motor as Record<string, unknown>;
+      motor.immediateTokens = {
+        '["immediate-token","zhuyin:B","zhuyin:A"]': motorHistory({
+          fromToken: TOKEN,
+          toToken: "zhuyin:B",
+        }),
+      };
+    }))).toBeNull();
+
+    expect(parse(mutate((draft) => {
+      const motor = draft.motor as Record<string, unknown>;
+      motor.immediateTokens = {
+        '["immediate-token","zhuyin:A","zhuyin:UNKNOWN"]': motorHistory({
+          fromToken: TOKEN,
+          toToken: "zhuyin:UNKNOWN",
+        }),
+      };
+    }))).toBeNull();
+  });
+
+  it("gates exact-transition history by the valid token-pair domain before parsing entries", () => {
+    const immediateTokens: Record<string, unknown> = {};
+    const maximumPairs = VALID_TOKENS.size * VALID_TOKENS.size;
+    for (let index = 0; index <= maximumPairs; index += 1) {
+      immediateTokens[`invalid-${index}`] = motorHistory({ fromToken: TOKEN, toToken: "zhuyin:B" });
+    }
+    expect(parse(mutate((draft) => {
+      (draft.motor as Record<string, unknown>).immediateTokens = immediateTokens;
+    }))).toBeNull();
+  });
+
   it("migrates schema 3 by dropping obsolete coordination while preserving other history", () => {
     const source = mutate((draft) => {
       draft.schemaVersion = 3;
@@ -103,6 +203,7 @@ describe("progress history persistence", () => {
     const migrated = parse(source);
     expect(migrated?.schemaVersion).toBe(PROGRESS_HISTORY_SCHEMA_VERSION);
     expect(migrated?.motor.coordination).toEqual({});
+    expect(migrated?.motor.immediateTokens).toEqual({});
     expect(Object.keys(migrated?.motor.immediateHands ?? {})).toEqual([
       '["immediate-hand","left","right"]',
     ]);

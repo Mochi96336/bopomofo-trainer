@@ -155,6 +155,7 @@ function seededMovementState(): { progress: string; history: string } {
     lastCompletedRound: 2,
     keys: {},
     motor: {
+      immediateTokens: {},
       coordination: {
         [coordinationAggregateKey(threeScope)]: timingHistory(threeScope, [350, 320]),
         [coordinationAggregateKey(initialFinalScope)]: timingHistory(initialFinalScope, [250, 220]),

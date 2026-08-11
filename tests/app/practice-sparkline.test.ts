@@ -20,25 +20,34 @@ describe("sparkline geometry", () => {
     expect(result[1]?.x).toBeCloseTo(84);
   });
 
-  it("puts the lowest value at the bottom and the highest at the top", () => {
+  it("keeps headroom above and below the observed range", () => {
     const result = points([10, 20]);
-    expect(result[0]?.y).toBeCloseTo(36);
-    expect(result[1]?.y).toBeCloseTo(4);
+    expect(result[0]?.y).toBeGreaterThan(4);
+    expect(result[0]?.y).toBeLessThan(36);
+    expect(result[1]?.y).toBeGreaterThan(4);
+    expect(result[1]?.y).toBeLessThan(36);
+    expect(result[0]?.y).toBeGreaterThan(result[1]?.y ?? 0);
   });
 
-  // A flat series has no range to normalize against; falling back to a span of
-  // 1 keeps it a level line instead of a division by zero.
-  it("draws a flat series as a level line", () => {
+  it("does not magnify tiny changes into a full-height move", () => {
+    const result = points([184, 185]);
+    const delta = Math.abs((result[0]?.y ?? 0) - (result[1]?.y ?? 0));
+    expect(delta).toBeGreaterThan(0);
+    expect(delta).toBeLessThan(4);
+  });
+
+  it("draws a flat series as a centred level line", () => {
     const result = points([7, 7, 7]);
     const ys = result.map((point) => point.y);
     expect(new Set(ys).size).toBe(1);
-    expect(Number.isFinite(ys[0])).toBe(true);
+    expect(ys[0]).toBeCloseTo(20);
   });
 
-  it("centres a single point horizontally at the left edge with no step", () => {
+  it("places a single point at the left edge and vertical centre", () => {
     const result = points([5]);
     expect(result).toHaveLength(1);
     expect(result[0]?.x).toBeCloseTo(4);
+    expect(result[0]?.y).toBeCloseTo(20);
   });
 });
 

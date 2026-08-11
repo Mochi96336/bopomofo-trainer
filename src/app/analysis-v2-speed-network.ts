@@ -12,7 +12,7 @@ export interface AnalysisV2SpeedPath {
   readonly label: string;
   readonly width: number;
   readonly opacity: number;
-  /** Relative speed rank inside the visible homogeneous exact-transition family. */
+  /** Tail-weighted visual slowness inside the visible exact-transition family. */
   readonly slowness: number;
   readonly includesTone: boolean;
 }
@@ -117,6 +117,17 @@ function compareSupport(
     || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
 }
 
+export function exactTransitionHistoryLabel(
+  cell: AnalysisV2MotorCell<ImmediateTokenAggregateScope>,
+): string {
+  const values = cell.history.slice(-5).map((point) => Math.round(point.representativeTimingMs));
+  if (values.length > 0) return `近期完成點 ${values.join(" → ")} 毫秒`;
+  if (cell.partialTimingSamples > 0) {
+    return `近期歷史累積中，${cell.partialTimingSamples} 個尚未成點樣本`;
+  }
+  return "近期歷史尚無完成點";
+}
+
 /**
  * Draws only exact accepted-token transitions with enough clean within-syllable
  * timing support to be comparable. If the family grows dense, the graph keeps
@@ -141,15 +152,19 @@ export function buildAnalysisV2SpeedPaths(
     const from = points.get(cell.scope.fromToken);
     const to = points.get(cell.scope.toToken);
     if (from === undefined || to === undefined || cell.currentTimeToTypeMs === null) return [];
-    const slowness = visible.length === 1 ? 0.5 : index / maximumRank;
+    const speedRank = visible.length === 1 ? 0.5 : index / maximumRank;
+    // A mild gamma curve keeps most comparable paths near the neutral evidence
+    // color and lets the slow tail separate more clearly instead of filling the
+    // whole network with evenly spaced red steps.
+    const slowness = Math.pow(speedRank, 1.8);
     const includesTone = cell.scope.fromToken.startsWith("tone:")
       || cell.scope.toToken.startsWith("tone:");
     return [{
       id: cell.id,
       path: pathFor(cell.id, from, to, includesTone),
-      label: `${tokenLabel(cell.scope.fromToken)} 到 ${tokenLabel(cell.scope.toToken)}，${Math.round(cell.currentTimeToTypeMs)} 毫秒，${cell.timingSamples} 個乾淨樣本`,
+      label: `${tokenLabel(cell.scope.fromToken)} 到 ${tokenLabel(cell.scope.toToken)}，${Math.round(cell.currentTimeToTypeMs)} 毫秒，${cell.timingSamples} 個乾淨樣本；${exactTransitionHistoryLabel(cell)}`,
       width: sampleWidth(cell.timingSamples),
-      opacity: 0.48 + slowness * 0.34,
+      opacity: 0.42 + slowness * 0.30,
       slowness,
       includesTone,
     }];

@@ -2,18 +2,18 @@ import type { PracticeMode, TokenId } from "../core/model.js";
 import type {
   CoordinationAggregateScope,
   ImmediateHandAggregateScope,
+  ImmediateTokenAggregateScope,
   SameHandRevisitAggregateScope,
   ToneCommitAggregateScope,
 } from "../measurement-v2/aggregate.js";
 
-// Schema 7 keeps same-hand revisit evidence inside one syllable and lets the
-// final accepted tone complete a revisit. Schema 6 used body-only revisit
-// semantics, so its word-structure, immediate-hand and tone histories are
-// preserved while its revisit series is validated then discarded. Schema 5 is
-// handled the same way because its revisit predecessor rules are also obsolete.
-// Schema 4/3 discard obsolete coordination series; schema 2 migrates with empty
-// motor history.
-export const PROGRESS_HISTORY_SCHEMA_VERSION = 7 as const;
+// Schema 8 adds bounded history for exact accepted-token transitions on top of
+// schema 7's tone-aware same-hand revisit semantics. Schema 7 therefore keeps
+// its valid revisit history while exact transition history starts empty. Schema
+// 6 used body-only revisit semantics, so its revisit series is validated then
+// discarded and exact transition history also starts empty. Schema 5 and older
+// retain their existing migration behavior.
+export const PROGRESS_HISTORY_SCHEMA_VERSION = 8 as const;
 
 export interface CorrectnessTrendPoint {
   readonly endingObservation: number;
@@ -58,6 +58,7 @@ export interface MotorTimingProgressHistory<Scope> {
 
 export interface MotorProgressHistory {
   readonly coordination: Readonly<Record<string, MotorTimingProgressHistory<CoordinationAggregateScope>>>;
+  readonly immediateTokens: Readonly<Record<string, MotorTimingProgressHistory<ImmediateTokenAggregateScope>>>;
   readonly immediateHands: Readonly<Record<string, MotorTimingProgressHistory<ImmediateHandAggregateScope>>>;
   readonly sameHandRevisits: Readonly<Record<string, MotorTimingProgressHistory<SameHandRevisitAggregateScope>>>;
   readonly toneCommits: Readonly<Record<string, MotorTimingProgressHistory<ToneCommitAggregateScope>>>;
