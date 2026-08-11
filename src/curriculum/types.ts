@@ -1,10 +1,25 @@
 import type { CommonnessTier } from "../commonness/tiers.js";
 import type { BindingSkillScope, CatalogEntry, Exercise, PracticeMode, TokenId } from "../core/model.js";
-import type { BindingAggregate } from "../measurement/types.js";
 
 export type CurriculumState = "unobserved" | "sampling" | "eligible" | "focused" | "cooldown";
 export type CurriculumPhase = "coverage" | "adaptive";
 export type CurriculumEvidence = "timed" | "correctness-only";
+
+/**
+ * Stable learner-evidence seam consumed by production selection and curriculum.
+ *
+ * Measurement V2 binding aggregates satisfy this contract directly. Legacy
+ * BindingAggregate values remain structurally compatible for research/simulation
+ * callers, without making their storage shape part of the curriculum boundary.
+ */
+export interface LearnerBindingEvidence {
+  readonly scope: BindingSkillScope;
+  readonly attempts: number;
+  readonly errors: number;
+  readonly timingSamples: number;
+  readonly currentTimeToTypeMs: number | null;
+  readonly bestTimeToTypeMs: number | null;
+}
 
 export interface CurriculumPolicy {
   readonly version: string;
@@ -44,7 +59,7 @@ export interface CatalogSupportIndex {
 
 export interface CurriculumBindingRecord {
   readonly scope: BindingSkillScope;
-  readonly aggregate: BindingAggregate | null;
+  readonly aggregate: LearnerBindingEvidence | null;
   readonly lastFocusedRound: number | null;
 }
 
