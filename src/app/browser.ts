@@ -4,7 +4,7 @@ import {
   bindProductionInspectionBoundary,
 } from "./browser-boundaries.js";
 import { createApp, type App } from "./create-app.js";
-import { mountDiagnosticEnhancement } from "./diagnostic-enhancement.js";
+import { mountAnalysisV2Integration } from "./analysis-v2-integration.js";
 import {
   recoverLocalPersistenceTransaction,
 } from "./persistence-transaction.js";
@@ -116,15 +116,16 @@ function connectPracticeCenter(stage: HTMLElement): void {
   centerResizeObserver.observe(center);
 }
 
-// The enhancement needs handles the app only has once it exists, and the app
-// needs somewhere to report panel renders to. The indirection is one variable
-// wide: nothing calls through it until the panel is first rendered, which
-// cannot happen before `createApp` has returned.
+// Analysis V2 needs handles the app only has once it exists, and the app needs
+// somewhere to report information-panel renders. The indirection is one variable
+// wide: nothing calls through it before `createApp` has returned.
 let app: App | null = null;
 
-const enhancement = mountDiagnosticEnhancement({
+const analysisIntegration = mountAnalysisV2Integration({
   closePanel: () => app?.closePanel(),
   focusPractice: () => app?.focusPractice(),
+  // `getDiagnosticSnapshot` remains a shell compatibility name for now; the
+  // integration boundary itself consumes the canonical AnalysisV2Snapshot type.
   getSnapshot: () => app?.getDiagnosticSnapshot() ?? null,
   storage: localStorage,
 });
@@ -135,7 +136,7 @@ app = createApp({
   storage: localStorage,
   newSeed,
   onRoundMounted: connectPracticeCenter,
-  onPanelRendered: (content) => enhancement.panelRendered(content),
+  onPanelRendered: (content) => analysisIntegration.panelRendered(content),
 });
 
 // Fonts change the measurements the line plan was built from, so the first
@@ -150,7 +151,7 @@ const unmountBackupInputReset = bindBackupFileInputReset(document);
 window.addEventListener("beforeunload", () => {
   app?.destroy();
   centerResizeObserver?.disconnect();
-  enhancement.destroy();
+  analysisIntegration.destroy();
   unmountBackupInputReset();
   unmountInspectionBoundary();
   if (layoutFrame !== null) window.cancelAnimationFrame(layoutFrame);
