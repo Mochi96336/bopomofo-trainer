@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createCatalogSupportIndex } from "../../src/curriculum/support.js";
 import { FREQUENCY_FIRST_UTTERANCE_POLICY } from "../../src/curriculum/frequency-first-utterance.js";
-import { createEmptyMeasurementSummaryV2 } from "../../src/measurement-v2/aggregate.js";
+import {
+  confusionAggregateKey,
+  createEmptyMeasurementSummaryV2,
+} from "../../src/measurement-v2/aggregate.js";
 import {
   createFreshProductProgress,
   parseProductProgress,
@@ -49,6 +52,37 @@ describe("product progress codec", () => {
       recentUtteranceIds: [],
       recentTemplateIds: [],
     });
+  });
+
+  it("reloads progress when a confusion actual token is mapped but outside catalog support", () => {
+    expect(support.byToken["zhuyin:ㄦ"]).toBeUndefined();
+    const progress = createProgress();
+    const confusion = {
+      mode: "guided" as const,
+      layoutId: "standard",
+      expectedToken: "zhuyin:ㄅ",
+      actualToken: "zhuyin:ㄦ",
+      occurrences: 1,
+    };
+    const withConfusion = {
+      ...progress,
+      measurements: {
+        ...progress.measurements,
+        semantic: {
+          ...progress.measurements.semantic,
+          confusions: {
+            [confusionAggregateKey(
+              confusion.mode,
+              confusion.layoutId,
+              confusion.expectedToken,
+              confusion.actualToken,
+            )]: confusion,
+          },
+        },
+      },
+    };
+
+    expect(parse(serializeProductProgress(withConfusion))).toEqual(withConfusion);
   });
 
   it("migrates schema 6 identity/selection but starts a complete fresh measurement epoch", () => {

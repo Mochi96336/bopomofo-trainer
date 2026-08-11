@@ -1,4 +1,5 @@
 import type { PracticeMode } from "../core/model.js";
+import { ZHUYIN_TOKENS } from "../scheme/tokens.js";
 import {
   BODY_ONLY_REVISIT_MEASUREMENT_V2_POLICY_VERSION,
   HANDSHAPE_MEASUREMENT_V2_POLICY_VERSION,
@@ -46,6 +47,7 @@ const LEGACY_STRATEGY_KEY_LIMIT = 27;
 const CURRENT_COORDINATION_KEY_LIMIT = 4;
 const PREVIOUS_COORDINATION_KEY_LIMIT = 8;
 const LEGACY_COORDINATION_KEY_LIMIT = 12;
+const VALID_INPUT_TOKEN_IDS = new Set<string>(ZHUYIN_TOKENS.map((token) => token.id));
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -164,7 +166,7 @@ function parseConfusion(
     || typeof expectedToken !== "string"
     || typeof actualToken !== "string"
     || !validTokens.has(expectedToken)
-    || !validTokens.has(actualToken)
+    || !VALID_INPUT_TOKEN_IDS.has(actualToken)
     || expectedToken === actualToken
     || !isNonNegativeInteger(value.occurrences)
     || value.occurrences === 0
