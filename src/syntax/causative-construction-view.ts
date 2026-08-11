@@ -10,6 +10,11 @@ export {
  * and an independently evidenced embedding capability. The packaged runtime
  * audit in #196 finds support only for finite ccomp; typed controller xcomp
  * intersections are zero and therefore intentionally have no construction view.
+ *
+ * The existing finite-ccomp skeleton traverses two recursive clause-like edges:
+ * Clause -> ContentClause -> Clause. Explicit construction practice therefore
+ * needs a clause-nesting budget of at least two even though the normal product
+ * budget remains one.
  */
 export const CAUSATIVE_FINITE_CCOMP_VIEW: FormalSyntaxConstructionView = {
   id: "causative.finite-ccomp",
@@ -21,6 +26,7 @@ export const CAUSATIVE_FINITE_CCOMP_VIEW: FormalSyntaxConstructionView = {
     requiredFeatures: { voice: "causative" },
   }],
   evidenceContract: "causative-runtime-reachability-v1",
+  executionRequirements: { minimumClauseNesting: 2 },
 };
 
 export const ACTIVE_CAUSATIVE_CONSTRUCTION_VIEWS: readonly FormalSyntaxConstructionView[] = [
