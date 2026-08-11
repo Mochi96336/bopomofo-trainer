@@ -11,7 +11,6 @@ import type {
 } from "../measurement-v2/aggregate.js";
 import type {
   ConfusionDiagnostic,
-  DiagnosticModel,
   KeyDiagnostic,
   KeyProgressTrends,
 } from "../diagnostics/types.js";
@@ -92,12 +91,8 @@ function joinMotorFamily<Scope>(
     });
 }
 
-function countRepeatedConfusions(confusions: readonly ConfusionDiagnostic[]): number {
-  return confusions.filter((row) => row.occurrences >= 2).length;
-}
-
 export function buildAnalysisV2Model(
-  semantic: DiagnosticModel,
+  semantic: AnalysisV2SemanticModel,
   measurements: MeasurementSummaryV2,
   history: ProgressHistory | null,
 ): AnalysisV2Model {
@@ -137,13 +132,7 @@ export function buildAnalysisV2Model(
     });
 
   return {
-    semantic: {
-      keys: semantic.keys,
-      confusions: semantic.confusions,
-      keyProgress: semantic.keyProgress,
-      keysWithData: semantic.keys.filter((row) => row.attempts > 0).length,
-      repeatedConfusions: countRepeatedConfusions(semantic.confusions),
-    },
+    semantic,
     coordination: {
       immediateTokens,
       coordination,
