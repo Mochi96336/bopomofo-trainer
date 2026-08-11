@@ -133,7 +133,7 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
       nextMain.scrollTop = scrollTop;
       nextMain.scrollLeft = scrollLeft;
     }
-    speedPreview.syncPinned(selectedSpeedPathId);
+    speedPreview.rendered();
   };
 
   const selectTab = (tab: AnalysisV2Tab, focus = true): void => {
