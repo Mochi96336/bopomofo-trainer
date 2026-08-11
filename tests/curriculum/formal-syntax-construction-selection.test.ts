@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  PRACTICE_CATALOG,
-  SYNTAX_PROFILES,
-} from "../../src/app/generated/catalog.js";
-import type { RandomSource } from "../../src/core/model.js";
+import type { CatalogEntry } from "../../src/core/model.js";
 import {
   createSentenceConstructionPracticePlan,
 } from "../../src/curriculum/formal-syntax-construction-practice.js";
@@ -13,20 +9,11 @@ import {
   selectFrequencyFirstUtterance,
 } from "../../src/curriculum/frequency-first-utterance.js";
 import { CAUSATIVE_FINITE_CCOMP_VIEW } from "../../src/syntax/causative-construction-view.js";
+import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
+import type { ProductionRule, RuntimeSyntaxProfile } from "../../src/syntax/types.js";
 import type { MeasurementSummary } from "../../src/measurement/types.js";
 
-class DeterministicRandom implements RandomSource {
-  private state: number;
-
-  constructor(seed: number) {
-    this.state = seed >>> 0;
-  }
-
-  next(): number {
-    this.state = (Math.imul(this.state, 1664525) + 1013904223) >>> 0;
-    return this.state / 0x1_0000_0000;
-  }
-}
+const STABLE_RANDOM = { next: () => 0 };
 
 function emptyMeasurement(): MeasurementSummary {
   return {
@@ -41,6 +28,86 @@ function emptyMeasurement(): MeasurementSummary {
   };
 }
 
+function entry(id: string, text: string): CatalogEntry {
+  return {
+    id,
+    prompt: { text, locale: "zh-TW" },
+    syllables: [{ tokens: ["zhuyin:ㄅ", "tone:1"] }],
+    commonnessBase: {
+      modelVersion: "commonness-v1",
+      sourceId: "test",
+      sourceVersion: "test-v1",
+      sourceRowId: id,
+      spokenPerMillion: null,
+      writtenPerMillion: null,
+      spokenStrength: null,
+      writtenStrength: null,
+      score: 1,
+      selectionWeight: 1,
+      confidence: "reviewed",
+      reasons: [],
+    },
+    tags: ["test"],
+    provenanceIds: ["test"],
+  };
+}
+
+function profile(
+  id: string,
+  entryId: string,
+  upos: RuntimeSyntaxProfile["upos"],
+  functions: RuntimeSyntaxProfile["functions"],
+  valencyFrames: RuntimeSyntaxProfile["valencyFrames"],
+  morphologicalFeatureCounts: Readonly<Record<string, number>> = {},
+): RuntimeSyntaxProfile {
+  return {
+    id,
+    entryId,
+    upos,
+    functions,
+    valencyFrames,
+    provenanceIds: ["test"],
+    dependencyEvidence: {
+      dependencyRelationCounts: {},
+      surfacePositionCounts: {},
+      morphologicalFeatureCounts,
+    },
+  };
+}
+
+function canonicalRule(ruleId: string): ProductionRule {
+  const rule = FORMAL_SYNTAX_RULES.find((candidate) => candidate.id === ruleId);
+  if (rule === undefined) throw new Error(`missing canonical test rule ${ruleId}`);
+  return rule;
+}
+
+const CAUSATIVE_PRACTICE_RULES: readonly ProductionRule[] = [
+  canonicalRule("sentence.declarative"),
+  canonicalRule("clause.object-content"),
+  canonicalRule("clause.intransitive"),
+  canonicalRule("content.clause"),
+  canonicalRule("argument.subject.noun"),
+  canonicalRule("phrase.noun.bare"),
+  canonicalRule("phrase.nominal-head.noun"),
+  canonicalRule("predicate.verb.lexical"),
+];
+
+const LET_ENTRY = entry("entry:let", "讓");
+const HE_ENTRY = entry("entry:he", "他");
+const WALK_ENTRY = entry("entry:walk", "走");
+const ENTRIES = [LET_ENTRY, HE_ENTRY, WALK_ENTRY] as const;
+const PROFILES: readonly RuntimeSyntaxProfile[] = [
+  profile(
+    "profile:let",
+    LET_ENTRY.id,
+    "VERB",
+    ["predicate"],
+    ["clausal-complement"],
+    { "Voice=Cau": 1 },
+  ),
+  profile("profile:he", HE_ENTRY.id, "NOUN", ["subject"], ["avalent"]),
+  profile("profile:walk", WALK_ENTRY.id, "VERB", ["predicate"], ["intransitive"]),
+];
 const HISTORY = {
   recentEntryIds: [],
   recentUtteranceIds: [],
@@ -52,25 +119,27 @@ describe("frequency-first formal syntax construction selection", () => {
     const plan = createSentenceConstructionPracticePlan(
       CAUSATIVE_FINITE_CCOMP_VIEW,
       { sentenceRuleId: "sentence.declarative", constituentKey: "clause" },
+      CAUSATIVE_PRACTICE_RULES,
     );
     const selection = selectFormalSyntaxUtterance({
-      entries: PRACTICE_CATALOG,
-      profiles: SYNTAX_PROFILES,
+      entries: ENTRIES,
+      profiles: PROFILES,
       measurement: emptyMeasurement(),
       mode: "guided",
       layoutId: "standard",
       history: HISTORY,
       policy: FREQUENCY_FIRST_UTTERANCE_POLICY,
-      random: new DeterministicRandom(0x51ec710),
+      random: STABLE_RANDOM,
       formalSyntaxComposition: plan,
     });
 
-    expect(selection.utterance.kind).toBe("formal-syntax");
-    expect(selection.utterance.syntaxRootRuleId).toBe("sentence.declarative");
-    expect(selection.utterance.entries.length).toBeGreaterThan(1);
-    expect(selection.score.entryIds).toEqual(
-      selection.utterance.entries.map((entry) => entry.id),
-    );
+    expect(selection.utterance).toMatchObject({
+      kind: "formal-syntax",
+      text: "讓他走",
+      syntaxRootRuleId: "sentence.declarative",
+      entries: ENTRIES,
+    });
+    expect(selection.score.entryIds).toEqual(ENTRIES.map((item) => item.id));
     expect(selection.score.frequencyBase).toBeGreaterThan(0);
     expect(selection.score.expectedTokenBoost).toBe(1);
     expect(selection.score.transitionBoost).toBe(1);
@@ -78,13 +147,13 @@ describe("frequency-first formal syntax construction selection", () => {
     expect(selection.templateCandidates).toEqual([]);
 
     const profileIds = selection.utterance.syntaxProfileIds ?? [];
-    const profilesById = new Map(SYNTAX_PROFILES.map((profile) => [profile.id, profile]));
+    const profilesById = new Map(PROFILES.map((item) => [item.id, item]));
     expect(profileIds).not.toHaveLength(0);
     expect(profileIds.some((profileId) => {
-      const profile = profilesById.get(profileId);
-      return profile !== undefined
-        && profile.valencyFrames.includes("clausal-complement")
-        && (profile.dependencyEvidence.morphologicalFeatureCounts?.["Voice=Cau"] ?? 0) > 0;
+      const selectedProfile = profilesById.get(profileId);
+      return selectedProfile !== undefined
+        && selectedProfile.valencyFrames.includes("clausal-complement")
+        && (selectedProfile.dependencyEvidence.morphologicalFeatureCounts?.["Voice=Cau"] ?? 0) > 0;
     })).toBe(true);
   });
 
@@ -92,16 +161,17 @@ describe("frequency-first formal syntax construction selection", () => {
     const plan = createSentenceConstructionPracticePlan(
       CAUSATIVE_FINITE_CCOMP_VIEW,
       { sentenceRuleId: "sentence.declarative", constituentKey: "clause" },
+      CAUSATIVE_PRACTICE_RULES,
     );
     expect(() => selectFrequencyFirstUtterance({
-      entries: PRACTICE_CATALOG,
+      entries: ENTRIES,
       annotations: {},
       measurement: emptyMeasurement(),
       mode: "guided",
       layoutId: "standard",
       history: HISTORY,
       policy: FREQUENCY_FIRST_UTTERANCE_POLICY,
-      random: new DeterministicRandom(1),
+      random: STABLE_RANDOM,
       formalSyntaxComposition: plan,
     })).toThrow(/formalSyntaxComposition requires formal syntax profiles/u);
   });
