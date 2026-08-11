@@ -14,19 +14,13 @@ import {
   SYNTAX_PROFILES,
 } from "./generated/catalog.js";
 import {
-  createDiagnosticAnalysis,
-  renderDiagnosticSummary,
-  type DiagnosticAnalysisController,
-} from "./diagnostic-panel.js";
+  createAnalysisV2,
+  renderAnalysisV2Summary,
+  type AnalysisV2Controller,
+} from "./analysis-v2-panel.js";
+import { buildAnalysisV2Model } from "./analysis-v2-model.js";
 import type { DiagnosticPreferenceStorage } from "./diagnostic-preferences.js";
-import { renderDiagnosticRelationshipOverlay } from "./diagnostic-relationship-enhancement.js";
 import type { DiagnosticSnapshot } from "./diagnostic-snapshot.js";
-import {
-  productionDiagnosticPreferenceStorage,
-  retireLegacyTransitionAnalysis,
-  retireLegacyTransitionSummary,
-} from "./legacy-transition-retirement.js";
-import { renderMotorDiagnosticSummary } from "./motor-diagnostic-summary.js";
 import {
   DEFAULT_SELECTION_TUNING,
   policyForSelectionTuning,
@@ -51,7 +45,7 @@ function environmentForTuning(tuning: SelectionTuning): ProductEnvironment {
   return cachedEnvironment;
 }
 
-function diagnosticModelFrom(snapshot: DiagnosticSnapshot | null) {
+function semanticDiagnosticModelFrom(snapshot: DiagnosticSnapshot | null) {
   const environment = environmentForTuning(
     snapshot?.selectionTuning ?? DEFAULT_SELECTION_TUNING,
   );
@@ -62,6 +56,8 @@ function diagnosticModelFrom(snapshot: DiagnosticSnapshot | null) {
     STANDARD_BOPOMOFO_LAYOUT.id,
   );
   return buildDiagnosticModel({
+    // This compatibility projection is semantic-only in production: it carries
+    // V2 binding/confusion evidence and deliberately exposes no transition rows.
     measurements: legacySelectionMeasurementView(progress.measurements),
     curriculum: progress.curriculum,
     support: environment.practiceSupport,
@@ -70,6 +66,14 @@ function diagnosticModelFrom(snapshot: DiagnosticSnapshot | null) {
     timingExclusionsAvailable: false,
     progressHistory: snapshot?.progressHistory ?? null,
   });
+}
+
+function analysisV2ModelFrom(snapshot: DiagnosticSnapshot | null) {
+  return buildAnalysisV2Model(
+    semanticDiagnosticModelFrom(snapshot),
+    snapshot?.progress.measurements ?? createEmptyMeasurementSummaryV2(),
+    snapshot?.progressHistory ?? null,
+  );
 }
 
 export interface DiagnosticEnhancementDependencies {
@@ -84,12 +88,17 @@ export interface DiagnosticEnhancement {
   destroy(): void;
 }
 
+interface AnalysisTopLayer {
+  close(): void;
+  destroy(): void;
+}
+
 function findLegacyWeakSection(content: HTMLElement): HTMLElement | null {
   return content.querySelector<HTMLElement>('section[data-legacy-weak-section="true"]');
 }
 
 function openAnalysisFromPractice(
-  analysis: DiagnosticAnalysisController,
+  analysis: AnalysisV2Controller,
   deps: DiagnosticEnhancementDependencies,
 ): void {
   deps.closePanel();
@@ -97,10 +106,7 @@ function openAnalysisFromPractice(
   analysis.open();
 }
 
-function mountAnalysisTopLayer(
-  analysis: HTMLElement,
-  focusPractice: () => void,
-): () => void {
+function mountAnalysisTopLayer(analysis: HTMLElement): AnalysisTopLayer {
   const modal = document.createElement("dialog");
   modal.className = "diagnostic-analysis-modal";
   modal.setAttribute("aria-labelledby", "diagnostic-analysis-title");
@@ -110,55 +116,62 @@ function mountAnalysisTopLayer(
   analysis.before(modal);
   modal.append(analysis);
 
+  const close = (): void => {
+    if (modal.open) modal.close();
+  };
   const sync = (): void => {
-    if (!analysis.hidden && !modal.open) modal.showModal();
-    if (analysis.hidden && modal.open) modal.close();
+    if (!analysis.hidden && !modal.open) {
+      modal.showModal();
+      return;
+    }
+    if (analysis.hidden) close();
   };
   const observer = new MutationObserver(sync);
   observer.observe(analysis, { attributes: true, attributeFilter: ["hidden"] });
   modal.addEventListener("cancel", (event) => event.preventDefault());
-  modal.addEventListener("close", focusPractice);
   sync();
 
-  return () => {
-    observer.disconnect();
-    if (modal.open) modal.close();
-    modal.remove();
+  return {
+    close,
+    destroy(): void {
+      observer.disconnect();
+      close();
+      modal.remove();
+    },
   };
 }
 
 export function mountDiagnosticEnhancement(
   deps: DiagnosticEnhancementDependencies,
 ): DiagnosticEnhancement {
-  const currentDiagnosticModel = () => diagnosticModelFrom(deps.getSnapshot());
-  const analysis = createDiagnosticAnalysis({
-    getModel: currentDiagnosticModel,
-    storage: productionDiagnosticPreferenceStorage(deps.storage),
-    onRendered: (view) => {
-      retireLegacyTransitionAnalysis(analysis.host);
-      renderDiagnosticRelationshipOverlay(analysis.host, view);
+  const currentAnalysisModel = () => analysisV2ModelFrom(deps.getSnapshot());
+  let topLayer: AnalysisTopLayer | null = null;
+  const analysis = createAnalysisV2({
+    getModel: currentAnalysisModel,
+    storage: deps.storage,
+    onClose: () => {
+      // Close the browser top layer before focusing practice. A still-open modal
+      // dialog owns focus containment, so attempting the reverse order leaves
+      // focus on the now-hidden Analysis V2 close control.
+      topLayer?.close();
+      deps.focusPractice();
     },
   });
-  const releaseTopLayer = mountAnalysisTopLayer(analysis.host, deps.focusPractice);
+  topLayer = mountAnalysisTopLayer(analysis.host);
 
   return {
     panelRendered(content: HTMLElement): void {
       const section = findLegacyWeakSection(content);
       if (section === null) return;
-      const model = currentDiagnosticModel();
-      renderDiagnosticSummary(
+      renderAnalysisV2Summary(
         section,
-        model,
+        currentAnalysisModel(),
         () => openAnalysisFromPractice(analysis, deps),
       );
-      retireLegacyTransitionSummary(section, model);
-      renderMotorDiagnosticSummary(
-        content,
-        deps.getSnapshot()?.progress.measurements ?? createEmptyMeasurementSummaryV2(),
-      );
+      content.querySelector(".motor-diagnostic-section")?.remove();
     },
     destroy(): void {
-      releaseTopLayer();
+      topLayer?.destroy();
       analysis.destroy();
     },
   };

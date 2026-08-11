@@ -164,9 +164,12 @@ describe("diagnostics over a degraded session", () => {
     }));
     app.openPanel();
 
-    const meta = app.find(".diagnostic-summary-signals div small").textContent;
-    expect(meta).not.toBe("尚無按鍵資料");
-    expect(meta).toMatch(/\d+ 次$/);
+    const signals = app.find(".diagnostic-summary-signals");
+    expect(signals.children).toHaveLength(3);
+    expect(signals.textContent).toContain("語意");
+    expect(signals.textContent).toContain("協調");
+    expect(signals.textContent).toContain("策略");
+    expect(signals.querySelector("div strong")?.textContent).toMatch(/^[1-9]\d* 鍵$/);
   });
 });
 
@@ -477,7 +480,11 @@ describe("opening analysis from the panel", () => {
     // the shell left for it, so the marker's absence is the evidence it ran.
     expect(document.querySelector('[data-legacy-weak-section="true"]')).toBeNull();
     const section = app.find<HTMLElement>(".diagnostic-summary-section");
-    expect(section.textContent).toContain("弱點診斷");
+    expect(section.textContent).toContain("學習分析");
+    expect(section.querySelectorAll(".diagnostic-summary-signals > div")).toHaveLength(3);
+    expect(section.textContent).toContain("語意");
+    expect(section.textContent).toContain("協調");
+    expect(section.textContent).toContain("策略");
     expect(section.querySelector(".diagnostic-open-analysis")).not.toBeNull();
   });
 
