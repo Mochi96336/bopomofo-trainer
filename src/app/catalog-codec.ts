@@ -3,6 +3,7 @@ import {
   isReviewedRuntimeMorphologicalFeature,
   validRuntimeMorphologicalFeatureCounts,
 } from "../syntax/runtime-morphology.js";
+import { isReviewedRuntimeOccurrenceCapability } from "../syntax/runtime-occurrence-capabilities.js";
 import {
   SYNTACTIC_FUNCTIONS,
   UPOS_VALUES,
@@ -21,8 +22,9 @@ export type EncodedCatalogEntry = readonly [
 ];
 
 /**
- * Compact syntax-profile wire tuple. Morphology is an optional trailing field
- * so pre-morphology 6-tuples remain byte- and decoder-compatible.
+ * Compact syntax-profile wire tuple. Morphology and same-occurrence
+ * capabilities are optional trailing fields so historical 6-tuples and
+ * morphology-only 7-tuples remain decoder-compatible.
  */
 export type EncodedSyntaxProfile = readonly [
   entryIndex: number,
@@ -32,12 +34,14 @@ export type EncodedSyntaxProfile = readonly [
   relationKeyIndices: readonly number[],
   positionKeyIndices: readonly number[],
   morphologyKeyIndices?: readonly number[],
+  occurrenceCapabilityKeyIndices?: readonly number[],
 ];
 
 export interface DependencyKeyTables {
   readonly relationKeys: readonly string[];
   readonly positionKeys: readonly string[];
   readonly morphologyKeys: readonly string[];
+  readonly occurrenceCapabilityKeys: readonly string[];
 }
 
 export interface EncodedSyntaxProfiles extends DependencyKeyTables {
@@ -117,6 +121,7 @@ export function deriveDependencyKeyTables(
   const relationKeys = new Set<string>();
   const positionKeys = new Set<string>();
   const morphologyKeys = new Set<string>();
+  const occurrenceCapabilityKeys = new Set<string>();
   for (const profile of profiles) {
     for (const [key, count] of Object.entries(profile.dependencyEvidence.dependencyRelationCounts)) {
       if (count > 0) relationKeys.add(key);
@@ -131,11 +136,18 @@ export function deriveDependencyKeyTables(
     for (const [key, count] of Object.entries(morphology ?? EMPTY_COUNTS)) {
       if (count > 0) morphologyKeys.add(key);
     }
+    for (const capability of profile.occurrenceCapabilities ?? EMPTY_STRINGS) {
+      if (!isReviewedRuntimeOccurrenceCapability(capability)) {
+        throw new Error("runtime syntax profile contains an unreviewed occurrence capability");
+      }
+      occurrenceCapabilityKeys.add(capability);
+    }
   }
   return {
     relationKeys: [...relationKeys].sort(),
     positionKeys: [...positionKeys].sort(),
     morphologyKeys: [...morphologyKeys].sort(),
+    occurrenceCapabilityKeys: [...occurrenceCapabilityKeys].sort(),
   };
 }
 
@@ -161,10 +173,18 @@ export function encodeSyntaxProfiles(
   profiles: readonly RuntimeSyntaxProfile[],
   allEntries: readonly CatalogEntry[],
 ): EncodedSyntaxProfiles {
-  const { relationKeys, positionKeys, morphologyKeys } = deriveDependencyKeyTables(profiles);
+  const {
+    relationKeys,
+    positionKeys,
+    morphologyKeys,
+    occurrenceCapabilityKeys,
+  } = deriveDependencyKeyTables(profiles);
   const relationIndex = new Map(relationKeys.map((key, index) => [key, index]));
   const positionIndex = new Map(positionKeys.map((key, index) => [key, index]));
   const morphologyIndex = new Map(morphologyKeys.map((key, index) => [key, index]));
+  const occurrenceCapabilityIndex = new Map(
+    occurrenceCapabilityKeys.map((key, index) => [key, index]),
+  );
   const entryIndex = new Map(allEntries.map((entry, index) => [entry.id, index]));
   const uposIndex = new Map(UPOS_VALUES.map((value, index): [string, number] => [value, index]));
   const functionIndex = new Map(SYNTACTIC_FUNCTIONS.map((value, index): [string, number] => [value, index]));
@@ -177,6 +197,9 @@ export function encodeSyntaxProfiles(
       profile.dependencyEvidence.morphologicalFeatureCounts ?? EMPTY_COUNTS,
       morphologyIndex,
     );
+    const occurrenceIndices = (profile.occurrenceCapabilities ?? EMPTY_STRINGS)
+      .map((value) => indexOrThrow(occurrenceCapabilityIndex, value, "occurrence capability"))
+      .sort((left, right) => left - right);
     const base = [
       entryPosition,
       uposPosition,
@@ -185,10 +208,17 @@ export function encodeSyntaxProfiles(
       presentIndices(profile.dependencyEvidence.dependencyRelationCounts, relationIndex),
       presentIndices(profile.dependencyEvidence.surfacePositionCounts, positionIndex),
     ] as const;
+    if (occurrenceIndices.length > 0) return [...base, morphologyIndices, occurrenceIndices] as const;
     return morphologyIndices.length === 0 ? base : [...base, morphologyIndices] as const;
   });
 
-  return { relationKeys, positionKeys, morphologyKeys, profiles: encoded };
+  return {
+    relationKeys,
+    positionKeys,
+    morphologyKeys,
+    occurrenceCapabilityKeys,
+    profiles: encoded,
+  };
 }
 
 function enumOrThrow<T extends string>(table: readonly T[], index: number, label: string): T {
@@ -214,9 +244,15 @@ export function decodeSyntaxProfiles(
   relationKeys: readonly string[],
   positionKeys: readonly string[],
   morphologyKeys: readonly string[] = EMPTY_STRINGS,
+  occurrenceCapabilityKeys: readonly string[] = EMPTY_STRINGS,
 ): readonly RuntimeSyntaxProfile[] {
   if (morphologyKeys.some((feature) => !isReviewedRuntimeMorphologicalFeature(feature))) {
     throw new Error("compact syntax profile contains an unreviewed morphology key");
+  }
+  if (occurrenceCapabilityKeys.some(
+    (capability) => !isReviewedRuntimeOccurrenceCapability(capability),
+  )) {
+    throw new Error("compact syntax profile contains an unreviewed occurrence capability key");
   }
   return encoded.map((profile, position): RuntimeSyntaxProfile => {
     const [
@@ -227,16 +263,25 @@ export function decodeSyntaxProfiles(
       relationIndices,
       positionIndices,
       morphologyIndices = EMPTY_NUMBERS,
+      occurrenceCapabilityIndices = EMPTY_NUMBERS,
     ] = profile;
     const entry = allEntries[entryIndex];
     if (entry === undefined) throw new Error(`catalog entry index ${entryIndex} out of range`);
     const morphologicalFeatureCounts = decodeEvidenceCounts(morphologyIndices, morphologyKeys);
+    const occurrenceCapabilities = occurrenceCapabilityIndices.map((index) => {
+      const capability = enumOrThrow(occurrenceCapabilityKeys, index, "occurrence capability");
+      if (!isReviewedRuntimeOccurrenceCapability(capability)) {
+        throw new Error("compact syntax profile contains an unreviewed occurrence capability key");
+      }
+      return capability;
+    });
     return {
       id: `runtime-syntax-profile:${position}`,
       entryId: entry.id,
       upos: enumOrThrow(UPOS_VALUES, uposIndex, "upos"),
       functions: functionIndices.map((index) => enumOrThrow(SYNTACTIC_FUNCTIONS, index, "syntactic function")),
       valencyFrames: valencyFrameIndices.map((index) => enumOrThrow(VALENCY_FRAMES, index, "valency frame")),
+      ...(occurrenceCapabilities.length === 0 ? {} : { occurrenceCapabilities }),
       dependencyEvidence: {
         dependencyRelationCounts: decodeEvidenceCounts(relationIndices, relationKeys),
         surfacePositionCounts: decodeEvidenceCounts(positionIndices, positionKeys),

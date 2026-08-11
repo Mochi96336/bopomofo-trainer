@@ -57,6 +57,9 @@ function validProfile(profile: RuntimeSyntaxProfile): boolean {
     && typeof profile.upos === "string"
     && Array.isArray(profile.functions)
     && Array.isArray(profile.valencyFrames)
+    // Same-occurrence capabilities are owned by their small reviewed sidecar,
+    // never embedded into this aggregate source-profile artifact.
+    && profile.occurrenceCapabilities === undefined
     && Array.isArray(profile.provenanceIds)
     && typeof profile.dependencyEvidence === "object"
     && profile.dependencyEvidence !== null

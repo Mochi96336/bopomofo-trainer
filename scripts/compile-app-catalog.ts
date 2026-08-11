@@ -15,6 +15,10 @@ import {
 } from "../src/syntax/catalog-legality.js";
 import { FORMAL_GRAMMAR_VERSION } from "../src/syntax/features.js";
 import { FORMAL_SYNTAX_RULES } from "../src/syntax/grammar.js";
+import {
+  applyRuntimeOccurrenceCapabilityProjection,
+  type RuntimeOccurrenceCapabilityProjectionArtifact,
+} from "../src/syntax/runtime-occurrence-capability-projection.js";
 import { buildSyntaxRuleIndex } from "../src/syntax/rule-index.js";
 import {
   loadActiveCatalogSyntaxProfilesArtifact,
@@ -35,6 +39,7 @@ const [
   commonnessSource,
   syntaxLegalitySource,
   syntaxProfilesSource,
+  occurrenceCapabilitiesSource,
   syntaxRuntimeLockSource,
 ] = await Promise.all([
   loadResolvedCatalogSource(),
@@ -42,6 +47,7 @@ const [
   readFile(new URL("../data/commonness/naer-1141208-active-catalog-rows.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-active-catalog-legality.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-active-catalog-profiles.json", import.meta.url), "utf8"),
+  readFile(new URL("../data/grammar/formal-syntax-runtime-occurrence-capabilities.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-runtime-lock.json", import.meta.url), "utf8"),
 ]);
 
@@ -70,9 +76,17 @@ if (appliedCommonness.unusedProjectionEntryIds.length > 0) {
 const sourceSyntaxArtifact = JSON.parse(syntaxLegalitySource) as CatalogSyntaxLegalityArtifact;
 applyCatalogSyntaxLegalityArtifact(result.entries, sourceSyntaxArtifact);
 const syntaxProfilesArtifact = JSON.parse(syntaxProfilesSource) as ActiveCatalogSyntaxProfilesArtifact;
-const sourceSyntaxProfiles = loadActiveCatalogSyntaxProfilesArtifact(
+const baseSyntaxProfiles = loadActiveCatalogSyntaxProfilesArtifact(
   result.entries,
   syntaxProfilesArtifact,
+);
+const occurrenceCapabilitiesArtifact = JSON.parse(
+  occurrenceCapabilitiesSource,
+) as RuntimeOccurrenceCapabilityProjectionArtifact;
+const sourceSyntaxProfiles = applyRuntimeOccurrenceCapabilityProjection(
+  baseSyntaxProfiles,
+  syntaxProfilesArtifact.determinismDigest,
+  occurrenceCapabilitiesArtifact,
 );
 if (syntaxProfilesArtifact.sourceRuleIndexDigest !== sourceSyntaxArtifact.sourceRuleIndexDigest) {
   throw new Error("syntax profile and legality artifacts disagree about their source rule index");
@@ -160,12 +174,14 @@ const moduleSource = [
   `export const SYNTAX_RULE_INDEX_DIGEST = ${JSON.stringify(currentRuleIndex.determinismDigest)};`,
   `export const SYNTAX_GRAMMAR_RULES_DIGEST = ${JSON.stringify(currentRuleIndex.grammarRulesDigest)};`,
   `export const SYNTAX_RUNTIME_PROFILES_DIGEST = ${JSON.stringify(syntaxProfilesArtifact.determinismDigest)};`,
+  `export const SYNTAX_RUNTIME_OCCURRENCE_CAPABILITIES_DIGEST = ${JSON.stringify(occurrenceCapabilitiesArtifact.determinismDigest)};`,
   "",
   `const ENCODED_PRACTICE: readonly EncodedCatalogEntry[] = ${JSON.stringify(encodeCatalogEntries(syntaxLegalEntries))};`,
   "const ENCODED_EVALUATION: readonly EncodedCatalogEntry[] = [];",
   `const DEPENDENCY_RELATION_KEYS: readonly string[] = ${JSON.stringify(encodedProfiles.relationKeys)};`,
   `const SURFACE_POSITION_KEYS: readonly string[] = ${JSON.stringify(encodedProfiles.positionKeys)};`,
   `const MORPHOLOGICAL_FEATURE_KEYS: readonly string[] = ${JSON.stringify(encodedProfiles.morphologyKeys)};`,
+  `const OCCURRENCE_CAPABILITY_KEYS: readonly string[] = ${JSON.stringify(encodedProfiles.occurrenceCapabilityKeys)};`,
   `const ENCODED_SYNTAX_PROFILES: readonly EncodedSyntaxProfile[] = ${JSON.stringify(encodedProfiles.profiles)};`,
   "",
   "export const PRACTICE_CATALOG: readonly CatalogEntry[] = decodeCatalogEntries(ENCODED_PRACTICE);",
@@ -176,6 +192,7 @@ const moduleSource = [
   "  DEPENDENCY_RELATION_KEYS,",
   "  SURFACE_POSITION_KEYS,",
   "  MORPHOLOGICAL_FEATURE_KEYS,",
+  "  OCCURRENCE_CAPABILITY_KEYS,",
   ");",
   "",
 ].join("\n");

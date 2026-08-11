@@ -1,0 +1,28 @@
+import {
+  RUNTIME_OCCURRENCE_CAPABILITIES,
+  type RuntimeOccurrenceCapability,
+} from "./types.js";
+
+const REVIEWED_CAPABILITIES = new Set<string>(RUNTIME_OCCURRENCE_CAPABILITIES);
+
+export function isReviewedRuntimeOccurrenceCapability(
+  value: string,
+): value is RuntimeOccurrenceCapability {
+  return REVIEWED_CAPABILITIES.has(value);
+}
+
+/** Missing means no reviewed same-occurrence capability evidence. */
+export function validRuntimeOccurrenceCapabilities(value: unknown): boolean {
+  if (value === undefined) return true;
+  if (!Array.isArray(value)) return false;
+  const seen = new Set<string>();
+  for (const capability of value) {
+    if (typeof capability !== "string"
+      || !isReviewedRuntimeOccurrenceCapability(capability)
+      || seen.has(capability)) {
+      return false;
+    }
+    seen.add(capability);
+  }
+  return true;
+}
