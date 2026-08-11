@@ -89,7 +89,11 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
   let strategyBodySize: CoordinationBodySizeBucket = "3";
   let coordinationView: AnalysisV2CoordinationView = "paths";
   let openFrame: number | null = null;
-  const speedPreview = mountAnalysisV2SpeedPreview(host, options.getModel);
+  const speedPreview = mountAnalysisV2SpeedPreview(
+    host,
+    options.getModel,
+    () => selectedSpeedPathId,
+  );
   const persist = () => saveAnalysisV2Preferences(options.storage, preferences);
 
   const cancelOpenFrame = (): void => {
