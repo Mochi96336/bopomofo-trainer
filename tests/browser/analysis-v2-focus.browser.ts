@@ -64,6 +64,30 @@ function seededStrategyProgress(): string {
     bindings: [],
     confusions: [],
     inputOrderPositions: positions,
+    inputOrderPermutations: [
+      ...Array.from({ length: 10 }, (_, index) => ({
+        syllableOrdinal: 100 + index,
+        permutation: "first-middle-last" as const,
+      })),
+      ...Array.from({ length: 2 }, (_, index) => ({
+        syllableOrdinal: 200 + index,
+        permutation: "middle-last-first" as const,
+      })),
+    ],
+    inputOrderTrajectories: [
+      ...Array.from({ length: 10 }, (_, index) => ({
+        syllableOrdinal: 100 + index,
+        bodySize: 3 as const,
+        permutation: "first-middle-last" as const,
+        elapsedMs: [0, 110 + index * 2, 230 + index * 3] as const,
+      })),
+      ...Array.from({ length: 2 }, (_, index) => ({
+        syllableOrdinal: 200 + index,
+        bodySize: 3 as const,
+        permutation: "middle-last-first" as const,
+        elapsedMs: [0, 145 + index * 4, 315 + index * 5] as const,
+      })),
+    ],
     coordination: [],
     immediateTokens: [],
     immediateHands: [],
@@ -144,27 +168,26 @@ test("keeps aggregate movement families out of the default Coordination viewport
   await expect(analysis.locator(".analysis-v2-speed-board")).toHaveCount(0);
 });
 
-test("keeps a populated Strategy lead below the matrix", async ({ page }) => {
+test("keeps a populated whole-word Strategy lead below the trajectory field", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const analysis = await openPopulatedStrategy(page);
   const readout = analysis.locator(".analysis-v2-strategy-readout");
-  await expect(readout).toContainText("中 → 後");
+  await expect(readout).toContainText("換序輸入");
   await expect(readout).toContainText("17%");
-  await expect(analysis.locator(".analysis-v2-strategy-total")).toContainText("36 個位置觀察");
+  await expect(readout).toContainText("2 / 12 個三注音字");
+  await expect(readout).toContainText("介音 → 韻母 → 聲母 17%");
 
   const geometry = await analysis.evaluate((host) => {
-    const matrix = host.querySelector<HTMLElement>(".strategy-matrix")!;
+    const object = host.querySelector<HTMLElement>(".analysis-v2-strategy-trajectory-object")!;
     const readout = host.querySelector<HTMLElement>(".analysis-v2-strategy-readout")!;
-    const object = host.querySelector<HTMLElement>(".analysis-v2-strategy-object")!;
-    const matrixRect = matrix.getBoundingClientRect();
-    const readoutRect = readout.getBoundingClientRect();
     const objectRect = object.getBoundingClientRect();
+    const readoutRect = readout.getBoundingClientRect();
     return {
-      gap: readoutRect.top - matrixRect.bottom,
+      gap: readoutRect.top - objectRect.bottom,
       readoutBelowObject: readoutRect.top >= objectRect.bottom - 1,
     };
   });
 
-  expect(geometry.gap).toBeGreaterThanOrEqual(18);
+  expect(geometry.gap).toBeGreaterThanOrEqual(0);
   expect(geometry.readoutBelowObject).toBe(true);
 });

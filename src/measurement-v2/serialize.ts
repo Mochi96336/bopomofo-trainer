@@ -5,11 +5,13 @@ import {
   LEGACY_MEASUREMENT_V2_POLICY_VERSION,
   MEASUREMENT_V2_POLICY_VERSION,
   PREVIOUS_MEASUREMENT_V2_POLICY_VERSION,
+  STRATEGY_TRAJECTORY_LIMIT,
   bindingAggregateKey,
   confusionAggregateKey,
   coordinationAggregateKey,
   immediateHandAggregateKey,
   immediateTokenAggregateKey,
+  inputOrderPermutationAggregateKey,
   inputOrderPositionAggregateKey,
   sameHandRevisitAggregateKey,
   toneCommitAggregateKey,
@@ -20,8 +22,11 @@ import {
   type CoordinationBodySizeBucket,
   type ImmediateHandAggregateScope,
   type ImmediateTokenAggregateScope,
+  type InputOrderPermutationAggregate,
+  type InputOrderPermutationAggregateScope,
   type InputOrderPositionAggregate,
   type InputOrderPositionAggregateScope,
+  type InputOrderTrajectorySample,
   type MeasurementSummaryV2,
   type MotorTimingAggregate,
   type SameHandRevisitAggregateScope,
@@ -31,9 +36,12 @@ import type {
   CoordinationBodyShape,
   CoordinationHandShape,
   ExplicitHand,
+  ThreePartInputOrderPermutation,
+  TwoPartInputOrderPermutation,
 } from "./types.js";
 
 const CURRENT_STRATEGY_KEY_LIMIT = 13;
+const THREE_PART_PERMUTATION_KEY_LIMIT = 6;
 const LEGACY_STRATEGY_KEY_LIMIT = 27;
 const CURRENT_COORDINATION_KEY_LIMIT = 4;
 const PREVIOUS_COORDINATION_KEY_LIMIT = 8;
@@ -52,6 +60,10 @@ function finiteNonNegativeOrNull(value: unknown): number | null | undefined {
   return typeof value === "number" && Number.isFinite(value) && value >= 0
     ? value
     : undefined;
+}
+
+function finiteNonNegative(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
 function validTimingPair(
@@ -88,6 +100,19 @@ function bodySizeBucket(value: unknown): value is CoordinationBodySizeBucket {
 
 function bodyPosition(value: unknown): value is BodyPositionBucket {
   return value === "first" || value === "middle" || value === "last";
+}
+
+function twoPartInputOrderPermutation(value: unknown): value is TwoPartInputOrderPermutation {
+  return value === "first-last" || value === "last-first";
+}
+
+function threePartInputOrderPermutation(value: unknown): value is ThreePartInputOrderPermutation {
+  return value === "first-middle-last"
+    || value === "middle-first-last"
+    || value === "first-last-middle"
+    || value === "middle-last-first"
+    || value === "last-first-middle"
+    || value === "last-middle-first";
 }
 
 function parseBinding(
@@ -174,6 +199,70 @@ function parseInputOrderPosition(value: unknown): InputOrderPositionAggregate | 
     return null;
   }
   return { scope, observations: value.observations as number };
+}
+
+function parseInputOrderPermutationScope(value: unknown): InputOrderPermutationAggregateScope | null {
+  if (!isRecord(value)
+    || value.bodySize !== "3"
+    || !threePartInputOrderPermutation(value.permutation)) return null;
+  return { bodySize: "3", permutation: value.permutation };
+}
+
+function parseInputOrderPermutation(value: unknown): InputOrderPermutationAggregate | null {
+  if (!isRecord(value)) return null;
+  const scope = parseInputOrderPermutationScope(value.scope);
+  if (scope === null || !isNonNegativeInteger(value.observations) || value.observations === 0) {
+    return null;
+  }
+  return { scope, observations: value.observations as number };
+}
+
+function parseInputOrderTrajectory(value: unknown): InputOrderTrajectorySample | null {
+  if (!isRecord(value) || !Array.isArray(value.elapsedMs)) return null;
+
+  // Legacy trajectory records from the first #160 implementation had no
+  // bodySize discriminator and were necessarily three-part paths.
+  const bodySize = value.bodySize === undefined ? "3" : value.bodySize;
+  if (bodySize === "2") {
+    if (!twoPartInputOrderPermutation(value.permutation) || value.elapsedMs.length !== 2) return null;
+    const [first, second] = value.elapsedMs;
+    if (first !== 0 || !finiteNonNegative(second)) return null;
+    return {
+      bodySize: "2",
+      permutation: value.permutation,
+      elapsedMs: [0, second],
+    };
+  }
+
+  if (bodySize !== "3"
+    || !threePartInputOrderPermutation(value.permutation)
+    || value.elapsedMs.length !== 3) return null;
+  const [first, second, third] = value.elapsedMs;
+  if (first !== 0
+    || !finiteNonNegative(second)
+    || !finiteNonNegative(third)
+    || third < second) return null;
+  return {
+    bodySize: "3",
+    permutation: value.permutation,
+    elapsedMs: [0, second, third],
+  };
+}
+
+function parseInputOrderTrajectories(value: unknown): readonly InputOrderTrajectorySample[] | null {
+  if (!Array.isArray(value) || value.length > STRATEGY_TRAJECTORY_LIMIT * 2) return null;
+  const result: InputOrderTrajectorySample[] = [];
+  let twoPart = 0;
+  let threePart = 0;
+  for (const candidate of value) {
+    const parsed = parseInputOrderTrajectory(candidate);
+    if (parsed === null) return null;
+    if (parsed.bodySize === "2") twoPart += 1;
+    else threePart += 1;
+    if (twoPart > STRATEGY_TRAJECTORY_LIMIT || threePart > STRATEGY_TRAJECTORY_LIMIT) return null;
+    result.push(parsed);
+  }
+  return result;
 }
 
 function parseMotor<Scope>(
@@ -346,6 +435,8 @@ export function parseMeasurementSummaryV2(
     || !isNonNegativeInteger(value.semantic.prematureTones)) return null;
 
   const aggregate1 = value.policyVersion === LEGACY_MEASUREMENT_V2_POLICY_VERSION;
+  const currentStrategyEvidence = value.policyVersion === MEASUREMENT_V2_POLICY_VERSION
+    || value.policyVersion === BODY_ONLY_REVISIT_MEASUREMENT_V2_POLICY_VERSION;
   const legacyHandshapeCoordination = aggregate1
     || value.policyVersion === HANDSHAPE_MEASUREMENT_V2_POLICY_VERSION;
   const legacySameHandRevisit = value.policyVersion !== MEASUREMENT_V2_POLICY_VERSION;
@@ -367,13 +458,19 @@ export function parseMeasurementSummaryV2(
   );
 
   const strategy = value.strategy === undefined
-    ? { inputOrderPositions: {} }
+    ? { inputOrderPositions: {}, inputOrderPermutations: {}, recentInputOrderTrajectories: [] }
     : value.strategy;
   if (!isRecord(strategy)) return null;
   const strategySource = aggregate1
     ? migrateLegacyStrategyRecord(strategy.inputOrderPositions)
     : strategy.inputOrderPositions;
   if (strategySource === null) return null;
+  const permutationSource = currentStrategyEvidence
+    ? strategy.inputOrderPermutations ?? {}
+    : {};
+  const trajectorySource = currentStrategyEvidence
+    ? strategy.recentInputOrderTrajectories ?? []
+    : [];
 
   if (legacyHandshapeCoordination
     && !validateLegacyCoordinationRecord(value.motor.coordination, aggregate1)) return null;
@@ -385,6 +482,13 @@ export function parseMeasurementSummaryV2(
     (aggregate) => inputOrderPositionAggregateKey(aggregate.scope),
     CURRENT_STRATEGY_KEY_LIMIT,
   );
+  const inputOrderPermutations = parseRecord(
+    permutationSource,
+    parseInputOrderPermutation,
+    (aggregate) => inputOrderPermutationAggregateKey(aggregate.scope),
+    THREE_PART_PERMUTATION_KEY_LIMIT,
+  );
+  const recentInputOrderTrajectories = parseInputOrderTrajectories(trajectorySource);
   const coordination = parseRecord(
     coordinationSource,
     (candidate) => parseMotor(candidate, parseCoordinationScope),
@@ -419,8 +523,9 @@ export function parseMeasurementSummaryV2(
     (aggregate) => toneCommitAggregateKey(aggregate.scope),
   );
   if (bindings === null || confusions === null || inputOrderPositions === null
-    || coordination === null || immediateTokens === null || immediateHands === null
-    || parsedSameHandRevisits === null || toneCommits === null) return null;
+    || inputOrderPermutations === null || recentInputOrderTrajectories === null
+    || coordination === null || immediateTokens === null
+    || immediateHands === null || parsedSameHandRevisits === null || toneCommits === null) return null;
   const sameHandRevisits = legacySameHandRevisit ? {} : parsedSameHandRevisits;
 
   return {
@@ -432,7 +537,7 @@ export function parseMeasurementSummaryV2(
       duplicateComponents: value.semantic.duplicateComponents as number,
       prematureTones: value.semantic.prematureTones as number,
     },
-    strategy: { inputOrderPositions },
+    strategy: { inputOrderPositions, inputOrderPermutations, recentInputOrderTrajectories },
     motor: { coordination, immediateTokens, immediateHands, sameHandRevisits, toneCommits },
   };
 }

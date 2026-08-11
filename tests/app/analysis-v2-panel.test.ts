@@ -123,6 +123,7 @@ const MODEL: AnalysisV2Model = {
         observations: 8,
       },
     ],
+    inputOrderPermutations: [],
     totalObservations: 10,
     bodySizeBucketsWithData: 2,
   },
@@ -276,7 +277,7 @@ describe("Analysis V2 panel", () => {
     expect(host.querySelector(".analysis-v2-movement-view")?.textContent).not.toContain("2 · 左");
   });
 
-  it("renders only 2/3 strategy scales and never invents a middle position for two components", () => {
+  it("renders only 2/3 strategy scales and keeps the two-part matrix subordinate without inventing a middle position", () => {
     const host = open();
     selectTab(host, "strategy");
     const sizeButtons = [...host.querySelectorAll<HTMLButtonElement>('[data-action="strategy-size"]')];
@@ -286,12 +287,17 @@ describe("Analysis V2 panel", () => {
     host.querySelector<HTMLButtonElement>(
       '[data-action="strategy-size"][data-value="2"]',
     )?.click();
-    const matrix = host.querySelector<HTMLTableElement>(".strategy-matrix");
-    expect(host.querySelectorAll(".strategy-matrix")).toHaveLength(1);
+    const projection = host.querySelector<HTMLElement>(".analysis-v2-strategy-projection");
+    const matrix = projection?.querySelector<HTMLTableElement>(".analysis-v2-strategy-projection-matrix");
+    expect(host.querySelectorAll(".strategy-matrix")).toHaveLength(0);
+    expect(host.querySelectorAll(".analysis-v2-strategy-trajectory")).toHaveLength(1);
+    expect(projection?.textContent).toContain("位置投影");
     expect(matrix?.textContent).not.toContain("中");
     expect(matrix?.querySelectorAll("thead th")).toHaveLength(3);
-    expect(host.querySelector(".analysis-v2-method")?.textContent)
-      .toContain("1 個注音沒有順序差異");
+    expect(matrix?.querySelectorAll("tbody tr")).toHaveLength(2);
+    expect(matrix?.querySelectorAll("tbody td")).toHaveLength(4);
+    expect(host.querySelector(".analysis-v2-method")?.textContent).toContain("位置投影");
+    expect(host.querySelector(".analysis-v2-method")?.textContent).toContain("邊際分布");
   });
 
   it("cannot finish a stale open frame after the analysis has already closed", () => {

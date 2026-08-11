@@ -1,0 +1,178 @@
+/* Strategy uses the same primary frame as Coordination and Semantic. The
+   trajectory is an absolute Analysis-canvas object; projection, conclusion and
+   methodology share one bounded lower rail and cannot move that center. */
+.analysis-v2 .analysis-v2-domain:has(.analysis-v2-strategy-stage) {
+  width: min(1180px, 100%);
+}
+
+.analysis-v2 .analysis-v2-strategy-stage {
+  min-height: var(--analysis-primary-stage-height);
+  padding-top: 14px;
+  grid-template-rows: var(--analysis-object-slot-height) minmax(0, 1fr);
+  align-content: stretch;
+  gap: 0;
+}
+
+.analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot {
+  min-height: var(--analysis-object-slot-height);
+}
+
+.analysis-v2 .analysis-v2-strategy-trajectory-object {
+  position: relative;
+  width: var(--analysis-board-width);
+  max-width: none;
+  margin-inline: auto;
+}
+
+.analysis-v2 .analysis-v2-strategy-projection {
+  position: absolute;
+  z-index: 2;
+  left: 4px;
+  bottom: 22px;
+  width: 126px;
+  color: var(--ink-muted);
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+  padding-top: 5px;
+  border-top: 1px solid var(--hairline);
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-heading strong {
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-heading span {
+  color: var(--ink-faint);
+  font-size: 8px;
+  white-space: nowrap;
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-matrix {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 2px;
+  table-layout: fixed;
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-matrix th {
+  height: 15px;
+  padding: 0;
+  color: var(--ink-faint);
+  font-size: 8px;
+  font-weight: 560;
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-matrix tbody th {
+  width: 20px;
+  color: var(--ink-muted);
+  font-size: 9px;
+  font-weight: 620;
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-matrix td {
+  height: 20px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--hairline) 78%, transparent);
+  background: color-mix(in srgb, var(--ink) calc(var(--analysis-strength) * 14%), transparent);
+}
+
+.analysis-v2 .analysis-v2-strategy-projection-matrix td strong {
+  color: color-mix(in srgb, var(--ink-muted) calc(42% + var(--analysis-strength) * 58%), var(--ink-faint));
+  font-size: 9px;
+  font-weight: 560;
+}
+
+/* Desktop Strategy has two independent anchors:
+   1. trajectory: exact center of the Analysis main canvas;
+   2. lower rail: one 760px frame, 30px above the canvas floor.
+   Neither the 2/3 selector nor lower annotations can displace the primary object. */
+@media (min-width: 641px) {
+  .analysis-v2 .analysis-v2-main:has(.analysis-v2-strategy-domain) {
+    position: relative;
+  }
+
+  .analysis-v2-main > [role="tabpanel"]:has(.analysis-v2-strategy-domain) {
+    height: 100%;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-domain {
+    position: static;
+    box-sizing: border-box;
+    height: 100%;
+    grid-template-rows: auto minmax(var(--analysis-primary-stage-height), 1fr);
+  }
+
+  .analysis-v2 .analysis-v2-strategy-stage {
+    position: static;
+    height: var(--analysis-primary-stage-height);
+    align-self: end;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot,
+  .analysis-v2 .analysis-v2-strategy-trajectory-object {
+    position: static;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-trajectory {
+    position: absolute;
+    z-index: 1;
+    top: 50%;
+    left: 50%;
+    width: var(--analysis-board-width);
+    transform: translate(-50%, -50%);
+  }
+
+  .analysis-v2 .analysis-v2-strategy-projection {
+    left: calc((100% - var(--analysis-board-width)) / 2);
+    bottom: 30px;
+    width: 126px;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-readout {
+    position: absolute;
+    left: calc((100% - var(--analysis-board-width)) / 2);
+    bottom: 30px;
+    box-sizing: border-box;
+    width: var(--analysis-board-width);
+    min-height: 88px;
+    margin: 0;
+    padding-right: 112px;
+    padding-left: 154px;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-domain > .analysis-v2-method {
+    right: calc((100% - var(--analysis-board-width)) / 2);
+    bottom: 30px;
+  }
+}
+
+/* Narrow screens keep the projection subordinate and flowing below the plot.
+   Once the projection becomes part of normal flow, the object row must be able
+   to grow with it instead of inheriting the fixed desktop slot height. */
+@media (max-width: 640px) {
+  .analysis-v2 .analysis-v2-strategy-stage {
+    min-height: 0;
+    padding-top: 8px;
+    grid-template-rows: minmax(var(--analysis-object-slot-height), max-content) auto;
+    align-content: center;
+    gap: 20px;
+  }
+
+  .analysis-v2 .analysis-v2-strategy-projection {
+    position: static;
+    width: 126px;
+    min-height: 88px;
+    margin: -12px 0 0 4px;
+  }
+}

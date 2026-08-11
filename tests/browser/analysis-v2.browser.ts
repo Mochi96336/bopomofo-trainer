@@ -211,7 +211,8 @@ test("opens Analysis V2 on flylines without reviving the legacy transition netwo
 
   await analysis.locator('[data-tab="strategy"]').click();
   await expect(analysis.locator('[data-tab="strategy"]')).toHaveAttribute("aria-selected", "true");
-  await expect(analysis.locator(".strategy-matrix")).toHaveCount(1);
+  await expect(analysis.locator(".analysis-v2-strategy-trajectory")).toHaveCount(1);
+  await expect(analysis.locator(".strategy-order-table")).toHaveCount(0);
   await expect(analysis.locator('[data-action="strategy-size"]')).toHaveText([
     "2 個注音",
     "3 個注音",
@@ -221,7 +222,7 @@ test("opens Analysis V2 on flylines without reviving the legacy transition netwo
   const method = analysis.locator(".analysis-v2-method");
   await expect(method.locator("summary")).toHaveText("資料規則");
   await method.locator("summary").click();
-  await expect(method).toContainText("1 個注音沒有順序差異");
+  await expect(method).toContainText("其餘五種算換序輸入");
 });
 
 test("fits Analysis V2 and the full flyline keyboard at a narrow phone viewport", async ({ page }) => {
