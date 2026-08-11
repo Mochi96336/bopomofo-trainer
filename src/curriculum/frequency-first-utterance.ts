@@ -17,7 +17,10 @@ import type {
   GrammarUtteranceCandidate,
 } from "../grammar/types.js";
 import type { RuntimeSyntaxProfile } from "../syntax/types.js";
-import { composeFormalSyntaxUtterances } from "./formal-syntax-utterance.js";
+import {
+  composeFormalSyntaxUtterances,
+  type FormalSyntaxUtteranceInput,
+} from "./formal-syntax-utterance.js";
 import {
   generateSlotWeightedGrammar,
   type GrammarSlotSelectionTrace,
@@ -143,6 +146,11 @@ export interface FrequencyFirstUtteranceSelection {
   readonly grammarFallbackReasons: readonly string[];
 }
 
+export type FormalSyntaxCompositionOverride = Pick<
+  FormalSyntaxUtteranceInput,
+  "rules" | "samplingMode" | "structuralTarget"
+>;
+
 export interface FrequencyFirstUtteranceInput {
   readonly entries: readonly CatalogEntry[];
   readonly annotations: Readonly<Record<string, GrammarAnnotation>>;
@@ -154,6 +162,12 @@ export interface FrequencyFirstUtteranceInput {
   readonly random: RandomSource;
   /** Production path: compact profiles admitted by the formal syntax gate. */
   readonly profiles?: readonly RuntimeSyntaxProfile[];
+  /**
+   * Optional construction-specific formal-syntax search space. This may narrow
+   * grammar composition only; frequency/learner/history scoring stays owned by
+   * this selector. It is meaningful only when runtime syntax profiles are used.
+   */
+  readonly formalSyntaxComposition?: FormalSyntaxCompositionOverride;
   /** Explicit compatibility-only templates. Production has no built-in list. */
   readonly templates?: readonly GrammarTemplate[];
 }
@@ -423,6 +437,7 @@ function generateOnce(
       minimumLexicalEntries: 2,
       maximumCandidates: 1,
       maximumAttempts: 64,
+      ...(input.formalSyntaxComposition ?? {}),
       bounds: {
         maximumPhraseDepth: 3,
         maximumClauseNesting: 1,
@@ -440,6 +455,9 @@ function generateOnce(
       slotAttempts: 0,
       fallbackReasons: composition.fallbackReasons,
     };
+  }
+  if (input.formalSyntaxComposition !== undefined) {
+    throw new Error("formalSyntaxComposition requires formal syntax profiles");
   }
   const templateScores = new Map<string, TemplateSelectionScore>();
   return generateSlotWeightedGrammar({
