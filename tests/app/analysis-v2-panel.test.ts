@@ -120,28 +120,55 @@ afterEach(() => {
 });
 
 describe("Analysis V2 panel", () => {
-  it("uses semantic, coordination, and strategy as the top-level tabs", () => {
+  it("uses semantic, coordination, and strategy as a complete tab/tabpanel contract", () => {
     const host = open();
-    const tabs = [...host.querySelectorAll('[role="tab"]')].map((node) => node.textContent);
-    expect(tabs).toEqual(["語意", "協調", "策略"]);
+    const tabs = [...host.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
+    expect(tabs.map((node) => node.textContent)).toEqual(["語意", "協調", "策略"]);
     expect(host.textContent).not.toContain("轉換總覽");
+
+    const semantic = tabs[0]!;
+    const panel = host.querySelector<HTMLElement>('[role="tabpanel"]');
+    expect(panel?.id).toBe("analysis-v2-panel-semantic");
+    expect(semantic.id).toBe("analysis-v2-tab-semantic");
+    expect(semantic.getAttribute("aria-controls")).toBe(panel?.id);
+    expect(panel?.getAttribute("aria-labelledby")).toBe(semantic.id);
   });
 
-  it("switches semantic analysis from key correctness to a directional confusion matrix", () => {
+  it("switches semantic analysis from key correctness to a directional confusion matrix and preserves focus", () => {
     const host = open();
-    host.querySelector<HTMLButtonElement>('[data-action="semantic-view"][data-value="confusion"]')?.click();
+    const confusion = host.querySelector<HTMLButtonElement>('[data-action="semantic-view"][data-value="confusion"]');
+    confusion?.focus();
+    confusion?.click();
+    const replacement = host.querySelector<HTMLButtonElement>('[data-action="semantic-view"][data-value="confusion"]');
     expect(host.querySelector(".confusion-matrix")).not.toBeNull();
     expect(host.textContent).toContain("應按 ↓ / 實按 →");
     expect(host.textContent).toContain("3");
+    expect(document.activeElement).toBe(replacement);
   });
 
-  it("renders observed accepted-token speed lines without direction markers", () => {
+  it("keeps keyboard focus on a semantic key when its detail rerenders", () => {
+    const host = open();
+    const key = host.querySelector<HTMLButtonElement>('[data-action="select-key"][data-token="zhuyin:ㄅ"]');
+    key?.focus();
+    key?.click();
+    const replacement = host.querySelector<HTMLButtonElement>('[data-action="select-key"][data-token="zhuyin:ㄅ"]');
+    expect(replacement?.getAttribute("aria-pressed")).toBe("true");
+    expect(document.activeElement).toBe(replacement);
+    expect(host.textContent).toContain("有效鍵間時間");
+  });
+
+  it("renders observed accepted-token speed lines without direction markers and exposes keyboard-readable details", () => {
     const host = open();
     host.querySelector<HTMLButtonElement>('[data-action="select-tab"][data-tab="coordination"]')?.click();
     const path = host.querySelector<SVGPathElement>(".analysis-v2-speed-path");
+    const svg = host.querySelector<SVGSVGElement>(".analysis-v2-speed-svg");
+    const details = host.querySelector<HTMLDetailsElement>(".analysis-v2-speed-details");
     expect(path).not.toBeNull();
     expect(path?.getAttribute("marker-end")).toBeNull();
     expect(path?.querySelector("title")?.textContent).toContain("ㄅ 到 ㄆ，120 毫秒，6 個乾淨樣本");
+    expect(svg?.getAttribute("aria-hidden")).toBe("true");
+    expect(details?.querySelector("summary")?.textContent).toBe("速度明細（1）");
+    expect(details?.textContent).toContain("ㄅ 到 ㄆ，120 毫秒，6 個乾淨樣本");
     expect(host.textContent).toContain("不從 canonical 結構補線");
   });
 
