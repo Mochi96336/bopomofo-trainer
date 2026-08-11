@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from ud_lexical_compatibility import project_ranked_texts  # noqa: E402
+from ud_lexical_compatibility.projector import _association_score  # noqa: E402
 
 
 def token(
@@ -96,6 +97,15 @@ class UdLexicalCompatibilityTest(unittest.TestCase):
         self.assertNotIn(("吃", "理論"), surface)
         self.assertEqual(dependency[("吃", "飯", "obj")]["count"], 2)
         self.assertNotIn(("吃", "理論", "obj"), dependency)
+
+    def test_zero_scores_use_json_integer_form_for_cross_runtime_digest_stability(self) -> None:
+        zero_scores = [
+            _association_score(0, 1, 1, 1),
+            _association_score(1, 2, 2, 2),
+        ]
+        self.assertEqual(zero_scores, [0, 0])
+        self.assertTrue(all(type(score) is int for score in zero_scores))
+        self.assertEqual(json.dumps(zero_scores, separators=(",", ":")), "[0,0]")
 
     def test_unseen_pairs_are_omitted_instead_of_encoded_as_negative_evidence(self) -> None:
         artifact = self.project(minimum_pair_count=1)

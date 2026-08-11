@@ -28,17 +28,18 @@ def _association_score(
     left_count: int,
     right_count: int,
     total: int,
-) -> float:
+) -> float | int:
     """Return a reliability-shrunk positive PMI score in [0, 1]."""
     if count <= 0 or left_count <= 0 or right_count <= 0 or total <= 0:
-        return 0.0
+        return 0
     ratio = (count * total) / (left_count * right_count)
     if ratio <= 1.0:
-        return 0.0
+        return 0
     ppmi = math.log2(ratio)
     normalized = min(ppmi / 8.0, 1.0)
     confidence = count / (count + 3.0)
-    return round(normalized * confidence, 6)
+    score = round(normalized * confidence, 6)
+    return 0 if score == 0 else score
 
 
 def _surface_rows(
