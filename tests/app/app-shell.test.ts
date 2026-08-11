@@ -480,7 +480,7 @@ describe("opening Analysis V2 from the panel", () => {
     // the shell left for it, so the marker's absence is the evidence it ran.
     expect(document.querySelector('[data-analysis-v2-summary-slot="true"]')).toBeNull();
     const section = app.find<HTMLElement>(".analysis-v2-summary");
-    expect(section.textContent).toContain("學習分析");
+    expect(section.textContent).toContain("分析");
     expect(section.querySelectorAll(".analysis-v2-summary-signals > div")).toHaveLength(3);
     expect(section.textContent).toContain("語意");
     expect(section.textContent).toContain("協調");

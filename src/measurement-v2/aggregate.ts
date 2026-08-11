@@ -12,10 +12,18 @@ import type {
   MeasurementObservationsV2,
 } from "./types.js";
 
-export const MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-1" as const;
+export const LEGACY_MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-1" as const;
+export const MEASUREMENT_V2_POLICY_VERSION = "input-order-v2-aggregate-2" as const;
 const SMOOTHING_ALPHA = 0.25;
 
-export type CoordinationBodySizeBucket = "2" | "3" | "4+";
+/**
+ * Body-size-dependent evidence only exists when there are at least two body
+ * components: one component has no input order and no first-to-last span.
+ * Standard Bopomofo has at most initial + medial + final, so 2 and 3 are the
+ * complete product domain. Anything else is an invalid observation, not a
+ * catch-all bucket.
+ */
+export type CoordinationBodySizeBucket = "2" | "3";
 export type BodyPositionBucket = "first" | "middle" | "last";
 
 export interface BindingAggregateV2 {
@@ -141,9 +149,9 @@ function emptyTimingState(): TimingState {
 }
 
 export function coordinationBodySizeBucket(bodySize: number): CoordinationBodySizeBucket {
-  if (bodySize <= 2) return "2";
+  if (bodySize === 2) return "2";
   if (bodySize === 3) return "3";
-  return "4+";
+  throw new RangeError(`Bopomofo body-size evidence requires exactly 2 or 3 components, got ${bodySize}`);
 }
 
 export function bodyPositionBucket(index: number, bodySize: number): BodyPositionBucket {

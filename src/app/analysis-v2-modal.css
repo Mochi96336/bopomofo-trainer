@@ -1,18 +1,38 @@
+body.analysis-v2-open {
+  overflow: hidden;
+}
+
+#app .practice-stage,
+#app .topbar {
+  transition: opacity 160ms ease, transform 180ms ease;
+  transform-origin: 50% 50%;
+}
+
+body.analysis-v2-open #app .practice-stage {
+  opacity: .26;
+  transform: translateY(-12px) scale(.986);
+}
+
+body.analysis-v2-open #app .topbar {
+  opacity: .38;
+  transform: translateY(-4px);
+}
+
 .analysis-v2-modal {
+  width: 100vw;
+  height: 100dvh;
   max-width: none;
   max-height: none;
-  margin: auto;
+  margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
   color: inherit;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .analysis-v2-modal[open] {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
 }
 
 .analysis-v2-modal::backdrop {
@@ -20,45 +40,39 @@
   backdrop-filter: blur(10px);
 }
 
+/* Analysis is a top-level workspace, not a floating card. The dialog keeps
+   native top-layer, focus and Escape semantics while the visual surface fills
+   the viewport. The fade and receding practice stage restore the original
+   analysis entrance without bringing the floating card back. */
 .analysis-v2-modal .analysis-v2 {
   position: relative;
   inset: auto;
+  width: 100vw;
+  height: 100dvh;
   margin: 0;
-  border: 1px solid var(--hairline);
-  border-radius: 18px;
+  border: 0;
+  border-radius: 0;
   background: var(--panel);
-  box-shadow: 0 28px 90px rgba(0, 0, 0, .2);
-  transform: translateY(12px) scale(.99);
+  box-shadow: none;
+  opacity: 0;
+  transform: none;
+  transition: opacity 150ms ease;
 }
 
 .analysis-v2-modal .analysis-v2.open {
-  transform: translateY(0) scale(1);
-}
-
-@media (max-width: 640px) {
-  .analysis-v2-modal {
-    width: 100vw;
-    height: 100dvh;
-    margin: 0;
-  }
-
-  .analysis-v2-modal[open] {
-    align-items: stretch;
-  }
-
-  .analysis-v2-modal .analysis-v2 {
-    width: 100vw;
-    height: 100dvh;
-    border-width: 0;
-    border-radius: 0;
-    box-shadow: none;
-    transform: none;
-  }
+  opacity: 1;
+  transform: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .analysis-v2-modal .analysis-v2,
-  .analysis-v2-modal .analysis-v2.open {
+  #app .practice-stage,
+  #app .topbar,
+  .analysis-v2-modal .analysis-v2 {
+    transition: none;
+  }
+
+  #app .practice-stage,
+  #app .topbar {
     transform: none;
   }
 }

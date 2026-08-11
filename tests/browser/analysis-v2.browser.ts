@@ -114,6 +114,7 @@ test("renders the information-panel Analysis V2 summary as a structured three-co
 
   const summary = page.locator(".analysis-v2-summary");
   await expect(summary).toBeVisible();
+  await expect(summary.locator(".analysis-v2-summary-heading h3")).toHaveText("分析");
   const layout = await summary.evaluate((element) => {
     const signals = element.querySelector<HTMLElement>(".analysis-v2-summary-signals")!;
     const cells = [...signals.children] as HTMLElement[];
@@ -142,6 +143,8 @@ test("renders evidence thresholds through the production Analysis V2 mount", asy
   await page.locator(".analysis-v2-open").click();
 
   const analysis = page.locator("#analysis-v2");
+  await expect(analysis.locator('[data-tab="coordination"]')).toHaveAttribute("aria-selected", "true");
+  await analysis.locator('[data-tab="semantic"]').click();
   const insufficient = analysis.locator('[data-action="select-key"][data-token="zhuyin:ㄅ"]');
   const sufficient = analysis.locator('[data-action="select-key"][data-token="zhuyin:ㄆ"]');
   await expect(insufficient).toHaveClass(/insufficient/);
@@ -155,17 +158,24 @@ test("renders evidence thresholds through the production Analysis V2 mount", asy
 
   await analysis.locator('[data-action="semantic-view"][data-value="confusion"]').click();
   await expect(analysis.locator(".confusion-matrix")).toHaveCount(0);
-  await expect(analysis.locator(".analysis-v2-confusion-table tbody tr")).toHaveCount(2);
-  await expect(analysis.locator(".analysis-v2-confusion-table")).toContainText("樣本不足");
-  await expect(analysis.locator(".analysis-v2-confusion-table")).toContainText("初步");
+  await expect(analysis.locator(".analysis-v2-confusion-table")).toHaveCount(0);
+  await expect(analysis.locator(".analysis-v2-keyboard")).toHaveCount(1);
 
-  await analysis.locator('[data-action="select-tab"][data-tab="coordination"]').click();
+  await analysis.locator('[data-action="select-key"][data-token="zhuyin:ㄅ"]').click();
+  await expect(analysis.locator(".analysis-v2-confusion-list li")).toHaveCount(1);
+  await expect(analysis.locator(".analysis-v2-confusion-list")).toContainText("樣本不足");
+  await analysis.locator('[data-action="select-key"][data-token="zhuyin:ㄆ"]').click();
+  await expect(analysis.locator(".analysis-v2-confusion-list li")).toHaveCount(1);
+  await expect(analysis.locator(".analysis-v2-confusion-list")).toContainText("初步");
+
+  await analysis.locator('[data-tab="coordination"]').click();
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(1);
-  await expect(analysis.getByText(/1 條達門檻轉換/)).toBeVisible();
-  await expect(analysis.getByText(/9 個鍵間乾淨樣本/)).toHaveCount(0);
+  await expect(analysis.locator(".analysis-v2-speed-caption")).toContainText("1 條可比較");
+  await expect(analysis.locator(".analysis-v2-speed-readout")).toContainText("5 個乾淨樣本");
+  await expect(analysis.locator('[data-action="evidence-family"][aria-expanded="true"]')).toHaveCount(0);
 });
 
-test("opens Analysis V2 without reviving the legacy transition network", async ({ page }) => {
+test("opens Analysis V2 on flylines without reviving the legacy transition network", async ({ page }) => {
   await page.goto("/");
   await page.locator("#open-information").click();
   await page.locator(".analysis-v2-open").click();
@@ -173,7 +183,9 @@ test("opens Analysis V2 without reviving the legacy transition network", async (
   await expect(page.locator("#analysis-v2")).toBeVisible();
 
   const tabs = page.locator('#analysis-v2 [role="tab"]');
-  await expect(tabs).toHaveText(["語意", "協調", "策略"]);
+  await expect(tabs).toHaveText(["協調", "語意", "策略"]);
+  await expect(page.locator('#analysis-v2 [data-tab="coordination"]')).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".analysis-v2-speed-field")).toBeVisible();
   for (let index = 0; index < 3; index += 1) {
     const panelId = await tabs.nth(index).getAttribute("aria-controls");
     expect(panelId).not.toBeNull();
@@ -182,17 +194,28 @@ test("opens Analysis V2 without reviving the legacy transition network", async (
   await expect(page.locator('[data-action="toggle-network"]')).toHaveCount(0);
   await expect(page.locator(".diagnostic-relationship-svg")).toHaveCount(0);
 
-  await page.locator('[data-action="select-tab"][data-tab="coordination"]').click();
-  await expect(page.locator("#analysis-v2-coordination-title")).toHaveText("動作協調");
-  await expect(page.getByText("不是偵測實際使用的手")).toBeVisible();
+  const handEvidence = page.locator('[data-action="evidence-family"][data-family="hands"]');
+  await expect(handEvidence).toContainText("手別轉換");
+  await handEvidence.click();
+  await expect(page.locator("#analysis-v2-evidence-detail")).toContainText("不代表偵測到你實際使用哪隻手");
+  await expect(page.locator('[data-action="evidence-family"][aria-expanded="true"]')).toHaveCount(1);
 
-  await page.locator('[data-action="select-tab"][data-tab="strategy"]').click();
-  await expect(page.locator("#analysis-v2-strategy-title")).toHaveText("輸入策略");
-  await expect(page.getByText(/canonical 位置只是注音結構的參考座標/)).toBeVisible();
-  await expect(page.locator(".strategy-matrix")).toHaveCount(3);
+  await page.locator('[data-tab="strategy"]').click();
+  await expect(page.locator('[data-tab="strategy"]')).toHaveAttribute("aria-selected", "true");
+  await expect(page.locator(".strategy-matrix")).toHaveCount(1);
+  await expect(page.locator('[data-action="strategy-size"]')).toHaveText([
+    "2 個注音",
+    "3 個注音",
+  ]);
+  await expect(page.locator(".analysis-v2-strategy-segments"))
+    .toHaveAttribute("aria-label", "音節內注音成分數，不含聲調");
+  const method = page.locator(".analysis-v2-method");
+  await expect(method.locator("summary")).toHaveText("資料規則");
+  await method.locator("summary").click();
+  await expect(method).toContainText("1 個注音沒有順序差異");
 });
 
-test("contains Analysis V2 at a narrow phone viewport without scrolling the whole speed card", async ({ page }) => {
+test("contains Analysis V2 at a narrow phone viewport with overflow owned by the flyline stage", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.locator("#open-information").click();
@@ -221,28 +244,32 @@ test("contains Analysis V2 at a narrow phone viewport without scrolling the whol
   expect(viewportContainment.right).toBeLessThanOrEqual(viewportContainment.viewportWidth);
   expect(viewportContainment.bottom).toBeLessThanOrEqual(viewportContainment.viewportHeight);
 
-  await analysis.locator('[data-action="select-tab"][data-tab="coordination"]').click();
-  const speedCard = analysis.locator(".analysis-v2-speed-card");
+  const speedField = analysis.locator(".analysis-v2-speed-field");
   const speedScroll = analysis.locator(".analysis-v2-speed-scroll");
-  await expect(speedCard).toBeVisible();
-  const overflow = await speedCard.evaluate((card) => {
-    const scroller = card.querySelector<HTMLElement>(".analysis-v2-speed-scroll")!;
-    const copy = card.querySelector<HTMLElement>(".analysis-v2-card-title-line")!;
-    const legend = card.querySelector<HTMLElement>(".analysis-v2-speed-legend")!;
+  await expect(speedField).toBeVisible();
+  const overflow = await analysis.evaluate((host) => {
+    const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
+    const field = host.querySelector<HTMLElement>(".analysis-v2-speed-field")!;
+    const scroller = host.querySelector<HTMLElement>(".analysis-v2-speed-scroll")!;
+    const caption = host.querySelector<HTMLElement>(".analysis-v2-speed-caption")!;
+    const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout")!;
     return {
-      cardClient: card.clientWidth,
-      cardScroll: card.scrollWidth,
+      mainClient: main.clientWidth,
+      mainScroll: main.scrollWidth,
+      fieldClient: field.clientWidth,
+      fieldScroll: field.scrollWidth,
       scrollerClient: scroller.clientWidth,
       scrollerScroll: scroller.scrollWidth,
-      copyRight: copy.getBoundingClientRect().right,
-      legendRight: legend.getBoundingClientRect().right,
-      cardRight: card.getBoundingClientRect().right,
+      captionRight: caption.getBoundingClientRect().right,
+      readoutRight: readout.getBoundingClientRect().right,
+      fieldRight: field.getBoundingClientRect().right,
     };
   });
-  expect(overflow.cardScroll).toBeLessThanOrEqual(overflow.cardClient + 1);
+  expect(overflow.mainScroll).toBeLessThanOrEqual(overflow.mainClient + 1);
+  expect(overflow.fieldScroll).toBeLessThanOrEqual(overflow.fieldClient + 1);
   expect(overflow.scrollerScroll).toBeGreaterThan(overflow.scrollerClient);
-  expect(overflow.copyRight).toBeLessThanOrEqual(overflow.cardRight + 1);
-  expect(overflow.legendRight).toBeLessThanOrEqual(overflow.cardRight + 1);
+  expect(overflow.captionRight).toBeLessThanOrEqual(overflow.fieldRight + 1);
+  expect(overflow.readoutRight).toBeLessThanOrEqual(overflow.fieldRight + 1);
   await expect(speedScroll).toHaveAttribute("tabindex", "0");
 
   await expect(analysis.locator('[role="tab"]')).toHaveCount(3);
