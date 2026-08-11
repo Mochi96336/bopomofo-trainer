@@ -1,11 +1,7 @@
 /* Cross-domain visual hierarchy.
-   This file owns Analysis composition. Keyboard geometry primitives remain in
-   analysis-v2.css; exact relation paint/hit geometry remains in the speed
-   network stylesheet. */
+   Shared frame sizing and keyboard geometry live in analysis-v2-space.css;
+   exact relation paint/hit geometry remains in the speed network stylesheet. */
 .analysis-v2 {
-  --analysis-board-width: min(1040px, 94%);
-  --analysis-primary-stage-height: clamp(450px, 58dvh, 520px);
-  --analysis-object-slot-height: 310px;
   --analysis-strategy-object-slot-height: 330px;
   --analysis-focus: var(--ink);
   color: var(--ink);
@@ -17,11 +13,10 @@
   gap: 10px;
 }
 
-/* Subview controls align to the same broad axis as the primary object instead
-   of defining a second, narrower 760px column. */
+/* Subview controls share the board axis; the concrete frame width belongs to
+   analysis-v2-space.css. */
 .analysis-v2 .analysis-v2-domain-controls {
   display: flex;
-  width: var(--analysis-board-width);
   min-height: 34px;
   margin-inline: auto;
   align-items: center;
@@ -33,9 +28,8 @@
   font-size: 12px;
 }
 
-/* Object first, readout second. The larger desktop allocation is deliberate:
-   the keyboard is the Analysis subject, not a small illustration surrounded by
-   empty workspace. Semantic and Coordination inherit the same slot. */
+/* Object first, readout second. Frame height, object-slot height, and final
+   keyboard scale are refined by analysis-v2-space.css. */
 .analysis-v2 .analysis-v2-primary-stage,
 .analysis-v2 .analysis-v2-visual-stage,
 .analysis-v2 .analysis-v2-strategy-stage {
@@ -60,21 +54,6 @@
 .analysis-v2 .analysis-v2-primary-object-slot > .analysis-v2-keyboard,
 .analysis-v2 .analysis-v2-primary-object-slot > .analysis-v2-speed-scroll {
   align-self: center;
-}
-
-/* The same physical keyboard uses the same desktop scale in Semantic and
-   Coordination. The speed board rule lives in speed-network.css. */
-.analysis-v2 .analysis-v2-semantic-primary .analysis-v2-keyboard {
-  width: var(--analysis-board-width);
-  transform: perspective(680px) rotateX(14deg);
-}
-
-.analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key {
-  height: clamp(34px, 3vw, 42px);
-}
-
-.analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key strong {
-  font-size: clamp(11px, 1vw, 13px);
 }
 
 /* Readouts are anchors, but remain visibly secondary to the board. */
@@ -316,13 +295,10 @@
   color: var(--ink-muted);
 }
 
-/* Movement is a reading surface, not four cards. Each family owns a small
-   history line and compact labels; current milliseconds are supporting text. */
+/* Movement is a reading surface, not four cards. Frame sizing and spacing are
+   owned by analysis-v2-space.css. */
 .analysis-v2 .analysis-v2-movement-view {
   display: grid;
-  width: min(1040px, 94%);
-  margin: clamp(34px, 6dvh, 60px) auto 0;
-  gap: 22px;
 }
 
 .analysis-v2 .analysis-v2-movement-intro {
@@ -349,14 +325,12 @@
 .analysis-v2 .analysis-v2-movement-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 34px 54px;
 }
 
 .analysis-v2 .analysis-v2-movement-family {
   display: grid;
   min-width: 0;
   padding: 12px 0 0;
-  gap: 9px;
   border-top: 1px solid var(--hairline);
 }
 
@@ -389,11 +363,8 @@
 .analysis-v2 .analysis-v2-movement-stat {
   display: grid;
   min-width: 0;
-  min-height: 34px;
   padding: 2px 0;
-  grid-template-columns: minmax(70px, auto) minmax(90px, 1fr) auto;
   align-items: center;
-  gap: 10px;
   border: 0;
 }
 
@@ -419,8 +390,6 @@
 
 .analysis-v2 .analysis-v2-motor-sparkline {
   display: block;
-  width: 100%;
-  height: 30px;
   overflow: visible;
 }
 
@@ -509,9 +478,7 @@
 .analysis-v2 .analysis-v2-method {
   position: relative;
   z-index: 12;
-  width: var(--analysis-board-width);
   min-height: 20px;
-  margin: 6px auto 0;
   overflow: visible;
   color: var(--ink-muted);
   font-size: 11px;
@@ -595,18 +562,7 @@
 
 @media (max-width: 900px) {
   .analysis-v2 {
-    --analysis-board-width: min(94%, 820px);
-    --analysis-primary-stage-height: clamp(350px, 50dvh, 410px);
-    --analysis-object-slot-height: 235px;
     --analysis-strategy-object-slot-height: 310px;
-  }
-
-  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key {
-    height: clamp(25px, 4vw, 34px);
-  }
-
-  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key strong {
-    font-size: clamp(8px, 1.3vw, 11px);
   }
 
   .analysis-v2 .analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector {
@@ -627,21 +583,9 @@
   .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trends {
     display: none;
   }
-
-  .analysis-v2 .analysis-v2-movement-view {
-    margin-top: 30px;
-  }
-
-  .analysis-v2 .analysis-v2-movement-grid {
-    gap: 28px 34px;
-  }
 }
 
 @media (max-width: 760px) {
-  .analysis-v2 .analysis-v2-movement-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .analysis-v2 .analysis-v2-movement-intro {
     align-items: flex-start;
     flex-direction: column;
@@ -655,9 +599,6 @@
 
 @media (max-width: 640px) {
   .analysis-v2 {
-    --analysis-board-width: 100%;
-    --analysis-primary-stage-height: 320px;
-    --analysis-object-slot-height: 200px;
     --analysis-strategy-object-slot-height: 290px;
   }
 
@@ -674,19 +615,6 @@
   .analysis-v2 .analysis-v2-strategy-stage {
     padding-top: 8px;
     gap: 20px;
-  }
-
-  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-keyboard {
-    width: min(780px, 100%);
-    transform: perspective(420px) rotateX(12deg);
-  }
-
-  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key {
-    height: 19px;
-  }
-
-  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key strong {
-    font-size: 7px;
   }
 
   .analysis-v2 .analysis-v2-hero-readout > strong {
@@ -726,15 +654,6 @@
 
   .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trends {
     display: none;
-  }
-
-  .analysis-v2 .analysis-v2-movement-view {
-    margin-top: 20px;
-  }
-
-  .analysis-v2 .analysis-v2-movement-stat {
-    grid-template-columns: minmax(64px, auto) minmax(80px, 1fr) auto;
-    gap: 8px;
   }
 
   .analysis-v2 .analysis-v2-method p {
