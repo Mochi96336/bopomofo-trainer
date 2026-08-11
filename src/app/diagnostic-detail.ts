@@ -16,9 +16,9 @@ import { escapeHtml } from "./html.js";
 
 /**
  * The exact cumulative measurement for one selected key, transition, or
- * confusion. This is the surface that must never round away a shortfall: the
- * sample notices and the excluded-sample breakdown are what stop a number from
- * being read as more settled than it is.
+ * confusion. This surface must never invent precision: sample notices are
+ * always shown when needed, while an exclusion breakdown appears only when the
+ * supplied measurement model actually preserves those causes.
  */
 function keySampleNotices(row: KeyDiagnostic): string {
   const notices: string[] = [];
@@ -44,6 +44,17 @@ function keyTimingCaption(row: KeyDiagnostic): string {
   return `${row.timingSamples} 樣本`;
 }
 
+function keyTimingExclusionsMarkup(row: KeyDiagnostic): string {
+  const excluded = row.excludedSamples;
+  if (excluded === null) return "";
+  return `<section><h4>未計入時間</h4><dl class="diagnostic-detail-lines four">
+      <div><dt>音節起始</dt><dd>${excluded.syllableStart}</dd></div>
+      <div><dt>錯誤輸入</dt><dd>${excluded.incorrect}</dd></div>
+      <div><dt>修正輸入</dt><dd>${excluded.recovery}</dd></div>
+      <div><dt>輸入干擾</dt><dd>${excluded.interactionNoise}</dd></div>
+    </dl></section>`;
+}
+
 export function keyDetailMarkup(
   row: KeyDiagnostic | null,
   trends?: KeyProgressTrends,
@@ -58,12 +69,7 @@ export function keyDetailMarkup(
       <div><dt>選題倍率</dt><dd>${boost(row.reinforcement.expectedTokenBoost)}</dd><small>${escapeHtml(row.reinforcement.label)}</small></div>
     </dl>
     ${keySampleNotices(row)}
-    <section><h4>未計入時間</h4><dl class="diagnostic-detail-lines four">
-      <div><dt>音節起始</dt><dd>${row.excludedSamples.syllableStart}</dd></div>
-      <div><dt>錯誤輸入</dt><dd>${row.excludedSamples.incorrect}</dd></div>
-      <div><dt>修正輸入</dt><dd>${row.excludedSamples.recovery}</dd></div>
-      <div><dt>輸入干擾</dt><dd>${row.excludedSamples.interactionNoise}</dd></div>
-    </dl></section>
+    ${keyTimingExclusionsMarkup(row)}
     <section><h4>選題原因</h4><p>${escapeHtml(row.reinforcement.reason)}</p></section>
     ${keyProgressMarkup(trends)}
   </article>`;

@@ -2,11 +2,19 @@
 
 ## Scope
 
-The first architecture is intentionally Bopomofo-specific. It supports one semantic writing system with multiple physical keyboard layouts. It does not attempt to be a universal typing-engine abstraction for Pinyin, Cangjie, or unrelated input methods.
+The production architecture is intentionally Bopomofo-specific. It supports one semantic writing system with multiple physical keyboard layouts. It does not attempt to make Pinyin, Cangjie, or unrelated input methods fit the same interaction grammar.
 
-## Core concepts
+The central input-order rule is:
 
-### Prompt
+```text
+canonical linguistic order
+≠ accepted input order
+≠ observed motor order
+```
+
+These three orders may coincide, but no layer may assume they are identical.
+
+## Prompt
 
 Human-readable Chinese context shown to the learner.
 
@@ -19,22 +27,20 @@ interface Prompt {
 
 The prompt is context, not the measured answer by itself.
 
-### Practice mode
-
-Defines what information is visible and therefore what the timing data means.
+## Practice mode
 
 ```ts
 type PracticeMode = "guided" | "recall";
 ```
 
-- `guided`: Chinese context and complete Bopomofo reading are visible. V1 statistics represent symbol-to-key mapping and motor execution.
-- `recall`: Bopomofo is hidden or partially hidden. Timing also contains pronunciation retrieval and must remain statistically separate.
+- `guided`: Chinese context and complete Bopomofo reading are visible.
+- `recall`: Bopomofo is hidden or partially hidden; retrieval time must remain statistically separate from guided motor evidence.
 
-V1 implements only `guided`.
+The current product implements guided practice.
 
-### Token
+## Token
 
-The smallest semantic input unit in a Bopomofo reading. A token is not a physical key.
+A token is the smallest semantic unit in a Bopomofo reading. It is not a physical key.
 
 Examples:
 
@@ -53,11 +59,11 @@ interface TokenDefinition {
 }
 ```
 
-Initial, medial, and final roles are properties of a syllable parse, not permanent token identity. This avoids treating a linguistic classification table as the grammar itself.
+Initial, medial, and final roles belong to a syllable parse rather than permanent token identity.
 
-### Syllable
+## Syllable
 
-An ordered semantic token sequence ending in exactly one explicit tone token.
+A `Syllable` stores the **canonical semantic representation** of a reading.
 
 ```ts
 interface Syllable {
@@ -65,17 +71,29 @@ interface Syllable {
 }
 ```
 
+For example:
+
+```text
+ㄒ ㄩ ㄝ ˊ
+```
+
+may be stored canonically as:
+
+```text
+[ㄒ, ㄩ, ㄝ, tone:2]
+```
+
+This ordered array supports stable catalog identity, parsing, display, and structural linguistic relations. **Its array order is not an input cursor.**
+
 Invariants:
 
 - every syllable contains exactly one tone token;
-- the tone token is the final token;
+- the tone token is canonically final;
 - first tone is represented explicitly as `tone:1`;
 - physical key codes never appear in a syllable;
-- legal Bopomofo structure is validated by the reading parser, not by token metadata alone.
+- legal Bopomofo structure is validated by the reading parser.
 
-### Catalog entry
-
-A reviewed or provisional vocabulary entry plus its semantic reading and provenance references.
+## Catalog entry
 
 ```ts
 interface CatalogEntry {
@@ -87,11 +105,9 @@ interface CatalogEntry {
 }
 ```
 
-A catalog entry is content. It is not automatically one complete on-screen exercise.
+A catalog entry is content, not automatically one whole on-screen exercise.
 
-### Exercise
-
-A short ordered sequence of catalog entries selected for continuous practice.
+## Exercise
 
 ```ts
 interface Exercise {
@@ -102,11 +118,9 @@ interface Exercise {
 }
 ```
 
-Separating `CatalogEntry` from `Exercise` allows several words to be typed without a full visual and timing reset after every word, while retaining word and syllable boundaries.
+An exercise retains entry and syllable boundaries while allowing continuous practice across several words.
 
-### Input layout
-
-Maps physical input codes to semantic tokens.
+## Input layout
 
 ```ts
 interface InputLayout {
@@ -116,119 +130,168 @@ interface InputLayout {
 }
 ```
 
-The same catalog entry can be practiced with different layouts, but measured motor skill is scoped to the active layout.
+A layout maps `KeyboardEvent.code` to semantic tokens. Physical ergonomics such as assigned hand belong to physical-key metadata, not to a Bopomofo token, because the same token may move under another layout.
 
-### Input observation
+## Accepted input plan
 
-A neutral record of one attempted input. It stores enough context to compare aggregation policies without assuming which curriculum is correct.
+Before interaction, the canonical exercise is compiled into an `ExerciseInputPlan`.
 
-```ts
-type TimingContext =
-  | "exercise-start"
-  | "entry-start"
-  | "syllable-start"
-  | "within-syllable"
-  | "tone";
-
-interface InputObservation {
-  exerciseId: string;
-  entryId: string;
-  mode: PracticeMode;
-  layoutId: string;
-  expectedToken: TokenId;
-  actualToken: TokenId | null;
-  physicalCode: string;
-  previousToken: TokenId | null;
-  latencyMs: number;
-  correct: boolean;
-  position: number;
-  context: TimingContext;
-}
-```
-
-Observations retain raw context. Aggregation decides which contexts update a skill estimate.
-
-### Binding skill
-
-The primary V1 measured skill is not a bare token. It is a semantic token practiced through a particular layout and presentation mode.
-
-```ts
-interface BindingSkillScope {
-  mode: PracticeMode;
-  layoutId: string;
-  tokenId: TokenId;
-}
-```
-
-Example:
+Each syllable becomes:
 
 ```text
-guided / zhuyin-standard / zhuyin:ㄥ
+body slots + explicit tone commit
 ```
 
-This prevents performance learned on one physical layout from being silently reused on another and prevents recall-mode timing from contaminating guided motor timing.
+For canonical `ㄒ ㄩ ㄝ ˊ`, the body slots are the three non-tone components. The learner may complete those body slots in any order. The tone becomes available only after every body slot is complete.
 
-### Learner profile
+Canonical token indices are retained as provenance for display and structural analysis, but they do not determine which body token is currently legal.
 
-Aggregated performance derived from observations.
+## Interaction state
 
-```ts
-interface SkillStats {
-  attempts: number;
-  errors: number;
-  currentTimeToTypeMs: number | null;
-  bestTimeToTypeMs: number | null;
-  currentConfidence: number | null;
-  bestConfidence: number | null;
-}
+`InteractionSessionStateV2` tracks:
 
-interface LearnerProfile {
-  bindingStats: Readonly<Record<string, SkillStats>>;
-  transitionStats: Readonly<Record<string, TransitionStats>>;
-  confusionStats: Readonly<Record<string, number>>;
-}
+- the compiled input plan;
+- the current syllable ordinal;
+- which body slot IDs are complete;
+- total completed slots;
+- raw `InteractionTraceV2` events;
+- recovery/error state;
+- session completion.
+
+There is deliberately no single `position` that means “the one legal token” while several body slots remain.
+
+## Interaction trace
+
+A V2 trace records what the system actually knows about one input event.
+
+Important distinctions include:
+
+```text
+actualToken
+matchedToken / matchedSlot
+attributedExpectedToken
+acceptedOrdinalInSyllable
+outcome
+accepted
+context
 ```
 
-String keys are stable serialized skill identities. Construction and parsing must be centralized rather than duplicated through the codebase.
+`attributedExpectedToken` is nullable. If two or more body components remain and the learner presses some other mapped token, the system does not pretend to know which remaining token was intended.
 
-## Timing policy for V1
+Interaction context is derived from actual accepted order:
 
-Timing contexts are not equivalent.
+- `exercise-start`
+- `entry-start`
+- `syllable-start`
+- `within-syllable`
+- `tone`
 
-- `exercise-start`: records initial orientation only; it does not update binding confidence.
-- `entry-start`: may include reading and visual relocation; record separately.
-- `syllable-start`: retain separately until human data shows whether it is a useful motor measure.
-- `within-syllable`: primary timing source for Bopomofo token bindings.
-- `tone`: primary timing source for tone bindings.
+The token that is canonically first is not automatically the runtime `syllable-start` event.
 
-This policy remains provisional until the interaction spike produces real event traces.
+## Semantic evidence
+
+### Binding
+
+Binding identity remains:
+
+```text
+practice mode + layout ID + token ID
+```
+
+A matched token creates successful binding evidence. A mapped error creates token-specific failure evidence only when the expected token is unambiguous.
+
+### Confusion
+
+Confusion identity is:
+
+```text
+practice mode + layout ID + expected token + actual token
+```
+
+A confusion exists only when the expected token can be attributed without guessing. Ambiguous errors, duplicate components, and premature tones are retained separately.
+
+## Motor evidence
+
+Motor evidence comes only from actual interaction order.
+
+### Syllable coordination
+
+Measures the time span needed to complete all body components of one syllable, independent of which legal body order was used.
+
+### Immediate hand transition
+
+Uses consecutive accepted physical events and their assigned hands. Its coarse aggregate space is only:
+
+```text
+L→L, L→R, R→L, R→R
+```
+
+### Same-hand revisit
+
+Links an accepted event to the previous accepted event assigned to the same hand, even if events from the other hand occurred in between. It is a revisit/preparation interval, not a claim that the two keys were consecutive.
+
+### Tone commit
+
+Measures from the final accepted body component to the accepted tone commit.
+
+## Structural relations
+
+Canonical adjacency is linguistic/catalog structure, not motor evidence.
+
+`StructuralAdjacencyOccurrence` may represent canonical neighbors such as:
+
+```text
+ㄒ → ㄩ
+ㄩ → ㄝ
+ㄝ → tone:2
+```
+
+A learner may physically type the same syllable body in reverse order. Therefore structural adjacency and observed motor order use separate types and separate pipelines.
+
+The older relational research subsystem retains historical `transition` terminology for compatibility. New production code must use explicit structural or motor vocabulary.
+
+## Aggregation rule
+
+Raw observations may contain rich context, but aggregate identities must remain intentionally low-dimensional. Token, physical code, hand, boundary, finger, and syllable features are not automatically multiplied together.
+
+Current motor aggregate bounds are:
+
+- immediate hand: at most 4 scopes;
+- same-hand revisit: at most 4 scopes;
+- coordination: at most 12 scopes;
+- tone commit: tone identity only.
+
+This keeps sample density meaningful and prevents combinatorial skill-state growth.
+
+## Product persistence
+
+Product progress schema 7 uses measurement epoch:
+
+```text
+coordination-v1
+```
+
+Legacy schema 6 identity/history may migrate, but old strict-order measurement evidence is reset because it may contain false errors, false confusions, and canonical token-pair transitions that are not valid under the new semantics.
+
+## Curriculum boundary
+
+Current adaptive selection may use semantic binding evidence. Motor aggregates are diagnostic-only.
+
+A future motor objective must state how practice actually elicits the targeted motor behavior. The presence of a canonical token pair inside a word is not enough to guarantee that a learner will type that pair consecutively.
 
 ## Identity rules
 
-- Catalog entry IDs remain stable if frequency metadata changes.
-- Binding statistics are scoped by practice mode, layout ID, and token ID.
-- Transition statistics are scoped by practice mode and layout ID.
-- Transition IDs are directional: `from>to` differs from `to>from`.
-- Recall-mode data never updates guided-mode confidence.
-- Physical key codes belong to observations and layouts, never catalog readings.
-
-## Curriculum states
-
-A token binding can be:
-
-- `unobserved`: insufficient data, not automatically equivalent to weak;
-- `sampling`: receiving baseline coverage;
-- `eligible`: enough data and catalog support to become a focus;
-- `focused`: selected for the current exercise;
-- `cooldown`: temporarily ineligible to prevent repetition.
-
-The curriculum first establishes coverage, then adapts among eligible skills.
+- catalog entry IDs remain stable when frequency metadata changes;
+- binding statistics are scoped by mode, layout, and token;
+- confusion statistics require an unambiguous expected token;
+- physical key codes and assigned hand belong to interaction/motor evidence, never catalog readings;
+- canonical structural adjacency does not update motor timing;
+- recall-mode evidence must not silently contaminate guided-mode evidence.
 
 ## Open questions
 
-- Which timing contexts should update the final V1 confidence after interaction testing?
-- How many entries should form one exercise before cognitive resets become noticeable?
-- Should errors reset the latency clock, preserve it, or produce a separate recovery measure?
-- Whether transition statistics materially improve curriculum selection.
-- How to handle words with multiple accepted readings and regional variants.
-- Whether raw observations should be retained after aggregation.
+- whether motor coordination should eventually influence curriculum selection;
+- whether exact physical-key or finger-level motor models earn enough samples to be useful;
+- whether keyup/overlap traces add useful information about rolling strategies;
+- how stable individual input-order preferences become over time;
+- how best to model words with multiple accepted readings and regional variants.

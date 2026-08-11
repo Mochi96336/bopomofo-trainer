@@ -133,7 +133,7 @@ describe("pilot history", () => {
   });
 
   it("rejects obsolete pilot history schemas", () => {
-    for (const schemaVersion of [1, 2]) {
+    for (const schemaVersion of [1, 2, 3]) {
       expect(parsePilotHistory(
         JSON.stringify({ schemaVersion, records: [] }),
         environment,

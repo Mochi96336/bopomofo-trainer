@@ -260,7 +260,11 @@ export function aggregateMeasurementObservationsV2(
     };
     const key = immediateHandAggregateKey(scope);
     const previous = immediateHands.get(key);
-    const eligible = observation.clean && observation.boundary !== "entry-boundary";
+    // Crossing a syllable/entry boundary includes reading and target-location
+    // latency, not just hand coordination. Keep the event as an observation for
+    // coverage/debugging, but only within-syllable hand paths may shape the
+    // motor timing estimate.
+    const eligible = observation.clean && observation.boundary === "within-syllable";
     const timing = addTiming(timingStateOf(previous), eligible ? observation.timingMs : null);
     immediateHands.set(key, { scope, ...timing });
   }
@@ -273,7 +277,7 @@ export function aggregateMeasurementObservationsV2(
     };
     const key = sameHandRevisitAggregateKey(scope);
     const previous = sameHandRevisits.get(key);
-    const eligible = observation.clean && observation.boundary !== "entry-boundary";
+    const eligible = observation.clean && observation.boundary === "within-syllable";
     const timing = addTiming(timingStateOf(previous), eligible ? observation.timingMs : null);
     sameHandRevisits.set(key, { scope, ...timing });
   }
