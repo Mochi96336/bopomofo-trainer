@@ -49,14 +49,20 @@ function featureEntries(
     .sort(([left], [right]) => compareText(left, right));
 }
 
-function mergeFeatures(
+/**
+ * Combine two feature requirement sets without widening either side. Distinct
+ * features compose; the same feature at incompatible values fails closed.
+ * Exported so derivation-time grammar views can reuse exactly the same feature
+ * semantics as constituent inheritance.
+ */
+export function mergeSyntaxFeatureRequirements(
   local: SyntaxFeatureSet,
-  inherited: SyntaxFeatureSet,
+  added: SyntaxFeatureSet,
 ): SyntaxFeatureSet | null {
-  const merged = new Map<SyntaxFeatureName, SyntaxFeatureValue>(featureEntries(inherited));
+  const merged = new Map<SyntaxFeatureName, SyntaxFeatureValue>(featureEntries(added));
   for (const [feature, value] of featureEntries(local)) {
-    const inheritedValue = merged.get(feature);
-    if (inheritedValue !== undefined && inheritedValue !== value) return null;
+    const addedValue = merged.get(feature);
+    if (addedValue !== undefined && addedValue !== value) return null;
     merged.set(feature, value);
   }
   return Object.fromEntries([...merged.entries()].sort(([left], [right]) => compareText(left, right)));
@@ -75,7 +81,7 @@ export function requirementsForConstituent(
     constituent.inheritValencyFrames ? parent.requiredValencyFrames : [],
   );
   if (requiredValencyFrames === null) return null;
-  const requiredFeatures = mergeFeatures(
+  const requiredFeatures = mergeSyntaxFeatureRequirements(
     constituent.requiredFeatures,
     constituent.inheritFeatures ? parent.requiredFeatures : {},
   );
