@@ -121,12 +121,10 @@ function connectPracticeCenter(stage: HTMLElement): void {
 // wide: nothing calls through it before `createApp` has returned.
 let app: App | null = null;
 
-const analysisIntegration = mountAnalysisV2Integration({
+const analysisV2 = mountAnalysisV2Integration({
   closePanel: () => app?.closePanel(),
   focusPractice: () => app?.focusPractice(),
-  // `getDiagnosticSnapshot` remains a shell compatibility name for now; the
-  // integration boundary itself consumes the canonical AnalysisV2Snapshot type.
-  getSnapshot: () => app?.getDiagnosticSnapshot() ?? null,
+  getSnapshot: () => app?.getAnalysisV2Snapshot() ?? null,
   storage: localStorage,
 });
 
@@ -136,7 +134,7 @@ app = createApp({
   storage: localStorage,
   newSeed,
   onRoundMounted: connectPracticeCenter,
-  onPanelRendered: (content) => analysisIntegration.panelRendered(content),
+  onPanelRendered: (content) => analysisV2.panelRendered(content),
 });
 
 // Fonts change the measurements the line plan was built from, so the first
@@ -151,7 +149,7 @@ const unmountBackupInputReset = bindBackupFileInputReset(document);
 window.addEventListener("beforeunload", () => {
   app?.destroy();
   centerResizeObserver?.disconnect();
-  analysisIntegration.destroy();
+  analysisV2.destroy();
   unmountBackupInputReset();
   unmountInspectionBoundary();
   if (layoutFrame !== null) window.cancelAnimationFrame(layoutFrame);

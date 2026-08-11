@@ -253,20 +253,20 @@ function bodyMarkup(model: AnalysisV2Model, preferences: AnalysisV2Preferences, 
 }
 
 export function renderAnalysisV2Summary(section: HTMLElement, model: AnalysisV2Model, openAnalysis: () => void): void {
-  section.className = "panel-section diagnostic-summary-section analysis-v2-summary";
-  section.removeAttribute("data-legacy-weak-section");
-  section.innerHTML = `<div class="diagnostic-summary-heading"><div><h3>學習分析</h3><p>${model.semantic.keysWithData} 鍵有語意資料 · ${model.coordination.readyScopes} 類協調樣本已可比較 · ${model.strategy.totalObservations} 個順序位置觀察</p></div><button type="button" class="diagnostic-open-analysis">進入分析</button></div><div class="diagnostic-summary-signals" aria-label="學習分析摘要"><div><span>語意</span><strong>${model.semantic.keysWithData} 鍵</strong><small>${model.semantic.repeatedConfusions} 組重複誤按</small></div><div><span>協調</span><strong>${model.coordination.readyScopes} 類</strong><small>${model.coordination.cleanTimingSamples} 個乾淨時間樣本</small></div><div><span>策略</span><strong>${model.strategy.totalObservations}</strong><small>${model.strategy.bodySizeBucketsWithData} 種 body 尺度有資料</small></div></div>`;
-  section.querySelector<HTMLButtonElement>(".diagnostic-open-analysis")?.addEventListener("click", openAnalysis);
+  section.className = "panel-section analysis-v2-summary";
+  section.removeAttribute("data-analysis-v2-summary-slot");
+  section.innerHTML = `<div class="analysis-v2-summary-heading"><div><h3>學習分析</h3><p>${model.semantic.keysWithData} 鍵有語意資料 · ${model.coordination.readyScopes} 類協調樣本已可比較 · ${model.strategy.totalObservations} 個順序位置觀察</p></div><button type="button" class="analysis-v2-open">進入分析</button></div><div class="analysis-v2-summary-signals" aria-label="學習分析摘要"><div><span>語意</span><strong>${model.semantic.keysWithData} 鍵</strong><small>${model.semantic.repeatedConfusions} 組重複誤按</small></div><div><span>協調</span><strong>${model.coordination.readyScopes} 類</strong><small>${model.coordination.cleanTimingSamples} 個乾淨時間樣本</small></div><div><span>策略</span><strong>${model.strategy.totalObservations}</strong><small>${model.strategy.bodySizeBucketsWithData} 種 body 尺度有資料</small></div></div>`;
+  section.querySelector<HTMLButtonElement>(".analysis-v2-open")?.addEventListener("click", openAnalysis);
 }
 
 export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controller {
   const host = document.createElement("section");
-  host.id = "diagnostic-analysis";
-  host.className = "diagnostic-analysis analysis-v2";
+  host.id = "analysis-v2";
+  host.className = "analysis-v2";
   host.hidden = true;
   host.setAttribute("role", "dialog");
   host.setAttribute("aria-modal", "true");
-  host.setAttribute("aria-labelledby", "diagnostic-analysis-title");
+  host.setAttribute("aria-labelledby", "analysis-v2-title");
   document.body.append(host);
 
   let model = options.getModel();
@@ -280,7 +280,7 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
     openFrame = null;
   };
   const render = () => {
-    host.innerHTML = `<div class="analysis-v2-shell"><header class="analysis-v2-header"><div><p class="analysis-v2-kicker">Analysis V2</p><h2 id="diagnostic-analysis-title">學習分析</h2></div><div class="analysis-v2-header-actions"><div class="analysis-v2-tabs" role="tablist" aria-label="分析類型">${TABS.map((tab) => `<button type="button" role="tab" data-action="select-tab" data-tab="${tab}" aria-selected="${preferences.activeTab === tab}" tabindex="${preferences.activeTab === tab ? 0 : -1}">${tabLabel(tab)}</button>`).join("")}</div><button type="button" class="diagnostic-analysis-close" data-action="close-analysis" aria-label="返回練習">Esc</button></div></header><main class="analysis-v2-main">${bodyMarkup(model, preferences, selectedKey)}</main></div>`;
+    host.innerHTML = `<div class="analysis-v2-shell"><header class="analysis-v2-header"><div><p class="analysis-v2-kicker">Analysis V2</p><h2 id="analysis-v2-title">學習分析</h2></div><div class="analysis-v2-header-actions"><div class="analysis-v2-tabs" role="tablist" aria-label="分析類型">${TABS.map((tab) => `<button type="button" role="tab" data-action="select-tab" data-tab="${tab}" aria-selected="${preferences.activeTab === tab}" tabindex="${preferences.activeTab === tab ? 0 : -1}">${tabLabel(tab)}</button>`).join("")}</div><button type="button" class="analysis-v2-close" data-action="close-analysis" aria-label="返回練習">Esc</button></div></header><main class="analysis-v2-main">${bodyMarkup(model, preferences, selectedKey)}</main></div>`;
   };
   const selectTab = (tab: AnalysisV2Tab, focus = true) => {
     preferences = { ...preferences, activeTab: tab };
@@ -307,7 +307,7 @@ export function createAnalysisV2(options: AnalysisV2Options): AnalysisV2Controll
       openFrame = null;
       if (host.hidden) return;
       host.classList.add("open");
-      host.querySelector<HTMLButtonElement>(".diagnostic-analysis-close")?.focus();
+      host.querySelector<HTMLButtonElement>(".analysis-v2-close")?.focus();
     });
   };
 

@@ -364,7 +364,7 @@
   min-height: 60px;
 }
 
-.analysis-v2-summary .diagnostic-summary-signals > div {
+.analysis-v2-summary .analysis-v2-summary-signals > div {
   min-width: 0;
 }
 
