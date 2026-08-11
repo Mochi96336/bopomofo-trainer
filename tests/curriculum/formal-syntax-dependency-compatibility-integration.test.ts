@@ -98,12 +98,12 @@ const WEIGHTS = {
   [THEORY.id]: 1,
 };
 
-function compose(lexicalCompatibility = undefined as ReturnType<typeof dependencyCompatibility> | undefined) {
+function compose(lexicalCompatibility?: ReturnType<typeof dependencyCompatibility>) {
   return composeFormalSyntaxUtterances({
     eligibleEntries: ENTRIES,
     profiles: PROFILES,
     entryWeightsById: WEIGHTS,
-    lexicalCompatibility,
+    ...(lexicalCompatibility === undefined ? {} : { lexicalCompatibility }),
     lexicalCompatibilityMaximumBoost: 4,
     random: new ConstantRandom(0.6),
     maximumCandidates: 1,
