@@ -51,6 +51,18 @@ jobs:
             morphology.log
             runtime-morphology-candidate.json
           if-no-files-found: ignore
+      - name: Verify causative occurrence audit
+        id: causative-occurrence-audit
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx scripts/audit-causative-occurrence-evidence.ts --verify 2>&1 | tee causative-occurrence-audit.log
+      - name: Upload causative occurrence audit failure
+        if: failure() && steps.causative-occurrence-audit.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: causative-occurrence-audit-failure
+          path: causative-occurrence-audit.log
       - name: Typecheck
         id: typecheck
         shell: bash
