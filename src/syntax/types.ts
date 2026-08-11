@@ -22,6 +22,7 @@ export const VALENCY_FRAMES = [
   "avalent", "intransitive", "transitive", "ditransitive", "ambitransitive",
   "copular", "clausal-complement", "open-clausal-complement", "adpositional-complement",
   "serial-verb", "causative", "resultative",
+  "subject-controlled-open-complement", "object-controlled-open-complement",
 ] as const;
 export type ValencyFrame = (typeof VALENCY_FRAMES)[number];
 export type SyntaxEvidenceScope = "per-upos" | "aggregate-legacy";
@@ -40,6 +41,12 @@ export interface AnonymousDependencySkeletonEvidence {
 export interface SyntaxCompatibilityEvidence {
   readonly dependencyRelationCounts: DependencyCountMap;
   readonly surfacePositionCounts: DependencyCountMap;
+  /**
+   * Runtime morphology was added after the v1 active-profile artifact shipped.
+   * Keep it optional so those committed profiles remain readable; source-profile
+   * projections below still require the complete morphology count map.
+   */
+  readonly morphologicalFeatureCounts?: DependencyCountMap;
 }
 export interface DependencyEvidence extends SyntaxCompatibilityEvidence {
   readonly evidenceScope: SyntaxEvidenceScope;
@@ -47,6 +54,7 @@ export interface DependencyEvidence extends SyntaxCompatibilityEvidence {
   readonly morphologicalFeatureCounts: DependencyCountMap;
   readonly parentUposCounts: DependencyCountMap;
   readonly headDirectionCounts: DependencyCountMap;
+  readonly surfacePositionCounts: DependencyCountMap;
   readonly childRelationCounts: DependencyCountMap;
   readonly childDirectionRelationCounts: DependencyCountMap;
   readonly childRelationMultisetCounts: DependencyCountMap;
@@ -105,6 +113,7 @@ export interface ProductionConstituent {
   readonly requiredFeatures: SyntaxFeatureSet;
   readonly inheritFunctions?: boolean;
   readonly inheritValencyFrames?: boolean;
+  readonly inheritFeatures?: boolean;
   readonly entryBinding?: string;
   readonly formalLiteral?: string;
   /** Select which versioned derivation bound caps this repeatable edge. */

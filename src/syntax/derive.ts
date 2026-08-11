@@ -5,6 +5,7 @@ import {
   ruleAllowedByDerivationBounds,
 } from "./derivation-limits.js";
 import { DEFAULT_DERIVATION_BOUNDS, FORMAL_GRAMMAR_VERSION } from "./features.js";
+import { presenceConstraintsSatisfied } from "./presence-constraints.js";
 import {
   EMPTY_SYNTAX_REQUIREMENTS,
   requirementsForConstituent,
@@ -79,7 +80,7 @@ interface ExpandedElement {
 }
 
 const CLAUSE_LIKE = new Set<SyntaxCategory>([
-  "Sentence", "Clause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
+  "Sentence", "Clause", "OpenClause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
 ]);
 
 function compareText(left: string, right: string): number {
@@ -290,7 +291,7 @@ function* expandCategory(
   excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
 ): Generator<ExpandedElement> {
   let state = inputState;
-  if (category === "Clause") {
+  if (category === "Clause" || category === "OpenClause") {
     if (state.clauseCount >= bounds.maximumClausesPerSentence) return;
     state = { ...state, clauseCount: state.clauseCount + 1 };
   }
@@ -299,6 +300,7 @@ function* expandCategory(
   for (const rule of rules) {
     const constituentsByKey = new Map(rule.constituents.map((item) => [item.key, item]));
     for (const counts of countVectors(rule.constituents, bounds)) {
+      if (!presenceConstraintsSatisfied(rule.constraints, counts)) continue;
       for (const order of [...rule.surfaceOrders].sort((left, right) => compareText(left.id, right.id))) {
         const ordered = order.constituentKeys.map((key) => {
           const item = constituentsByKey.get(key);

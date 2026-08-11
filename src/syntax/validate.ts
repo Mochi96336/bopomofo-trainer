@@ -5,6 +5,7 @@ import {
   SYNTAX_CATEGORIES,
   SYNTAX_FEATURE_NAMES,
 } from "./features.js";
+import { presenceConstraintsSatisfied } from "./presence-constraints.js";
 import {
   SYNTACTIC_FUNCTIONS,
   UPOS_VALUES,
@@ -218,20 +219,18 @@ function validateRule(rule: ProductionRule, errors: GrammarValidationError[]): v
     }
     orderIds.add(order.id);
   }
-  if (rule.constraints.length > 0) {
-    errors.push(error(
-      "invalid-constraint",
-      "non-empty production constraints are not executable in mandarin-formal-grammar-v1",
-      rule.id,
-      `rules.${rule.id}.constraints`,
-    ));
-  }
   for (const [index, constraint] of rule.constraints.entries()) {
     let constraintKeys: readonly string[];
     switch (constraint.kind) {
       case "feature-equals":
       case "feature-not-equals":
         constraintKeys = [constraint.constituentKey];
+        errors.push(error(
+          "invalid-constraint",
+          `feature constraint ${constraint.kind} is not executable in mandarin-formal-grammar-v1`,
+          rule.id,
+          `rules.${rule.id}.constraints[${index}]`,
+        ));
         break;
       case "requires-constituent":
       case "forbids-cooccurrence":
@@ -357,6 +356,10 @@ function fixtureViolatesRule(
       return true;
     }
   }
+  const presenceConstraints = rule.constraints.filter((constraint) =>
+    constraint.kind === "requires-constituent" || constraint.kind === "forbids-cooccurrence"
+  );
+  if (!presenceConstraintsSatisfied(presenceConstraints, counts)) return true;
   return false;
 }
 
@@ -412,7 +415,7 @@ export function validateGrammarBundle(
       || (fixture.expected === "reject" && !violates)) {
       errors.push(error(
         "fixture-expectation-mismatch",
-        `fixture expected ${fixture.expected} but its formal cardinality and order ${violates ? "violate" : "satisfy"} the rule`,
+        `fixture expected ${fixture.expected} but its formal cardinality, order, and presence constraints ${violates ? "violate" : "satisfy"} the rule`,
         rule.id,
         `fixtures.${fixture.id}`,
       ));

@@ -36,6 +36,21 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: npm ci --include=dev --ignore-scripts
+      - name: Verify active runtime morphology provenance
+        id: morphology
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run grammar:runtime-morphology -- --output runtime-morphology-candidate.json 2>&1 | tee morphology.log
+      - name: Upload runtime morphology verification
+        if: failure() && steps.morphology.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-morphology-verification
+          path: |
+            morphology.log
+            runtime-morphology-candidate.json
+          if-no-files-found: ignore
       - name: Typecheck
         id: typecheck
         shell: bash

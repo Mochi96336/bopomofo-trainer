@@ -3,8 +3,8 @@ import { FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";
 import type { ProductionRule } from "../../src/syntax/types.js";
 import { validateGrammar } from "../../src/syntax/validate.js";
 
-const constrainedRule: ProductionRule = {
-  id: "sentence.constrained",
+const presenceConstrainedRule: ProductionRule = {
+  id: "sentence.presence-constrained",
   grammarVersion: FORMAL_GRAMMAR_VERSION,
   output: "Sentence",
   constituents: [{
@@ -24,16 +24,34 @@ const constrainedRule: ProductionRule = {
     ifPresentKey: "head",
     targetKey: "head",
   }],
-  positiveFixtureIds: ["sentence.constrained:positive"],
-  negativeFixtureIds: ["sentence.constrained:negative"],
+  positiveFixtureIds: ["sentence.presence-constrained:positive"],
+  negativeFixtureIds: ["sentence.presence-constrained:negative"],
+};
+
+const featureConstrainedRule: ProductionRule = {
+  ...presenceConstrainedRule,
+  id: "sentence.feature-constrained",
+  constraints: [{
+    kind: "feature-equals",
+    constituentKey: "head",
+    feature: "polarity",
+    value: "negative",
+  }],
+  positiveFixtureIds: ["sentence.feature-constrained:positive"],
+  negativeFixtureIds: ["sentence.feature-constrained:negative"],
 };
 
 describe("formal production constraint boundary", () => {
-  it("rejects non-empty constraints instead of silently ignoring them", () => {
-    const errors = validateGrammar([constrainedRule]).errors;
-    expect(errors).toContainEqual(expect.objectContaining({
-      code: "invalid-constraint",
-      path: "rules.sentence.constrained.constraints",
-    }));
+  it("accepts executable structural presence constraints", () => {
+    expect(validateGrammar([presenceConstrainedRule]).errors).toEqual([]);
+  });
+
+  it("keeps feature constraints fail-closed until their executor exists", () => {
+    expect(validateGrammar([featureConstrainedRule]).errors).toContainEqual(
+      expect.objectContaining({
+        code: "invalid-constraint",
+        path: "rules.sentence.feature-constrained.constraints[0]",
+      }),
+    );
   });
 });

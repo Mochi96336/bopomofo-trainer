@@ -74,13 +74,15 @@ describe("random structural sampling", () => {
     expect(first?.lexicalSlots[0]?.allowedUpos).toEqual(["NOUN"]);
   });
 
-  it("propagates transitive clause requirements to lexical heads", () => {
+  it("propagates transitive valency without turning observed argument roles into lexical gates", () => {
     const keep = new Set([
       "sentence.declarative",
       "clause.transitive",
+      "argument.subject.noun",
+      "argument.object.noun",
       "phrase.noun.bare",
       "phrase.nominal-head.noun",
-      "phrase.verb.lexical",
+      "predicate.verb.lexical",
     ]);
     const shape = sampleStructuralDerivation({
       rootCategory: "Sentence",
@@ -91,16 +93,16 @@ describe("random structural sampling", () => {
     expect(shape?.lexicalSlots).toHaveLength(3);
     expect(shape?.lexicalSlots[0]).toMatchObject({
       allowedUpos: ["NOUN"],
-      requiredFunctions: ["subject"],
+      requiredFunctions: [],
     });
     expect(shape?.lexicalSlots[1]).toMatchObject({
       allowedUpos: ["VERB"],
-      requiredFunctions: ["predicate"],
+      requiredFunctions: [],
       requiredValencyFrames: ["ambitransitive", "transitive"],
     });
     expect(shape?.lexicalSlots[2]).toMatchObject({
       allowedUpos: ["NOUN"],
-      requiredFunctions: ["object"],
+      requiredFunctions: [],
     });
   });
 
@@ -108,9 +110,11 @@ describe("random structural sampling", () => {
     const keep = new Set([
       "sentence.declarative",
       "clause.transitive",
+      "argument.subject.noun",
+      "argument.object.noun",
       "phrase.noun.bare",
       "phrase.nominal-head.noun",
-      "phrase.verb.lexical",
+      "predicate.verb.lexical",
     ]);
     const shape = sampleStructuralDerivation({
       rootCategory: "Sentence",
