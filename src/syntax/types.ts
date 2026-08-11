@@ -113,6 +113,7 @@ export interface ProductionConstituent {
   readonly requiredFeatures: SyntaxFeatureSet;
   readonly inheritFunctions?: boolean;
   readonly inheritValencyFrames?: boolean;
+  readonly inheritFeatures?: boolean;
   readonly entryBinding?: string;
   readonly formalLiteral?: string;
   /** Select which versioned derivation bound caps this repeatable edge. */

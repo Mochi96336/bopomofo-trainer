@@ -1,7 +1,9 @@
 import type {
   ProductionConstituent,
   SyntacticFunction,
+  SyntaxFeatureName,
   SyntaxFeatureSet,
+  SyntaxFeatureValue,
   ValencyFrame,
 } from "./types.js";
 
@@ -40,6 +42,26 @@ function mergeValencyFrames(
   return intersection.length > 0 ? intersection : null;
 }
 
+function featureEntries(
+  features: SyntaxFeatureSet,
+): readonly (readonly [SyntaxFeatureName, SyntaxFeatureValue])[] {
+  return (Object.entries(features) as [SyntaxFeatureName, SyntaxFeatureValue][])
+    .sort(([left], [right]) => compareText(left, right));
+}
+
+function mergeFeatures(
+  local: SyntaxFeatureSet,
+  inherited: SyntaxFeatureSet,
+): SyntaxFeatureSet | null {
+  const merged = new Map<SyntaxFeatureName, SyntaxFeatureValue>(featureEntries(inherited));
+  for (const [feature, value] of featureEntries(local)) {
+    const inheritedValue = merged.get(feature);
+    if (inheritedValue !== undefined && inheritedValue !== value) return null;
+    merged.set(feature, value);
+  }
+  return Object.fromEntries([...merged.entries()].sort(([left], [right]) => compareText(left, right)));
+}
+
 export function requirementsForConstituent(
   constituent: ProductionConstituent,
   parent: SyntaxRequirements,
@@ -53,9 +75,14 @@ export function requirementsForConstituent(
     constituent.inheritValencyFrames ? parent.requiredValencyFrames : [],
   );
   if (requiredValencyFrames === null) return null;
+  const requiredFeatures = mergeFeatures(
+    constituent.requiredFeatures,
+    constituent.inheritFeatures ? parent.requiredFeatures : {},
+  );
+  if (requiredFeatures === null) return null;
   return {
     requiredFunctions,
     requiredValencyFrames,
-    requiredFeatures: constituent.requiredFeatures,
+    requiredFeatures,
   };
 }

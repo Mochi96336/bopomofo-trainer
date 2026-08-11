@@ -21,6 +21,7 @@ interface ConstituentOptions {
   readonly requiredFeatures?: SyntaxFeatureSet;
   readonly inheritFunctions?: boolean;
   readonly inheritValencyFrames?: boolean;
+  readonly inheritFeatures?: boolean;
   readonly cardinalityBound?: ConstituentCardinalityBound;
 }
 
@@ -41,6 +42,7 @@ function constituent(
     requiredFeatures: options.requiredFeatures ?? {},
     ...(options.inheritFunctions ? { inheritFunctions: true } : {}),
     ...(options.inheritValencyFrames ? { inheritValencyFrames: true } : {}),
+    ...(options.inheritFeatures ? { inheritFeatures: true } : {}),
     ...(options.cardinalityBound === undefined ? {} : { cardinalityBound: options.cardinalityBound }),
   };
 }
@@ -119,16 +121,16 @@ function fixturesForRule(rule: ProductionRule): readonly ProductionFixture[] {
  * category so a nested VerbPhrase cannot silently add another object. Legacy
  * VerbPhrase remains executable for callers that have not migrated yet.
  *
- * Predicate heads inherit lexical valency requirements but deliberately do not
- * inherit the enclosing structural `predicate` function. In the current UD
- * projection that function is evidence that this written form was observed as
- * `root`; it is not a complete lexical-capability inventory. Marking and
- * complement constituents intentionally remain here for behavior parity until
- * their own v2 axes become executable.
+ * Predicate heads inherit lexical valency and feature requirements but
+ * deliberately do not inherit the enclosing structural `predicate` function.
+ * In the current UD projection that function is evidence that this written form
+ * was observed as `root`; it is not a complete lexical-capability inventory.
+ * Marking and complement constituents intentionally remain here for behavior
+ * parity until their own v2 axes become executable.
  */
 export const PREDICATE_PRODUCTION_RULES: readonly ProductionRule[] = [
   production("predicate.verb.lexical", [
-    lexical("head", ["VERB"], { inheritValencyFrames: true }),
+    lexical("head", ["VERB"], { inheritValencyFrames: true, inheritFeatures: true }),
   ]),
   production("predicate.verb.expanded", [
     lexical("negation", ["ADV", "AUX", "PART", "VERB"], {
@@ -142,7 +144,7 @@ export const PREDICATE_PRODUCTION_RULES: readonly ProductionRule[] = [
       maximum: 3,
       cardinalityBound: "consecutive-modifiers",
     }),
-    lexical("head", ["VERB"], { inheritValencyFrames: true }),
+    lexical("head", ["VERB"], { inheritValencyFrames: true, inheritFeatures: true }),
     constituent("complement", "Complement", {
       minimum: 0,
       maximum: 2,

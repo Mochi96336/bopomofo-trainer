@@ -72,6 +72,8 @@ describe("Clause-model v2 predicate argument ownership", () => {
       "clause.bei",
       "clause.subject-omission",
       "clause.object-omission",
+      "clause.object-content",
+      "clause.quoted-content",
       "clause.xcomp-subject-control",
       "clause.xcomp-object-control",
       "sentence.constituent-question",
@@ -83,8 +85,28 @@ describe("Clause-model v2 predicate argument ownership", () => {
     }
   });
 
+  it("keeps finite ccomp and quoted-content structure while moving only predicate ownership", () => {
+    const objectContent = rule("clause.object-content");
+    expect(objectContent.constituents.find((item) => item.key === "predicate")).toMatchObject({
+      category: "Predicate",
+      requiredValencyFrames: ["clausal-complement"],
+    });
+    expect(objectContent.constituents.find((item) => item.key === "objectClause")?.category)
+      .toBe("ContentClause");
+
+    const quotedContent = rule("clause.quoted-content");
+    expect(quotedContent.constituents.find((item) => item.key === "predicate")).toMatchObject({
+      category: "Predicate",
+      requiredValencyFrames: ["clausal-complement"],
+    });
+    expect(quotedContent.constituents.find((item) => item.key === "quotation")?.category)
+      .toBe("QuotedClause");
+  });
+
   it("leaves only explicitly deferred live paths on VerbPhrase", () => {
     expect(FORMAL_SYNTAX_RULES.some((item) => item.id === "clause.causative")).toBe(false);
+    expect(rule("clause.subject-content").constituents.find((item) => item.key === "predicate")?.category)
+      .toBe("VerbPhrase");
     expect(rule("clause.serial-verb").constituents.find((item) => item.key === "firstPredicate")?.category)
       .toBe("VerbPhrase");
     expect(rule("clause.topic-comment").constituents.find((item) => item.key === "comment")?.category)

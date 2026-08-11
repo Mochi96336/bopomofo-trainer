@@ -274,7 +274,7 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
   ]),
   production("clause.object-content", "Clause", [
     constituent("subject", "NounPhrase", { minimum: 0, maximum: 1 }),
-    constituent("predicate", "VerbPhrase", {
+    constituent("predicate", "Predicate", {
       requiredFunctions: ["predicate"],
       requiredValencyFrames: ["clausal-complement"],
     }),
@@ -301,7 +301,7 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
   ]),
   production("clause.quoted-content", "Clause", [
     constituent("subject", "NounPhrase", { minimum: 0, maximum: 1 }),
-    constituent("predicate", "VerbPhrase", {
+    constituent("predicate", "Predicate", {
       requiredFunctions: ["predicate"],
       requiredValencyFrames: ["clausal-complement"],
     }),
