@@ -63,6 +63,21 @@ jobs:
         with:
           name: causative-occurrence-audit-failure
           path: causative-occurrence-audit.log
+      - name: Verify runtime occurrence capabilities
+        id: occurrence-capabilities
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run grammar:runtime-occurrence-capabilities -- --output runtime-occurrence-capabilities-candidate.json 2>&1 | tee occurrence-capabilities.log
+      - name: Upload runtime occurrence capability verification
+        if: failure() && steps.occurrence-capabilities.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-occurrence-capability-verification
+          path: |
+            occurrence-capabilities.log
+            runtime-occurrence-capabilities-candidate.json
+          if-no-files-found: ignore
       - name: Typecheck
         id: typecheck
         shell: bash

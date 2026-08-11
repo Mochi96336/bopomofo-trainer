@@ -25,6 +25,18 @@ export const VALENCY_FRAMES = [
   "subject-controlled-open-complement", "object-controlled-open-complement",
 ] as const;
 export type ValencyFrame = (typeof VALENCY_FRAMES)[number];
+
+/**
+ * Reviewed capabilities that require multiple facts to be observed on the same
+ * corpus token occurrence. Keep these separate from aggregate valency and
+ * morphology so consumers cannot silently reconstruct the same claim by ANDing
+ * independent evidence dimensions.
+ */
+export const RUNTIME_OCCURRENCE_CAPABILITIES = [
+  "voice-cau-ccomp-same-occurrence",
+] as const;
+export type RuntimeOccurrenceCapability = (typeof RUNTIME_OCCURRENCE_CAPABILITIES)[number];
+
 export type SyntaxEvidenceScope = "per-upos" | "aggregate-legacy";
 export type DependencyCountMap = Readonly<Record<string, number>>;
 
@@ -70,6 +82,7 @@ export interface RuntimeSyntaxProfile {
   readonly upos: Upos;
   readonly functions: readonly SyntacticFunction[];
   readonly valencyFrames: readonly ValencyFrame[];
+  readonly occurrenceCapabilities?: readonly RuntimeOccurrenceCapability[];
   readonly dependencyEvidence: SyntaxCompatibilityEvidence;
   readonly provenanceIds: readonly string[];
 }
