@@ -1,15 +1,22 @@
 import { readFile, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import { compileCatalog } from "../src/catalog/compile-catalog.js";
 import { parseCsv } from "../src/catalog/csv.js";
 import { createProvenanceRegistry } from "../src/catalog/provenance.js";
 import { sha256Canonical } from "../src/reference/importers/canonical-json.js";
-import type { ActiveCatalogSyntaxProfilesArtifact } from "../src/syntax/runtime-profiles.js";
+import type {
+  ActiveCatalogSyntaxProfilesArtifact,
+  RuntimeMorphologyProjectionLineage,
+} from "../src/syntax/runtime-profiles.js";
 import type { RuntimeSyntaxProfile } from "../src/syntax/types.js";
 import { loadResolvedCatalogSource } from "./load-resolved-catalog-source.js";
+import { classifyRuntimeMorphologyIdentityMatches } from "./runtime-morphology-identity.js";
 
 const REVIEWED_FEATURE = "Voice=Cau" as const;
+const UD_PROVENANCE_ID = "ud:chinese-gsd-r2.18" as const;
 const UD_SOURCE_VERSION = "r2.18" as const;
 const UD_SOURCE_COMMIT = "e0d85a020182e264d6384be2a59c0f4879a1cc35" as const;
+const IDENTITY_POLICY = "unique-active-entry-per-form-upos-v1" as const;
 const UD_FILENAMES = [
   "zh_gsd-ud-train.conllu",
   "zh_gsd-ud-dev.conllu",
@@ -20,6 +27,15 @@ const PROFILES_URL = new URL(
   import.meta.url,
 );
 
+const MORPHOLOGY_LINEAGE: RuntimeMorphologyProjectionLineage = {
+  schemaVersion: "runtime-morphology-projection-v1",
+  sourceProvenanceId: UD_PROVENANCE_ID,
+  sourceVersion: UD_SOURCE_VERSION,
+  sourceCommit: UD_SOURCE_COMMIT,
+  reviewedFeature: REVIEWED_FEATURE,
+  identityPolicy: IDENTITY_POLICY,
+};
+
 interface CausativeSourceEvidence {
   readonly tokenCount: number;
   readonly countsByLexemeUpos: ReadonlyMap<string, number>;
@@ -27,6 +43,16 @@ interface CausativeSourceEvidence {
 
 function lexemeUposKey(text: string, upos: string): string {
   return `${text}\u0000${upos}`;
+}
+
+function optionValue(flag: string): string | undefined {
+  const index = process.argv.indexOf(flag);
+  if (index === -1) return undefined;
+  const value = process.argv[index + 1];
+  if (value === undefined || value.startsWith("--")) {
+    throw new Error(`${flag} requires a path`);
+  }
+  return value;
 }
 
 function parseCausativeEvidence(source: string): CausativeSourceEvidence {
@@ -93,15 +119,22 @@ function withCausativePresence(
 }
 
 const writeRequested = process.argv.includes("--write");
+const candidateOutputPath = optionValue("--output");
 const [resolvedSource, provenanceSource, profilesSource, sourceEvidence] = await Promise.all([
   loadResolvedCatalogSource(),
   readFile(new URL("../data/provenance.csv", import.meta.url), "utf8"),
   readFile(PROFILES_URL, "utf8"),
   loadPinnedCausativeEvidence(),
 ]);
-const provenance = createProvenanceRegistry(parseCsv(provenanceSource).records);
+const provenanceRecords = parseCsv(provenanceSource).records;
+const provenance = createProvenanceRegistry(provenanceRecords);
 if (provenance.errors.length > 0) {
   throw new Error(provenance.errors.map((error) => error.message).join("\n"));
+}
+const pinnedSourceRecord = provenanceRecords.find((record) => record.values.id === UD_PROVENANCE_ID);
+const expectedPin = `Pinned source commit: ${UD_SOURCE_COMMIT}`;
+if (!(pinnedSourceRecord?.values.notes ?? "").includes(expectedPin)) {
+  throw new Error(`provenance ${UD_PROVENANCE_ID} must record ${expectedPin}`);
 }
 const catalog = compileCatalog(resolvedSource.records, provenance.ids);
 if (catalog.errors.length > 0) {
@@ -109,43 +142,68 @@ if (catalog.errors.length > 0) {
 }
 const textByEntryId = new Map(catalog.entries.map((entry) => [entry.id, entry.prompt.text]));
 const artifact = JSON.parse(profilesSource) as ActiveCatalogSyntaxProfilesArtifact;
-const matchedSourceKeys = new Set<string>();
+const identityCandidates = artifact.profiles.map((profile) => {
+  const text = textByEntryId.get(profile.entryId);
+  if (text === undefined) {
+    throw new Error(`active runtime profile references unknown catalog entry: ${profile.entryId}`);
+  }
+  return {
+    sourceKey: lexemeUposKey(text, profile.upos),
+    entryId: profile.entryId,
+  };
+});
+const identity = classifyRuntimeMorphologyIdentityMatches(
+  identityCandidates,
+  new Set(sourceEvidence.countsByLexemeUpos.keys()),
+);
 const activatedProfileIds: string[] = [];
 const activatedEntryIds = new Set<string>();
-const profiles = artifact.profiles.map((profile) => {
-  const text = textByEntryId.get(profile.entryId);
-  if (text === undefined) throw new Error(`active runtime profile references unknown catalog entry: ${profile.entryId}`);
-  const sourceKey = lexemeUposKey(text, profile.upos);
-  const present = sourceEvidence.countsByLexemeUpos.has(sourceKey);
+const profiles = artifact.profiles.map((profile, index) => {
+  const sourceKey = identityCandidates[index]?.sourceKey;
+  if (sourceKey === undefined) throw new Error(`missing morphology identity candidate for ${profile.id}`);
+  const present = identity.activatableSourceKeys.has(sourceKey);
   if (present) {
-    matchedSourceKeys.add(sourceKey);
     activatedProfileIds.push(profile.id);
     activatedEntryIds.add(profile.entryId);
   }
   return withCausativePresence(profile, present);
 });
-const { determinismDigest: _oldDigest, ...artifactCore } = artifact;
-const nextCore = { ...artifactCore, profiles };
+const {
+  determinismDigest: _oldDigest,
+  runtimeMorphologyProjection: _oldMorphologyProjection,
+  ...artifactCore
+} = artifact;
+const nextCore = {
+  ...artifactCore,
+  runtimeMorphologyProjection: MORPHOLOGY_LINEAGE,
+  profiles,
+};
 const nextArtifact: ActiveCatalogSyntaxProfilesArtifact = {
   ...nextCore,
   determinismDigest: sha256Canonical(nextCore),
 };
 const output = `${JSON.stringify(nextArtifact)}\n`;
 const isCurrent = output === profilesSource;
+if (candidateOutputPath !== undefined) {
+  await writeFile(resolve(candidateOutputPath), output, "utf8");
+}
 if (writeRequested && !isCurrent) await writeFile(PROFILES_URL, output, "utf8");
 if (!writeRequested && !isCurrent) {
   throw new Error("active runtime morphology artifact is not current; rerun with --write");
 }
 const unmatchedSourceKeys = [...sourceEvidence.countsByLexemeUpos.keys()]
-  .filter((key) => !matchedSourceKeys.has(key))
+  .filter((key) => !identity.matchedSourceKeys.has(key))
   .sort();
 console.log(JSON.stringify({
   sourceVersion: UD_SOURCE_VERSION,
   sourceCommit: UD_SOURCE_COMMIT,
   reviewedFeature: REVIEWED_FEATURE,
+  identityPolicy: IDENTITY_POLICY,
   sourceTokenCount: sourceEvidence.tokenCount,
   sourceLexemeUposCount: sourceEvidence.countsByLexemeUpos.size,
-  matchedLexemeUposCount: matchedSourceKeys.size,
+  matchedLexemeUposCount: identity.matchedSourceKeys.size,
+  ambiguousMatchedLexemeUposCount: identity.ambiguousSourceKeys.size,
+  activatableLexemeUposCount: identity.activatableSourceKeys.size,
   unmatchedLexemeUposCount: unmatchedSourceKeys.length,
   activatedEntryCount: activatedEntryIds.size,
   activatedProfileCount: activatedProfileIds.length,
