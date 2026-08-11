@@ -1,7 +1,6 @@
 import type { Exercise, PracticeMode, TokenId } from "../core/model.js";
 import {
   coordinationAggregateKey,
-  coordinationBodySizeBucket,
   immediateHandAggregateKey,
   sameHandRevisitAggregateKey,
   toneCommitAggregateKey,
@@ -235,10 +234,7 @@ function motorSamples(
 } {
   const coordination = new Map<string, MotorRoundSamples<CoordinationAggregateScope>>();
   for (const observation of observations.coordination) {
-    const scope: CoordinationAggregateScope = {
-      bodySize: coordinationBodySizeBucket(observation.bodySize),
-      handShape: observation.handShape,
-    };
+    const scope: CoordinationAggregateScope = { bodyShape: observation.bodyShape };
     pushMotorSample(
       coordination,
       coordinationAggregateKey(scope),

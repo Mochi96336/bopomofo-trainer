@@ -1,24 +1,27 @@
 /* Cross-domain visual hierarchy.
-   Keyboard geometry remains owned by analysis-v2.css. Speed path paint and
-   hit geometry remain owned by analysis-v2-speed-network.css. */
+   This file owns Analysis composition. Keyboard geometry primitives remain in
+   analysis-v2.css; exact relation paint/hit geometry remains in the speed
+   network stylesheet. */
 .analysis-v2 {
-  --analysis-primary-stage-height: clamp(310px, 48dvh, 390px);
-  --analysis-object-slot-height: 215px;
+  --analysis-board-width: min(1040px, 94%);
+  --analysis-primary-stage-height: clamp(450px, 58dvh, 520px);
+  --analysis-object-slot-height: 310px;
+  --analysis-strategy-object-slot-height: 330px;
   --analysis-focus: var(--ink);
   color: var(--ink);
 }
 
 .analysis-v2 .analysis-v2-domain {
-  width: min(1080px, 100%);
+  width: min(1180px, 100%);
   margin-inline: auto;
   gap: 10px;
 }
 
-/* Every domain reserves the same shallow control row. Switching tabs therefore
-   changes the object, not the page's vertical skeleton. */
+/* Subview controls align to the same broad axis as the primary object instead
+   of defining a second, narrower 760px column. */
 .analysis-v2 .analysis-v2-domain-controls {
   display: flex;
-  width: min(760px, 92%);
+  width: var(--analysis-board-width);
   min-height: 34px;
   margin-inline: auto;
   align-items: center;
@@ -30,9 +33,9 @@
   font-size: 12px;
 }
 
-/* Primary object + readout are one visual group. The old layout put the keyboard
-   at the top of a 430px+ box and the readout at its bottom, creating hundreds of
-   pixels of dead air on short desktop viewports. */
+/* Object first, readout second. The larger desktop allocation is deliberate:
+   the keyboard is the Analysis subject, not a small illustration surrounded by
+   empty workspace. Semantic and Coordination inherit the same slot. */
 .analysis-v2 .analysis-v2-primary-stage,
 .analysis-v2 .analysis-v2-visual-stage,
 .analysis-v2 .analysis-v2-strategy-stage {
@@ -40,11 +43,11 @@
   width: 100%;
   min-height: var(--analysis-primary-stage-height);
   margin: 0;
-  padding: 0;
+  padding: 8px 0 0;
   grid-template-rows: var(--analysis-object-slot-height) auto;
   align-content: center;
   justify-items: stretch;
-  gap: 24px;
+  gap: 26px;
 }
 
 .analysis-v2 .analysis-v2-primary-object-slot {
@@ -59,14 +62,28 @@
   align-self: center;
 }
 
-/* Readouts remain secondary to the keyboard/matrix, but are large enough to be
-   a real typographic anchor. */
+/* The same physical keyboard uses the same desktop scale in Semantic and
+   Coordination. The speed board rule lives in speed-network.css. */
+.analysis-v2 .analysis-v2-semantic-primary .analysis-v2-keyboard {
+  width: var(--analysis-board-width);
+  transform: perspective(680px) rotateX(14deg);
+}
+
+.analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key {
+  height: clamp(34px, 3vw, 42px);
+}
+
+.analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key strong {
+  font-size: clamp(11px, 1vw, 13px);
+}
+
+/* Readouts are anchors, but remain visibly secondary to the board. */
 .analysis-v2 .analysis-v2-hero-readout {
   display: grid;
-  min-height: 58px;
+  min-height: 62px;
   align-content: start;
   justify-items: center;
-  gap: 5px;
+  gap: 6px;
   color: var(--ink);
   text-align: center;
 }
@@ -74,8 +91,8 @@
 .analysis-v2 .analysis-v2-hero-readout > span,
 .analysis-v2 .analysis-v2-hero-readout > small {
   color: var(--ink-muted);
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .analysis-v2 .analysis-v2-hero-readout > strong {
@@ -84,7 +101,7 @@
   justify-content: center;
   gap: 13px;
   color: var(--ink);
-  font-size: clamp(24px, 2.15vw, 28px);
+  font-size: clamp(24px, 2.15vw, 29px);
   font-weight: 620;
   letter-spacing: -0.015em;
   line-height: 1.05;
@@ -112,21 +129,150 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* Inspectors always live below the immutable primary stage; selection never
-   steals width or shifts the keyboard. */
+/* Semantic selection replaces the readout allocation. It never inserts a new
+   dashboard below the stage, and the static summary rail remains visible. */
+.analysis-v2 .analysis-v2-semantic-stage.has-selection {
+  position: relative;
+}
+
 .analysis-v2 .analysis-v2-semantic-stage > .analysis-v2-inspector,
 .analysis-v2 .analysis-v2-speed-inspector {
-  width: min(760px, 92%);
+  width: var(--analysis-board-width);
   min-height: 0;
-  margin: 4px auto 0;
+  margin: 8px auto 0;
   padding: 18px 0 8px;
   overflow: visible;
   border-top: 1px solid var(--hairline);
   border-left: 0;
 }
 
-/* Analysis salience is neutral ink. Red is reserved for the single flyline that
-   the Coordination readout is currently describing. */
+.analysis-v2 .analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector {
+  position: absolute;
+  z-index: 4;
+  right: auto;
+  bottom: 0;
+  left: 50%;
+  width: var(--analysis-board-width);
+  max-height: 112px;
+  margin: 0;
+  padding: 10px 0 0;
+  overflow: visible;
+  border-top: 1px solid var(--hairline);
+  border-left: 0;
+  transform: translateX(-50%);
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection + .analysis-v2-semantic-rail {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-semantic-readout {
+  visibility: hidden;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1.45fr) minmax(240px, 0.75fr);
+  align-items: start;
+  gap: 14px 20px;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-detail-heading {
+  display: grid;
+  align-content: start;
+  justify-items: center;
+  gap: 3px;
+  text-align: center;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-detail-heading strong {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-detail-heading span {
+  color: var(--ink-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dl {
+  display: grid;
+  margin: 0;
+  grid-template-columns: minmax(120px, 0.75fr) minmax(130px, 0.85fr) minmax(220px, 1.4fr);
+  gap: 0 18px;
+  border-top: 0;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dl > div {
+  display: grid;
+  min-width: 0;
+  padding: 4px 0;
+  grid-template-columns: minmax(max-content, auto) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 7px;
+  border-top: 0;
+  border-bottom: 0;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dt,
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dd {
+  white-space: nowrap;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dt {
+  font-size: 11px;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dd {
+  font-size: 12px;
+  text-align: left;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trends {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 0;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trend-heading {
+  margin-bottom: 2px;
+  font-size: 10px;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trend-heading strong {
+  font-size: 11px;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trend-chart svg {
+  height: 28px;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-confusion-list {
+  display: flex;
+  grid-column: 2 / -1;
+  flex-wrap: wrap;
+  gap: 0 24px;
+  border-top: 0;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-confusion-list li {
+  flex: 1 1 150px;
+  min-width: 140px;
+  padding: 4px 0;
+  border-bottom: 0;
+}
+
+.analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-empty {
+  grid-column: 2 / -1;
+  margin: 0;
+}
+
+/* Full Semantic keyboard gradient. Summary ranking and keyboard paint are
+   deliberately independent; every observed key receives a continuous neutral
+   strength while explicit selection remains the only red key. */
 .analysis-v2 button.analysis-v2-key {
   --analysis-strength: 0;
   background: transparent;
@@ -138,25 +284,27 @@
   color: var(--ink-upcoming);
 }
 
-.analysis-v2 button.analysis-v2-key.is-salient {
-  --analysis-strength: 1;
-  border-color: var(--ink-upcoming);
-  background: color-mix(in srgb, var(--ink) 7%, transparent);
+.analysis-v2 button.analysis-v2-key.has-data {
+  border-color: color-mix(in srgb, var(--ink) var(--semantic-border, 18%), var(--key-border));
+  background: linear-gradient(
+    color-mix(in srgb, var(--ink) var(--semantic-fill, 0%), transparent),
+    transparent
+  );
+  color: color-mix(in srgb, var(--ink) var(--semantic-text, 44%), var(--ink-faint));
+}
+
+.analysis-v2 button.analysis-v2-key.selected,
+.analysis-v2 button.analysis-v2-key.has-data.selected {
+  border-color: var(--key-current-border);
+  background: var(--key-current-bg);
   box-shadow:
-    inset 0 -1px 0 var(--ink-faint),
-    0 0 0 1px color-mix(in srgb, var(--ink) 3%, transparent);
+    inset 0 -1px 0 var(--key-current-shadow-1),
+    0 0 0 2px var(--key-current-shadow-2);
   color: var(--ink);
 }
 
-.analysis-v2 button.analysis-v2-key.selected {
-  border-color: color-mix(in srgb, var(--ink) 58%, var(--key-border));
-  background: color-mix(in srgb, var(--ink) 9%, transparent);
-  color: var(--ink);
-}
-
-/* Text and controls never inherit the product accent merely because the pointer
-   entered Analysis. Focus is expressed by a neutral outline; error red remains
-   an explicit semantic color elsewhere in the product. */
+/* Text and controls never inherit red merely because the pointer entered
+   Analysis. */
 .analysis-v2 :where(button, summary):hover,
 .analysis-v2 :where(button, summary):focus-visible {
   color: var(--ink);
@@ -168,109 +316,157 @@
   color: var(--ink-muted);
 }
 
-/* One stable four-item navigation row + one shared detail well. Opening a
-   family swaps content below the row instead of reordering the four entries. */
-.analysis-v2 .analysis-v2-evidence-rail {
+/* Movement is a reading surface, not four cards. Each family owns a small
+   history line and compact labels; current milliseconds are supporting text. */
+.analysis-v2 .analysis-v2-movement-view {
   display: grid;
-  width: 100%;
-  margin-top: 8px;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  align-items: start;
-  border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
+  width: min(1040px, 94%);
+  margin: clamp(34px, 6dvh, 60px) auto 0;
+  gap: 22px;
 }
 
-.analysis-v2 .analysis-v2-evidence-nav {
-  display: grid;
-  grid-column: 1;
-  grid-row: 1;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  align-self: start;
+.analysis-v2 .analysis-v2-movement-intro {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
 }
 
-.analysis-v2 .analysis-v2-evidence-group {
-  display: grid;
-  min-width: 0;
-  min-height: 52px;
-  padding: 0 14px;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  align-items: center;
-  gap: 9px;
-  appearance: none;
-  border: 0;
-  background: transparent;
+.analysis-v2 .analysis-v2-movement-intro strong {
   color: var(--ink);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 650;
-  text-align: left;
+  font-size: 16px;
+  font-weight: 680;
 }
 
-.analysis-v2 .analysis-v2-evidence-group + .analysis-v2-evidence-group {
-  border-left: 1px solid var(--hairline);
-}
-
-.analysis-v2 .analysis-v2-evidence-group small {
+.analysis-v2 .analysis-v2-movement-intro span {
+  max-width: 640px;
   color: var(--ink-muted);
   font-size: 11px;
+  line-height: 1.5;
+  text-align: right;
+}
+
+.analysis-v2 .analysis-v2-movement-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 34px 54px;
+}
+
+.analysis-v2 .analysis-v2-movement-family {
+  display: grid;
+  min-width: 0;
+  padding: 12px 0 0;
+  gap: 9px;
+  border-top: 1px solid var(--hairline);
+}
+
+.analysis-v2 .analysis-v2-movement-family header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0;
+}
+
+.analysis-v2 .analysis-v2-movement-family header strong {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.analysis-v2 .analysis-v2-movement-family header small {
+  color: var(--ink-muted);
+  font-size: 10px;
   font-weight: 500;
   white-space: nowrap;
 }
 
-.analysis-v2 .analysis-v2-evidence-group i {
-  width: 1em;
-  color: var(--ink-upcoming);
-  font-size: 14px;
-  font-style: normal;
-  font-weight: 500;
-  text-align: right;
+.analysis-v2 .analysis-v2-movement-stats {
+  display: grid;
+  gap: 5px;
 }
 
-.analysis-v2 .analysis-v2-evidence-group.is-open {
-  box-shadow: inset 0 -1px 0 var(--ink);
-}
-
-.analysis-v2 .analysis-v2-evidence-detail {
-  grid-column: 1;
-  grid-row: 2;
+.analysis-v2 .analysis-v2-movement-stat {
+  display: grid;
   min-width: 0;
-  align-self: start;
-  border-top: 1px solid var(--hairline);
+  min-height: 34px;
+  padding: 2px 0;
+  grid-template-columns: minmax(70px, auto) minmax(90px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border: 0;
 }
 
-.analysis-v2 .analysis-v2-evidence-body {
-  width: min(760px, 100%);
-  margin-inline: auto;
-  padding: 14px 0 18px;
-}
-
-.analysis-v2 .analysis-v2-evidence-body > p {
-  margin: 0 0 10px;
+.analysis-v2 .analysis-v2-movement-stat > span {
+  min-width: 0;
   color: var(--ink-muted);
-  font-size: 11px;
-  line-height: 1.55;
+  font-size: 10px;
+  white-space: nowrap;
 }
 
-.analysis-v2 .analysis-v2-table-scroll {
-  width: fit-content;
-  max-width: 100%;
-  margin-inline: auto;
+.analysis-v2 .analysis-v2-movement-stat > strong {
+  color: var(--ink-muted);
+  font-size: 10px;
+  font-weight: 560;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.analysis-v2 .analysis-v2-motor-table {
-  width: max-content;
+.analysis-v2 .analysis-v2-movement-stat > small {
+  color: var(--ink-faint);
+  font-size: 9px;
 }
 
-.analysis-v2 .analysis-v2-tone-grid {
-  width: min(760px, 100%);
-  margin-inline: auto;
+.analysis-v2 .analysis-v2-motor-sparkline {
+  display: block;
+  width: 100%;
+  height: 30px;
+  overflow: visible;
 }
 
-/* Strategy uses the same object slot and readout baseline as both keyboard
-   domains, so switching tabs does not feel like entering a different page. */
+.analysis-v2 .analysis-v2-motor-sparkline line {
+  stroke: var(--hairline);
+  stroke-width: 1;
+}
+
+.analysis-v2 .analysis-v2-motor-sparkline path {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.analysis-v2 .analysis-v2-motor-sparkline circle {
+  fill: var(--ink);
+}
+
+.analysis-v2 .analysis-v2-movement-stat.sampling,
+.analysis-v2 .analysis-v2-movement-stat.empty {
+  opacity: 0.6;
+}
+
+.analysis-v2 .analysis-v2-movement-empty {
+  padding: 8px 0;
+  color: var(--ink-muted);
+  font-size: 10px;
+}
+
+.analysis-v2 .analysis-v2-movement-family > p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+/* Strategy has a physically taller object than the keyboard. */
 .analysis-v2 .analysis-v2-strategy-stage {
-  min-height: var(--analysis-primary-stage-height);
+  min-height: clamp(430px, 56dvh, 500px);
+  grid-template-rows: minmax(var(--analysis-strategy-object-slot-height), max-content) auto;
+}
+
+.analysis-v2 .analysis-v2-strategy-stage .analysis-v2-primary-object-slot {
+  min-height: var(--analysis-strategy-object-slot-height);
 }
 
 .analysis-v2 .analysis-v2-strategy-object {
@@ -278,7 +474,7 @@
   width: min(560px, 100%);
   margin-inline: auto;
   align-self: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .analysis-v2 .analysis-v2-strategy-axis {
@@ -287,7 +483,7 @@
   align-items: center;
   gap: 12px;
   color: var(--ink-muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .analysis-v2 .analysis-v2-strategy-axis i {
@@ -302,21 +498,46 @@
 }
 
 .analysis-v2 .analysis-v2-strategy-total {
-  margin: 0;
+  margin: 2px 0 0;
   color: var(--ink-muted);
-  font-size: 11px;
+  font-size: 12px;
   text-align: center;
 }
 
+/* Methodology is a subordinate disclosure. Opening it floats upward from the
+   footer anchor and never lengthens the page or creates a nested scroll well. */
 .analysis-v2 .analysis-v2-method {
-  justify-self: end;
-  max-width: 660px;
+  position: relative;
+  z-index: 12;
+  width: var(--analysis-board-width);
+  min-height: 20px;
+  margin: 6px auto 0;
+  overflow: visible;
   color: var(--ink-muted);
   font-size: 11px;
+  text-align: right;
 }
 
 .analysis-v2 .analysis-v2-method summary {
   color: var(--ink-muted);
+  cursor: pointer;
+}
+
+.analysis-v2 .analysis-v2-method p {
+  position: absolute;
+  z-index: 13;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: min(620px, calc(100vw - 48px));
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--hairline);
+  background: var(--panel);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.12);
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.55;
+  text-align: left;
 }
 
 /* Historical evidence is compact annotation, never a second dashboard. */
@@ -355,8 +576,7 @@
   stroke-width: 1;
 }
 
-.analysis-v2 .analysis-v2-trend-chart path,
-.analysis-v2 .analysis-v2-motor-sparkline path {
+.analysis-v2 .analysis-v2-trend-chart path {
   fill: none;
   stroke: var(--ink);
   stroke-width: 1.6;
@@ -364,28 +584,8 @@
   stroke-linejoin: round;
 }
 
-.analysis-v2 .analysis-v2-trend-chart circle,
-.analysis-v2 .analysis-v2-motor-sparkline circle {
+.analysis-v2 .analysis-v2-trend-chart circle {
   fill: var(--ink);
-}
-
-.analysis-v2 .analysis-v2-motor-sparkline {
-  display: block;
-  width: 104px;
-  max-width: 100%;
-  margin: 2px auto 0;
-}
-
-.analysis-v2 .analysis-v2-motor-sparkline svg {
-  display: block;
-  width: 100%;
-  height: 24px;
-  overflow: visible;
-}
-
-.analysis-v2 .analysis-v2-motor-history-empty {
-  color: var(--ink-muted);
-  font-size: 11px;
 }
 
 .analysis-v2-summary .analysis-v2-open:hover,
@@ -395,40 +595,98 @@
 
 @media (max-width: 900px) {
   .analysis-v2 {
-    --analysis-primary-stage-height: clamp(300px, 46dvh, 360px);
-    --analysis-object-slot-height: 205px;
+    --analysis-board-width: min(94%, 820px);
+    --analysis-primary-stage-height: clamp(350px, 50dvh, 410px);
+    --analysis-object-slot-height: 235px;
+    --analysis-strategy-object-slot-height: 310px;
   }
 
-  .analysis-v2 .analysis-v2-evidence-nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key {
+    height: clamp(25px, 4vw, 34px);
   }
 
-  .analysis-v2 .analysis-v2-evidence-group:nth-child(3) {
-    border-top: 1px solid var(--hairline);
-    border-left: 0;
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key strong {
+    font-size: clamp(8px, 1.3vw, 11px);
   }
 
-  .analysis-v2 .analysis-v2-evidence-group:nth-child(4) {
-    border-top: 1px solid var(--hairline);
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector {
+    max-height: 108px;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dl,
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trends,
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-confusion-list,
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-empty {
+    grid-column: 2;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trends {
+    display: none;
+  }
+
+  .analysis-v2 .analysis-v2-movement-view {
+    margin-top: 30px;
+  }
+
+  .analysis-v2 .analysis-v2-movement-grid {
+    gap: 28px 34px;
+  }
+}
+
+@media (max-width: 760px) {
+  .analysis-v2 .analysis-v2-movement-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analysis-v2 .analysis-v2-movement-intro {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .analysis-v2 .analysis-v2-movement-intro span {
+    text-align: left;
   }
 }
 
 @media (max-width: 640px) {
   .analysis-v2 {
-    --analysis-primary-stage-height: 300px;
-    --analysis-object-slot-height: 190px;
+    --analysis-board-width: 100%;
+    --analysis-primary-stage-height: 320px;
+    --analysis-object-slot-height: 200px;
+    --analysis-strategy-object-slot-height: 290px;
   }
 
   .analysis-v2 .analysis-v2-domain-controls,
   .analysis-v2 .analysis-v2-semantic-stage > .analysis-v2-inspector,
-  .analysis-v2 .analysis-v2-speed-inspector {
+  .analysis-v2 .analysis-v2-speed-inspector,
+  .analysis-v2 .analysis-v2-movement-view,
+  .analysis-v2 .analysis-v2-method {
     width: 100%;
   }
 
   .analysis-v2 .analysis-v2-primary-stage,
   .analysis-v2 .analysis-v2-visual-stage,
   .analysis-v2 .analysis-v2-strategy-stage {
-    gap: 18px;
+    padding-top: 8px;
+    gap: 20px;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-keyboard {
+    width: min(780px, 100%);
+    transform: perspective(420px) rotateX(12deg);
+  }
+
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key {
+    height: 19px;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-primary .analysis-v2-key strong {
+    font-size: 7px;
   }
 
   .analysis-v2 .analysis-v2-hero-readout > strong {
@@ -436,20 +694,51 @@
     font-size: 23px;
   }
 
-  .analysis-v2 .analysis-v2-evidence-nav {
+  .analysis-v2 .analysis-v2-hero-readout > small,
+  .analysis-v2 .analysis-v2-hero-readout > span {
+    font-size: 11px;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection > .analysis-v2-inspector {
+    position: static;
+    width: 100%;
+    max-height: none;
+    margin: 8px auto 0;
+    padding-top: 10px;
+    transform: none;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-semantic-readout {
+    display: none;
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dl {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .analysis-v2 .analysis-v2-evidence-group + .analysis-v2-evidence-group,
-  .analysis-v2 .analysis-v2-evidence-group:nth-child(3),
-  .analysis-v2 .analysis-v2-evidence-group:nth-child(4) {
-    border-top: 1px solid var(--hairline);
-    border-left: 0;
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-inspector-content dl > div {
+    grid-template-columns: minmax(max-content, auto) minmax(0, 1fr);
   }
 
-  .analysis-v2 .analysis-v2-evidence-body,
-  .analysis-v2 .analysis-v2-table-scroll,
-  .analysis-v2 .analysis-v2-tone-grid {
-    width: 100%;
+  .analysis-v2 .analysis-v2-semantic-stage.has-selection .analysis-v2-trends {
+    display: none;
+  }
+
+  .analysis-v2 .analysis-v2-movement-view {
+    margin-top: 20px;
+  }
+
+  .analysis-v2 .analysis-v2-movement-stat {
+    grid-template-columns: minmax(64px, auto) minmax(80px, 1fr) auto;
+    gap: 8px;
+  }
+
+  .analysis-v2 .analysis-v2-method p {
+    right: 0;
+    width: min(560px, calc(100vw - 24px));
   }
 }

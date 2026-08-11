@@ -72,12 +72,34 @@ function pathFor(
     const controlX = from.x + side * (1.5 + lane * 0.38);
     return `M ${from.x.toFixed(2)} ${from.y.toFixed(2)} C ${controlX.toFixed(2)} ${from.y.toFixed(2)}, ${controlX.toFixed(2)} ${to.y.toFixed(2)}, ${to.x.toFixed(2)} ${to.y.toFixed(2)}`;
   }
-  const baseRise = includesTone ? 0.72 : 0.3 + Math.min(0.58, xDistance / 38);
-  const laneRise = lane * (includesTone ? 0.1 : 0.08);
-  // Keep the curve inside the SVG viewport. The old negative control point was
-  // clipped by the board even though the SVG itself allowed visible overflow.
+
+  /* Keep top-row arcs distinct instead of letting several long transitions hit
+     the same y=0.08 ceiling. Distance and the stable lane still influence rise,
+     but their combined rise is scaled to fit inside the existing 0..5 viewBox. */
+  const baseRise = includesTone
+    ? 0.26
+    : 0.16 + Math.min(0.12, xDistance / 100);
+  const laneRise = lane * 0.035;
   const controlY = Math.max(0.08, Math.min(from.y, to.y) - baseRise - laneRise);
   return `M ${from.x.toFixed(2)} ${from.y.toFixed(2)} C ${from.x.toFixed(2)} ${controlY.toFixed(2)}, ${to.x.toFixed(2)} ${controlY.toFixed(2)}, ${to.x.toFixed(2)} ${to.y.toFixed(2)}`;
+}
+
+/**
+ * Shared keyboard-space curve geometry for overlays that connect two mapped
+ * Bopomofo tokens. Coordination and Semantic confusion use the same physical
+ * keyboard coordinates so their endpoints cannot drift apart visually.
+ */
+export function analysisV2KeyboardCurvePath(
+  id: string,
+  fromToken: TokenId,
+  toToken: TokenId,
+): string | null {
+  const points = keyboardPoints();
+  const from = points.get(fromToken);
+  const to = points.get(toToken);
+  if (from === undefined || to === undefined) return null;
+  const includesTone = fromToken.startsWith("tone:") || toToken.startsWith("tone:");
+  return pathFor(id, from, to, includesTone);
 }
 
 function sampleWidth(samples: number): number {

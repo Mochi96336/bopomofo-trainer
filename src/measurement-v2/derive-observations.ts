@@ -1,13 +1,18 @@
-import type { Exercise } from "../core/model.js";
+import type { Exercise, TokenId } from "../core/model.js";
 import { assignedHandForCode } from "../motor/keyboard-geometry.js";
 import type { InteractionTraceV2 } from "../practice/interaction-session-v2.js";
 import { compileExerciseInputPlan } from "../practice/input-plan.js";
+import { FINALS, INITIALS, MEDIALS } from "../scheme/tokens.js";
 import type {
   BoundaryClass,
-  CoordinationHandShape,
+  CoordinationBodyShape,
   ExplicitHand,
   MeasurementObservationsV2,
 } from "./types.js";
+
+const INITIAL_SET = new Set<string>(INITIALS);
+const MEDIAL_SET = new Set<string>(MEDIALS);
+const FINAL_SET = new Set<string>(FINALS);
 
 function explicitHand(code: string): ExplicitHand | null {
   const hand = assignedHandForCode(code);
@@ -27,15 +32,38 @@ function boundaryBetween(
   return "within-syllable";
 }
 
-function coordinationHandShape(events: readonly InteractionTraceV2[]): CoordinationHandShape {
-  const hands = events.map((trace) => explicitHand(trace.physicalCode));
-  if (hands.some((hand) => hand === null)) return "unknown";
-  const hasLeft = hands.includes("left");
-  const hasRight = hands.includes("right");
-  if (hasLeft && hasRight) return "mixed";
-  if (hasLeft) return "left-only";
-  if (hasRight) return "right-only";
-  return "unknown";
+function bopomofoSymbol(tokenId: TokenId): string | null {
+  return tokenId.startsWith("zhuyin:") ? tokenId.slice("zhuyin:".length) : null;
+}
+
+export function coordinationBodyShape(
+  bodyTokens: readonly TokenId[],
+): CoordinationBodyShape | null {
+  if (bodyTokens.length < 2) return null;
+  let initial = false;
+  let medial = false;
+  let final = false;
+  for (const tokenId of bodyTokens) {
+    const symbol = bopomofoSymbol(tokenId);
+    if (symbol === null) return null;
+    if (INITIAL_SET.has(symbol)) {
+      if (initial) return null;
+      initial = true;
+    } else if (MEDIAL_SET.has(symbol)) {
+      if (medial) return null;
+      medial = true;
+    } else if (FINAL_SET.has(symbol)) {
+      if (final) return null;
+      final = true;
+    } else {
+      return null;
+    }
+  }
+  if (initial && medial && final) return "initial-medial-final";
+  if (initial && medial) return "initial-medial";
+  if (initial && final) return "initial-final";
+  if (medial && final) return "medial-final";
+  return null;
 }
 
 function isAccepted(trace: InteractionTraceV2): boolean {
@@ -46,6 +74,19 @@ function validMotorTimingContext(trace: InteractionTraceV2): boolean {
   return trace.context === "within-syllable" || trace.context === "tone";
 }
 
+function resetBodyRevisitState(
+  previousByHand: Record<ExplicitHand, InteractionTraceV2 | null>,
+  dirtyByHand: Record<ExplicitHand, boolean>,
+  oppositeEventsSince: Record<ExplicitHand, number>,
+): void {
+  previousByHand.left = null;
+  previousByHand.right = null;
+  dirtyByHand.left = false;
+  dirtyByHand.right = false;
+  oppositeEventsSince.left = 0;
+  oppositeEventsSince.right = 0;
+}
+
 export function deriveMeasurementObservationsV2(
   exercise: Exercise,
   traces: readonly InteractionTraceV2[],
@@ -53,6 +94,12 @@ export function deriveMeasurementObservationsV2(
   const plan = compileExerciseInputPlan(exercise);
   const expectedBodySize = new Map(
     plan.syllables.map((syllable) => [syllable.ordinal, syllable.bodySlots.length]),
+  );
+  const expectedBodyShape = new Map(
+    plan.syllables.map((syllable) => [
+      syllable.ordinal,
+      coordinationBodyShape(syllable.bodySlots.map((slot) => slot.tokenId)),
+    ]),
   );
 
   const bindings: MeasurementObservationsV2["bindings"][number][] = [];
@@ -69,6 +116,7 @@ export function deriveMeasurementObservationsV2(
   let prematureToneCount = 0;
   let noiseSinceAccepted = false;
   let previousAccepted: InteractionTraceV2 | null = null;
+  let activeRevisitSyllable: number | null = null;
 
   const previousByHand: Record<ExplicitHand, InteractionTraceV2 | null> = {
     left: null,
@@ -84,6 +132,33 @@ export function deriveMeasurementObservationsV2(
   };
   const bodyEvents = new Map<number, InteractionTraceV2[]>();
   const dirtyCoordination = new Set<number>();
+
+  const recordSameHandRevisit = (trace: InteractionTraceV2): void => {
+    if (activeRevisitSyllable !== trace.syllableOrdinal) {
+      resetBodyRevisitState(previousByHand, dirtyByHand, oppositeEventsSince);
+      activeRevisitSyllable = trace.syllableOrdinal;
+    }
+    const hand = explicitHand(trace.physicalCode);
+    if (hand === null) {
+      resetBodyRevisitState(previousByHand, dirtyByHand, oppositeEventsSince);
+      return;
+    }
+    const previousSameHand = previousByHand[hand];
+    if (previousSameHand !== null) {
+      sameHandRevisits.push({
+        traceSequence: trace.sequence,
+        hand,
+        boundary: "within-syllable",
+        timingMs: Math.max(0, trace.timestampMs - previousSameHand.timestampMs),
+        oppositeHandEventsBetween: oppositeEventsSince[hand],
+        clean: !dirtyByHand[hand],
+      });
+    }
+    previousByHand[hand] = trace;
+    dirtyByHand[hand] = false;
+    oppositeEventsSince[hand] = 0;
+    oppositeEventsSince[otherHand(hand)] += 1;
+  };
 
   for (const trace of traces) {
     if (trace.exerciseId !== exercise.id) {
@@ -165,15 +240,19 @@ export function deriveMeasurementObservationsV2(
 
       const events = bodyEvents.get(trace.syllableOrdinal) ?? [];
       bodyEvents.set(trace.syllableOrdinal, [...events, trace]);
+
+      // Same-hand revisit follows accepted motor events inside one syllable.
+      // A later tone key may therefore complete a revisit before the state resets.
+      recordSameHandRevisit(trace);
     }
 
     if (trace.outcome === "accepted-tone") {
       const events = bodyEvents.get(trace.syllableOrdinal) ?? [];
-      if (events.length >= 2) {
+      const bodyShape = expectedBodyShape.get(trace.syllableOrdinal) ?? null;
+      if (events.length >= 2 && bodyShape !== null) {
         coordination.push({
           syllableOrdinal: trace.syllableOrdinal,
-          bodySize: events.length,
-          handShape: coordinationHandShape(events),
+          bodyShape,
           timingMs: Math.max(0, events[events.length - 1]!.timestampMs - events[0]!.timestampMs),
           clean: !dirtyCoordination.has(trace.syllableOrdinal),
         });
@@ -187,8 +266,11 @@ export function deriveMeasurementObservationsV2(
           clean: !noiseSinceAccepted,
         });
       }
+      recordSameHandRevisit(trace);
       bodyEvents.delete(trace.syllableOrdinal);
       dirtyCoordination.delete(trace.syllableOrdinal);
+      resetBodyRevisitState(previousByHand, dirtyByHand, oppositeEventsSince);
+      activeRevisitSyllable = null;
     }
 
     if (isAccepted(trace)) {
@@ -216,31 +298,6 @@ export function deriveMeasurementObservationsV2(
             clean: !noiseSinceAccepted,
           });
         }
-      }
-
-      if (hand === null) {
-        previousByHand.left = null;
-        previousByHand.right = null;
-        dirtyByHand.left = false;
-        dirtyByHand.right = false;
-        oppositeEventsSince.left = 0;
-        oppositeEventsSince.right = 0;
-      } else {
-        const previousSameHand = previousByHand[hand];
-        if (previousSameHand !== null) {
-          sameHandRevisits.push({
-            traceSequence: trace.sequence,
-            hand,
-            boundary: boundaryBetween(previousSameHand, trace),
-            timingMs: Math.max(0, trace.timestampMs - previousSameHand.timestampMs),
-            oppositeHandEventsBetween: oppositeEventsSince[hand],
-            clean: !dirtyByHand[hand],
-          });
-        }
-        previousByHand[hand] = trace;
-        dirtyByHand[hand] = false;
-        oppositeEventsSince[hand] = 0;
-        oppositeEventsSince[otherHand(hand)] += 1;
       }
 
       previousAccepted = trace;

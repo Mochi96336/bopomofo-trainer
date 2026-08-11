@@ -130,27 +130,30 @@ afterEach(() => {
 });
 
 describe("Analysis V2 visual hierarchy", () => {
-  it("marks only a bounded sufficient-data semantic set and gives it a typographic lead", () => {
+  it("keeps a bounded three-key Semantic summary while grading every observed key", () => {
     const host = open();
     selectTab(host, "semantic");
-    const marked = [...host.querySelectorAll<HTMLElement>(".analysis-v2-key.is-salient")];
-    expect(marked).toHaveLength(4);
-    expect(marked.map((node) => node.dataset.token)).toEqual([
-      "zhuyin:ㄅ",
-      "zhuyin:ㄆ",
-      "zhuyin:ㄇ",
-      "zhuyin:ㄈ",
-    ]);
-    expect(host.querySelector('[data-token="zhuyin:ㄊ"]')?.classList.contains("is-salient"))
-      .toBe(false);
+
+    expect(host.querySelectorAll(".analysis-v2-key.is-salient")).toHaveLength(0);
+    const graded = [...host.querySelectorAll<HTMLElement>(".analysis-v2-key.has-data")];
+    expect(graded).toHaveLength(6);
+    expect(graded.every((node) => Number.parseFloat(
+      node.style.getPropertyValue("--analysis-strength"),
+    ) > 0)).toBe(true);
+    const b = host.querySelector<HTMLElement>('[data-token="zhuyin:ㄅ"]')!;
+    const f = host.querySelector<HTMLElement>('[data-token="zhuyin:ㄈ"]')!;
+    expect(Number.parseFloat(b.style.getPropertyValue("--analysis-strength")))
+      .toBeGreaterThan(Number.parseFloat(f.style.getPropertyValue("--analysis-strength")));
+
     const lead = host.querySelector(".analysis-v2-semantic-readout");
     expect(lead?.textContent).toContain("ㄅ");
     expect(lead?.textContent).toContain("ㄆ");
     expect(lead?.textContent).toContain("ㄇ");
+    expect(lead?.textContent).not.toContain("ㄈ");
     expect(lead?.textContent).not.toContain("ㄊ");
   });
 
-  it("shows a timing anchor before interaction and keeps accent flylines rare", () => {
+  it("pins the selected relation in the hero without opening a metadata panel", () => {
     const host = open();
     const readout = host.querySelector(".analysis-v2-speed-readout");
     expect(readout?.textContent).toContain("ㄍ → ㄎ");
@@ -166,7 +169,7 @@ describe("Analysis V2 visual hierarchy", () => {
     );
     expect(host.querySelector(".analysis-v2-speed-stage")?.classList.contains("has-selection"))
       .toBe(true);
-    expect(host.querySelector(".analysis-v2-speed-inspector")?.textContent).toContain("100 ms");
+    expect(host.querySelector(".analysis-v2-speed-inspector")).toBeNull();
     expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toContain("100 ms");
     expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
     expect(host.querySelector<SVGPathElement>(".analysis-v2-speed-path.is-accent")?.dataset.speedId)

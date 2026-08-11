@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Exercise } from "../../src/core/model.js";
-import { deriveMeasurementObservationsV2 } from "../../src/measurement-v2/derive-observations.js";
+import {
+  coordinationBodyShape,
+  deriveMeasurementObservationsV2,
+} from "../../src/measurement-v2/derive-observations.js";
 import type { PracticeInput } from "../../src/practice/interaction-input.js";
 import {
   applyInteractionInputV2,
@@ -53,12 +56,21 @@ function apply(
 }
 
 describe("measurement v2 observation projection", () => {
+  it("classifies the four real multi-part Bopomofo word-body structures", () => {
+    expect(coordinationBodyShape(["zhuyin:ㄅ", "zhuyin:ㄧ"])).toBe("initial-medial");
+    expect(coordinationBodyShape(["zhuyin:ㄅ", "zhuyin:ㄢ"])).toBe("initial-final");
+    expect(coordinationBodyShape(["zhuyin:ㄧ", "zhuyin:ㄢ"])).toBe("medial-final");
+    expect(coordinationBodyShape(["zhuyin:ㄐ", "zhuyin:ㄧ", "zhuyin:ㄚ"]))
+      .toBe("initial-medial-final");
+    expect(coordinationBodyShape(["zhuyin:A", "zhuyin:B"])).toBeNull();
+  });
+
   it("projects actual order into independent semantic and motor channels", () => {
     let state = createInteractionSessionV2(exercise, 90);
     state = apply(state, 100, "KeyM", "zhuyin:ㄩ"); // right
     state = apply(state, 132, "KeyV", "zhuyin:ㄒ"); // left
     state = apply(state, 170, "Comma", "zhuyin:ㄝ"); // right
-    state = apply(state, 205, "Digit6", "tone:2"); // right
+    state = apply(state, 205, "Digit6", "tone:2"); // right tone
 
     const result = deriveMeasurementObservationsV2(exercise, state.traces);
 
@@ -73,8 +85,6 @@ describe("measurement v2 observation projection", () => {
       { token: "tone:2", correct: true, timing: 35 },
     ]);
 
-    // Canonical body order is ㄒ / ㄩ / ㄝ, but the learner actually entered
-    // ㄩ / ㄒ / ㄝ. Exact motor edges must preserve that observed direction.
     expect(result.immediateTokens.map((observation) => ({
       from: observation.fromToken,
       to: observation.toToken,
@@ -89,8 +99,7 @@ describe("measurement v2 observation projection", () => {
     expect(result.coordination).toEqual([
       {
         syllableOrdinal: 0,
-        bodySize: 3,
-        handShape: "mixed",
+        bodyShape: "initial-medial-final",
         timingMs: 70,
         clean: true,
       },
@@ -120,6 +129,38 @@ describe("measurement v2 observation projection", () => {
         timingMs: 35,
         clean: true,
       },
+    ]);
+  });
+
+  it("lets a tone key complete a same-hand revisit inside the syllable", () => {
+    const hao: Exercise = {
+      id: "tone-revisit-test",
+      mode: "guided",
+      layoutId: "zhuyin-standard",
+      entries: [{
+        id: "word:好",
+        prompt: { text: "好", locale: "zh-TW" },
+        syllables: [{ tokens: ["zhuyin:ㄏ", "zhuyin:ㄠ", "tone:3"] }],
+        tags: ["test"],
+        provenanceIds: ["test"],
+      }],
+    };
+    let state = createInteractionSessionV2(hao, 90);
+    state = apply(state, 100, "KeyC", "zhuyin:ㄏ"); // left
+    state = apply(state, 140, "KeyL", "zhuyin:ㄠ"); // right
+    state = apply(state, 180, "Digit3", "tone:3"); // left tone
+
+    const result = deriveMeasurementObservationsV2(hao, state.traces);
+    expect(result.sameHandRevisits).toEqual([
+      expect.objectContaining({
+        hand: "left",
+        timingMs: 80,
+        oppositeHandEventsBetween: 1,
+        clean: true,
+      }),
+    ]);
+    expect(result.toneCommits).toEqual([
+      expect.objectContaining({ toneToken: "tone:3", timingMs: 40 }),
     ]);
   });
 
@@ -174,7 +215,11 @@ describe("measurement v2 observation projection", () => {
     const result = deriveMeasurementObservationsV2(exercise, state.traces);
 
     expect(result.coordination).toEqual([
-      expect.objectContaining({ timingMs: 70, clean: false }),
+      expect.objectContaining({
+        bodyShape: "initial-medial-final",
+        timingMs: 70,
+        clean: false,
+      }),
     ]);
     expect(result.immediateTokens[0]).toEqual(expect.objectContaining({
       fromToken: "zhuyin:ㄩ",
@@ -182,13 +227,17 @@ describe("measurement v2 observation projection", () => {
       clean: false,
     }));
     expect(result.immediateHands[0]).toEqual(expect.objectContaining({ clean: false }));
+    expect(result.sameHandRevisits).toEqual([
+      expect.objectContaining({ hand: "right", timingMs: 70, clean: false }),
+      expect.objectContaining({ hand: "right", timingMs: 40, clean: false }),
+    ]);
     expect(result.toneCommits).toEqual([
       expect.objectContaining({ timingMs: 40, clean: false }),
     ]);
     expect(result.bindings.find((observation) => observation.traceSequence === 3)?.timingMs).toBeNull();
   });
 
-  it("keeps exact and same-hand predecessors across syllable and entry boundaries", () => {
+  it("keeps exact predecessors across entry boundaries but resets same-hand revisits", () => {
     const multi: Exercise = {
       id: "boundary-test",
       mode: "guided",
@@ -211,26 +260,25 @@ describe("measurement v2 observation projection", () => {
       ],
     };
     let state = createInteractionSessionV2(multi, 90);
-    state = apply(state, 100, "KeyJ", "zhuyin:ㄨ"); // R
-    state = apply(state, 120, "Digit6", "tone:2"); // R
-    state = apply(state, 160, "KeyP", "zhuyin:ㄣ"); // R, next entry
+    state = apply(state, 100, "KeyJ", "zhuyin:ㄨ");
+    state = apply(state, 120, "Digit6", "tone:2");
+    state = apply(state, 160, "KeyP", "zhuyin:ㄣ");
 
     const result = deriveMeasurementObservationsV2(multi, state.traces);
-    const exact = result.immediateTokens.at(-1);
-    const revisit = result.sameHandRevisits.at(-1);
-
-    expect(exact).toEqual(expect.objectContaining({
+    expect(result.immediateTokens.at(-1)).toEqual(expect.objectContaining({
       fromToken: "tone:2",
       toToken: "zhuyin:ㄣ",
       boundary: "entry-boundary",
       timingMs: 40,
     }));
-    expect(revisit).toEqual(expect.objectContaining({
-      hand: "right",
-      boundary: "entry-boundary",
-      timingMs: 40,
-      oppositeHandEventsBetween: 0,
-    }));
+    expect(result.sameHandRevisits).toEqual([
+      expect.objectContaining({
+        hand: "right",
+        traceSequence: 2,
+        timingMs: 20,
+        oppositeHandEventsBetween: 0,
+      }),
+    ]);
   });
 
   it("treats ambiguous-hand accepted keys as a predecessor barrier only for hand evidence", () => {
@@ -252,9 +300,9 @@ describe("measurement v2 observation projection", () => {
       ],
     };
     let state = createInteractionSessionV2(multi, 90);
-    state = apply(state, 100, "KeyJ", "zhuyin:ㄨ"); // R
-    state = apply(state, 120, "Space", "tone:1"); // ambiguous hand, valid token
-    state = apply(state, 160, "KeyP", "zhuyin:ㄣ"); // R
+    state = apply(state, 100, "KeyJ", "zhuyin:ㄨ");
+    state = apply(state, 120, "Space", "tone:1");
+    state = apply(state, 160, "KeyP", "zhuyin:ㄣ");
 
     const result = deriveMeasurementObservationsV2(multi, state.traces);
 

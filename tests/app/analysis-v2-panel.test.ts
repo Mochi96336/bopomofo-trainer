@@ -202,7 +202,7 @@ describe("Analysis V2 panel", () => {
     expect(host.querySelector(".analysis-v2-confusion-list")?.textContent).toContain("初步");
   });
 
-  it("keeps semantic focus/scroll and renders persisted key history directly", () => {
+  it("keeps semantic focus/scroll and renders compact persisted key history directly", () => {
     const host = open();
     selectTab(host, "semantic");
     const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
@@ -220,15 +220,19 @@ describe("Analysis V2 panel", () => {
     expect(host.querySelector<HTMLElement>(".analysis-v2-main")?.scrollTop).toBe(120);
     expect(host.textContent).toContain("錯誤資料");
     expect(host.textContent).toContain("可比較 · 10 次");
-    expect(host.textContent).toContain("時間資料");
-    expect(host.textContent).toContain("可比較 · 8 個乾淨樣本");
+    expect(host.textContent).toContain("有效鍵間時間");
+    expect(host.textContent).toContain("100 ms · 可比較 · 8 個乾淨樣本");
+    expect(host.textContent).not.toContain("時間資料");
+    expect(host.textContent).toContain("近期錯誤觀察");
+    expect(host.textContent).toContain("近期鍵間時間");
     expect(host.querySelectorAll(".analysis-v2-trends svg")).toHaveLength(2);
   });
 
-  it("renders one red relation tied to the readout while all ready observed paths stay selectable", () => {
+  it("renders one red relation tied to one aligned lower readout while all ready observed paths stay selectable", () => {
     const host = open();
     const path = host.querySelector<SVGPathElement>(".analysis-v2-speed-path");
     const svg = host.querySelector<SVGSVGElement>(".analysis-v2-speed-svg");
+    const readout = host.querySelector(".analysis-v2-speed-readout");
     expect(path).not.toBeNull();
     expect(path?.getAttribute("marker-end")).toBeNull();
     expect(path?.querySelector("title")?.textContent)
@@ -237,32 +241,39 @@ describe("Analysis V2 panel", () => {
     expect(path?.getAttribute("tabindex")).toBe("0");
     expect(svg?.getAttribute("aria-label")).toContain("實際鍵間軌跡");
     expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
-    expect(host.querySelector(".analysis-v2-speed-caption")?.textContent).toContain("1 條可比較");
+    expect(readout?.textContent).toContain("1 條可比較");
+    expect(readout?.textContent).toContain("線粗代表樣本支持");
+    expect(host.querySelector(".analysis-v2-speed-caption")).toBeNull();
     expect(host.querySelector(".analysis-v2-method")?.textContent)
       .toContain("每一條至少 5 個時間樣本");
   });
 
-  it("keeps the four motor-family entries fixed while allowing only one shared detail well", () => {
+  it("keeps four compact Movement families with explanatory diagrams and only real history lines", () => {
     const host = open();
-    const buttons = [...host.querySelectorAll<HTMLButtonElement>('[data-action="evidence-family"]')];
-    expect(buttons.map((button) => button.querySelector("span")?.textContent)).toEqual([
+    expect(host.querySelector(".analysis-v2-speed-board")).not.toBeNull();
+    expect(host.querySelector(".analysis-v2-movement-view")).toBeNull();
+
+    host.querySelector<HTMLButtonElement>(
+      '[data-action="coordination-view"][data-value="movement"]',
+    )?.click();
+
+    const families = [...host.querySelectorAll<HTMLElement>(".analysis-v2-movement-family")];
+    expect(families.map((family) => family.querySelector("header strong")?.textContent)).toEqual([
       "手別轉換",
-      "同側再出手",
-      "音節跨度",
+      "同側回返",
+      "字內結構",
       "聲調收尾",
     ]);
-    buttons[0]?.click();
-    const detail = host.querySelector<HTMLElement>("#analysis-v2-evidence-detail");
-    expect(detail?.hidden).toBe(false);
-    expect(detail?.textContent).toContain("依標準指法的鍵位分工推定");
-    expect(detail?.textContent).toContain("不代表偵測到你實際使用哪隻手");
-    expect(detail?.textContent).toContain("88 ms");
-    expect(detail?.querySelector(".analysis-v2-motor-sparkline svg")).not.toBeNull();
-
-    const rerenderedButtons = [...host.querySelectorAll<HTMLButtonElement>('[data-action="evidence-family"]')];
-    rerenderedButtons[2]?.click();
-    expect(host.querySelectorAll('[data-action="evidence-family"][aria-expanded="true"]')).toHaveLength(1);
-    expect(host.querySelector("#analysis-v2-evidence-detail")?.textContent).toContain("只有 2、3 個注音");
+    expect(host.querySelector(".analysis-v2-speed-board")).toBeNull();
+    expect(host.querySelectorAll(".analysis-v2-movement-view table")).toHaveLength(0);
+    expect(host.querySelectorAll(".analysis-v2-movement-diagram")).toHaveLength(4);
+    expect(host.querySelector(".analysis-v2-word-structure")?.textContent).toContain("聲母介音韻母");
+    expect(host.querySelector(".analysis-v2-word-structure")?.textContent).toContain("例：家");
+    expect(host.querySelectorAll(".analysis-v2-motor-sparkline")).toHaveLength(1);
+    expect(host.querySelector(".analysis-v2-movement-view")?.textContent).toContain("88 ms");
+    expect(host.querySelector(".analysis-v2-movement-view")?.textContent)
+      .toContain("不代表偵測到實際使用哪隻手");
+    expect(host.querySelector(".analysis-v2-movement-view")?.textContent).not.toContain("2 · 左");
   });
 
   it("renders only 2/3 strategy scales and never invents a middle position for two components", () => {

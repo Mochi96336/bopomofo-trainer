@@ -149,12 +149,14 @@ test("renders evidence thresholds through the production Analysis V2 mount", asy
   const sufficient = analysis.locator('[data-action="select-key"][data-token="zhuyin:ㄆ"]');
   await expect(insufficient).toHaveClass(/insufficient/);
   await expect(sufficient).toHaveClass(/sufficient/);
-  expect(await insufficient.evaluate((element) =>
+  const insufficientStrength = Number(await insufficient.evaluate((element) =>
     getComputedStyle(element).getPropertyValue("--analysis-strength").trim(),
-  )).toBe("0");
-  expect(Number(await sufficient.evaluate((element) =>
+  ));
+  const sufficientStrength = Number(await sufficient.evaluate((element) =>
     getComputedStyle(element).getPropertyValue("--analysis-strength").trim(),
-  ))).toBeGreaterThan(0);
+  ));
+  expect(insufficientStrength).toBeGreaterThan(0);
+  expect(sufficientStrength).toBeGreaterThan(insufficientStrength);
 
   await analysis.locator('[data-action="semantic-view"][data-value="confusion"]').click();
   await expect(analysis.locator(".confusion-matrix")).toHaveCount(0);
@@ -170,9 +172,12 @@ test("renders evidence thresholds through the production Analysis V2 mount", asy
 
   await analysis.locator('[data-tab="coordination"]').click();
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(1);
-  await expect(analysis.locator(".analysis-v2-speed-caption")).toContainText("1 條可比較");
+  await expect(analysis.locator(".analysis-v2-speed-readout")).toContainText("1 條可比較");
   await expect(analysis.locator(".analysis-v2-speed-readout")).toContainText("5 個乾淨樣本");
-  await expect(analysis.locator('[data-action="evidence-family"][aria-expanded="true"]')).toHaveCount(0);
+  await expect(analysis.locator(".analysis-v2-speed-caption")).toHaveCount(0);
+  await expect(analysis.locator(".analysis-v2-movement-view")).toHaveCount(0);
+  await expect(analysis.locator('[data-action="coordination-view"][data-value="paths"]'))
+    .toHaveAttribute("aria-pressed", "true");
 });
 
 test("opens Analysis V2 on flylines without reviving the legacy transition network", async ({ page }) => {
@@ -182,40 +187,44 @@ test("opens Analysis V2 on flylines without reviving the legacy transition netwo
   await expect(page.locator(".analysis-v2-modal")).toBeVisible();
   await expect(page.locator("#analysis-v2")).toBeVisible();
 
-  const tabs = page.locator('#analysis-v2 [role="tab"]');
+  const analysis = page.locator("#analysis-v2");
+  const tabs = analysis.locator('[role="tab"]');
   await expect(tabs).toHaveText(["協調", "語意", "策略"]);
-  await expect(page.locator('#analysis-v2 [data-tab="coordination"]')).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator(".analysis-v2-speed-field")).toBeVisible();
+  await expect(analysis.locator('[data-tab="coordination"]')).toHaveAttribute("aria-selected", "true");
+  await expect(analysis.locator(".analysis-v2-speed-field")).toBeVisible();
   for (let index = 0; index < 3; index += 1) {
     const panelId = await tabs.nth(index).getAttribute("aria-controls");
     expect(panelId).not.toBeNull();
     await expect(page.locator(`#${panelId}`)).toHaveCount(1);
   }
-  await expect(page.locator('[data-action="toggle-network"]')).toHaveCount(0);
-  await expect(page.locator(".diagnostic-relationship-svg")).toHaveCount(0);
+  await expect(analysis.locator('[data-action="toggle-network"]')).toHaveCount(0);
+  await expect(analysis.locator(".diagnostic-relationship-svg")).toHaveCount(0);
 
-  const handEvidence = page.locator('[data-action="evidence-family"][data-family="hands"]');
-  await expect(handEvidence).toContainText("手別轉換");
-  await handEvidence.click();
-  await expect(page.locator("#analysis-v2-evidence-detail")).toContainText("不代表偵測到你實際使用哪隻手");
-  await expect(page.locator('[data-action="evidence-family"][aria-expanded="true"]')).toHaveCount(1);
+  await analysis.locator('[data-action="coordination-view"][data-value="movement"]').click();
+  const movement = analysis.locator(".analysis-v2-movement-view");
+  await expect(movement).toBeVisible();
+  await expect(movement.locator(".analysis-v2-movement-family")).toHaveCount(4);
+  await expect(movement).toContainText("手別轉換");
+  await expect(movement).toContainText("字內結構");
+  await expect(movement).toContainText("不代表偵測到實際使用哪隻手");
+  await expect(movement.locator("table")).toHaveCount(0);
 
-  await page.locator('[data-tab="strategy"]').click();
-  await expect(page.locator('[data-tab="strategy"]')).toHaveAttribute("aria-selected", "true");
-  await expect(page.locator(".strategy-matrix")).toHaveCount(1);
-  await expect(page.locator('[data-action="strategy-size"]')).toHaveText([
+  await analysis.locator('[data-tab="strategy"]').click();
+  await expect(analysis.locator('[data-tab="strategy"]')).toHaveAttribute("aria-selected", "true");
+  await expect(analysis.locator(".strategy-matrix")).toHaveCount(1);
+  await expect(analysis.locator('[data-action="strategy-size"]')).toHaveText([
     "2 個注音",
     "3 個注音",
   ]);
-  await expect(page.locator(".analysis-v2-strategy-segments"))
-    .toHaveAttribute("aria-label", "音節內注音成分數，不含聲調");
-  const method = page.locator(".analysis-v2-method");
+  await expect(analysis.locator(".analysis-v2-strategy-segments"))
+    .toHaveAttribute("aria-label", "字內注音成分數，不含聲調");
+  const method = analysis.locator(".analysis-v2-method");
   await expect(method.locator("summary")).toHaveText("資料規則");
   await method.locator("summary").click();
   await expect(method).toContainText("1 個注音沒有順序差異");
 });
 
-test("contains Analysis V2 at a narrow phone viewport with overflow owned by the flyline stage", async ({ page }) => {
+test("fits Analysis V2 and the full flyline keyboard at a narrow phone viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.locator("#open-information").click();
@@ -251,8 +260,10 @@ test("contains Analysis V2 at a narrow phone viewport with overflow owned by the
     const main = host.querySelector<HTMLElement>(".analysis-v2-main")!;
     const field = host.querySelector<HTMLElement>(".analysis-v2-speed-field")!;
     const scroller = host.querySelector<HTMLElement>(".analysis-v2-speed-scroll")!;
-    const caption = host.querySelector<HTMLElement>(".analysis-v2-speed-caption")!;
+    const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
     const readout = host.querySelector<HTMLElement>(".analysis-v2-speed-readout")!;
+    const mainRect = main.getBoundingClientRect();
+    const boardRect = board.getBoundingClientRect();
     return {
       mainClient: main.clientWidth,
       mainScroll: main.scrollWidth,
@@ -260,15 +271,21 @@ test("contains Analysis V2 at a narrow phone viewport with overflow owned by the
       fieldScroll: field.scrollWidth,
       scrollerClient: scroller.clientWidth,
       scrollerScroll: scroller.scrollWidth,
-      captionRight: caption.getBoundingClientRect().right,
+      boardLeft: boardRect.left,
+      boardRight: boardRect.right,
+      mainLeft: mainRect.left,
+      mainRight: mainRect.right,
       readoutRight: readout.getBoundingClientRect().right,
       fieldRight: field.getBoundingClientRect().right,
     };
   });
   expect(overflow.mainScroll).toBeLessThanOrEqual(overflow.mainClient + 1);
   expect(overflow.fieldScroll).toBeLessThanOrEqual(overflow.fieldClient + 1);
-  expect(overflow.scrollerScroll).toBeGreaterThan(overflow.scrollerClient);
-  expect(overflow.captionRight).toBeLessThanOrEqual(overflow.fieldRight + 1);
+  // 3D key-plane rounding can report a two-pixel transformed overflow even
+  // though the board bounds remain fully contained and overflow is clipped.
+  expect(overflow.scrollerScroll).toBeLessThanOrEqual(overflow.scrollerClient + 2);
+  expect(overflow.boardLeft).toBeGreaterThanOrEqual(overflow.mainLeft - 2);
+  expect(overflow.boardRight).toBeLessThanOrEqual(overflow.mainRight + 2);
   expect(overflow.readoutRight).toBeLessThanOrEqual(overflow.fieldRight + 1);
   await expect(speedScroll).toHaveAttribute("tabindex", "0");
 

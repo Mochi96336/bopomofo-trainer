@@ -7,9 +7,12 @@ import {
   type AnalysisV2PreferenceStorage,
 } from "./analysis-v2-panel.js";
 import "./analysis-v2-layout.css";
+import { mountAnalysisV2MovementLineArt } from "./analysis-v2-movement-line-art.js";
+import "./analysis-v2-space.css";
 import { buildAnalysisV2Model } from "./analysis-v2-model.js";
 import { buildAnalysisV2SemanticModel } from "./analysis-v2-semantic-model.js";
 import type { AnalysisV2Snapshot } from "./analysis-v2-snapshot.js";
+import { mountAnalysisV2SpeedPreview } from "./analysis-v2-speed-preview.js";
 
 function analysisModelFrom(snapshot: AnalysisV2Snapshot) {
   const semantic = buildAnalysisV2SemanticModel({
@@ -153,6 +156,8 @@ export function mountAnalysisV2Integration(
       deps.focusPractice();
     },
   });
+  const destroyMovementLineArt = mountAnalysisV2MovementLineArt(analysis.host);
+  const speedPreview = mountAnalysisV2SpeedPreview(analysis.host, currentAnalysisModel);
   topLayer = mountAnalysisTopLayer(analysis.host);
 
   return {
@@ -167,6 +172,8 @@ export function mountAnalysisV2Integration(
     },
     destroy(): void {
       document.body.classList.remove("analysis-v2-open");
+      destroyMovementLineArt();
+      speedPreview.destroy();
       topLayer?.destroy();
       analysis.destroy();
     },

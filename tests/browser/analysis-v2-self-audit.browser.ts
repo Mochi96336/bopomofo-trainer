@@ -85,7 +85,7 @@ async function installSpeedProgress(page: Page, edgeCount: number): Promise<void
   }, { key: PROGRESS_KEY, value: source });
 }
 
-test("keeps the protected keyboard width stable when a semantic inspector opens", async ({ page }) => {
+test("keeps the medium keyboard width stable when a semantic inspector opens", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await openAnalysis(page);
 
@@ -124,9 +124,10 @@ test("keeps flyline width stable on selection and exposes a wider pointer target
   expect(before).toBe(760);
   expect(after).toBe(before);
   await expect(analysis.locator(".analysis-v2-speed-stage")).toHaveClass(/has-selection/);
+  await expect(analysis.locator(".analysis-v2-speed-inspector")).toHaveCount(0);
 });
 
-test("describes dense speed ranking as visible-only and keeps evidence navigation geometrically stable", async ({ page }) => {
+test("keeps dense speed ranking in the path view and restores compact Movement diagrams", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   const requestedEdges = 40;
   const seededEdges = speedPairs(requestedEdges).length;
@@ -136,26 +137,26 @@ test("describes dense speed ranking as visible-only and keeps evidence navigatio
   const analysis = page.locator("#analysis-v2");
 
   await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(36);
-  await expect(analysis.locator(".analysis-v2-speed-caption"))
+  await expect(analysis.locator(".analysis-v2-speed-readout"))
     .toContainText(`36 / ${seededEdges} 條可比較`);
   await expect(analysis.locator(".analysis-v2-speed-readout"))
     .toContainText("僅在畫面中的同類實際鍵間轉換中比較");
+  await expect(analysis.locator(".analysis-v2-speed-caption")).toHaveCount(0);
+  await expect(analysis.locator(".analysis-v2-movement-view")).toHaveCount(0);
 
-  const before = await analysis.locator(".analysis-v2-evidence-nav").evaluate((nav) =>
-    [...nav.querySelectorAll<HTMLElement>('[data-action="evidence-family"]')].map((button) => {
-      const rect = button.getBoundingClientRect();
-      return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
-    }));
-
-  await analysis.locator('[data-action="evidence-family"]').nth(2).click();
-  await expect(analysis.locator('[data-action="evidence-family"][aria-expanded="true"]')).toHaveCount(1);
-  await expect(analysis.locator("#analysis-v2-evidence-detail")).toBeVisible();
-
-  const after = await analysis.locator(".analysis-v2-evidence-nav").evaluate((nav) =>
-    [...nav.querySelectorAll<HTMLElement>('[data-action="evidence-family"]')].map((button) => {
-      const rect = button.getBoundingClientRect();
-      return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
-    }));
-
-  expect(after).toEqual(before);
+  await analysis.locator('[data-action="coordination-view"][data-value="movement"]').click();
+  await expect(analysis.locator(".analysis-v2-speed-path")).toHaveCount(0);
+  const families = analysis.locator(".analysis-v2-movement-family");
+  await expect(families).toHaveCount(4);
+  await expect(analysis.locator(".analysis-v2-movement-view table")).toHaveCount(0);
+  await expect(families.nth(0).locator(".analysis-v2-movement-diagram")).toContainText("左");
+  await expect(families.nth(0).locator(".analysis-v2-movement-diagram")).toContainText("右");
+  await expect(families.nth(1).locator(".analysis-v2-movement-diagram")).toContainText("同側");
+  await expect(families.nth(1).locator(".analysis-v2-movement-diagram")).toContainText("另一側");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("聲母");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("介音");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("韻母");
+  await expect(families.nth(2).locator(".analysis-v2-word-structure")).toContainText("例：家");
+  await expect(families.nth(3).locator(".analysis-v2-movement-diagram")).toContainText("字內注音");
+  await expect(families.nth(3).locator(".analysis-v2-movement-diagram")).toContainText("聲調");
 });
