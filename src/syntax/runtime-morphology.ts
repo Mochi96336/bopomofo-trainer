@@ -30,13 +30,14 @@ export function projectRuntimeMorphologicalFeatureCounts(
 }
 
 /**
- * Runtime artifacts fail closed on morphology outside the reviewed allowlist.
- * Counts are presence-only, so every serialized value must be exactly 1.
+ * Runtime artifacts fail closed on malformed morphology and on features outside
+ * the reviewed allowlist. Counts are presence-only, so every serialized value
+ * must be exactly 1. `unknown` is intentional: this function guards parsed JSON
+ * at the runtime trust boundary rather than relying on compile-time types.
  */
-export function validRuntimeMorphologicalFeatureCounts(
-  counts: DependencyCountMap | undefined,
-): boolean {
+export function validRuntimeMorphologicalFeatureCounts(counts: unknown): boolean {
   if (counts === undefined) return true;
+  if (typeof counts !== "object" || counts === null || Array.isArray(counts)) return false;
   return Object.entries(counts).every(
     ([feature, count]) => isReviewedRuntimeMorphologicalFeature(feature) && count === 1,
   );
