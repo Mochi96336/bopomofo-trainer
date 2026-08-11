@@ -1,5 +1,6 @@
 import type {
   ProductionConstituent,
+  RuntimeOccurrenceCapability,
   SyntacticFunction,
   SyntaxFeatureName,
   SyntaxFeatureSet,
@@ -10,12 +11,23 @@ import type {
 export interface SyntaxRequirements {
   readonly requiredFunctions: readonly SyntacticFunction[];
   readonly requiredValencyFrames: readonly ValencyFrame[];
+  readonly requiredOccurrenceCapabilities: readonly RuntimeOccurrenceCapability[];
   readonly requiredFeatures: SyntaxFeatureSet;
 }
+
+/**
+ * Compatibility input for callers that predate the same-occurrence requirement
+ * dimension. Missing capability requirements mean none; every derived child
+ * requirement is normalized back to the complete SyntaxRequirements shape.
+ */
+export type SyntaxRequirementsInput = Omit<SyntaxRequirements, "requiredOccurrenceCapabilities"> & {
+  readonly requiredOccurrenceCapabilities?: readonly RuntimeOccurrenceCapability[];
+};
 
 export const EMPTY_SYNTAX_REQUIREMENTS: SyntaxRequirements = {
   requiredFunctions: [],
   requiredValencyFrames: [],
+  requiredOccurrenceCapabilities: [],
   requiredFeatures: {},
 };
 
@@ -42,6 +54,13 @@ function mergeValencyFrames(
   return intersection.length > 0 ? intersection : null;
 }
 
+function mergeOccurrenceCapabilities(
+  local: readonly RuntimeOccurrenceCapability[],
+  inherited: readonly RuntimeOccurrenceCapability[],
+): readonly RuntimeOccurrenceCapability[] {
+  return [...new Set([...local, ...inherited])].sort(compareText);
+}
+
 function featureEntries(
   features: SyntaxFeatureSet,
 ): readonly (readonly [SyntaxFeatureName, SyntaxFeatureValue])[] {
@@ -64,7 +83,7 @@ function mergeFeatures(
 
 export function requirementsForConstituent(
   constituent: ProductionConstituent,
-  parent: SyntaxRequirements,
+  parent: SyntaxRequirementsInput,
 ): SyntaxRequirements | null {
   const requiredFunctions = mergeFunctions(
     constituent.requiredFunctions,
@@ -75,6 +94,10 @@ export function requirementsForConstituent(
     constituent.inheritValencyFrames ? parent.requiredValencyFrames : [],
   );
   if (requiredValencyFrames === null) return null;
+  const requiredOccurrenceCapabilities = mergeOccurrenceCapabilities(
+    constituent.requiredOccurrenceCapabilities ?? [],
+    constituent.inheritOccurrenceCapabilities ? parent.requiredOccurrenceCapabilities ?? [] : [],
+  );
   const requiredFeatures = mergeFeatures(
     constituent.requiredFeatures,
     constituent.inheritFeatures ? parent.requiredFeatures : {},
@@ -83,6 +106,7 @@ export function requirementsForConstituent(
   return {
     requiredFunctions,
     requiredValencyFrames,
+    requiredOccurrenceCapabilities,
     requiredFeatures,
   };
 }

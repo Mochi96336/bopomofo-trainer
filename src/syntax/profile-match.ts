@@ -82,7 +82,11 @@ export function syntaxProfileMatchesRequirements(
   profile: RuntimeSyntaxProfile,
   requirements: Pick<
     ProductionConstituent,
-    "allowedUpos" | "requiredFunctions" | "requiredValencyFrames" | "requiredFeatures"
+    | "allowedUpos"
+    | "requiredFunctions"
+    | "requiredValencyFrames"
+    | "requiredOccurrenceCapabilities"
+    | "requiredFeatures"
   >,
   text?: string,
   entryId: string | undefined = profile.entryId,
@@ -92,6 +96,9 @@ export function syntaxProfileMatchesRequirements(
     && requirements.requiredFunctions.every((value) => profile.functions.includes(value))
     && (requirements.requiredValencyFrames.length === 0
       || requirements.requiredValencyFrames.some((value) => profile.valencyFrames.includes(value)))
+    && (requirements.requiredOccurrenceCapabilities ?? []).every((capability) =>
+      profile.occurrenceCapabilities?.includes(capability) ?? false
+    )
     && Object.entries(requirements.requiredFeatures).every(([feature, value]) =>
       value !== undefined
       && featureMatches(profile, entryId, text, feature as SyntaxFeatureName, value)

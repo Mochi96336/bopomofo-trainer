@@ -123,9 +123,16 @@ export interface ProductionConstituent {
   readonly allowedUpos: readonly Upos[];
   readonly requiredFunctions: readonly SyntacticFunction[];
   readonly requiredValencyFrames: readonly ValencyFrame[];
+  /**
+   * Explicit same-occurrence evidence required by this constituent. This is a
+   * separate requirement dimension: it must never be reconstructed from
+   * morphology and valency requirements downstream.
+   */
+  readonly requiredOccurrenceCapabilities?: readonly RuntimeOccurrenceCapability[];
   readonly requiredFeatures: SyntaxFeatureSet;
   readonly inheritFunctions?: boolean;
   readonly inheritValencyFrames?: boolean;
+  readonly inheritOccurrenceCapabilities?: boolean;
   readonly inheritFeatures?: boolean;
   readonly entryBinding?: string;
   readonly formalLiteral?: string;

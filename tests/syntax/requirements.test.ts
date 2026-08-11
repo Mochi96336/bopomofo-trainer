@@ -36,6 +36,7 @@ describe("syntax requirement propagation", () => {
     }), parent)).toEqual({
       requiredFunctions: ["predicate"],
       requiredValencyFrames: ["ambitransitive", "transitive"],
+      requiredOccurrenceCapabilities: [],
       requiredFeatures: {},
     });
   });
@@ -87,6 +88,7 @@ describe("syntax requirement propagation", () => {
     }), parent)).toEqual({
       requiredFunctions: ["modifier"],
       requiredValencyFrames: [],
+      requiredOccurrenceCapabilities: [],
       requiredFeatures: {},
     });
   });

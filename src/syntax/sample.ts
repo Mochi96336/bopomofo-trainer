@@ -114,6 +114,9 @@ function makeSlot(
   path: readonly string[],
 ): StructuralLexicalSlot {
   const entryBindingId = bindingId(constituent, path);
+  const occurrenceRequirement = requirements.requiredOccurrenceCapabilities.length === 0
+    ? {}
+    : { requiredOccurrenceCapabilities: requirements.requiredOccurrenceCapabilities };
   const identity = {
     path,
     key: constituent.key,
@@ -121,6 +124,7 @@ function makeSlot(
     allowedUpos: constituent.allowedUpos,
     requiredFunctions: requirements.requiredFunctions,
     requiredValencyFrames: requirements.requiredValencyFrames,
+    ...occurrenceRequirement,
     requiredFeatures: requirements.requiredFeatures,
     entryBindingId,
     formalLiteral: constituent.formalLiteral,
@@ -133,6 +137,7 @@ function makeSlot(
     allowedUpos: constituent.allowedUpos,
     requiredFunctions: requirements.requiredFunctions,
     requiredValencyFrames: requirements.requiredValencyFrames,
+    ...occurrenceRequirement,
     requiredFeatures: requirements.requiredFeatures,
     ...(entryBindingId === undefined ? {} : { entryBindingId }),
     ...(constituent.formalLiteral === undefined ? {} : { formalLiteral: constituent.formalLiteral }),
