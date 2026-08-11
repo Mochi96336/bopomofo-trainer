@@ -16,6 +16,7 @@ import type {
   GrammarTemplate,
   GrammarUtteranceCandidate,
 } from "../grammar/types.js";
+import { DEFAULT_DERIVATION_BOUNDS } from "../syntax/features.js";
 import type { RuntimeSyntaxProfile } from "../syntax/types.js";
 import {
   composeFormalSyntaxUtterances,
@@ -149,7 +150,10 @@ export interface FrequencyFirstUtteranceSelection {
 export type FormalSyntaxCompositionOverride = Pick<
   FormalSyntaxUtteranceInput,
   "rules" | "samplingMode" | "structuralTarget"
->;
+> & {
+  /** Minimum recursive clause budget required by an explicit construction. */
+  readonly minimumClauseNesting?: number;
+};
 
 export interface FrequencyFirstUtteranceInput {
   readonly entries: readonly CatalogEntry[];
@@ -393,6 +397,32 @@ function scoreCandidate(
   };
 }
 
+function validatedConstructionClauseNesting(
+  input: FrequencyFirstUtteranceInput,
+): number {
+  const minimum = input.formalSyntaxComposition?.minimumClauseNesting;
+  if (minimum === undefined) return 1;
+  if (!Number.isInteger(minimum) || minimum < 0) {
+    throw new RangeError("formalSyntaxComposition minimumClauseNesting must be a non-negative integer");
+  }
+  if (minimum > DEFAULT_DERIVATION_BOUNDS.maximumClauseNesting) {
+    throw new RangeError("formalSyntaxComposition minimumClauseNesting exceeds formal grammar default");
+  }
+  return Math.max(1, minimum);
+}
+
+function composerCompositionOverride(
+  input: FrequencyFirstUtteranceInput,
+): Pick<FormalSyntaxUtteranceInput, "rules" | "samplingMode" | "structuralTarget"> {
+  const composition = input.formalSyntaxComposition;
+  if (composition === undefined) return {};
+  return {
+    ...(composition.rules === undefined ? {} : { rules: composition.rules }),
+    ...(composition.samplingMode === undefined ? {} : { samplingMode: composition.samplingMode }),
+    ...(composition.structuralTarget === undefined ? {} : { structuralTarget: composition.structuralTarget }),
+  };
+}
+
 function enrichSlotSelections(
   traces: readonly GrammarSlotSelectionTrace[],
   entriesById: ReadonlyMap<string, CatalogEntry>,
@@ -437,10 +467,10 @@ function generateOnce(
       minimumLexicalEntries: 2,
       maximumCandidates: 1,
       maximumAttempts: 64,
-      ...(input.formalSyntaxComposition ?? {}),
+      ...composerCompositionOverride(input),
       bounds: {
         maximumPhraseDepth: 3,
-        maximumClauseNesting: 1,
+        maximumClauseNesting: validatedConstructionClauseNesting(input),
         maximumClausesPerSentence: 2,
         maximumCoordinationItems: 2,
         maximumConsecutiveModifiers: 2,
