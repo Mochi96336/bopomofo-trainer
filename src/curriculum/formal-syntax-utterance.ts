@@ -10,6 +10,10 @@ import type {
   GrammarUtteranceCandidate,
 } from "../grammar/types.js";
 import type { StructuralLexicalSlot } from "../syntax/derive.js";
+import {
+  collectStructuralCompatibilityEdges,
+  type StructuralCompatibilityEdge,
+} from "../syntax/compatibility-edges.js";
 import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";
 import {
   buildLexicalProfileIndex,
@@ -25,6 +29,7 @@ import type {
   ProductionRule,
   RuntimeSyntaxProfile,
 } from "../syntax/types.js";
+import { structuralDependencyCompatibilityMultiplier } from "./formal-syntax-dependency-compatibility.js";
 import {
   chooseSentenceConstructionVariant,
   createSentenceConstructionFamilyPlan,
@@ -116,6 +121,9 @@ function selectCompatibleProfile(
   previousEntry: CatalogEntry | null,
   lexicalCompatibility: LexicalCompatibilityIndex | undefined,
   lexicalCompatibilityMaximumBoost: number,
+  currentSlotId: string,
+  selectedEntriesBySlotId: ReadonlyMap<string, CatalogEntry>,
+  compatibilityEdges: readonly StructuralCompatibilityEdge[],
   random: RandomSource,
 ): RuntimeSyntaxProfile | null {
   const profilesByEntryId = new Map<string, RuntimeSyntaxProfile[]>();
@@ -130,16 +138,23 @@ function selectCompatibleProfile(
     const entry = entriesById.get(entryId);
     if (entry === undefined) throw new Error(`formal syntax profile references missing entry ${entryId}`);
     const baseWeight = entryWeightsById?.[entry.id] ?? defaultEntryWeight(entry);
-    if (previousEntry === null || lexicalCompatibility === undefined) return baseWeight;
-    const score = surfaceCompatibilityScore(
+    const surfaceMultiplier = previousEntry === null || lexicalCompatibility === undefined
+      ? 1
+      : lexicalCompatibilityMultiplier(
+          surfaceCompatibilityScore(
+            lexicalCompatibility,
+            previousEntry.prompt.text,
+            entry.prompt.text,
+          ),
+          lexicalCompatibilityMaximumBoost,
+        );
+    const dependencyMultiplier = structuralDependencyCompatibilityMultiplier(
       lexicalCompatibility,
-      previousEntry.prompt.text,
-      entry.prompt.text,
-    );
-    return baseWeight * lexicalCompatibilityMultiplier(
-      score,
+      entry,
+      { currentSlotId, selectedEntriesBySlotId, edges: compatibilityEdges },
       lexicalCompatibilityMaximumBoost,
     );
+    return baseWeight * surfaceMultiplier * dependencyMultiplier;
   }), random);
   if (selectedEntryIndex === null) return null;
   const selectedEntryId = entryIds[selectedEntryIndex];
@@ -300,6 +315,8 @@ export function composeFormalSyntaxUtterances(
       continue;
     }
     const offsets: Record<string, number> = {};
+    const compatibilityEdges = collectStructuralCompatibilityEdges(shape);
+    const selectedEntriesBySlotId = new Map<string, CatalogEntry>();
     const usedEntryIds = new Set<string>();
     const entryIdByBinding = new Map<string, string>();
     let previousEntry: CatalogEntry | null = null;
@@ -325,6 +342,9 @@ export function composeFormalSyntaxUtterances(
         previousEntry,
         input.lexicalCompatibility,
         compatibilityMaximumBoost,
+        slot.id,
+        selectedEntriesBySlotId,
+        compatibilityEdges,
         input.random,
       );
       if (selectedProfile === null) {
@@ -345,6 +365,7 @@ export function composeFormalSyntaxUtterances(
         entryIdByBinding.set(slot.entryBindingId, selectedProfile.entryId);
       }
       offsets[slot.id] = selectedIndex;
+      selectedEntriesBySlotId.set(slot.id, selectedEntry);
       usedEntryIds.add(selectedProfile.entryId);
       previousEntry = selectedEntry;
     }
