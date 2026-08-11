@@ -42,15 +42,13 @@ export type ClauseConstructionFamily =
   | "marked.ba"
   | "marked.bei"
   | "marked.comparative"
-  | "complex.causative"
-  | "complex.pivotal"
   | "complex.serial-verb"
   | "information.topic-comment"
   | "information.subject-omission"
   | "information.object-omission"
   | "embedded.subject-content"
   | "embedded.object-content"
-  | "embedded.complement-content"
+  | "embedded.xcomp-control"
   | "embedded.quoted-content";
 
 export interface SentenceConstructionClassification {
@@ -93,8 +91,6 @@ const CLAUSE_CLASSIFICATION_BY_RULE_ID: Readonly<Record<string, ClauseConstructi
   "clause.bei": { kind: "marked", family: "marked.bei" },
   "clause.comparative": { kind: "marked", family: "marked.comparative" },
 
-  "clause.causative": { kind: "complex-predicate", family: "complex.causative" },
-  "clause.pivotal": { kind: "complex-predicate", family: "complex.pivotal" },
   "clause.serial-verb": { kind: "complex-predicate", family: "complex.serial-verb" },
 
   "clause.topic-comment": { kind: "information-structure", family: "information.topic-comment" },
@@ -109,7 +105,8 @@ const CLAUSE_CLASSIFICATION_BY_RULE_ID: Readonly<Record<string, ClauseConstructi
 
   "clause.subject-content": { kind: "embedded-content", family: "embedded.subject-content" },
   "clause.object-content": { kind: "embedded-content", family: "embedded.object-content" },
-  "clause.complement-content": { kind: "embedded-content", family: "embedded.complement-content" },
+  "clause.xcomp-subject-control": { kind: "embedded-content", family: "embedded.xcomp-control" },
+  "clause.xcomp-object-control": { kind: "embedded-content", family: "embedded.xcomp-control" },
   "clause.quoted-content": { kind: "embedded-content", family: "embedded.quoted-content" },
 };
 

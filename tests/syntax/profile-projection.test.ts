@@ -89,6 +89,38 @@ describe("syntax profile projection", () => {
     expect(firstVerb?.id).not.toBe(secondVerb?.id);
   });
 
+  it("keeps basic xcomp evidence generic instead of inventing controller type", () => {
+    const item = entry("想", "ㄒㄧㄤ3");
+    const result = projectSyntaxProfiles([item], {
+      source: { sourceId: "ud:test" },
+      rows: [{
+        text: "想",
+        observed: true,
+        occurrenceCount: 3,
+        uposCounts: { VERB: 3 },
+        syntaxProfileEvidence: [{
+          upos: "VERB",
+          occurrenceCount: 3,
+          dependencyRelationCounts: { root: 3 },
+          parentUposCounts: { ROOT: 3 },
+          headDirectionCounts: { root: 3 },
+          surfacePositionCounts: { medial: 3 },
+          childRelationCounts: { xcomp: 3 },
+          childDirectionRelationCounts: { "child-right:xcomp": 3 },
+          childRelationMultisetCounts: { "xcomp=1": 3 },
+          valencyRelationCounts: { xcomp: 3 },
+          valencySignatureCounts: { "xcomp=1": 3 },
+          constructionRelationCounts: {},
+          anonymousDependencySkeletons: [],
+        }],
+      }],
+    });
+    const profile = result.profilesByEntryId[item.id]?.[0];
+    expect(profile?.valencyFrames).toContain("open-clausal-complement");
+    expect(profile?.valencyFrames).not.toContain("subject-controlled-open-complement");
+    expect(profile?.valencyFrames).not.toContain("object-controlled-open-complement");
+  });
+
   it("keeps all UPOS in a legacy aggregate artifact instead of choosing dominantUpos", () => {
     const item = entry("行", "ㄒㄧㄥ2");
     const result = projectSyntaxProfiles([item], {

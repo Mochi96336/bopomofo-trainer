@@ -1,5 +1,9 @@
 import type { CatalogCommonnessBase, CatalogEntry, Syllable } from "../core/model.js";
 import {
+  isReviewedRuntimeMorphologicalFeature,
+  validRuntimeMorphologicalFeatureCounts,
+} from "../syntax/runtime-morphology.js";
+import {
   SYNTACTIC_FUNCTIONS,
   UPOS_VALUES,
   VALENCY_FRAMES,
@@ -7,6 +11,8 @@ import {
 } from "../syntax/types.js";
 
 const EMPTY_STRINGS: readonly string[] = [];
+const EMPTY_NUMBERS: readonly number[] = [];
+const EMPTY_COUNTS: Readonly<Record<string, number>> = {};
 
 export type EncodedCatalogEntry = readonly [
   text: string,
@@ -14,6 +20,10 @@ export type EncodedCatalogEntry = readonly [
   selectionWeight: number | null,
 ];
 
+/**
+ * Compact syntax-profile wire tuple. Morphology is an optional trailing field
+ * so pre-morphology 6-tuples remain byte- and decoder-compatible.
+ */
 export type EncodedSyntaxProfile = readonly [
   entryIndex: number,
   uposIndex: number,
@@ -21,11 +31,13 @@ export type EncodedSyntaxProfile = readonly [
   valencyFrameIndices: readonly number[],
   relationKeyIndices: readonly number[],
   positionKeyIndices: readonly number[],
+  morphologyKeyIndices?: readonly number[],
 ];
 
 export interface DependencyKeyTables {
   readonly relationKeys: readonly string[];
   readonly positionKeys: readonly string[];
+  readonly morphologyKeys: readonly string[];
 }
 
 export interface EncodedSyntaxProfiles extends DependencyKeyTables {
@@ -95,15 +107,16 @@ export function decodeCatalogEntries(
 }
 
 /**
- * Only presence (`count > 0`), never magnitude, of a dependency relation or
- * surface position is ever read at runtime (src/syntax/realize.ts:54-61), so
- * counts collapse to a present/absent key set here.
+ * Runtime feature matching reads only presence (`count > 0`), never magnitude,
+ * of dependency relations, surface positions, or reviewed morphology. Counts
+ * therefore collapse to present/absent key sets in the compact wire format.
  */
 export function deriveDependencyKeyTables(
   profiles: readonly RuntimeSyntaxProfile[],
 ): DependencyKeyTables {
   const relationKeys = new Set<string>();
   const positionKeys = new Set<string>();
+  const morphologyKeys = new Set<string>();
   for (const profile of profiles) {
     for (const [key, count] of Object.entries(profile.dependencyEvidence.dependencyRelationCounts)) {
       if (count > 0) relationKeys.add(key);
@@ -111,10 +124,18 @@ export function deriveDependencyKeyTables(
     for (const [key, count] of Object.entries(profile.dependencyEvidence.surfacePositionCounts)) {
       if (count > 0) positionKeys.add(key);
     }
+    const morphology = profile.dependencyEvidence.morphologicalFeatureCounts;
+    if (!validRuntimeMorphologicalFeatureCounts(morphology)) {
+      throw new Error("runtime syntax profile contains unreviewed morphology evidence");
+    }
+    for (const [key, count] of Object.entries(morphology ?? EMPTY_COUNTS)) {
+      if (count > 0) morphologyKeys.add(key);
+    }
   }
   return {
     relationKeys: [...relationKeys].sort(),
     positionKeys: [...positionKeys].sort(),
+    morphologyKeys: [...morphologyKeys].sort(),
   };
 }
 
@@ -131,7 +152,7 @@ function presentIndices(
   const indices: number[] = [];
   for (const [key, count] of Object.entries(counts)) {
     if (count <= 0) continue;
-    indices.push(indexOrThrow(table, key, "dependency key"));
+    indices.push(indexOrThrow(table, key, "evidence key"));
   }
   return indices.sort((left, right) => left - right);
 }
@@ -140,9 +161,10 @@ export function encodeSyntaxProfiles(
   profiles: readonly RuntimeSyntaxProfile[],
   allEntries: readonly CatalogEntry[],
 ): EncodedSyntaxProfiles {
-  const { relationKeys, positionKeys } = deriveDependencyKeyTables(profiles);
+  const { relationKeys, positionKeys, morphologyKeys } = deriveDependencyKeyTables(profiles);
   const relationIndex = new Map(relationKeys.map((key, index) => [key, index]));
   const positionIndex = new Map(positionKeys.map((key, index) => [key, index]));
+  const morphologyIndex = new Map(morphologyKeys.map((key, index) => [key, index]));
   const entryIndex = new Map(allEntries.map((entry, index) => [entry.id, index]));
   const uposIndex = new Map(UPOS_VALUES.map((value, index): [string, number] => [value, index]));
   const functionIndex = new Map(SYNTACTIC_FUNCTIONS.map((value, index): [string, number] => [value, index]));
@@ -151,17 +173,22 @@ export function encodeSyntaxProfiles(
   const encoded = profiles.map((profile): EncodedSyntaxProfile => {
     const entryPosition = indexOrThrow(entryIndex, profile.entryId, "catalog entry");
     const uposPosition = indexOrThrow(uposIndex, profile.upos, "upos");
-    return [
+    const morphologyIndices = presentIndices(
+      profile.dependencyEvidence.morphologicalFeatureCounts ?? EMPTY_COUNTS,
+      morphologyIndex,
+    );
+    const base = [
       entryPosition,
       uposPosition,
       profile.functions.map((value) => indexOrThrow(functionIndex, value, "syntactic function")),
       profile.valencyFrames.map((value) => indexOrThrow(valencyIndex, value, "valency frame")),
       presentIndices(profile.dependencyEvidence.dependencyRelationCounts, relationIndex),
       presentIndices(profile.dependencyEvidence.surfacePositionCounts, positionIndex),
-    ];
+    ] as const;
+    return morphologyIndices.length === 0 ? base : [...base, morphologyIndices] as const;
   });
 
-  return { relationKeys, positionKeys, profiles: encoded };
+  return { relationKeys, positionKeys, morphologyKeys, profiles: encoded };
 }
 
 function enumOrThrow<T extends string>(table: readonly T[], index: number, label: string): T {
@@ -170,13 +197,13 @@ function enumOrThrow<T extends string>(table: readonly T[], index: number, label
   return value;
 }
 
-function decodeDependencyCounts(
+function decodeEvidenceCounts(
   indices: readonly number[],
   table: readonly string[],
 ): Readonly<Record<string, number>> {
   const counts: Record<string, number> = {};
   for (const index of indices) {
-    counts[enumOrThrow(table, index, "dependency key")] = 1;
+    counts[enumOrThrow(table, index, "evidence key")] = 1;
   }
   return counts;
 }
@@ -186,12 +213,24 @@ export function decodeSyntaxProfiles(
   allEntries: readonly CatalogEntry[],
   relationKeys: readonly string[],
   positionKeys: readonly string[],
+  morphologyKeys: readonly string[] = EMPTY_STRINGS,
 ): readonly RuntimeSyntaxProfile[] {
+  if (morphologyKeys.some((feature) => !isReviewedRuntimeMorphologicalFeature(feature))) {
+    throw new Error("compact syntax profile contains an unreviewed morphology key");
+  }
   return encoded.map((profile, position): RuntimeSyntaxProfile => {
-    const [entryIndex, uposIndex, functionIndices, valencyFrameIndices, relationIndices, positionIndices] =
-      profile;
+    const [
+      entryIndex,
+      uposIndex,
+      functionIndices,
+      valencyFrameIndices,
+      relationIndices,
+      positionIndices,
+      morphologyIndices = EMPTY_NUMBERS,
+    ] = profile;
     const entry = allEntries[entryIndex];
     if (entry === undefined) throw new Error(`catalog entry index ${entryIndex} out of range`);
+    const morphologicalFeatureCounts = decodeEvidenceCounts(morphologyIndices, morphologyKeys);
     return {
       id: `runtime-syntax-profile:${position}`,
       entryId: entry.id,
@@ -199,8 +238,9 @@ export function decodeSyntaxProfiles(
       functions: functionIndices.map((index) => enumOrThrow(SYNTACTIC_FUNCTIONS, index, "syntactic function")),
       valencyFrames: valencyFrameIndices.map((index) => enumOrThrow(VALENCY_FRAMES, index, "valency frame")),
       dependencyEvidence: {
-        dependencyRelationCounts: decodeDependencyCounts(relationIndices, relationKeys),
-        surfacePositionCounts: decodeDependencyCounts(positionIndices, positionKeys),
+        dependencyRelationCounts: decodeEvidenceCounts(relationIndices, relationKeys),
+        surfacePositionCounts: decodeEvidenceCounts(positionIndices, positionKeys),
+        ...(Object.keys(morphologicalFeatureCounts).length === 0 ? {} : { morphologicalFeatureCounts }),
       },
       provenanceIds: EMPTY_STRINGS,
     };

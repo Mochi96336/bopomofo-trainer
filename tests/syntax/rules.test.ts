@@ -20,6 +20,18 @@ describe("formal phrase production inventory", () => {
     expect([...reachable].sort()).toEqual([...UPOS_VALUES].sort());
   });
 
+  it("licenses classifiers through UD NOUN + clf evidence rather than PART", () => {
+    const rule = PHRASE_PRODUCTION_RULES.find(
+      (item) => item.id === "phrase.numeral.classifier",
+    );
+    const classifier = rule?.constituents.find((item) => item.key === "classifier");
+    expect(classifier).toMatchObject({
+      allowedUpos: ["NOUN"],
+      requiredFunctions: ["classifier"],
+    });
+    expect(classifier?.allowedUpos).not.toContain("PART");
+  });
+
   it("locks phrase repetition to the declared termination bounds", () => {
     const noun = PHRASE_PRODUCTION_RULES.find(
       (rule) => rule.id === "phrase.noun.expanded",
@@ -72,9 +84,10 @@ describe("formal phrase production inventory", () => {
     }
   });
 
-  it("keeps oblique on the locative phrase without pushing it onto the noun", () => {
+  it("keeps oblique on the locative phrase without pushing it onto either noun", () => {
     const keep = new Set([
       "clause.locative",
+      "argument.subject.noun",
       "phrase.adposition.preposed",
       "phrase.noun.bare",
       "phrase.nominal-head.noun",
@@ -85,8 +98,6 @@ describe("formal phrase production inventory", () => {
     })].flatMap((shape) => shape.lexicalSlots);
     const nounSlots = slots.filter((slot) => slot.allowedUpos.includes("NOUN"));
     expect(nounSlots.length).toBeGreaterThan(0);
-    // The subject noun still carries its own subject requirement; no noun
-    // anywhere in the derivation is forced to be an oblique dependent.
     expect(nounSlots.some((slot) => slot.requiredFunctions.includes("oblique")))
       .toBe(false);
   });

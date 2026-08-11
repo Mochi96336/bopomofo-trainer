@@ -107,6 +107,7 @@ describe("formal syntax lexical bindings", () => {
       maximumAttempts: 1,
       rules: rules([
         "sentence.a-not-a-transitive-question",
+        "argument.object.noun",
         "phrase.noun.bare",
         "phrase.nominal-head.noun",
       ]),
