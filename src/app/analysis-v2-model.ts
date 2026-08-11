@@ -55,6 +55,11 @@ export interface AnalysisV2CoordinationModel {
   readonly readyTokenTransitions: number;
   readonly observedScopes: number;
   readonly readyScopes: number;
+  /**
+   * Unique clean accepted-token adjacencies. Low-dimensional motor families may
+   * intentionally describe the same physical adjacency from different angles,
+   * so their sample counts must never be summed into this headline total.
+   */
   readonly cleanTimingSamples: number;
 }
 
@@ -162,7 +167,7 @@ export function buildAnalysisV2Model(
       readyTokenTransitions: immediateTokens.filter((row) => row.ready).length,
       observedScopes: motor.filter((row) => row.observations > 0).length,
       readyScopes: motor.filter((row) => row.ready).length,
-      cleanTimingSamples: motor.reduce((sum, row) => sum + row.timingSamples, 0),
+      cleanTimingSamples: immediateTokens.reduce((sum, row) => sum + row.timingSamples, 0),
     },
     strategy: {
       inputOrderPositions: positions,
