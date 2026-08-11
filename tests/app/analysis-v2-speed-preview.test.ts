@@ -82,28 +82,51 @@ afterEach(() => {
 });
 
 describe("Analysis V2 speed preview lifecycle", () => {
-  it("temporarily overrides a pin, then restores the pinned focus/readout", () => {
+  it("focus previews readout/accent without inventing persistent relation emphasis", () => {
     const host = document.createElement("div");
     host.innerHTML = boardMarkup();
     document.body.append(host);
     controller = mountAnalysisV2SpeedPreview(host, () => MODEL);
-    controller.syncPinned("two");
+    controller.rendered();
 
     const one = host.querySelector<SVGPathElement>('.analysis-v2-speed-path[data-speed-id="one"]')!;
     const two = host.querySelector<SVGPathElement>('.analysis-v2-speed-path[data-speed-id="two"]')!;
-    expect(two.classList.contains("is-focused")).toBe(true);
-    expect(one.classList.contains("is-muted")).toBe(true);
+    two.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
 
-    one.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
-    expect(one.classList.contains("is-focused")).toBe(true);
-    expect(two.classList.contains("is-muted")).toBe(true);
-    expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toContain("ㄅ → ㄆ");
+    expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toContain("ㄇ → ㄈ");
     expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toContain("暫時預覽");
+    expect(two.classList.contains("is-accent")).toBe(true);
+    expect(one.classList.contains("is-accent")).toBe(false);
+    expect(two.classList.contains("is-focused")).toBe(false);
+    expect(one.classList.contains("is-muted")).toBe(false);
 
-    one.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: host }));
+    two.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: host }));
     expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toBe("baseline");
+    expect(one.classList.contains("is-accent")).toBe(true);
+    expect(two.classList.contains("is-accent")).toBe(false);
+  });
+
+  it("pointer hover owns relation/key emphasis only while the pointer is on a path", () => {
+    const host = document.createElement("div");
+    host.innerHTML = boardMarkup();
+    document.body.append(host);
+    controller = mountAnalysisV2SpeedPreview(host, () => MODEL);
+    controller.rendered();
+
+    const one = host.querySelector<SVGPathElement>('.analysis-v2-speed-path[data-speed-id="one"]')!;
+    const two = host.querySelector<SVGPathElement>('.analysis-v2-speed-path[data-speed-id="two"]')!;
+    two.dispatchEvent(new MouseEvent("pointerover", { bubbles: true }));
+
     expect(two.classList.contains("is-focused")).toBe(true);
     expect(one.classList.contains("is-muted")).toBe(true);
+    expect(host.querySelector<HTMLElement>('[data-speed-token="zhuyin:ㄇ"]')?.classList.contains("is-related")).toBe(true);
+    expect(host.querySelector<HTMLElement>('[data-speed-token="zhuyin:ㄈ"]')?.classList.contains("is-related")).toBe(true);
+
+    two.dispatchEvent(new MouseEvent("pointerout", { bubbles: true, relatedTarget: host }));
+    expect(two.classList.contains("is-focused")).toBe(false);
+    expect(one.classList.contains("is-muted")).toBe(false);
+    expect(host.querySelectorAll(".is-related")).toHaveLength(0);
+    expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toBe("baseline");
   });
 
   it("does not restore a stale board after rerender", () => {
@@ -111,18 +134,17 @@ describe("Analysis V2 speed preview lifecycle", () => {
     host.innerHTML = boardMarkup("old baseline");
     document.body.append(host);
     controller = mountAnalysisV2SpeedPreview(host, () => MODEL);
+    controller.rendered();
 
     const oldOne = host.querySelector<SVGPathElement>('.analysis-v2-speed-path[data-speed-id="one"]')!;
     oldOne.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
     expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toContain("暫時預覽");
 
     host.innerHTML = boardMarkup("new baseline");
-    controller.syncPinned("two");
+    controller.rendered();
     oldOne.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: host }));
 
     expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toBe("new baseline");
-    expect(host.querySelector<SVGPathElement>('.analysis-v2-speed-path[data-speed-id="two"]')
-      ?.classList.contains("is-focused")).toBe(true);
   });
 
   it("removes delegated listeners on destroy", () => {
@@ -130,6 +152,7 @@ describe("Analysis V2 speed preview lifecycle", () => {
     host.innerHTML = boardMarkup();
     document.body.append(host);
     controller = mountAnalysisV2SpeedPreview(host, () => MODEL);
+    controller.rendered();
     const one = host.querySelector<SVGPathElement>('.analysis-v2-speed-path[data-speed-id="one"]')!;
 
     controller.destroy();
