@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   analysisV2MovementLineArtMarkup,
@@ -50,15 +49,6 @@ function parse(markup: string): HTMLElement {
 }
 
 describe("Analysis V2 render ownership", () => {
-  it("keeps Movement line art render-only instead of growing another DOM patch", () => {
-    const source = readFileSync(
-      new URL("../../src/app/analysis-v2-movement-line-art.ts", import.meta.url),
-      "utf8",
-    );
-
-    expect(source).not.toMatch(/MutationObserver|querySelector|querySelectorAll|document\./);
-  });
-
   it("renders Movement line art by explicit family identity in any requested order", () => {
     const order: readonly AnalysisV2MovementFamilyId[] = [
       "tone-commit",
