@@ -6,7 +6,7 @@ import { exactTransitionHistoryLabel } from "./analysis-v2-speed-network.js";
 const SPEED_TARGET_SELECTOR = ".analysis-v2-speed-path, .analysis-v2-speed-hit";
 
 export interface AnalysisV2SpeedPreviewController {
-  syncPinned(pathId: string | null): void;
+  rendered(): void;
   destroy(): void;
 }
 
@@ -28,9 +28,10 @@ function relationOwner(target: EventTarget | null): PreviewOwner | null {
 }
 
 /**
- * Owns all transient Coordination flyline interaction. Hover/focus temporarily
- * overrides the persistent path selected by the panel, while board identity
- * prevents a stale pre-render owner from restoring markup into a new render.
+ * Owns transient Coordination flyline interaction only. Hover/focus may
+ * temporarily override the renderer-owned readout/accent, while pointer hover
+ * also owns the relation/key emphasis used by the current UI. Persistent pin
+ * state remains solely in the panel renderer.
  */
 export function mountAnalysisV2SpeedPreview(
   host: HTMLElement,
@@ -38,7 +39,6 @@ export function mountAnalysisV2SpeedPreview(
 ): AnalysisV2SpeedPreviewController {
   let pointerOwner: PreviewOwner | null = null;
   let focusOwner: PreviewOwner | null = null;
-  let pinnedId: string | null = null;
   let activePreviewId: string | null = null;
   let previewBoard: Element | null = null;
   let baselineReadoutHtml: string | null = null;
@@ -102,7 +102,6 @@ export function mountAnalysisV2SpeedPreview(
     }
     activePreviewId = owner.id;
     setAccent(board, owner.id);
-    setRelationFocus(board, owner.id);
     readout.innerHTML = `<strong><b>${tokenLabel(cell.scope.fromToken)} → ${tokenLabel(cell.scope.toToken)}</b><em>${Math.round(cell.currentTimeToTypeMs)} ms</em></strong><small>${cell.timingSamples} 個乾淨樣本 · 僅在畫面中的同類實際鍵間轉換中比較</small><span>${exactTransitionHistoryLabel(cell)} · 暫時預覽；點擊後固定 · 線粗＝樣本支持；越深紅＝相對越慢</span>`;
   };
 
@@ -115,8 +114,6 @@ export function mountAnalysisV2SpeedPreview(
       setAccent(board, baselineAccentId);
     }
     clearRenderedPreviewState();
-    const current = currentBoard();
-    if (current !== null) setRelationFocus(current, pinnedId);
   };
 
   const syncPreview = (): void => {
@@ -124,11 +121,11 @@ export function mountAnalysisV2SpeedPreview(
     if (pointerOwner !== null && pointerOwner.board !== board) pointerOwner = null;
     if (focusOwner !== null && focusOwner.board !== board) focusOwner = null;
     const owner = pointerOwner ?? focusOwner;
-    if (owner !== null) {
-      showPreview(owner);
-      return;
+    if (owner !== null) showPreview(owner);
+    else restorePreview();
+    if (board !== null) {
+      setRelationFocus(board, pointerOwner?.board === board ? pointerOwner.id : null);
     }
-    restorePreview();
   };
 
   const pointerOver = (event: PointerEvent): void => {
@@ -169,24 +166,26 @@ export function mountAnalysisV2SpeedPreview(
   host.addEventListener("focusout", focusOut);
 
   return {
-    syncPinned(pathId: string | null): void {
-      pinnedId = pathId;
+    rendered(): void {
       const board = currentBoard();
       if (previewBoard !== null && previewBoard !== board) clearRenderedPreviewState();
+      if (cachedBoard !== board) {
+        cachedBoard = null;
+        cachedCells = new Map();
+      }
       if (pointerOwner !== null && pointerOwner.board !== board) pointerOwner = null;
       if (focusOwner !== null && focusOwner.board !== board) focusOwner = null;
-      const owner = pointerOwner ?? focusOwner;
-      if (owner !== null) showPreview(owner);
-      else if (board !== null) setRelationFocus(board, pinnedId);
+      if (board !== null) setRelationFocus(board, null);
     },
     destroy(): void {
       host.removeEventListener("pointerover", pointerOver);
       host.removeEventListener("pointerout", pointerOut);
       host.removeEventListener("focusin", focusIn);
       host.removeEventListener("focusout", focusOut);
+      const board = currentBoard();
+      if (board !== null) setRelationFocus(board, null);
       pointerOwner = null;
       focusOwner = null;
-      pinnedId = null;
       cachedBoard = null;
       cachedCells = new Map();
       clearRenderedPreviewState();
