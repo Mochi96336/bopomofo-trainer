@@ -15,6 +15,7 @@ function emptyObservations(): MeasurementObservationsV2 {
   return {
     bindings: [],
     confusions: [],
+    inputOrderPositions: [],
     coordination: [],
     immediateHands: [],
     sameHandRevisits: [],

@@ -1,5 +1,23 @@
 import type { Exercise, PracticeMode, TokenId } from "../core/model.js";
+import {
+  coordinationAggregateKey,
+  coordinationBodySizeBucket,
+  immediateHandAggregateKey,
+  sameHandRevisitAggregateKey,
+  toneCommitAggregateKey,
+  type CoordinationAggregateScope,
+  type ImmediateHandAggregateScope,
+  type SameHandRevisitAggregateScope,
+  type ToneCommitAggregateScope,
+} from "../measurement-v2/aggregate.js";
 import { deriveMeasurementObservationsV2 } from "../measurement-v2/derive-observations.js";
+import {
+  coordinationTimingSample,
+  immediateHandTimingSample,
+  sameHandRevisitTimingSample,
+  toneCommitTimingSample,
+} from "../measurement-v2/timing-eligibility.js";
+import type { MeasurementObservationsV2 } from "../measurement-v2/types.js";
 import type { InteractionTraceV2 } from "../practice/interaction-session-v2.js";
 import {
   PROGRESS_HISTORY_POLICY,
@@ -9,6 +27,8 @@ import {
 import {
   PROGRESS_HISTORY_SCHEMA_VERSION,
   type KeyProgressHistory,
+  type MotorProgressHistory,
+  type MotorTimingProgressHistory,
   type ProgressHistory,
 } from "./types.js";
 
@@ -25,6 +45,26 @@ interface RoundObservations {
   readonly timings: readonly number[];
 }
 
+interface TimingHistoryState {
+  readonly timing: MotorTimingProgressHistory<unknown>["timing"];
+  readonly partialTiming: MotorTimingProgressHistory<unknown>["partialTiming"];
+  readonly totalTimingSamples: number;
+}
+
+interface MotorRoundSamples<Scope> {
+  readonly scope: Scope;
+  readonly samples: number[];
+}
+
+export function createEmptyMotorProgressHistory(): MotorProgressHistory {
+  return {
+    coordination: {},
+    immediateHands: {},
+    sameHandRevisits: {},
+    toneCommits: {},
+  };
+}
+
 export function createEmptyProgressHistory(
   mode: PracticeMode,
   layoutId: string,
@@ -35,6 +75,7 @@ export function createEmptyProgressHistory(
     layoutId,
     lastCompletedRound: 0,
     keys: {},
+    motor: createEmptyMotorProgressHistory(),
   };
 }
 
@@ -46,6 +87,17 @@ export function createEmptyKeyProgressHistory(tokenId: TokenId): KeyProgressHist
     partialCorrectness: { attempts: 0, errors: 0 },
     partialTiming: { samples: [] },
     totalObservations: 0,
+    totalTimingSamples: 0,
+  };
+}
+
+function createEmptyMotorTimingProgressHistory<Scope>(
+  scope: Scope,
+): MotorTimingProgressHistory<Scope> {
+  return {
+    scope,
+    timing: [],
+    partialTiming: { samples: [] },
     totalTimingSamples: 0,
   };
 }
@@ -71,11 +123,10 @@ function bounded<T>(points: readonly T[], limit: number): readonly T[] {
 }
 
 function roundObservationsByToken(
-  exercise: Exercise,
-  traces: readonly InteractionTraceV2[],
+  observations: MeasurementObservationsV2,
 ): ReadonlyMap<TokenId, RoundObservations> {
   const result = new Map<TokenId, { correct: boolean[]; timings: number[] }>();
-  for (const observation of deriveMeasurementObservationsV2(exercise, traces).bindings) {
+  for (const observation of observations.bindings) {
     const tokenId = observation.scope.tokenId;
     const bucket = result.get(tokenId) ?? { correct: [], timings: [] };
     bucket.correct.push(observation.correct);
@@ -122,17 +173,18 @@ function appendCorrectness(
   };
 }
 
-function appendTiming(
-  entry: KeyProgressHistory,
-  observations: RoundObservations,
+function appendTimingState(
+  entry: TimingHistoryState,
+  samples: readonly number[],
   completedRound: number,
   policy: ProgressHistoryPolicy,
-): Pick<KeyProgressHistory, "timing" | "partialTiming" | "totalTimingSamples"> {
+): TimingHistoryState {
   const points = [...entry.timing];
   let open = [...entry.partialTiming.samples];
   let total = entry.totalTimingSamples;
 
-  for (const sample of observations.timings) {
+  for (const sample of samples) {
+    if (!Number.isFinite(sample) || sample < 0) continue;
     open.push(sample);
     total += 1;
     if (open.length < policy.timingBucketSize) continue;
@@ -152,6 +204,110 @@ function appendTiming(
   };
 }
 
+function appendTiming(
+  entry: KeyProgressHistory,
+  observations: RoundObservations,
+  completedRound: number,
+  policy: ProgressHistoryPolicy,
+): Pick<KeyProgressHistory, "timing" | "partialTiming" | "totalTimingSamples"> {
+  return appendTimingState(entry, observations.timings, completedRound, policy);
+}
+
+function pushMotorSample<Scope>(
+  target: Map<string, MotorRoundSamples<Scope>>,
+  key: string,
+  scope: Scope,
+  sample: number | null,
+): void {
+  if (sample === null || !Number.isFinite(sample) || sample < 0) return;
+  const current = target.get(key) ?? { scope, samples: [] };
+  current.samples.push(sample);
+  target.set(key, current);
+}
+
+function motorSamples(
+  observations: MeasurementObservationsV2,
+): {
+  readonly coordination: ReadonlyMap<string, MotorRoundSamples<CoordinationAggregateScope>>;
+  readonly immediateHands: ReadonlyMap<string, MotorRoundSamples<ImmediateHandAggregateScope>>;
+  readonly sameHandRevisits: ReadonlyMap<string, MotorRoundSamples<SameHandRevisitAggregateScope>>;
+  readonly toneCommits: ReadonlyMap<string, MotorRoundSamples<ToneCommitAggregateScope>>;
+} {
+  const coordination = new Map<string, MotorRoundSamples<CoordinationAggregateScope>>();
+  for (const observation of observations.coordination) {
+    const scope: CoordinationAggregateScope = {
+      bodySize: coordinationBodySizeBucket(observation.bodySize),
+      handShape: observation.handShape,
+    };
+    pushMotorSample(
+      coordination,
+      coordinationAggregateKey(scope),
+      scope,
+      coordinationTimingSample(observation),
+    );
+  }
+
+  const immediateHands = new Map<string, MotorRoundSamples<ImmediateHandAggregateScope>>();
+  for (const observation of observations.immediateHands) {
+    const scope: ImmediateHandAggregateScope = {
+      fromHand: observation.fromHand,
+      toHand: observation.toHand,
+    };
+    pushMotorSample(
+      immediateHands,
+      immediateHandAggregateKey(scope),
+      scope,
+      immediateHandTimingSample(observation),
+    );
+  }
+
+  const sameHandRevisits = new Map<string, MotorRoundSamples<SameHandRevisitAggregateScope>>();
+  for (const observation of observations.sameHandRevisits) {
+    const scope: SameHandRevisitAggregateScope = {
+      hand: observation.hand,
+      oppositeHandIntervened: observation.oppositeHandEventsBetween > 0,
+    };
+    pushMotorSample(
+      sameHandRevisits,
+      sameHandRevisitAggregateKey(scope),
+      scope,
+      sameHandRevisitTimingSample(observation),
+    );
+  }
+
+  const toneCommits = new Map<string, MotorRoundSamples<ToneCommitAggregateScope>>();
+  for (const observation of observations.toneCommits) {
+    const scope: ToneCommitAggregateScope = { toneToken: observation.toneToken };
+    pushMotorSample(
+      toneCommits,
+      toneCommitAggregateKey(scope),
+      scope,
+      toneCommitTimingSample(observation),
+    );
+  }
+
+  return { coordination, immediateHands, sameHandRevisits, toneCommits };
+}
+
+function appendMotorFamily<Scope>(
+  prior: Readonly<Record<string, MotorTimingProgressHistory<Scope>>>,
+  roundSamples: ReadonlyMap<string, MotorRoundSamples<Scope>>,
+  completedRound: number,
+  policy: ProgressHistoryPolicy,
+): Readonly<Record<string, MotorTimingProgressHistory<Scope>>> {
+  const next: Record<string, MotorTimingProgressHistory<Scope>> = { ...prior };
+  for (const [key, incoming] of roundSamples) {
+    const entry = next[key] ?? createEmptyMotorTimingProgressHistory(incoming.scope);
+    next[key] = {
+      ...entry,
+      ...appendTimingState(entry, incoming.samples, completedRound, policy),
+    };
+  }
+  return Object.fromEntries(
+    Object.entries(next).sort(([left], [right]) => codeUnitCompare(left, right)),
+  );
+}
+
 export function appendRoundToProgressHistory(
   input: AppendRoundToProgressHistoryInput,
 ): ProgressHistory {
@@ -169,16 +325,45 @@ export function appendRoundToProgressHistory(
   }
   if (completedRound <= history.lastCompletedRound) return history;
 
-  const byToken = roundObservationsByToken(exercise, input.traces);
+  const observations = deriveMeasurementObservationsV2(exercise, input.traces);
+  const byToken = roundObservationsByToken(observations);
   const keys: Record<TokenId, KeyProgressHistory> = { ...history.keys };
-  for (const [tokenId, observations] of byToken) {
+  for (const [tokenId, tokenObservations] of byToken) {
     const entry = keys[tokenId] ?? createEmptyKeyProgressHistory(tokenId);
     keys[tokenId] = {
       ...entry,
-      ...appendCorrectness(entry, observations, completedRound, policy),
-      ...appendTiming(entry, observations, completedRound, policy),
+      ...appendCorrectness(entry, tokenObservations, completedRound, policy),
+      ...appendTiming(entry, tokenObservations, completedRound, policy),
     };
   }
+
+  const roundMotor = motorSamples(observations);
+  const motor: MotorProgressHistory = {
+    coordination: appendMotorFamily(
+      history.motor.coordination,
+      roundMotor.coordination,
+      completedRound,
+      policy,
+    ),
+    immediateHands: appendMotorFamily(
+      history.motor.immediateHands,
+      roundMotor.immediateHands,
+      completedRound,
+      policy,
+    ),
+    sameHandRevisits: appendMotorFamily(
+      history.motor.sameHandRevisits,
+      roundMotor.sameHandRevisits,
+      completedRound,
+      policy,
+    ),
+    toneCommits: appendMotorFamily(
+      history.motor.toneCommits,
+      roundMotor.toneCommits,
+      completedRound,
+      policy,
+    ),
+  };
 
   return {
     schemaVersion: PROGRESS_HISTORY_SCHEMA_VERSION,
@@ -188,5 +373,6 @@ export function appendRoundToProgressHistory(
     keys: Object.fromEntries(
       Object.entries(keys).sort(([left], [right]) => codeUnitCompare(left, right)),
     ),
+    motor,
   };
 }

@@ -1,9 +1,15 @@
 import type { PracticeMode, TokenId } from "../core/model.js";
+import type {
+  CoordinationAggregateScope,
+  ImmediateHandAggregateScope,
+  SameHandRevisitAggregateScope,
+  ToneCommitAggregateScope,
+} from "../measurement-v2/aggregate.js";
 
-// Schema 2 is the first trend history generated from unordered input-order V2.
-// Schema 1 may contain strict-order errors and timing and is intentionally not
-// migrated across the measurement epoch boundary.
-export const PROGRESS_HISTORY_SCHEMA_VERSION = 2 as const;
+// Schema 3 adds bounded V2 motor histories. Schema 2 remains safely migratable:
+// it already used unordered input-order V2 semantics, so migration only adds
+// empty motor series and does not reinterpret any stored observation.
+export const PROGRESS_HISTORY_SCHEMA_VERSION = 3 as const;
 
 /**
  * One completed slice of correctness observations for a single expected token.
@@ -23,11 +29,11 @@ export interface CorrectnessTrendPoint {
 }
 
 /**
- * One completed slice of accepted binding timing observations.
+ * One completed slice of accepted timing observations.
  *
  * `representativeTimingMs` is the median of the bucket's accepted samples. It is
- * deliberately not the aggregate's exponential moving average: the aggregate
- * describes the current smoothed state, this describes one bounded exposure.
+ * deliberately not an aggregate EMA: the aggregate describes the current
+ * smoothed state, this point describes one bounded exposure.
  */
 export interface TimingTrendPoint {
   /** Cumulative count of accepted timing observations at the bucket's close. */
@@ -64,6 +70,24 @@ export interface KeyProgressHistory {
   readonly totalTimingSamples: number;
 }
 
+/**
+ * One bounded motor timing series. Scope identity is intentionally the same
+ * low-dimensional identity used by the cumulative V2 motor aggregate.
+ */
+export interface MotorTimingProgressHistory<Scope> {
+  readonly scope: Scope;
+  readonly timing: readonly TimingTrendPoint[];
+  readonly partialTiming: PartialTimingBucket;
+  readonly totalTimingSamples: number;
+}
+
+export interface MotorProgressHistory {
+  readonly coordination: Readonly<Record<string, MotorTimingProgressHistory<CoordinationAggregateScope>>>;
+  readonly immediateHands: Readonly<Record<string, MotorTimingProgressHistory<ImmediateHandAggregateScope>>>;
+  readonly sameHandRevisits: Readonly<Record<string, MotorTimingProgressHistory<SameHandRevisitAggregateScope>>>;
+  readonly toneCommits: Readonly<Record<string, MotorTimingProgressHistory<ToneCommitAggregateScope>>>;
+}
+
 export interface ProgressHistory {
   readonly schemaVersion: typeof PROGRESS_HISTORY_SCHEMA_VERSION;
   readonly mode: PracticeMode;
@@ -75,4 +99,5 @@ export interface ProgressHistory {
    */
   readonly lastCompletedRound: number;
   readonly keys: Readonly<Record<TokenId, KeyProgressHistory>>;
+  readonly motor: MotorProgressHistory;
 }

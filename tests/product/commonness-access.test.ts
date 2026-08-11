@@ -61,6 +61,9 @@ function measurements(practised: number, cleanInputs = 8): MeasurementSummaryV2 
       duplicateComponents: 0,
       prematureTones: 0,
     },
+    strategy: {
+      inputOrderPositions: {},
+    },
     motor: {
       coordination: {},
       immediateHands: {},
