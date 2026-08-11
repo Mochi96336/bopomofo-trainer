@@ -1,5 +1,8 @@
 import { createApp, type App } from "../../src/app/create-app.js";
-import { mountAnalysisV2Integration } from "../../src/app/analysis-v2-integration.js";
+import {
+  mountAnalysisV2Integration,
+  type AnalysisV2Integration,
+} from "../../src/app/analysis-v2-integration.js";
 import type { StorageLike } from "../../src/app/persistence-transaction.js";
 
 /**
@@ -147,9 +150,8 @@ export interface MountOptions {
   /**
    * Composes Analysis V2 over the shell exactly as `browser.ts` does.
    *
-   * The two only meet through the handles they exchange, so wiring them the
-   * same way here is what makes that meeting assertable rather than something
-   * only the real page performs.
+   * The app is constructed first and owns the snapshot. Analysis mounts after
+   * construction and consumes that live state through the app handle.
    */
   readonly analysisV2?: boolean;
   /**
@@ -172,17 +174,10 @@ export function mountApp(options: MountOptions = {}): MountedApp {
   if (root === null || capture === null) throw new Error("test shell did not mount");
 
   let seed = 0;
-  let app: App | null = null;
-  const analysisV2 = options.analysisV2 === true
-    ? mountAnalysisV2Integration({
-      closePanel: () => app?.closePanel(),
-      focusPractice: () => app?.focusPractice(),
-      getSnapshot: () => app?.getAnalysisV2Snapshot() ?? null,
-      storage: createMemoryStorage(),
-    })
-    : null;
+  const composeAnalysisV2 = options.analysisV2 === true;
+  let analysisV2: AnalysisV2Integration | null = null;
 
-  app = createApp({
+  const app = createApp({
     root,
     capture,
     storage,
@@ -195,11 +190,19 @@ export function mountApp(options: MountOptions = {}): MountedApp {
     ...options.onRoundMounted === undefined
       ? {}
       : { onRoundMounted: options.onRoundMounted },
-    ...analysisV2 === null
-      ? {}
-      : { onPanelRendered: (content: HTMLElement) => analysisV2.panelRendered(content) },
+    ...composeAnalysisV2
+      ? { onPanelRendered: (content: HTMLElement) => analysisV2?.panelRendered(content) }
+      : {},
   });
-  const mountedApp = app;
+
+  if (composeAnalysisV2) {
+    analysisV2 = mountAnalysisV2Integration({
+      closePanel: () => app.closePanel(),
+      focusPractice: () => app.focusPractice(),
+      getSnapshot: () => app.getAnalysisV2Snapshot(),
+      storage: createMemoryStorage(),
+    });
+  }
 
   const find = <T extends Element>(selector: string): T => {
     const element = document.querySelector<T>(selector);
@@ -208,7 +211,7 @@ export function mountApp(options: MountOptions = {}): MountedApp {
   };
 
   return {
-    app: mountedApp,
+    app,
     root,
     capture,
     storage,
@@ -233,7 +236,7 @@ export function mountApp(options: MountOptions = {}): MountedApp {
     },
     destroy(options: { readonly keepDocument?: boolean } = {}): void {
       analysisV2?.destroy();
-      mountedApp.destroy();
+      app.destroy();
       if (options.keepDocument !== true) document.body.innerHTML = "";
     },
   };
