@@ -268,9 +268,13 @@ export function decodeSyntaxProfiles(
     const entry = allEntries[entryIndex];
     if (entry === undefined) throw new Error(`catalog entry index ${entryIndex} out of range`);
     const morphologicalFeatureCounts = decodeEvidenceCounts(morphologyIndices, morphologyKeys);
-    const occurrenceCapabilities = occurrenceCapabilityIndices.map((index) =>
-      enumOrThrow(occurrenceCapabilityKeys, index, "occurrence capability"),
-    );
+    const occurrenceCapabilities = occurrenceCapabilityIndices.map((index) => {
+      const capability = enumOrThrow(occurrenceCapabilityKeys, index, "occurrence capability");
+      if (!isReviewedRuntimeOccurrenceCapability(capability)) {
+        throw new Error("compact syntax profile contains an unreviewed occurrence capability key");
+      }
+      return capability;
+    });
     return {
       id: `runtime-syntax-profile:${position}`,
       entryId: entry.id,
