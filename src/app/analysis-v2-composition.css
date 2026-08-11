@@ -1,0 +1,9 @@
+/* Analysis composition manifest.
+   Keep the source-order contract in one place instead of distributing later
+   override layers across TypeScript modules. These files remain split by concern,
+   but any selector that intentionally refines an earlier layer now does so through
+   this explicit order. Component paint imported by its renderer is independent. */
+@import "./analysis-v2-layout.css";
+@import "./analysis-v2-space.css";
+@import "./analysis-v2-strategy-floor.css";
+@import "./analysis-v2-viewport-composition.css";
