@@ -30,6 +30,12 @@ import type {
 } from "./types.js";
 import { assertValidGrammar } from "./validate.js";
 
+export interface NestedProductionTarget {
+  readonly parentRuleId: string;
+  readonly constituentKey: string;
+  readonly childRuleId: string;
+}
+
 export interface StructuralSamplingOptions {
   readonly rootCategory: SyntaxCategory;
   readonly rules: readonly ProductionRule[];
@@ -44,6 +50,12 @@ export interface StructuralSamplingOptions {
    * root-rule fallback opportunities inside one structural attempt.
    */
   readonly rootProductionRuleId?: string;
+  /**
+   * Target an existing child production only at a named parent constituent edge.
+   * Other occurrences of the same child category remain unconstrained, including
+   * recursively embedded occurrences below the targeted child.
+   */
+  readonly nestedProductionTargets?: readonly NestedProductionTarget[];
 }
 
 interface State {
@@ -139,7 +151,12 @@ function makeSlot(
   };
 }
 
+function nestedTargetKey(parentRuleId: string, constituentKey: string): string {
+  return `${parentRuleId}\u0000${constituentKey}`;
+}
+
 function sampleRuleChildren(
+  parentRuleId: string,
   ordered: readonly ProductionConstituent[],
   requirements: SyntaxRequirements,
   rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
@@ -149,6 +166,7 @@ function sampleRuleChildren(
   path: readonly string[],
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   rootProductionRuleId: string | undefined,
+  nestedProductionTargets: ReadonlyMap<string, string>,
   fixedCounts?: ConstituentCounts,
 ): SampledRuleChildren | null {
   let workingState = inputState;
@@ -184,6 +202,9 @@ function sampleRuleChildren(
         workingState = { ...workingState, lexicalCount: workingState.lexicalCount + 1 };
         continue;
       }
+      const requestedChildRuleId = nestedProductionTargets.get(
+        nestedTargetKey(parentRuleId, constituent.key),
+      );
       const child = sampleCategory(
         constituent.category,
         childRequirements,
@@ -195,7 +216,9 @@ function sampleRuleChildren(
         isLexicalSlotReachable,
         excludedClassesForConstituent(constituent),
         rootProductionRuleId,
+        nestedProductionTargets,
         false,
+        requestedChildRuleId,
       );
       if (child === null) return null;
       children.push(child.element);
@@ -219,7 +242,9 @@ function sampleCategory(
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
   rootProductionRuleId: string | undefined,
+  nestedProductionTargets: ReadonlyMap<string, string>,
   isRoot: boolean,
+  requestedProductionRuleId?: string,
 ): Sampled | null {
   let state = inputState;
   if (category === "Clause" || category === "OpenClause") {
@@ -228,7 +253,8 @@ function sampleCategory(
   }
   const eligibleRules = (rulesByOutput.get(category) ?? [])
     .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))
-    .filter((rule) => !isRoot || rootProductionRuleId === undefined || rule.id === rootProductionRuleId);
+    .filter((rule) => !isRoot || rootProductionRuleId === undefined || rule.id === rootProductionRuleId)
+    .filter((rule) => requestedProductionRuleId === undefined || rule.id === requestedProductionRuleId);
   const candidates = shuffled(eligibleRules, random);
   for (const rule of candidates) {
     const order = rule.surfaceOrders[chooseIndex(random, rule.surfaceOrders.length)];
@@ -245,6 +271,7 @@ function sampleCategory(
     }
 
     const sampledChildren = sampleRuleChildren(
+      rule.id,
       ordered as readonly ProductionConstituent[],
       requirements,
       rulesByOutput,
@@ -254,6 +281,7 @@ function sampleCategory(
       [...path, rule.id],
       isLexicalSlotReachable,
       rootProductionRuleId,
+      nestedProductionTargets,
       fixedCounts,
     );
     if (sampledChildren === null) continue;
@@ -292,6 +320,47 @@ function validatedRootRuleId(options: StructuralSamplingOptions): string | undef
   return ruleId;
 }
 
+function validatedNestedProductionTargets(
+  options: StructuralSamplingOptions,
+): ReadonlyMap<string, string> {
+  const rulesById = new Map(options.rules.map((rule) => [rule.id, rule]));
+  const targets = new Map<string, string>();
+  for (const target of options.nestedProductionTargets ?? []) {
+    const parent = rulesById.get(target.parentRuleId);
+    if (parent === undefined) {
+      throw new Error(`nested production target references missing parent: ${target.parentRuleId}`);
+    }
+    const constituent = parent.constituents.find((item) => item.key === target.constituentKey);
+    if (constituent === undefined) {
+      throw new Error(
+        `nested production target references missing constituent: ${target.parentRuleId}:${target.constituentKey}`,
+      );
+    }
+    if (constituent.category === "Lexeme") {
+      throw new Error(
+        `nested production target cannot target lexical constituent: ${target.parentRuleId}:${target.constituentKey}`,
+      );
+    }
+    const child = rulesById.get(target.childRuleId);
+    if (child === undefined) {
+      throw new Error(`nested production target references missing child: ${target.childRuleId}`);
+    }
+    if (child.output !== constituent.category) {
+      throw new Error(
+        `nested production target child category mismatch: ${target.parentRuleId}:${target.constituentKey} -> ${target.childRuleId}`,
+      );
+    }
+    const key = nestedTargetKey(target.parentRuleId, target.constituentKey);
+    if (targets.has(key)) {
+      throw new Error(
+        `nested production target duplicates parent constituent: ${target.parentRuleId}:${target.constituentKey}`,
+      );
+    }
+    targets.set(key, target.childRuleId);
+  }
+  return targets;
+}
+
 export function sampleStructuralDerivation(
   options: StructuralSamplingOptions,
 ): StructuralDerivationShape | null {
@@ -302,6 +371,7 @@ export function sampleStructuralDerivation(
   }
   assertValidGrammar(options.rules, bounds);
   const requestedRootRuleId = validatedRootRuleId(options);
+  const nestedProductionTargets = validatedNestedProductionTargets(options);
   const rulesByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();
   for (const rule of options.rules) {
     rulesByOutput.set(rule.output, [...(rulesByOutput.get(rule.output) ?? []), rule]);
@@ -323,6 +393,7 @@ export function sampleStructuralDerivation(
       options.isLexicalSlotReachable,
       new Set(),
       requestedRootRuleId,
+      nestedProductionTargets,
       true,
     );
     if (sampled === null || sampled.element.kind !== "syntax-node") continue;
