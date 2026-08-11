@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildAnalysisV2SpeedPaths } from "../../src/app/analysis-v2-speed-network.js";
+import {
+  ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES,
+  buildAnalysisV2SpeedPaths,
+} from "../../src/app/analysis-v2-speed-network.js";
 import type { AnalysisV2MotorCell } from "../../src/app/analysis-v2-model.js";
 import type { ImmediateTokenAggregateScope } from "../../src/measurement-v2/aggregate.js";
 
@@ -24,13 +27,14 @@ function cell(
 }
 
 describe("Analysis V2 observed speed network", () => {
-  it("draws only edges with an accepted clean timing sample", () => {
+  it("draws only exact edges that reached the clean timing support threshold", () => {
     const paths = buildAnalysisV2SpeedPaths([
-      cell("timed", "zhuyin:ㄩ", "zhuyin:ㄒ", 120, 5),
-      cell("coverage-only", "zhuyin:ㄒ", "zhuyin:ㄩ", null, 0),
+      cell("ready", "zhuyin:ㄩ", "zhuyin:ㄒ", 120, 5),
+      cell("sampling", "zhuyin:ㄒ", "zhuyin:ㄩ", 110, 4),
+      cell("coverage-only", "zhuyin:ㄝ", "tone:2", null, 0),
     ]);
     expect(paths).toHaveLength(1);
-    expect(paths[0]?.id).toBe("timed");
+    expect(paths[0]?.id).toBe("ready");
     expect(paths[0]?.label).toContain("ㄩ 到 ㄒ");
   });
 
@@ -46,7 +50,7 @@ describe("Analysis V2 observed speed network", () => {
     expect(forward.path).not.toBe(reverse.path);
   });
 
-  it("maps relative slowness only within exact observed transition timing", () => {
+  it("maps relative slowness only within the visible exact-transition family", () => {
     const paths = buildAnalysisV2SpeedPaths([
       cell("fast", "zhuyin:ㄅ", "zhuyin:ㄆ", 80, 8),
       cell("middle", "zhuyin:ㄩ", "zhuyin:ㄒ", 120, 5),
@@ -58,5 +62,27 @@ describe("Analysis V2 observed speed network", () => {
       ["slow", 1],
     ]);
     expect(paths.find((path) => path.id === "slow")?.includesTone).toBe(true);
+  });
+
+  it("caps dense graphs by support before assigning relative speed ranks", () => {
+    const paths = buildAnalysisV2SpeedPaths([
+      cell("low-support", "zhuyin:ㄅ", "zhuyin:ㄆ", 70, 5),
+      cell("high-support", "zhuyin:ㄩ", "zhuyin:ㄒ", 140, 12),
+      cell("middle-support", "zhuyin:ㄝ", "tone:2", 110, 8),
+    ], 2);
+    expect(paths.map((path) => path.id).sort()).toEqual([
+      "high-support",
+      "middle-support",
+    ]);
+    expect(ANALYSIS_V2_SPEED_MAX_VISIBLE_EDGES).toBeGreaterThan(2);
+  });
+
+  it("never routes a top-row curve above the SVG viewBox", () => {
+    const path = buildAnalysisV2SpeedPaths([
+      cell("top-row", "zhuyin:ㄅ", "zhuyin:ㄆ", 100, 5),
+    ])[0]!.path;
+    const controlYs = [...path.matchAll(/C [\d.-]+ ([\d.-]+), [\d.-]+ ([\d.-]+),/gu)]
+      .flatMap((match) => [Number(match[1]), Number(match[2])]);
+    expect(controlYs.every((value) => value >= 0)).toBe(true);
   });
 });

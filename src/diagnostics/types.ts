@@ -2,7 +2,6 @@ import type { TokenId } from "../core/model.js";
 
 export type DiagnosticDataState = "insufficient" | "preliminary" | "sufficient";
 export type DiagnosticMetricAvailability = "available" | "not-applicable";
-export type DiagnosticReinforcementState = "sampling" | "neutral" | "reinforced";
 
 export interface KeyDiagnostic {
   readonly tokenId: TokenId;
@@ -12,27 +11,11 @@ export interface KeyDiagnostic {
   readonly attempts: number;
   readonly errors: number;
   readonly displayedErrorRatio: number | null;
-  readonly errorMetricLabel: "錯誤觀察比例";
   readonly errorDataState: DiagnosticDataState;
   readonly timingAvailability: DiagnosticMetricAvailability;
   readonly timingMs: number | null;
   readonly timingSamples: number;
-  readonly bestTimingMs: number | null;
   readonly timingDataState: DiagnosticDataState | null;
-  /** Null when the supplied measurement model does not preserve exclusion causes. */
-  readonly excludedSamples: {
-    readonly syllableStart: number;
-    readonly incorrect: number;
-    readonly recovery: number;
-    readonly interactionNoise: number;
-  } | null;
-  readonly overallDataState: DiagnosticDataState;
-  readonly reinforcement: {
-    readonly state: DiagnosticReinforcementState;
-    readonly label: string;
-    readonly reason: string;
-    readonly expectedTokenBoost: number;
-  };
 }
 
 export interface ConfusionDiagnostic {

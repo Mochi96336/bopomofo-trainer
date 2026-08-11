@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { InputLayout, TokenId } from "../../src/core/model.js";
-import { FREQUENCY_FIRST_UTTERANCE_POLICY } from "../../src/curriculum/frequency-first-utterance.js";
 import type {
   CatalogSupportIndex,
   CatalogTokenSupport,
@@ -77,7 +76,7 @@ function emptyObservationFamilies() {
 }
 
 describe("Analysis V2 native semantic model", () => {
-  it("projects binding evidence directly from Measurement V2", () => {
+  it("projects only rendered binding evidence directly from Measurement V2", () => {
     const measurements = aggregateMeasurementObservationsV2({
       bindings: [
         { traceSequence: 0, scope: { mode: "guided", layoutId: LAYOUT.id, tokenId: "zhuyin:ㄅ" }, physicalCode: "Digit1", correct: true, timingMs: 120 },
@@ -94,7 +93,6 @@ describe("Analysis V2 native semantic model", () => {
       curriculum: CURRICULUM,
       support: SUPPORT,
       layout: LAYOUT,
-      selectionPolicy: FREQUENCY_FIRST_UTTERANCE_POLICY,
     });
     const key = model.keys.find((row) => row.tokenId === "zhuyin:ㄅ");
     const noMotorKey = model.keys.find((row) => row.tokenId === "zhuyin:ㄆ");
@@ -105,20 +103,24 @@ describe("Analysis V2 native semantic model", () => {
       attempts: 4,
       errors: 1,
       displayedErrorRatio: 0.25,
+      errorDataState: "preliminary",
       timingSamples: 3,
-      bestTimingMs: 100,
+      timingDataState: "preliminary",
       timingAvailability: "available",
-      excludedSamples: null,
     });
-    expect(key?.reinforcement.state).toBe("reinforced");
-    expect(key?.reinforcement.expectedTokenBoost).toBeGreaterThan(1);
+    expect(Object.keys(key ?? {})).not.toContain("reinforcement");
+    expect(Object.keys(key ?? {})).not.toContain("bestTimingMs");
     expect(noMotorKey?.timingAvailability).toBe("not-applicable");
     expect(noMotorKey?.timingDataState).toBeNull();
     expect(model.keysWithData).toBe(1);
   });
 
   it("keeps directional confusion totals inside the active mode and layout", () => {
-    const confusion = (traceSequence: number, actualToken: TokenId, mode: "guided" | "recall" = "guided") => ({
+    const confusion = (
+      traceSequence: number,
+      actualToken: TokenId,
+      mode: "guided" | "recall" = "guided",
+    ) => ({
       traceSequence,
       mode,
       layoutId: LAYOUT.id,
@@ -144,7 +146,6 @@ describe("Analysis V2 native semantic model", () => {
       curriculum: CURRICULUM,
       support: SUPPORT,
       layout: LAYOUT,
-      selectionPolicy: FREQUENCY_FIRST_UTTERANCE_POLICY,
     });
     const toPo = model.confusions.find((row) => row.actualTokenId === "zhuyin:ㄆ");
     const toMo = model.confusions.find((row) => row.actualTokenId === "zhuyin:ㄇ");
@@ -156,11 +157,13 @@ describe("Analysis V2 native semantic model", () => {
       expectedErrorShare: 0.75,
       expectedPhysicalKey: "1",
       actualPhysicalKey: "Q",
+      dataState: "preliminary",
     });
     expect(toMo).toMatchObject({
       occurrences: 1,
       expectedConfusionTotal: 4,
       expectedErrorShare: 0.25,
+      dataState: "insufficient",
     });
     expect(model.repeatedConfusions).toBe(1);
   });
@@ -202,7 +205,6 @@ describe("Analysis V2 native semantic model", () => {
       curriculum: CURRICULUM,
       support: SUPPORT,
       layout: LAYOUT,
-      selectionPolicy: FREQUENCY_FIRST_UTTERANCE_POLICY,
       progressHistory: history,
     });
 
