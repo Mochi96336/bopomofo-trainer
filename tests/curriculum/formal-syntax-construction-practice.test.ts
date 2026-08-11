@@ -50,21 +50,9 @@ function profile(
     valencyFrames,
     provenanceIds: ["test"],
     dependencyEvidence: {
-      evidenceScope: "per-upos",
-      occurrenceCount: 1,
       dependencyRelationCounts: {},
-      morphologicalFeatureCounts,
-      parentUposCounts: {},
-      headDirectionCounts: {},
       surfacePositionCounts: {},
-      childRelationCounts: {},
-      childDirectionRelationCounts: {},
-      childRelationMultisetCounts: { none: 1 },
-      valencyRelationCounts: {},
-      valencySignatureCounts: { none: 1 },
-      constructionRelationCounts: {},
-      anonymousDependencySkeletons: [],
-      rootCount: 0,
+      morphologicalFeatureCounts,
     },
   };
 }
