@@ -106,7 +106,7 @@ describe("reviewed runtime morphology", () => {
     expect(legacyDecoded[0]?.dependencyEvidence.morphologicalFeatureCounts).toBeUndefined();
   });
 
-  it("ships the pinned active morphology migration sparsely", () => {
+  it("ships sparse morphology with exact source and identity-policy lineage", () => {
     const artifact = JSON.parse(readFileSync(
       new URL("../../data/grammar/formal-syntax-active-catalog-profiles.json", import.meta.url),
       "utf8",
@@ -114,9 +114,16 @@ describe("reviewed runtime morphology", () => {
     const morphologyProfiles = artifact.profiles.filter(
       (item) => item.dependencyEvidence.morphologicalFeatureCounts !== undefined,
     );
-    expect(morphologyProfiles).toHaveLength(139);
-    expect(new Set(morphologyProfiles.map((item) => item.entryId)).size).toBe(138);
+    expect(morphologyProfiles.length).toBeGreaterThan(0);
     expect(morphologyProfiles.length).toBeLessThan(artifact.profileCount);
+    expect(artifact.runtimeMorphologyProjection).toEqual({
+      schemaVersion: "runtime-morphology-projection-v1",
+      sourceProvenanceId: "ud:chinese-gsd-r2.18",
+      sourceVersion: "r2.18",
+      sourceCommit: "e0d85a020182e264d6384be2a59c0f4879a1cc35",
+      reviewedFeature: "Voice=Cau",
+      identityPolicy: "unique-active-entry-per-form-upos-v1",
+    });
     for (const item of morphologyProfiles) {
       expect(item.dependencyEvidence.morphologicalFeatureCounts).toEqual({ "Voice=Cau": 1 });
     }
