@@ -28,14 +28,14 @@ function relationOwner(target: EventTarget | null): PreviewOwner | null {
 }
 
 /**
- * Owns transient Coordination flyline interaction only. Hover/focus may
- * temporarily override the renderer-owned readout/accent, while pointer hover
- * also owns the relation/key emphasis used by the current UI. Persistent pin
- * state remains solely in the panel renderer.
+ * Owns transient Coordination flyline interaction. The persistent path id stays
+ * canonical in the panel and is read through getPinnedPathId only when relation
+ * emphasis must be restored after a pointer preview or a render.
  */
 export function mountAnalysisV2SpeedPreview(
   host: HTMLElement,
   getModel: () => AnalysisV2Model,
+  getPinnedPathId: () => string | null = () => null,
 ): AnalysisV2SpeedPreviewController {
   let pointerOwner: PreviewOwner | null = null;
   let focusOwner: PreviewOwner | null = null;
@@ -124,7 +124,10 @@ export function mountAnalysisV2SpeedPreview(
     if (owner !== null) showPreview(owner);
     else restorePreview();
     if (board !== null) {
-      setRelationFocus(board, pointerOwner?.board === board ? pointerOwner.id : null);
+      setRelationFocus(
+        board,
+        pointerOwner?.board === board ? pointerOwner.id : getPinnedPathId(),
+      );
     }
   };
 
@@ -175,7 +178,7 @@ export function mountAnalysisV2SpeedPreview(
       }
       if (pointerOwner !== null && pointerOwner.board !== board) pointerOwner = null;
       if (focusOwner !== null && focusOwner.board !== board) focusOwner = null;
-      if (board !== null) setRelationFocus(board, null);
+      if (board !== null) setRelationFocus(board, getPinnedPathId());
     },
     destroy(): void {
       host.removeEventListener("pointerover", pointerOver);
