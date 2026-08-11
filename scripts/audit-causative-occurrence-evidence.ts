@@ -1,5 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { compileCatalog } from "../src/catalog/compile-catalog.js";
+import { parseCsv } from "../src/catalog/csv.js";
+import { createProvenanceRegistry } from "../src/catalog/provenance.js";
 import type { ActiveCatalogSyntaxProfilesArtifact } from "../src/syntax/runtime-profiles.js";
 import { loadResolvedCatalogSource } from "./load-resolved-catalog-source.js";
 
@@ -82,8 +84,9 @@ function sortedTexts(values: ReadonlySet<string>): readonly string[] {
   return [...values].sort((left, right) => left.localeCompare(right, "zh-Hant"));
 }
 
-const [resolvedSource, profilesSource, udSources] = await Promise.all([
+const [resolvedSource, provenanceSource, profilesSource, udSources] = await Promise.all([
   loadResolvedCatalogSource(),
+  readFile(new URL("../data/provenance.csv", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-active-catalog-profiles.json", import.meta.url), "utf8"),
   Promise.all(UD_FILENAMES.map(async (filename) => {
     const url = `https://raw.githubusercontent.com/UniversalDependencies/UD_Chinese-GSD/${UD_SOURCE_COMMIT}/${filename}`;
@@ -93,7 +96,11 @@ const [resolvedSource, profilesSource, udSources] = await Promise.all([
   })),
 ]);
 
-const catalog = compileCatalog(resolvedSource.records, new Set());
+const provenance = createProvenanceRegistry(parseCsv(provenanceSource).records);
+if (provenance.errors.length > 0) {
+  throw new Error(provenance.errors.map((error) => error.message).join("\n"));
+}
+const catalog = compileCatalog(resolvedSource.records, provenance.ids);
 if (catalog.errors.length > 0) {
   throw new Error(catalog.errors.map((error) => error.message).join("\n"));
 }
