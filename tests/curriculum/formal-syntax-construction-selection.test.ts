@@ -74,6 +74,8 @@ describe("frequency-first formal syntax construction selection", () => {
     expect(selection.score.frequencyBase).toBeGreaterThan(0);
     expect(selection.score.expectedTokenBoost).toBe(1);
     expect(selection.score.transitionBoost).toBe(1);
+    expect(selection.slotSelections).toEqual([]);
+    expect(selection.templateCandidates).toEqual([]);
 
     const profileIds = selection.utterance.syntaxProfileIds ?? [];
     const profilesById = new Map(SYNTAX_PROFILES.map((profile) => [profile.id, profile]));
