@@ -1,6 +1,13 @@
+export type AnalysisV2MovementFamilyId =
+  | "hand-switch"
+  | "same-side-revisit"
+  | "word-structure"
+  | "tone-commit";
+
 interface MovementLineArt {
   readonly label: string;
   readonly markup: string;
+  readonly wrapperClass?: string;
 }
 
 const svgOpen = '<svg width="260" height="78" viewBox="0 0 260 78" aria-hidden="true" focusable="false" style="display:block;max-width:82%;height:auto;font-family:inherit;overflow:visible">';
@@ -101,31 +108,29 @@ const toneCommit = `${svgOpen}
   </g>
 ${svgClose}`;
 
-const lineArt: readonly MovementLineArt[] = [
-  { label: "鍵盤左右手切換示意", markup: handSwitch },
-  { label: "同側回返示意：離開一側後經另一側回到原側", markup: sameSideRevisit },
-  { label: "聲母、介音、韻母的字內結構示意", markup: wordStructure },
-  { label: "完成字內注音後按下聲調鍵示意", markup: toneCommit },
-];
+const lineArtByFamily: Readonly<Record<AnalysisV2MovementFamilyId, MovementLineArt>> = {
+  "hand-switch": {
+    label: "鍵盤左右手切換示意",
+    markup: handSwitch,
+  },
+  "same-side-revisit": {
+    label: "同側回返示意：離開一側後經另一側回到原側",
+    markup: sameSideRevisit,
+  },
+  "word-structure": {
+    label: "聲母、介音、韻母的字內結構示意",
+    markup: wordStructure,
+    wrapperClass: " analysis-v2-word-structure",
+  },
+  "tone-commit": {
+    label: "完成字內注音後按下聲調鍵示意",
+    markup: toneCommit,
+  },
+};
 
-function applyMovementLineArt(host: HTMLElement): void {
-  const diagrams = host.querySelectorAll<HTMLElement>(
-    ".analysis-v2-movement-grid .analysis-v2-movement-diagram",
-  );
-  diagrams.forEach((diagram, index) => {
-    const art = lineArt[index];
-    if (art === undefined || diagram.dataset.lineArt === "true") return;
-    diagram.dataset.lineArt = "true";
-    diagram.innerHTML = art.markup;
-    diagram.removeAttribute("aria-hidden");
-    diagram.setAttribute("role", "img");
-    diagram.setAttribute("aria-label", art.label);
-  });
-}
-
-export function mountAnalysisV2MovementLineArt(host: HTMLElement): () => void {
-  applyMovementLineArt(host);
-  const observer = new MutationObserver(() => applyMovementLineArt(host));
-  observer.observe(host, { childList: true, subtree: true });
-  return () => observer.disconnect();
+export function analysisV2MovementLineArtMarkup(
+  family: AnalysisV2MovementFamilyId,
+): string {
+  const art = lineArtByFamily[family];
+  return `<div class="analysis-v2-movement-diagram${art.wrapperClass ?? ""}" data-movement-line-art="${family}" role="img" aria-label="${art.label}">${art.markup}</div>`;
 }

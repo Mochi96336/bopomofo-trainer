@@ -1,215 +1,142 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  createAnalysisV2,
-  type AnalysisV2PreferenceStorage,
-} from "../../src/app/analysis-v2-panel.js";
-import type { AnalysisV2Model } from "../../src/app/analysis-v2-model.js";
-import {
   mountAnalysisV2SpeedPreview,
   type AnalysisV2SpeedPreviewController,
 } from "../../src/app/analysis-v2-speed-preview.js";
+import type { AnalysisV2Model } from "../../src/app/analysis-v2-model.js";
 
-const FAST_ID = '["immediate-token","zhuyin:ㄅ","zhuyin:ㄆ"]';
-const SLOW_ID = '["immediate-token","zhuyin:ㄇ","zhuyin:ㄈ"]';
-
-function history(values: readonly number[]) {
-  return values.map((representativeTimingMs, index) => ({
-    endingSample: (index + 1) * 5,
-    completedRound: index + 1,
-    samples: 5,
-    representativeTimingMs,
-  }));
-}
-
-const MODEL = {
+const MODEL: AnalysisV2Model = {
+  semantic: {
+    keys: [],
+    confusions: [],
+    keyProgress: {},
+    keysWithData: 0,
+    repeatedConfusions: 0,
+  },
   coordination: {
     immediateTokens: [
       {
-        id: FAST_ID,
+        id: "one",
         scope: { fromToken: "zhuyin:ㄅ", toToken: "zhuyin:ㄆ" },
-        observations: 8,
-        timingSamples: 6,
+        observations: 5,
+        timingSamples: 5,
         currentTimeToTypeMs: 120,
-        bestTimeToTypeMs: 96,
+        bestTimeToTypeMs: 100,
         ready: true,
-        history: history([297, 290, 297, 283, 287]),
+        history: [],
         partialTimingSamples: 0,
       },
       {
-        id: SLOW_ID,
+        id: "two",
         scope: { fromToken: "zhuyin:ㄇ", toToken: "zhuyin:ㄈ" },
-        observations: 11,
-        timingSamples: 9,
-        currentTimeToTypeMs: 240,
-        bestTimeToTypeMs: 180,
+        observations: 5,
+        timingSamples: 5,
+        currentTimeToTypeMs: 180,
+        bestTimeToTypeMs: 150,
         ready: true,
-        history: history([277, 249, 247, 254, 256]),
+        history: [],
         partialTimingSamples: 0,
       },
     ],
+    coordination: [],
+    immediateHands: [],
+    sameHandRevisits: [],
+    toneCommits: [],
+    observedTokenTransitions: 2,
+    readyTokenTransitions: 2,
+    observedScopes: 2,
+    readyScopes: 2,
+    cleanTimingSamples: 10,
   },
-} as unknown as AnalysisV2Model;
+  strategy: {
+    inputOrderPositions: [],
+    inputOrderPermutations: [],
+    totalObservations: 0,
+    bodySizeBucketsWithData: 0,
+  },
+};
 
-function memoryStorage(): AnalysisV2PreferenceStorage {
-  const values = new Map<string, string>();
-  return {
-    getItem: (key) => values.get(key) ?? null,
-    setItem: (key, value) => void values.set(key, value),
-  };
+function boardMarkup(readout = "baseline"): string {
+  return `<div class="analysis-v2-speed-board">
+    <div data-speed-token="zhuyin:ㄅ"></div>
+    <div data-speed-token="zhuyin:ㄆ"></div>
+    <div data-speed-token="zhuyin:ㄇ"></div>
+    <div data-speed-token="zhuyin:ㄈ"></div>
+    <svg>
+      <path class="analysis-v2-speed-path is-accent" data-speed-id="one" data-from-token="zhuyin:ㄅ" data-to-token="zhuyin:ㄆ"></path>
+      <path class="analysis-v2-speed-hit" data-speed-id="one" data-from-token="zhuyin:ㄅ" data-to-token="zhuyin:ㄆ"></path>
+      <path class="analysis-v2-speed-path" data-speed-id="two" data-from-token="zhuyin:ㄇ" data-to-token="zhuyin:ㄈ"></path>
+      <path class="analysis-v2-speed-hit" data-speed-id="two" data-from-token="zhuyin:ㄇ" data-to-token="zhuyin:ㄈ"></path>
+    </svg>
+  </div>
+  <div class="analysis-v2-speed-readout">${readout}</div>`;
 }
 
-function speedPath(host: HTMLElement, id: string): SVGPathElement {
-  const path = [...host.querySelectorAll<SVGPathElement>(".analysis-v2-speed-path")]
-    .find((candidate) => candidate.dataset.speedId === id);
-  if (path === undefined) throw new Error(`missing speed path ${id}`);
-  return path;
-}
-
-function speedHit(host: HTMLElement, id: string): SVGPathElement {
-  const path = [...host.querySelectorAll<SVGPathElement>(".analysis-v2-speed-hit")]
-    .find((candidate) => candidate.dataset.speedId === id);
-  if (path === undefined) throw new Error(`missing speed hit ${id}`);
-  return path;
-}
-
-function readout(host: HTMLElement): string {
-  return host.querySelector(".analysis-v2-speed-readout")?.textContent ?? "";
-}
-
-function pointer(
-  target: Element,
-  type: "pointerover" | "pointerout",
-  relatedTarget: EventTarget | null = null,
-): void {
-  target.dispatchEvent(new MouseEvent(type, {
-    bubbles: true,
-    relatedTarget,
-  }));
-}
-
-let controller: ReturnType<typeof createAnalysisV2> | null = null;
-let preview: AnalysisV2SpeedPreviewController | null = null;
+let controller: AnalysisV2SpeedPreviewController | null = null;
 
 afterEach(() => {
-  preview?.destroy();
-  preview = null;
   controller?.destroy();
   controller = null;
   document.body.innerHTML = "";
 });
 
-describe("Analysis V2 speed hover preview", () => {
-  function open(): HTMLElement {
-    controller = createAnalysisV2({ getModel: () => MODEL, storage: memoryStorage() });
-    preview = mountAnalysisV2SpeedPreview(controller.host, () => MODEL);
-    controller.open();
-    return controller.host;
-  }
+describe("Analysis V2 speed preview lifecycle", () => {
+  it("temporarily overrides a pin, then restores the pinned focus/readout", () => {
+    const host = document.createElement("div");
+    host.innerHTML = boardMarkup();
+    document.body.append(host);
+    controller = mountAnalysisV2SpeedPreview(host, () => MODEL);
+    controller.syncPinned("two");
 
-  it("renders the baseline pair, history, and speed legend synchronously", () => {
-    const host = open();
+    const one = host.querySelector<SVGPathElement>('.analysis-v2-speed-path[data-speed-id="one"]')!;
+    const two = host.querySelector<SVGPathElement>('.analysis-v2-speed-path[data-speed-id="two"]')!;
+    expect(two.classList.contains("is-focused")).toBe(true);
+    expect(one.classList.contains("is-muted")).toBe(true);
 
-    expect(readout(host)).toContain("ㄇ → ㄈ");
-    expect(readout(host)).toContain("240 ms");
-    expect(readout(host)).toContain("近期完成點 277 → 249 → 247 → 254 → 256 毫秒");
-    expect(readout(host)).toContain("線粗＝樣本支持；越深紅＝相對越慢");
-    expect(readout(host)).not.toContain("紅線對應目前主讀值");
-    expect(speedPath(host, SLOW_ID).classList.contains("is-accent")).toBe(true);
+    one.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    expect(one.classList.contains("is-focused")).toBe(true);
+    expect(two.classList.contains("is-muted")).toBe(true);
+    expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toContain("ㄅ → ㄆ");
+    expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toContain("暫時預覽");
+
+    one.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: host }));
+    expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toBe("baseline");
+    expect(two.classList.contains("is-focused")).toBe(true);
+    expect(one.classList.contains("is-muted")).toBe(true);
   });
 
-  it("previews the relation under the pointer without pinning it", () => {
-    const host = open();
-    const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
+  it("does not restore a stale board after rerender", () => {
+    const host = document.createElement("div");
+    host.innerHTML = boardMarkup("old baseline");
+    document.body.append(host);
+    controller = mountAnalysisV2SpeedPreview(host, () => MODEL);
 
-    pointer(speedHit(host, FAST_ID), "pointerover");
+    const oldOne = host.querySelector<SVGPathElement>('.analysis-v2-speed-path[data-speed-id="one"]')!;
+    oldOne.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toContain("暫時預覽");
 
-    expect(readout(host)).toContain("ㄅ → ㄆ");
-    expect(readout(host)).toContain("120 ms");
-    expect(readout(host)).toContain("6 個乾淨樣本");
-    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
-    expect(readout(host)).toContain("越深紅＝相對越慢");
-    expect(readout(host)).not.toContain("277 → 249 → 247 → 254 → 256");
-    expect(speedPath(host, FAST_ID).classList.contains("is-accent")).toBe(true);
-    expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
-    expect(speedPath(host, FAST_ID).getAttribute("aria-pressed")).toBe("false");
+    host.innerHTML = boardMarkup("new baseline");
+    controller.syncPinned("two");
+    oldOne.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: host }));
 
-    pointer(speedHit(host, FAST_ID), "pointerout", board);
-
-    expect(readout(host)).toContain("ㄇ → ㄈ");
-    expect(readout(host)).toContain("240 ms");
-    expect(readout(host)).toContain("近期完成點 277 → 249 → 247 → 254 → 256 毫秒");
-    expect(speedPath(host, SLOW_ID).classList.contains("is-accent")).toBe(true);
+    expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toBe("new baseline");
+    expect(host.querySelector<SVGPathElement>('.analysis-v2-speed-path[data-speed-id="two"]')
+      ?.classList.contains("is-focused")).toBe(true);
   });
 
-  it("returns to the focused relation after a temporary pointer preview", () => {
-    const host = open();
-    const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
-    speedPath(host, FAST_ID).focus();
+  it("removes delegated listeners on destroy", () => {
+    const host = document.createElement("div");
+    host.innerHTML = boardMarkup();
+    document.body.append(host);
+    controller = mountAnalysisV2SpeedPreview(host, () => MODEL);
+    const one = host.querySelector<SVGPathElement>('.analysis-v2-speed-path[data-speed-id="one"]')!;
 
-    expect(readout(host)).toContain("ㄅ → ㄆ");
-    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
+    controller.destroy();
+    controller = null;
+    one.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
 
-    pointer(speedHit(host, SLOW_ID), "pointerover");
-    expect(readout(host)).toContain("ㄇ → ㄈ");
-    expect(readout(host)).toContain("近期完成點 277 → 249 → 247 → 254 → 256 毫秒");
-
-    pointer(speedHit(host, SLOW_ID), "pointerout", board);
-    expect(readout(host)).toContain("ㄅ → ㄆ");
-    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
-    expect(speedPath(host, FAST_ID).classList.contains("is-accent")).toBe(true);
-
-    host.querySelector<HTMLButtonElement>(".analysis-v2-close")?.focus();
-    expect(readout(host)).toContain("ㄇ → ㄈ");
-    expect(readout(host)).toContain("近期完成點 277 → 249 → 247 → 254 → 256 毫秒");
-  });
-
-  it("keeps click as the pinned baseline while other hover remains temporary", () => {
-    const host = open();
-    pointer(speedHit(host, FAST_ID), "pointerover");
-    speedPath(host, FAST_ID).dispatchEvent(new MouseEvent("click", { bubbles: true }));
-
-    expect(readout(host)).toContain("ㄅ → ㄆ");
-    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
-    expect(speedPath(host, FAST_ID).getAttribute("aria-pressed")).toBe("true");
-    expect(speedPath(host, FAST_ID).classList.contains("is-accent")).toBe(true);
-
-    const board = host.querySelector<HTMLElement>(".analysis-v2-speed-board")!;
-    pointer(speedHit(host, SLOW_ID), "pointerover");
-    expect(readout(host)).toContain("ㄇ → ㄈ");
-    expect(readout(host)).toContain("近期完成點 277 → 249 → 247 → 254 → 256 毫秒");
-    expect(speedPath(host, SLOW_ID).classList.contains("is-accent")).toBe(true);
-    expect(speedPath(host, FAST_ID).getAttribute("aria-pressed")).toBe("true");
-
-    pointer(speedHit(host, SLOW_ID), "pointerout", board);
-    expect(readout(host)).toContain("ㄅ → ㄆ");
-    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
-    expect(speedPath(host, FAST_ID).classList.contains("is-accent")).toBe(true);
-    expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
-  });
-
-  it("keeps a keyboard-pinned relation after rerender and focus leaves the new path", () => {
-    const host = open();
-    const beforePin = speedPath(host, FAST_ID);
-    beforePin.focus();
-
-    expect(readout(host)).toContain("ㄅ → ㄆ");
-    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
-    expect(beforePin.getAttribute("aria-pressed")).toBe("false");
-
-    beforePin.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-
-    const afterPin = speedPath(host, FAST_ID);
-    expect(afterPin).not.toBe(beforePin);
-    expect(afterPin.getAttribute("aria-pressed")).toBe("true");
-    expect(readout(host)).toContain("ㄅ → ㄆ");
-    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
-
-    host.querySelector<HTMLButtonElement>(".analysis-v2-close")?.focus();
-
-    expect(readout(host)).toContain("ㄅ → ㄆ");
-    expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
-    expect(readout(host)).not.toContain("277 → 249 → 247 → 254 → 256");
-    expect(speedPath(host, FAST_ID).classList.contains("is-accent")).toBe(true);
+    expect(host.querySelector(".analysis-v2-speed-readout")?.textContent).toBe("baseline");
+    expect(one.classList.contains("is-focused")).toBe(false);
   });
 });
