@@ -112,6 +112,15 @@ describe("Analysis V2 Movement ranking", () => {
     )?.click();
 
     const families = [...host.querySelectorAll<HTMLElement>(".analysis-v2-movement-family")];
+    expect(families.map((family) => ({
+      title: family.querySelector("header strong")?.textContent,
+      id: family.dataset.movementFamily,
+    }))).toEqual([
+      { title: "手別轉換", id: "hand-switch" },
+      { title: "同側回返", id: "same-side-revisit" },
+      { title: "字內結構", id: "word-structure" },
+      { title: "聲調收尾", id: "tone-commit" },
+    ]);
     const revisit = families[1]!;
     const structure = families[2]!;
 

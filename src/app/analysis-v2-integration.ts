@@ -7,7 +7,6 @@ import {
 } from "./analysis-v2-panel.js";
 import "./analysis-v2-layout.css";
 import "./analysis-v2-space.css";
-import "./analysis-v2-frame-width.css";
 import "./analysis-v2-strategy-floor.css";
 import "./analysis-v2-viewport-composition.css";
 import { buildAnalysisV2Model } from "./analysis-v2-model.js";

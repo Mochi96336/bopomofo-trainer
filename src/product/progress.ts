@@ -12,7 +12,6 @@ import {
   type FrequencyFirstUtterancePolicy,
 } from "../curriculum/frequency-first-utterance.js";
 import { createEmptyMeasurementSummaryV2 } from "../measurement-v2/aggregate.js";
-import { legacySelectionMeasurementView } from "../measurement-v2/legacy-selection-view.js";
 import { parseMeasurementSummaryV2 } from "../measurement-v2/serialize.js";
 import {
   PRODUCT_MEASUREMENT_EPOCH,
@@ -151,12 +150,11 @@ function rebuildCurriculum(
   recentTokenIds: readonly string[],
 ): CurriculumProfile | null {
   if (!isRecord(parsed.curriculum) || !isRecord(parsed.curriculum.lastFocusedRounds)) return null;
-  const legacyBindings = Object.values(legacySelectionMeasurementView(progress.measurements).bindings);
   const base = profileFromAggregates(
     support,
     mode,
     layoutId,
-    legacyBindings,
+    Object.values(progress.measurements.semantic.bindings),
     progress.practiceRoundsCompleted,
   );
   const bindings: Record<string, CurriculumBindingRecord> = {};

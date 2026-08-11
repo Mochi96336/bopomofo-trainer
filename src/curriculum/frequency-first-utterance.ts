@@ -5,10 +5,7 @@ import type {
   TokenId,
 } from "../core/model.js";
 import { catalogEntryFrequencyWeight } from "../commonness/catalog-projection.js";
-import {
-  bindingScopeKey,
-  transitionScopeKey,
-} from "../measurement/aggregate.js";
+import { transitionScopeKey } from "../measurement/aggregate.js";
 import type { MeasurementSummary } from "../measurement/types.js";
 import type {
   GrammarAnnotation,
@@ -23,6 +20,7 @@ import {
   type GrammarSlotSelectionTrace,
   type SlotWeightedGrammarGeneration,
 } from "./slot-weighted-grammar.js";
+import type { LearnerBindingEvidence } from "./types.js";
 
 const MAXIMUM_RECENT_UTTERANCE_ATTEMPTS = 4;
 
@@ -164,9 +162,20 @@ export interface FrequencyFirstUtteranceInput {
 
 export type FormalSyntaxUtteranceSelectionInput = Omit<
   FrequencyFirstUtteranceInput,
-  "annotations" | "profiles" | "templates" | "learnerEvidenceMode"
+  "annotations" | "measurement" | "profiles" | "templates" | "learnerEvidenceMode"
 > & {
+  /** Measurement V2 semantic binding aggregates satisfy this contract directly. */
+  readonly bindingEvidence: readonly LearnerBindingEvidence[];
   readonly profiles: readonly RuntimeSyntaxProfile[];
+};
+
+type FrequencyFirstScoringInput = Omit<
+  FrequencyFirstUtteranceInput,
+  "measurement" | "learnerEvidenceMode"
+> & {
+  readonly bindingsByToken: Readonly<Record<string, LearnerBindingEvidence>>;
+  /** Canonical transition evidence exists only on the legacy/research path. */
+  readonly legacyTransitions: MeasurementSummary["transitions"] | null;
 };
 
 function compareText(left: string, right: string): number {
@@ -190,6 +199,19 @@ function uniqueTokens(entries: readonly CatalogEntry[]): readonly TokenId[] {
   )].sort(compareText);
 }
 
+function scopedBindingEvidence(
+  evidence: readonly LearnerBindingEvidence[],
+  mode: PracticeMode,
+  layoutId: string,
+): Readonly<Record<string, LearnerBindingEvidence>> {
+  const bindings: Record<string, LearnerBindingEvidence> = {};
+  for (const aggregate of evidence) {
+    if (aggregate.scope.mode !== mode || aggregate.scope.layoutId !== layoutId) continue;
+    bindings[aggregate.scope.tokenId] = aggregate;
+  }
+  return bindings;
+}
+
 function exactTransitions(
   entries: readonly CatalogEntry[],
 ): readonly { readonly fromToken: TokenId; readonly toToken: TokenId }[] {
@@ -211,14 +233,10 @@ function exactTransitions(
 
 function expectedTokenTrace(
   entries: readonly CatalogEntry[],
-  input: FrequencyFirstUtteranceInput,
+  input: FrequencyFirstScoringInput,
 ): readonly ExpectedTokenBoostTrace[] {
   return uniqueTokens(entries).map((tokenId) => {
-    const aggregate = input.measurement.bindings[bindingScopeKey({
-      mode: input.mode,
-      layoutId: input.layoutId,
-      tokenId,
-    })];
+    const aggregate = input.bindingsByToken[tokenId];
     if (aggregate === undefined) {
       return {
         tokenId,
@@ -261,10 +279,11 @@ function expectedTokenTrace(
 
 function transitionTrace(
   entries: readonly CatalogEntry[],
-  input: FrequencyFirstUtteranceInput,
+  input: FrequencyFirstScoringInput,
 ): readonly TransitionBoostTrace[] {
+  if (input.legacyTransitions === null) return [];
   return exactTransitions(entries).map(({ fromToken, toToken }) => {
-    const aggregate = input.measurement.transitions[transitionScopeKey({
+    const aggregate = input.legacyTransitions![transitionScopeKey({
       mode: input.mode,
       layoutId: input.layoutId,
       fromToken,
@@ -293,14 +312,14 @@ function transitionTrace(
 
 function learnerTransitionTrace(
   entries: readonly CatalogEntry[],
-  input: FrequencyFirstUtteranceInput,
+  input: FrequencyFirstScoringInput,
 ): readonly TransitionBoostTrace[] {
-  return input.learnerEvidenceMode === "binding-only" ? [] : transitionTrace(entries, input);
+  return input.legacyTransitions === null ? [] : transitionTrace(entries, input);
 }
 
 function scoreEntry(
   entry: CatalogEntry,
-  input: FrequencyFirstUtteranceInput,
+  input: FrequencyFirstScoringInput,
 ): EntrySelectionScore {
   const frequencyBase = catalogEntryFrequencyWeight(entry);
   const expectedTrace = expectedTokenTrace([entry], input);
@@ -329,7 +348,7 @@ function scoreEntry(
 
 function scoreTemplate(
   template: GrammarTemplate,
-  input: FrequencyFirstUtteranceInput,
+  input: FrequencyFirstScoringInput,
 ): TemplateSelectionScore {
   const recentTemplateFactor = input.history.recentTemplateIds.includes(template.id)
     ? input.policy.recentTemplatePenalty
@@ -343,7 +362,7 @@ function scoreTemplate(
 
 function scoreCandidate(
   candidate: GrammarUtteranceCandidate,
-  input: FrequencyFirstUtteranceInput,
+  input: FrequencyFirstScoringInput,
 ): UtteranceCandidateScore {
   const frequencyBase = geometricMean(
     candidate.entries.map((entry) => catalogEntryFrequencyWeight(entry)),
@@ -393,7 +412,7 @@ function scoreCandidate(
 function enrichSlotSelections(
   traces: readonly GrammarSlotSelectionTrace[],
   entriesById: ReadonlyMap<string, CatalogEntry>,
-  input: FrequencyFirstUtteranceInput,
+  input: FrequencyFirstScoringInput,
 ): readonly SlotSelectionScore[] {
   return traces.map((trace) => ({
     slotKey: trace.slotKey,
@@ -413,7 +432,7 @@ function enrichSlotSelections(
 
 function generateOnce(
   eligibleEntries: readonly CatalogEntry[],
-  input: FrequencyFirstUtteranceInput,
+  input: FrequencyFirstScoringInput,
 ): SlotWeightedGrammarGeneration {
   const entryScores = new Map<string, EntrySelectionScore>();
   const entryWeight = (entry: CatalogEntry): number => {
@@ -514,8 +533,8 @@ export function createFrequencyFirstSelectionState(
   };
 }
 
-export function selectFrequencyFirstUtterance(
-  input: FrequencyFirstUtteranceInput,
+function selectFrequencyFirstUtteranceFromEvidence(
+  input: FrequencyFirstScoringInput,
 ): FrequencyFirstUtteranceSelection {
   validateFrequencyFirstUtterancePolicy(input.policy);
   const eligibleEntries = input.entries;
@@ -563,19 +582,38 @@ export function selectFrequencyFirstUtterance(
   };
 }
 
+/** Legacy/research selector retaining canonical transition semantics. */
+export function selectFrequencyFirstUtterance(
+  input: FrequencyFirstUtteranceInput,
+): FrequencyFirstUtteranceSelection {
+  const { measurement, learnerEvidenceMode, ...selectionInput } = input;
+  return selectFrequencyFirstUtteranceFromEvidence({
+    ...selectionInput,
+    bindingsByToken: scopedBindingEvidence(
+      Object.values(measurement.bindings),
+      input.mode,
+      input.layoutId,
+    ),
+    legacyTransitions: learnerEvidenceMode === "binding-only"
+      ? null
+      : measurement.transitions,
+  });
+}
+
 /**
- * Production selector. Input-order V2 allows canonical token adjacency to remain
- * available to legacy/research callers, but production formal-syntax selection
- * consumes binding evidence only. The mode is forced here so a future caller
- * cannot accidentally reactivate canonical transition scoring by supplying data.
+ * Production selector. It accepts only binding evidence, so Measurement V2 motor
+ * transitions cannot be reinterpreted as canonical curriculum transitions by
+ * accident. Legacy/research transition scoring remains isolated above.
  */
 export function selectFormalSyntaxUtterance(
   input: FormalSyntaxUtteranceSelectionInput,
 ): FrequencyFirstUtteranceSelection {
-  return selectFrequencyFirstUtterance({
-    ...input,
+  const { bindingEvidence, ...selectionInput } = input;
+  return selectFrequencyFirstUtteranceFromEvidence({
+    ...selectionInput,
     annotations: {},
-    learnerEvidenceMode: "binding-only",
+    bindingsByToken: scopedBindingEvidence(bindingEvidence, input.mode, input.layoutId),
+    legacyTransitions: null,
   });
 }
 

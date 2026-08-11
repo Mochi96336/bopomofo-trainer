@@ -9,7 +9,6 @@ import {
   type MeasurementSummaryV2,
 } from "../measurement-v2/aggregate.js";
 import { deriveMeasurementObservationsV2 } from "../measurement-v2/derive-observations.js";
-import { legacySelectionMeasurementView } from "../measurement-v2/legacy-selection-view.js";
 import {
   FREQUENCY_FIRST_UTTERANCE_POLICY,
   selectFormalSyntaxUtterance,
@@ -110,10 +109,7 @@ function selectRound(
 ): ProductRound {
   const selection = selectFormalSyntaxUtterance({
     entries: environment.catalogs.practice,
-    // Existing frequency-first selection may safely consume v2 binding evidence.
-    // Its legacy transition channel is deliberately empty until a future
-    // structural/motor curriculum explicitly defines what it is selecting.
-    measurement: legacySelectionMeasurementView(progress.measurements),
+    bindingEvidence: Object.values(progress.measurements.semantic.bindings),
     mode: progress.mode,
     layoutId: progress.layoutId,
     history: {
@@ -189,9 +185,8 @@ function updateCurriculumAfterPractice(
   cumulativeMeasurements: ProductProgress["measurements"],
   round: ProductRound,
 ): CurriculumProfile {
-  const compatibility = legacySelectionMeasurementView(cumulativeMeasurements);
   const aggregates = new Map(
-    Object.values(compatibility.bindings).map((aggregate) => [
+    Object.values(cumulativeMeasurements.semantic.bindings).map((aggregate) => [
       aggregate.scope.tokenId,
       aggregate,
     ]),

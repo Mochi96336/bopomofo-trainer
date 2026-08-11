@@ -962,41 +962,6 @@ button { touch-action: manipulation; }
   stroke-linejoin: round;
 }
 .trend-dot { fill: var(--accent); }
-.weak-bindings { display: grid; gap: 12px; }
-.weak-binding-row {
-  display: grid;
-  grid-template-columns: 22px 44px minmax(0, 1fr) 34px;
-  align-items: center;
-  gap: 10px;
-}
-.weak-binding-symbol {
-  font-size: 15px;
-  font-weight: 620;
-}
-.weak-binding-key {
-  color: var(--ink-muted);
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-}
-.weak-binding-bar-track {
-  height: 6px;
-  border-radius: 999px;
-  background: var(--ink-faint);
-  overflow: hidden;
-}
-.weak-binding-bar {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--danger);
-  opacity: .7;
-}
-.weak-binding-rate {
-  color: var(--ink-muted);
-  font-size: 10px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
 .history-details summary {
   display: flex;
   align-items: center;
@@ -1130,7 +1095,6 @@ button { touch-action: manipulation; }
   .history-latency { display: none; }
   .history-record .history-summary { grid-template-columns: 28px minmax(0, 1fr); }
   .trend-row { grid-template-columns: 1fr; gap: 16px; }
-  .weak-binding-row { grid-template-columns: 20px 40px minmax(0, 1fr) 30px; gap: 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

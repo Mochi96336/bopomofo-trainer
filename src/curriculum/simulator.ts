@@ -1,6 +1,5 @@
 import { catalogCommonnessTiers } from "../commonness/tiers.js";
 import type { CatalogEntry, TokenId } from "../core/model.js";
-import type { BindingAggregate } from "../measurement/types.js";
 import { buildCurriculumExercise } from "./exercise-builder.js";
 import { selectCurriculumFocus } from "./focus.js";
 import { validateCurriculumPolicy } from "./policy.js";
@@ -13,6 +12,7 @@ import type {
   CurriculumPolicy,
   CurriculumProfile,
   CurriculumSimulationReport,
+  LearnerBindingEvidence,
   SimulationRoundReport,
 } from "./types.js";
 
@@ -35,17 +35,13 @@ interface SyntheticOccurrence {
   readonly motorEligible: boolean;
 }
 
-function emptyExclusions() {
-  return { syllableStart: 0, incorrect: 0, recovery: 0, interactionNoise: 0 } as const;
-}
-
 function updateAggregate(
-  previous: BindingAggregate | null,
+  previous: LearnerBindingEvidence | null,
   record: CurriculumBindingRecord,
   performance: SyntheticPerformance,
   randomValue: number,
   motorEligible: boolean,
-): BindingAggregate {
+): LearnerBindingEvidence {
   const error = randomValue < performance.errorRate;
   const cleanTiming = motorEligible && !error;
   const previousTiming = previous?.currentTimeToTypeMs ?? null;
@@ -65,7 +61,6 @@ function updateAggregate(
       : previous?.bestTimeToTypeMs === null || previous?.bestTimeToTypeMs === undefined
         ? performance.timingMs
         : Math.min(previous.bestTimeToTypeMs, performance.timingMs),
-    timingExclusions: previous?.timingExclusions ?? emptyExclusions(),
   };
 }
 
@@ -249,7 +244,7 @@ export function profileFromAggregates(
   support: CatalogSupportIndex,
   mode: CurriculumProfile["mode"],
   layoutId: string,
-  aggregates: readonly BindingAggregate[],
+  aggregates: readonly LearnerBindingEvidence[],
   round = 0,
 ): CurriculumProfile {
   const profile = createEmptyCurriculumProfile(support, mode, layoutId);
