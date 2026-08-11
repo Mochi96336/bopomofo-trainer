@@ -1,8 +1,13 @@
-import type { MovementFamilyId } from "./analysis-v2-panel.js";
+export type AnalysisV2MovementFamilyId =
+  | "hand-switch"
+  | "same-side-revisit"
+  | "word-structure"
+  | "tone-commit";
 
 interface MovementLineArt {
   readonly label: string;
   readonly markup: string;
+  readonly wrapperClass?: string;
 }
 
 const svgOpen = '<svg width="260" height="78" viewBox="0 0 260 78" aria-hidden="true" focusable="false" style="display:block;max-width:82%;height:auto;font-family:inherit;overflow:visible">';
@@ -66,11 +71,7 @@ const wordStructure = `${svgOpen}
     <circle cx="188" cy="39" r="12"/>
   </g>
   <g fill="currentColor" stroke="none" text-anchor="middle">
-    <g font-size="9" opacity=".56">
-      <text x="72" y="16">聲母</text>
-      <text x="130" y="16">介音</text>
-      <text x="188" y="16">韻母</text>
-    </g>
+    <g font-size="9" opacity=".56"><text x="72" y="16">聲母</text><text x="130" y="16">介音</text><text x="188" y="16">韻母</text></g>
     <g font-size="15" opacity=".84">
       <text x="72" y="44">ㄐ</text>
       <text x="130" y="44">ㄧ</text>
@@ -103,39 +104,29 @@ const toneCommit = `${svgOpen}
   </g>
 ${svgClose}`;
 
-const lineArtByFamily: Readonly<Record<MovementFamilyId, MovementLineArt>> = {
-  "hand-switch": { label: "鍵盤左右手切換示意", markup: handSwitch },
-  "same-side-revisit": { label: "同側回返示意：離開一側後經另一側回到原側", markup: sameSideRevisit },
-  "word-structure": { label: "聲母、介音、韻母的字內結構示意", markup: wordStructure },
-  "tone-commit": { label: "完成字內注音後按下聲調鍵示意", markup: toneCommit },
+const lineArtByFamily: Readonly<Record<AnalysisV2MovementFamilyId, MovementLineArt>> = {
+  "hand-switch": {
+    label: "鍵盤左右手切換示意",
+    markup: handSwitch,
+  },
+  "same-side-revisit": {
+    label: "同側回返示意：離開一側後經另一側回到原側",
+    markup: sameSideRevisit,
+  },
+  "word-structure": {
+    label: "聲母、介音、韻母的字內結構示意",
+    markup: wordStructure,
+    wrapperClass: " analysis-v2-word-structure",
+  },
+  "tone-commit": {
+    label: "完成字內注音後按下聲調鍵示意",
+    markup: toneCommit,
+  },
 };
 
-function isMovementFamilyId(value: string | undefined): value is MovementFamilyId {
-  return value === "hand-switch"
-    || value === "same-side-revisit"
-    || value === "word-structure"
-    || value === "tone-commit";
-}
-
-function applyMovementLineArt(host: HTMLElement): void {
-  const families = host.querySelectorAll<HTMLElement>(".analysis-v2-movement-family");
-  families.forEach((family) => {
-    const familyId = family.dataset.movementFamily;
-    if (!isMovementFamilyId(familyId)) return;
-    const diagram = family.querySelector<HTMLElement>(".analysis-v2-movement-diagram");
-    if (diagram === null || diagram.dataset.lineArt === "true") return;
-    const art = lineArtByFamily[familyId];
-    diagram.dataset.lineArt = "true";
-    diagram.innerHTML = art.markup;
-    diagram.removeAttribute("aria-hidden");
-    diagram.setAttribute("role", "img");
-    diagram.setAttribute("aria-label", art.label);
-  });
-}
-
-export function mountAnalysisV2MovementLineArt(host: HTMLElement): () => void {
-  applyMovementLineArt(host);
-  const observer = new MutationObserver(() => applyMovementLineArt(host));
-  observer.observe(host, { childList: true, subtree: true });
-  return () => observer.disconnect();
+export function analysisV2MovementLineArtMarkup(
+  family: AnalysisV2MovementFamilyId,
+): string {
+  const art = lineArtByFamily[family];
+  return `<div class="analysis-v2-movement-diagram${art.wrapperClass ?? ""}" data-movement-line-art="${family}" role="img" aria-label="${art.label}">${art.markup}</div>`;
 }

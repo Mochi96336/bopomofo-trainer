@@ -88,6 +88,21 @@ function pointer(
   }));
 }
 
+function standaloneBoard(readoutText = "baseline"): string {
+  return `<div class="analysis-v2-speed-board">
+    <div data-speed-token="zhuyin:ㄅ"></div>
+    <div data-speed-token="zhuyin:ㄆ"></div>
+    <div data-speed-token="zhuyin:ㄇ"></div>
+    <div data-speed-token="zhuyin:ㄈ"></div>
+    <svg>
+      <path class="analysis-v2-speed-path is-accent" data-speed-id='${FAST_ID}' data-from-token="zhuyin:ㄅ" data-to-token="zhuyin:ㄆ"></path>
+      <path class="analysis-v2-speed-hit" data-speed-id='${FAST_ID}' data-from-token="zhuyin:ㄅ" data-to-token="zhuyin:ㄆ"></path>
+      <path class="analysis-v2-speed-path" data-speed-id='${SLOW_ID}' data-from-token="zhuyin:ㄇ" data-to-token="zhuyin:ㄈ"></path>
+      <path class="analysis-v2-speed-hit" data-speed-id='${SLOW_ID}' data-from-token="zhuyin:ㄇ" data-to-token="zhuyin:ㄈ"></path>
+    </svg>
+  </div><div class="analysis-v2-speed-readout">${readoutText}</div>`;
+}
+
 let controller: ReturnType<typeof createAnalysisV2> | null = null;
 let preview: AnalysisV2SpeedPreviewController | null = null;
 
@@ -102,7 +117,6 @@ afterEach(() => {
 describe("Analysis V2 speed hover preview", () => {
   function open(): HTMLElement {
     controller = createAnalysisV2({ getModel: () => MODEL, storage: memoryStorage() });
-    preview = mountAnalysisV2SpeedPreview(controller.host, () => MODEL);
     controller.open();
     return controller.host;
   }
@@ -133,6 +147,8 @@ describe("Analysis V2 speed hover preview", () => {
     expect(speedPath(host, FAST_ID).classList.contains("is-accent")).toBe(true);
     expect(host.querySelectorAll(".analysis-v2-speed-path.is-accent")).toHaveLength(1);
     expect(speedPath(host, FAST_ID).getAttribute("aria-pressed")).toBe("false");
+    expect(speedPath(host, FAST_ID).classList.contains("is-focused")).toBe(true);
+    expect(speedPath(host, SLOW_ID).classList.contains("is-muted")).toBe(true);
 
     pointer(speedHit(host, FAST_ID), "pointerout", board);
 
@@ -140,6 +156,8 @@ describe("Analysis V2 speed hover preview", () => {
     expect(readout(host)).toContain("240 ms");
     expect(readout(host)).toContain("近期完成點 277 → 249 → 247 → 254 → 256 毫秒");
     expect(speedPath(host, SLOW_ID).classList.contains("is-accent")).toBe(true);
+    expect(host.querySelectorAll(".analysis-v2-speed-path.is-focused")).toHaveLength(0);
+    expect(host.querySelectorAll(".analysis-v2-speed-path.is-muted")).toHaveLength(0);
   });
 
   it("returns to the focused relation after a temporary pointer preview", () => {
@@ -149,6 +167,7 @@ describe("Analysis V2 speed hover preview", () => {
 
     expect(readout(host)).toContain("ㄅ → ㄆ");
     expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
+    expect(speedPath(host, FAST_ID).classList.contains("is-focused")).toBe(false);
 
     pointer(speedHit(host, SLOW_ID), "pointerover");
     expect(readout(host)).toContain("ㄇ → ㄈ");
@@ -211,5 +230,39 @@ describe("Analysis V2 speed hover preview", () => {
     expect(readout(host)).toContain("近期完成點 297 → 290 → 297 → 283 → 287 毫秒");
     expect(readout(host)).not.toContain("277 → 249 → 247 → 254 → 256");
     expect(speedPath(host, FAST_ID).classList.contains("is-accent")).toBe(true);
+  });
+
+  it("does not let a stale pre-render focus owner overwrite the new board", () => {
+    const host = document.createElement("div");
+    host.innerHTML = standaloneBoard("old baseline");
+    document.body.append(host);
+    preview = mountAnalysisV2SpeedPreview(host, () => MODEL);
+    preview.rendered();
+
+    const oldFast = speedPath(host, FAST_ID);
+    oldFast.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+    expect(readout(host)).toContain("ㄅ → ㄆ");
+
+    host.innerHTML = standaloneBoard("new baseline");
+    preview.rendered();
+    oldFast.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: host }));
+
+    expect(readout(host)).toBe("new baseline");
+  });
+
+  it("removes delegated preview listeners on destroy", () => {
+    const host = document.createElement("div");
+    host.innerHTML = standaloneBoard();
+    document.body.append(host);
+    preview = mountAnalysisV2SpeedPreview(host, () => MODEL);
+    preview.rendered();
+    const fast = speedPath(host, FAST_ID);
+
+    preview.destroy();
+    preview = null;
+    fast.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
+
+    expect(readout(host)).toBe("baseline");
+    expect(fast.classList.contains("is-focused")).toBe(false);
   });
 });

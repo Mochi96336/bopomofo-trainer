@@ -6,6 +6,7 @@ import { exactTransitionHistoryLabel } from "./analysis-v2-speed-network.js";
 const SPEED_TARGET_SELECTOR = ".analysis-v2-speed-path, .analysis-v2-speed-hit";
 
 export interface AnalysisV2SpeedPreviewController {
+  rendered(): void;
   destroy(): void;
 }
 
@@ -27,14 +28,14 @@ function relationOwner(target: EventTarget | null): PreviewOwner | null {
 }
 
 /**
- * Coordination flylines use hover/focus as transient preview owners and click as
- * the persistent selection owned by analysis-v2-panel. Pointer preview wins while
- * it exists, then keyboard focus resumes; neither temporary owner may restore a
- * baseline captured from an obsolete board after the panel rerenders.
+ * Owns transient Coordination flyline interaction. The persistent path id stays
+ * canonical in the panel and is read through getPinnedPathId only when relation
+ * emphasis must be restored after a pointer preview or a render.
  */
 export function mountAnalysisV2SpeedPreview(
   host: HTMLElement,
   getModel: () => AnalysisV2Model,
+  getPinnedPathId: () => string | null = () => null,
 ): AnalysisV2SpeedPreviewController {
   let pointerOwner: PreviewOwner | null = null;
   let focusOwner: PreviewOwner | null = null;
@@ -65,6 +66,23 @@ export function mountAnalysisV2SpeedPreview(
   const setAccent = (board: Element, id: string | null): void => {
     for (const path of board.querySelectorAll<SVGPathElement>(".analysis-v2-speed-path")) {
       path.classList.toggle("is-accent", id !== null && path.dataset.speedId === id);
+    }
+  };
+
+  const setRelationFocus = (board: Element, id: string | null): void => {
+    const paths = [...board.querySelectorAll<SVGPathElement>(".analysis-v2-speed-path")];
+    const focused = id === null ? null : paths.find((path) => path.dataset.speedId === id) ?? null;
+    for (const path of paths) {
+      path.classList.toggle("is-focused", focused !== null && path === focused);
+      path.classList.toggle("is-muted", focused !== null && path !== focused);
+    }
+    const relatedTokens = new Set<string>();
+    if (focused !== null) {
+      if (focused.dataset.fromToken !== undefined) relatedTokens.add(focused.dataset.fromToken);
+      if (focused.dataset.toToken !== undefined) relatedTokens.add(focused.dataset.toToken);
+    }
+    for (const key of board.querySelectorAll<HTMLElement>("[data-speed-token]")) {
+      key.classList.toggle("is-related", relatedTokens.has(key.dataset.speedToken ?? ""));
     }
   };
 
@@ -103,11 +121,14 @@ export function mountAnalysisV2SpeedPreview(
     if (pointerOwner !== null && pointerOwner.board !== board) pointerOwner = null;
     if (focusOwner !== null && focusOwner.board !== board) focusOwner = null;
     const owner = pointerOwner ?? focusOwner;
-    if (owner !== null) {
-      showPreview(owner);
-      return;
+    if (owner !== null) showPreview(owner);
+    else restorePreview();
+    if (board !== null) {
+      setRelationFocus(
+        board,
+        pointerOwner?.board === board ? pointerOwner.id : getPinnedPathId(),
+      );
     }
-    restorePreview();
   };
 
   const pointerOver = (event: PointerEvent): void => {
@@ -148,13 +169,28 @@ export function mountAnalysisV2SpeedPreview(
   host.addEventListener("focusout", focusOut);
 
   return {
+    rendered(): void {
+      const board = currentBoard();
+      if (previewBoard !== null && previewBoard !== board) clearRenderedPreviewState();
+      if (cachedBoard !== board) {
+        cachedBoard = null;
+        cachedCells = new Map();
+      }
+      if (pointerOwner !== null && pointerOwner.board !== board) pointerOwner = null;
+      if (focusOwner !== null && focusOwner.board !== board) focusOwner = null;
+      if (board !== null) setRelationFocus(board, getPinnedPathId());
+    },
     destroy(): void {
       host.removeEventListener("pointerover", pointerOver);
       host.removeEventListener("pointerout", pointerOut);
       host.removeEventListener("focusin", focusIn);
       host.removeEventListener("focusout", focusOut);
+      const board = currentBoard();
+      if (board !== null) setRelationFocus(board, null);
       pointerOwner = null;
       focusOwner = null;
+      cachedBoard = null;
+      cachedCells = new Map();
       clearRenderedPreviewState();
     },
   };

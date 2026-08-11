@@ -2,19 +2,17 @@ import "./analysis-v2-modal.css";
 import { STANDARD_BOPOMOFO_LAYOUT } from "../scheme/standard-layout.js";
 import {
   createAnalysisV2,
-  renderAnalysisV2Summary,
   type AnalysisV2Controller,
   type AnalysisV2PreferenceStorage,
 } from "./analysis-v2-panel.js";
 import "./analysis-v2-layout.css";
-import { mountAnalysisV2MovementLineArt } from "./analysis-v2-movement-line-art.js";
 import "./analysis-v2-space.css";
 import "./analysis-v2-strategy-floor.css";
 import "./analysis-v2-viewport-composition.css";
 import { buildAnalysisV2Model } from "./analysis-v2-model.js";
 import { buildAnalysisV2SemanticModel } from "./analysis-v2-semantic-model.js";
 import type { AnalysisV2Snapshot } from "./analysis-v2-snapshot.js";
-import { mountAnalysisV2SpeedPreview } from "./analysis-v2-speed-preview.js";
+import { renderAnalysisV2Summary } from "./analysis-v2-summary.js";
 
 function analysisModelFrom(snapshot: AnalysisV2Snapshot) {
   const semantic = buildAnalysisV2SemanticModel({
@@ -129,15 +127,17 @@ function mountAnalysisTopLayer(analysis: HTMLElement): AnalysisV2TopLayer {
     }
     if (analysis.hidden) close();
   };
+  const cancel = (event: Event): void => event.preventDefault();
   const observer = new MutationObserver(sync);
   observer.observe(analysis, { attributes: true, attributeFilter: ["hidden"] });
-  modal.addEventListener("cancel", (event) => event.preventDefault());
+  modal.addEventListener("cancel", cancel);
   sync();
 
   return {
     close,
     destroy(): void {
       observer.disconnect();
+      modal.removeEventListener("cancel", cancel);
       close();
       modal.remove();
     },
@@ -158,8 +158,6 @@ export function mountAnalysisV2Integration(
       deps.focusPractice();
     },
   });
-  const destroyMovementLineArt = mountAnalysisV2MovementLineArt(analysis.host);
-  const speedPreview = mountAnalysisV2SpeedPreview(analysis.host, currentAnalysisModel);
   topLayer = mountAnalysisTopLayer(analysis.host);
 
   return {
@@ -174,8 +172,6 @@ export function mountAnalysisV2Integration(
     },
     destroy(): void {
       document.body.classList.remove("analysis-v2-open");
-      destroyMovementLineArt();
-      speedPreview.destroy();
       topLayer?.destroy();
       analysis.destroy();
     },
