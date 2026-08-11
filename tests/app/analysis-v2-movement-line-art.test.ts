@@ -22,7 +22,7 @@ describe("Analysis V2 Movement line art", () => {
     const unmount = mountAnalysisV2MovementLineArt(host);
     const families = [...host.querySelectorAll<HTMLElement>(".analysis-v2-movement-family")];
     const labels = Object.fromEntries(families.map((row) => [
-      row.querySelector("header strong")?.textContent,
+      row.querySelector("header strong")?.textContent ?? "",
       row.querySelector(".analysis-v2-movement-diagram")?.getAttribute("aria-label"),
     ]));
 
