@@ -148,6 +148,89 @@ const twoSlotRules: readonly ProductionRule[] = [{
   negativeFixtureIds: ["sentence.test-two-slots:negative"],
 }];
 
+const targetedRules: readonly ProductionRule[] = [
+  {
+    id: "sentence.wrapper",
+    grammarVersion: FORMAL_GRAMMAR_VERSION,
+    output: "Sentence",
+    constituents: [{
+      key: "clause",
+      category: "Clause",
+      minimum: 1,
+      maximum: 1,
+      recursive: false,
+      allowedUpos: [],
+      requiredFunctions: [],
+      requiredValencyFrames: [],
+      requiredFeatures: {},
+    }],
+    surfaceOrders: [{ id: "canonical", constituentKeys: ["clause"] }],
+    constraints: [],
+    positiveFixtureIds: ["sentence.wrapper:positive"],
+    negativeFixtureIds: ["sentence.wrapper:negative"],
+  },
+  {
+    id: "sentence.direct",
+    grammarVersion: FORMAL_GRAMMAR_VERSION,
+    output: "Sentence",
+    constituents: [{
+      key: "head",
+      category: "Lexeme",
+      minimum: 1,
+      maximum: 1,
+      recursive: false,
+      allowedUpos: ["NOUN"],
+      requiredFunctions: ["subject"],
+      requiredValencyFrames: [],
+      requiredFeatures: {},
+    }],
+    surfaceOrders: [{ id: "canonical", constituentKeys: ["head"] }],
+    constraints: [],
+    positiveFixtureIds: ["sentence.direct:positive"],
+    negativeFixtureIds: ["sentence.direct:negative"],
+  },
+  {
+    id: "clause.noun",
+    grammarVersion: FORMAL_GRAMMAR_VERSION,
+    output: "Clause",
+    constituents: [{
+      key: "head",
+      category: "Lexeme",
+      minimum: 1,
+      maximum: 1,
+      recursive: false,
+      allowedUpos: ["NOUN"],
+      requiredFunctions: ["subject"],
+      requiredValencyFrames: [],
+      requiredFeatures: {},
+    }],
+    surfaceOrders: [{ id: "canonical", constituentKeys: ["head"] }],
+    constraints: [],
+    positiveFixtureIds: ["clause.noun:positive"],
+    negativeFixtureIds: ["clause.noun:negative"],
+  },
+  {
+    id: "clause.verb",
+    grammarVersion: FORMAL_GRAMMAR_VERSION,
+    output: "Clause",
+    constituents: [{
+      key: "head",
+      category: "Lexeme",
+      minimum: 1,
+      maximum: 1,
+      recursive: false,
+      allowedUpos: ["VERB"],
+      requiredFunctions: ["predicate"],
+      requiredValencyFrames: [],
+      requiredFeatures: {},
+    }],
+    surfaceOrders: [{ id: "canonical", constituentKeys: ["head"] }],
+    constraints: [],
+    positiveFixtureIds: ["clause.verb:positive"],
+    negativeFixtureIds: ["clause.verb:negative"],
+  },
+];
+
 describe("frequency-first formal syntax compatibility composer", () => {
   it("uses only stage-eligible entries and returns a formal candidate", () => {
     const eligible = entry("entry:eligible", "甲", 0.9);
@@ -276,6 +359,51 @@ describe("frequency-first formal syntax compatibility composer", () => {
     expect(candidateIds?.[1]).toBe(transitive.id);
     expect(candidateIds).not.toContain(intransitive.id);
     expect([candidateIds?.[0], candidateIds?.[2]].sort()).toEqual([subject.id, object.id].sort());
+  });
+
+  it("passes raw structural targets through to the realized candidate", () => {
+    const noun = entry("entry:noun", "名", 1);
+    const verb = entry("entry:verb", "動", 1);
+    const result = composeFormalSyntaxUtterances({
+      eligibleEntries: [noun, verb],
+      profiles: [
+        typedProfile("profile:noun", noun.id, "NOUN", ["subject"], ["avalent"], { nsubj: 1 }),
+        typedProfile("profile:verb", verb.id, "VERB", ["predicate"], ["intransitive"], { root: 1 }),
+      ],
+      random: new SequenceRandom([0]),
+      maximumCandidates: 1,
+      maximumAttempts: 1,
+      rules: targetedRules,
+      samplingMode: "raw",
+      structuralTarget: {
+        rootProductionRuleId: "sentence.wrapper",
+        nestedProductionTargets: [{
+          parentRuleId: "sentence.wrapper",
+          constituentKey: "clause",
+          childRuleId: "clause.verb",
+        }],
+      },
+    });
+
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]).toMatchObject({
+      text: "動",
+      syntaxRootRuleId: "sentence.wrapper",
+    });
+    expect(result.candidates[0]?.entries.map((item) => item.id)).toEqual([verb.id]);
+  });
+
+  it("rejects structural target injection in product-family mode", () => {
+    expect(() => composeFormalSyntaxUtterances({
+      eligibleEntries: [],
+      profiles: [],
+      random: new SequenceRandom([0]),
+      maximumCandidates: 1,
+      maximumAttempts: 1,
+      rules: FORMAL_SYNTAX_RULES,
+      samplingMode: "product-family",
+      structuralTarget: { rootProductionRuleId: "sentence.declarative" },
+    })).toThrow(/structuralTarget requires raw sampling mode/u);
   });
 
   it("fails closed without silently assigning a missing profile", () => {

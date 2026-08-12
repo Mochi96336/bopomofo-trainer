@@ -16,7 +16,10 @@ import {
   compatibleProfilesForSlot,
   realizeStructuralDerivation,
 } from "../syntax/realize.js";
-import { sampleStructuralDerivation } from "../syntax/sample.js";
+import {
+  sampleStructuralDerivation,
+  type NestedProductionTarget,
+} from "../syntax/sample.js";
 import type {
   DerivationBounds,
   ProductionRule,
@@ -33,6 +36,11 @@ import {
 } from "./formal-syntax-sampling-policy.js";
 
 export type FormalSyntaxSamplingMode = "raw" | "product-family";
+
+export interface FormalSyntaxStructuralTarget {
+  readonly rootProductionRuleId?: string;
+  readonly nestedProductionTargets?: readonly NestedProductionTarget[];
+}
 
 export interface FormalSyntaxUtteranceInput {
   readonly eligibleEntries: readonly CatalogEntry[];
@@ -57,6 +65,12 @@ export interface FormalSyntaxUtteranceInput {
    * product-family mode; omitted input uses PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.
    */
   readonly samplingPolicy?: FormalSyntaxSamplingPolicy;
+  /**
+   * Explicit structural targeting for construction-specific practice. This is
+   * raw-only: product-family mode owns Sentence family/root probability and may
+   * not be bypassed by caller-selected production targets.
+   */
+  readonly structuralTarget?: FormalSyntaxStructuralTarget;
 }
 
 function nextUnit(random: RandomSource): number {
@@ -191,6 +205,9 @@ export function composeFormalSyntaxUtterances(
   if (!useProductFamilyPolicy && input.samplingPolicy !== undefined) {
     throw new Error("samplingPolicy requires product-family sampling mode");
   }
+  if (useProductFamilyPolicy && input.structuralTarget !== undefined) {
+    throw new Error("structuralTarget requires raw sampling mode");
+  }
   const samplingPolicy = useProductFamilyPolicy
     ? input.samplingPolicy ?? PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY
     : null;
@@ -198,7 +215,8 @@ export function composeFormalSyntaxUtterances(
 
   // #155 deliberately controls Sentence-root family probability only. Nested
   // Clause/Phrase sampling stays on the raw structural sampler until a dedicated
-  // nested family-local search contract exists.
+  // nested family-local search contract exists. Raw construction practice may
+  // inject explicit structural targets without changing product-family policy.
   const sentenceRules = useProductFamilyPolicy
     ? rules.filter((rule) => rule.output === "Sentence")
     : [];
@@ -254,7 +272,7 @@ export function composeFormalSyntaxUtterances(
       break;
     }
     const rootProductionRuleId = rootFamily === null
-      ? undefined
+      ? input.structuralTarget?.rootProductionRuleId
       : chooseSentenceConstructionVariant(rootFamily, input.random);
     const shape = sampleStructuralDerivation({
       rootCategory: "Sentence",
@@ -267,6 +285,9 @@ export function composeFormalSyntaxUtterances(
       },
       ...(input.bounds === undefined ? {} : { bounds: input.bounds }),
       ...(rootProductionRuleId === undefined ? {} : { rootProductionRuleId }),
+      ...(input.structuralTarget?.nestedProductionTargets === undefined
+        ? {}
+        : { nestedProductionTargets: input.structuralTarget.nestedProductionTargets }),
     });
     if (shape === null) {
       fallbackReasons.add("formal-syntax-structural-sampling-exhausted");
