@@ -3,7 +3,11 @@ import type { RandomSource } from "../../src/core/model.js";
 import { FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";
 import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
 import { sampleStructuralDerivation } from "../../src/syntax/sample.js";
-import type { ProductionRule } from "../../src/syntax/types.js";
+import type {
+  ProductionConstituent,
+  ProductionRule,
+  SyntaxCategory,
+} from "../../src/syntax/types.js";
 
 class SequenceRandom implements RandomSource {
   private index = 0;
@@ -56,6 +60,48 @@ const rules: readonly ProductionRule[] = [
     positiveFixtureIds: ["noun.base:positive"],
     negativeFixtureIds: ["noun.base:negative"],
   },
+];
+
+function constituent(
+  key: string,
+  category: SyntaxCategory,
+  recursive = false,
+): ProductionConstituent {
+  return {
+    key,
+    category,
+    minimum: 1,
+    maximum: 1,
+    recursive,
+    allowedUpos: category === "Lexeme" ? ["NOUN"] : [],
+    requiredFunctions: [],
+    requiredValencyFrames: [],
+    requiredFeatures: {},
+  };
+}
+
+function production(
+  id: string,
+  output: SyntaxCategory,
+  constituents: readonly ProductionConstituent[],
+): ProductionRule {
+  return {
+    id,
+    grammarVersion: FORMAL_GRAMMAR_VERSION,
+    output,
+    constituents,
+    surfaceOrders: [{ id: "canonical", constituentKeys: constituents.map((item) => item.key) }],
+    constraints: [],
+    positiveFixtureIds: [`${id}:positive`],
+    negativeFixtureIds: [`${id}:negative`],
+  };
+}
+
+const nestedTargetRules: readonly ProductionRule[] = [
+  production("sentence.wrapper", "Sentence", [constituent("clause", "Clause")]),
+  production("clause.target", "Clause", [constituent("content", "ContentClause", true)]),
+  production("clause.other", "Clause", [constituent("head", "Lexeme")]),
+  production("content.wrapper", "ContentClause", [constituent("clause", "Clause", true)]),
 ];
 
 describe("random structural sampling", () => {
@@ -124,6 +170,101 @@ describe("random structural sampling", () => {
       isLexicalSlotReachable: (slot) => !slot.requiredValencyFrames.includes("transitive"),
     });
     expect(shape).toBeNull();
+  });
+
+  it("targets one named nested edge without constraining deeper occurrences of the same category", () => {
+    const shape = sampleStructuralDerivation({
+      rootCategory: "Sentence",
+      rootProductionRuleId: "sentence.wrapper",
+      nestedProductionTargets: [{
+        parentRuleId: "sentence.wrapper",
+        constituentKey: "clause",
+        childRuleId: "clause.target",
+      }],
+      rules: nestedTargetRules,
+      random: new SequenceRandom([0]),
+      maximumAttempts: 1,
+    });
+
+    expect(shape?.productionRulePath).toEqual([
+      "sentence.wrapper",
+      "clause.target",
+      "content.wrapper",
+      "clause.other",
+    ]);
+    expect(shape?.lexicalSlots).toHaveLength(1);
+  });
+
+  it("rejects malformed nested production targets before sampling", () => {
+    const base = {
+      rootCategory: "Sentence" as const,
+      rules: nestedTargetRules,
+      random: new SequenceRandom([0]),
+      maximumAttempts: 1,
+    };
+
+    expect(() => sampleStructuralDerivation({
+      ...base,
+      nestedProductionTargets: [{
+        parentRuleId: "missing.parent",
+        constituentKey: "clause",
+        childRuleId: "clause.target",
+      }],
+    })).toThrow(/missing parent/u);
+
+    expect(() => sampleStructuralDerivation({
+      ...base,
+      nestedProductionTargets: [{
+        parentRuleId: "sentence.wrapper",
+        constituentKey: "missing",
+        childRuleId: "clause.target",
+      }],
+    })).toThrow(/missing constituent/u);
+
+    expect(() => sampleStructuralDerivation({
+      rootCategory: "Clause",
+      rules: nestedTargetRules,
+      random: new SequenceRandom([0]),
+      nestedProductionTargets: [{
+        parentRuleId: "clause.other",
+        constituentKey: "head",
+        childRuleId: "clause.target",
+      }],
+    })).toThrow(/cannot target lexical constituent/u);
+
+    expect(() => sampleStructuralDerivation({
+      ...base,
+      nestedProductionTargets: [{
+        parentRuleId: "sentence.wrapper",
+        constituentKey: "clause",
+        childRuleId: "missing.child",
+      }],
+    })).toThrow(/missing child/u);
+
+    expect(() => sampleStructuralDerivation({
+      ...base,
+      nestedProductionTargets: [{
+        parentRuleId: "sentence.wrapper",
+        constituentKey: "clause",
+        childRuleId: "content.wrapper",
+      }],
+    })).toThrow(/category mismatch/u);
+
+    expect(() => sampleStructuralDerivation({
+      ...base,
+      nestedProductionTargets: [
+        {
+          parentRuleId: "sentence.wrapper",
+          constituentKey: "clause",
+          childRuleId: "clause.target",
+        },
+        {
+          parentRuleId: "sentence.wrapper",
+          constituentKey: "clause",
+          childRuleId: "clause.other",
+        },
+      ],
+    })).toThrow(/duplicates parent constituent/u);
   });
 
   it("rejects random values outside the unit interval", () => {
