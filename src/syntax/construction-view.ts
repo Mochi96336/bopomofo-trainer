@@ -19,7 +19,8 @@ export interface OccurrenceCapabilityInheritanceTarget {
 /**
  * A reviewed construction view reuses canonical production identities while
  * adding evidence-backed lexical requirements. The view is a derived rule set,
- * not a second grammar inventory.
+ * not a second grammar inventory, and applying it preserves canonical rule
+ * identity/order for downstream structural targeting.
  */
 export interface FormalSyntaxConstructionView {
   readonly id: string;
