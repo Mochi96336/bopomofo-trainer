@@ -3,6 +3,9 @@ import {
   type RuntimeOccurrenceCapability,
 } from "./types.js";
 
+export const CAUSATIVE_CCOMP_SAME_OCCURRENCE_CAPABILITY: RuntimeOccurrenceCapability =
+  "voice-cau-ccomp-same-occurrence";
+
 const REVIEWED_CAPABILITIES = new Set<string>(RUNTIME_OCCURRENCE_CAPABILITIES);
 
 export function isReviewedRuntimeOccurrenceCapability(
