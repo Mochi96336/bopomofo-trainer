@@ -40,7 +40,7 @@ describe("packaged same-occurrence capabilities", () => {
     expect(new Set(occurrenceBacked.map((profile) => profile.entryId)).size).toBe(139);
   });
 
-  it("does not make BA a grammar requirement in the packaging slice", () => {
+  it("has exactly one canonical BA occurrence-capability consumer", () => {
     const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
       rule.constituents.filter((constituent) =>
         constituent.requiredOccurrenceCapabilities?.includes(
@@ -49,6 +49,6 @@ describe("packaged same-occurrence capabilities", () => {
       ).map((constituent) => `${rule.id}:${constituent.key}`),
     );
 
-    expect(consumers).toEqual([]);
+    expect(consumers).toEqual(["clause.ba:predicate"]);
   });
 });
