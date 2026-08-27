@@ -96,6 +96,16 @@ jobs:
         run: |
           set -o pipefail
           npm run test:fast -- --reporter=verbose 2>&1 | tee vitest.log
+      - name: Capture BA runtime identity join probe
+        shell: bash
+        run: |
+          grep -o 'BA_RUNTIME_JOIN=.*' vitest.log | tail -n 1 > ba-runtime-join.txt
+          test -s ba-runtime-join.txt
+      - name: Upload BA runtime identity join probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: ba-runtime-identity-join-probe
+          path: ba-runtime-join.txt
       - name: Upload Vitest failure log
         if: failure() && steps.tests.outcome == 'failure'
         uses: actions/upload-artifact@v4
