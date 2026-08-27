@@ -4,9 +4,11 @@ import {
   SYNTAX_PROFILES,
 } from "../../src/app/generated/catalog.js";
 import { CAUSATIVE_OCCURRENCE_CAPABILITY } from "../../scripts/causative-occurrence-source.js";
+import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
+import { BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY } from "../../src/syntax/runtime-occurrence-capabilities.js";
 
-describe("packaged same-occurrence causative-ccomp capability", () => {
-  it("narrows the reviewed aggregate intersection from 122 to 121 and excludes only 阻止", () => {
+describe("packaged same-occurrence capabilities", () => {
+  it("preserves the reviewed causative-ccomp boundary", () => {
     const textByEntryId = new Map(PRACTICE_CATALOG.map((entry) => [entry.id, entry.prompt.text]));
     const aggregate = SYNTAX_PROFILES.filter((profile) =>
       (profile.dependencyEvidence.morphologicalFeatureCounts?.["Voice=Cau"] ?? 0) > 0
@@ -27,5 +29,26 @@ describe("packaged same-occurrence causative-ccomp capability", () => {
       .filter((text): text is string => text !== undefined)
       .sort((left, right) => left.localeCompare(right, "zh-Hant"));
     expect(aggregateOnlyTexts).toEqual(["阻止"]);
+  });
+
+  it("packages all 139 identity-safe reviewed BA profiles", () => {
+    const occurrenceBacked = SYNTAX_PROFILES.filter((profile) =>
+      profile.occurrenceCapabilities?.includes(BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY) ?? false,
+    );
+
+    expect(occurrenceBacked).toHaveLength(139);
+    expect(new Set(occurrenceBacked.map((profile) => profile.entryId)).size).toBe(139);
+  });
+
+  it("does not make BA a grammar requirement in the packaging slice", () => {
+    const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
+      rule.constituents.filter((constituent) =>
+        constituent.requiredOccurrenceCapabilities?.includes(
+          BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY,
+        ) ?? false,
+      ).map((constituent) => `${rule.id}:${constituent.key}`),
+    );
+
+    expect(consumers).toEqual([]);
   });
 });
