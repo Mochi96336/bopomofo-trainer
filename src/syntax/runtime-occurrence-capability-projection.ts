@@ -2,6 +2,12 @@ import { sha256Canonical } from "../reference/importers/canonical-json.js";
 import type { RuntimeOccurrenceCapability, RuntimeSyntaxProfile } from "./types.js";
 import { validRuntimeOccurrenceCapabilities } from "./runtime-occurrence-capabilities.js";
 
+export const RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS = [
+  "same-token-voice-cau-direct-ccomp-v1",
+] as const;
+export type RuntimeOccurrenceEvidenceContract =
+  (typeof RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS)[number];
+
 export interface RuntimeOccurrenceCapabilityProjectionArtifact {
   readonly schemaVersion: "runtime-occurrence-capability-projection-v1";
   readonly sourceProfileArtifactDigest: string;
@@ -9,7 +15,7 @@ export interface RuntimeOccurrenceCapabilityProjectionArtifact {
   readonly sourceVersion: string;
   readonly sourceCommit: string;
   readonly reviewedCapability: RuntimeOccurrenceCapability;
-  readonly evidenceContract: "same-token-voice-cau-direct-ccomp-v1";
+  readonly evidenceContract: RuntimeOccurrenceEvidenceContract;
   readonly identityPolicy: "unique-active-entry-per-form-upos-v1";
   readonly profileCount: number;
   readonly entryCount: number;
@@ -17,28 +23,48 @@ export interface RuntimeOccurrenceCapabilityProjectionArtifact {
   readonly determinismDigest: string;
 }
 
-function hasRequiredAggregateInputs(profile: RuntimeSyntaxProfile): boolean {
-  return (profile.dependencyEvidence.morphologicalFeatureCounts?.["Voice=Cau"] ?? 0) > 0
-    && profile.valencyFrames.includes("clausal-complement");
+interface ReviewedProjectionContract {
+  readonly evidenceContract: RuntimeOccurrenceEvidenceContract;
+  readonly hasRequiredAggregateInputs: (profile: RuntimeSyntaxProfile) => boolean;
+}
+
+const REVIEWED_PROJECTION_CONTRACTS = new Map<RuntimeOccurrenceCapability, ReviewedProjectionContract>([
+  ["voice-cau-ccomp-same-occurrence", {
+    evidenceContract: "same-token-voice-cau-direct-ccomp-v1",
+    hasRequiredAggregateInputs: (profile) =>
+      (profile.dependencyEvidence.morphologicalFeatureCounts?.["Voice=Cau"] ?? 0) > 0
+      && profile.valencyFrames.includes("clausal-complement"),
+  }],
+]);
+
+function reviewedProjectionContract(
+  capability: RuntimeOccurrenceCapability,
+): ReviewedProjectionContract | undefined {
+  return REVIEWED_PROJECTION_CONTRACTS.get(capability);
 }
 
 function validateArtifact(
   sourceProfileArtifactDigest: string,
   artifact: RuntimeOccurrenceCapabilityProjectionArtifact,
-): void {
+): ReviewedProjectionContract {
   const { determinismDigest, ...core } = artifact;
+  const reviewedCapability = validRuntimeOccurrenceCapabilities([artifact.reviewedCapability]);
+  const contract = reviewedCapability
+    ? reviewedProjectionContract(artifact.reviewedCapability)
+    : undefined;
   if (artifact.schemaVersion !== "runtime-occurrence-capability-projection-v1"
     || artifact.sourceProfileArtifactDigest !== sourceProfileArtifactDigest
     || artifact.sourceProvenanceId.length === 0
     || artifact.sourceVersion.length === 0
     || !/^[0-9a-f]{40}$/u.test(artifact.sourceCommit)
-    || !validRuntimeOccurrenceCapabilities([artifact.reviewedCapability])
-    || artifact.evidenceContract !== "same-token-voice-cau-direct-ccomp-v1"
+    || contract === undefined
+    || artifact.evidenceContract !== contract.evidenceContract
     || artifact.identityPolicy !== "unique-active-entry-per-form-upos-v1"
     || artifact.profileCount !== artifact.profileIds.length
     || determinismDigest !== sha256Canonical(core)) {
     throw new Error("runtime occurrence capability projection artifact is stale or invalid");
   }
+  return contract;
 }
 
 function applyReviewedProjection(
@@ -47,7 +73,7 @@ function applyReviewedProjection(
   artifact: RuntimeOccurrenceCapabilityProjectionArtifact,
   allowPreviouslyProjectedCapabilities: boolean,
 ): readonly RuntimeSyntaxProfile[] {
-  validateArtifact(sourceProfileArtifactDigest, artifact);
+  const contract = validateArtifact(sourceProfileArtifactDigest, artifact);
 
   const profilesById = new Map(profiles.map((profile) => [profile.id, profile]));
   const targetedProfileIds = new Set<string>();
@@ -57,7 +83,7 @@ function applyReviewedProjection(
       throw new Error("runtime occurrence capability projection contains duplicate profile identities");
     }
     const profile = profilesById.get(profileId);
-    if (profile === undefined || !hasRequiredAggregateInputs(profile)) {
+    if (profile === undefined || !contract.hasRequiredAggregateInputs(profile)) {
       throw new Error("runtime occurrence capability projection targets an invalid profile identity");
     }
     targetedProfileIds.add(profileId);
