@@ -98,6 +98,14 @@ function findingFor(
   };
 }
 
+function rowHasObservedPredicateUpos(
+  uposCounts: Readonly<Record<string, number>> | undefined,
+): boolean {
+  return Object.entries(uposCounts ?? {}).some(
+    ([upos, count]) => count > 0 && PREDICATE_UPOS.has(upos as Upos),
+  );
+}
+
 /**
  * Audit the semantic distance between occurrence evidence and the current
  * lexical-looking ValencyFrame projection. This function is intentionally not
@@ -111,6 +119,13 @@ export function auditValencyEvidenceSemantics(
   let predicateProfileCount = 0;
 
   for (const row of artifact.rows) {
+    if (row.observed
+      && row.syntaxProfileEvidence === undefined
+      && rowHasObservedPredicateUpos(row.uposCounts)) {
+      throw new Error(
+        `valency semantics audit requires per-UPOS syntaxProfileEvidence for ${row.text}`,
+      );
+    }
     for (const profile of row.syntaxProfileEvidence ?? []) {
       const upos = profile.upos as Upos;
       if (!PREDICATE_UPOS.has(upos)) continue;
