@@ -229,27 +229,27 @@ function deriveValencyFrames(
 ): readonly ValencyFrame[] {
   if (upos !== "VERB" && upos !== "AUX" && upos !== "ADJ") return ["avalent"];
   const frames = new Set<ValencyFrame>();
-  let hasObjectBearing = false;
-  let hasObjectless = false;
+  let hasPositiveComplementEvidence = false;
+  let hasComplementlessOccurrence = false;
   for (const [signature, observations] of Object.entries(evidence.valencySignatureCounts)) {
     if (observations <= 0) continue;
     const counts = signatureCounts(signature);
     const hasComplement = COMPLEMENT_RELATIONS.some((relation) => (counts[relation] ?? 0) > 0);
-    hasObjectless ||= !hasComplement;
-    if ((counts.iobj ?? 0) > 0) {
-      frames.add("ditransitive");
-      hasObjectBearing = true;
-    }
-    if ((counts.obj ?? 0) > 0) {
-      frames.add("transitive");
-      hasObjectBearing = true;
-    }
+    hasPositiveComplementEvidence ||= hasComplement;
+    hasComplementlessOccurrence ||= !hasComplement;
+    if ((counts.iobj ?? 0) > 0) frames.add("ditransitive");
+    if ((counts.obj ?? 0) > 0) frames.add("transitive");
     if ((counts.ccomp ?? 0) > 0) frames.add("clausal-complement");
     if ((counts.xcomp ?? 0) > 0) frames.add("open-clausal-complement");
     if ((counts.obl ?? 0) > 0) frames.add("adpositional-complement");
   }
-  if (hasObjectless) frames.add("intransitive");
-  if (hasObjectBearing && hasObjectless) frames.add("ambitransitive");
+  // A complementless occurrence is realization evidence. It only supplies the
+  // provisional intransitive fallback when the profile has no positive
+  // complement evidence at all. Mixed occurrences must not manufacture a
+  // second lexical frame or an aggregate `ambitransitive` capability.
+  if (!hasPositiveComplementEvidence && hasComplementlessOccurrence) {
+    frames.add("intransitive");
+  }
   if ((evidence.constructionRelationCounts["child:cop"] ?? 0) > 0) {
     frames.add("copular");
   }
