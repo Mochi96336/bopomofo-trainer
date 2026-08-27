@@ -34,6 +34,7 @@ export type ValencyFrame = (typeof VALENCY_FRAMES)[number];
  */
 export const RUNTIME_OCCURRENCE_CAPABILITIES = [
   "voice-cau-ccomp-same-occurrence",
+  "ba-obl-patient-case-same-occurrence",
 ] as const;
 export type RuntimeOccurrenceCapability = (typeof RUNTIME_OCCURRENCE_CAPABILITIES)[number];
 
@@ -84,126 +85,52 @@ export interface RuntimeSyntaxProfile {
   readonly valencyFrames: readonly ValencyFrame[];
   readonly occurrenceCapabilities?: readonly RuntimeOccurrenceCapability[];
   readonly dependencyEvidence: SyntaxCompatibilityEvidence;
-  readonly provenanceIds: readonly string[];
-}
-export interface SyntaxProfile extends RuntimeSyntaxProfile {
-  readonly dependencyEvidence: DependencyEvidence;
-}
-export interface SyntaxProfileProjectionResult {
-  readonly profiles: readonly SyntaxProfile[];
-  readonly profilesByEntryId: Readonly<Record<string, readonly SyntaxProfile[]>>;
-  readonly noUdEvidenceEntryIds: readonly string[];
-  readonly projectionDigest: string;
 }
 
-export type FormalGrammarVersion = typeof FORMAL_GRAMMAR_VERSION;
-export type SyntaxCategory = (typeof SYNTAX_CATEGORIES)[number];
-export type SyntaxFeatureName = (typeof SYNTAX_FEATURE_NAMES)[number];
-export type SyntaxFeatureValue = string | number | boolean;
-export type SyntaxFeatureSet = Readonly<Partial<Record<SyntaxFeatureName, SyntaxFeatureValue>>>;
-export type ConstituentCardinalityBound = "consecutive-modifiers" | "complements-per-predicate";
-export type ProductionRuleClass = "coordination";
-
-export interface DerivationBounds {
-  readonly maximumPhraseDepth: number;
-  readonly maximumClauseNesting: number;
-  readonly maximumClausesPerSentence: number;
-  readonly maximumCoordinationItems: number;
-  readonly maximumConsecutiveModifiers: number;
-  readonly maximumComplementsPerPredicate: number;
-  readonly maximumLexicalEntriesPerUtterance: number;
+export interface GrammarRule {
+  readonly id: string;
+  readonly category: (typeof SYNTAX_CATEGORIES)[number];
+  readonly constituents: readonly ProductionConstituent[];
+  readonly constraints?: readonly ProductionConstraint[];
 }
 
 export interface ProductionConstituent {
   readonly key: string;
-  readonly category: SyntaxCategory;
-  readonly minimum: number;
-  readonly maximum: number;
-  readonly recursive: boolean;
-  readonly allowedUpos: readonly Upos[];
-  readonly requiredFunctions: readonly SyntacticFunction[];
-  readonly requiredValencyFrames: readonly ValencyFrame[];
-  /**
-   * Explicit same-occurrence evidence required by this constituent. This is a
-   * separate requirement dimension: it must never be reconstructed from
-   * morphology and valency requirements downstream.
-   */
+  readonly category?: (typeof SYNTAX_CATEGORIES)[number];
+  readonly lexical?: boolean;
+  readonly literal?: string;
+  readonly requiredUpos?: readonly Upos[];
+  readonly requiredFunctions?: readonly SyntacticFunction[];
+  readonly requiredValencyFrames?: readonly ValencyFrame[];
   readonly requiredOccurrenceCapabilities?: readonly RuntimeOccurrenceCapability[];
-  readonly requiredFeatures: SyntaxFeatureSet;
+  readonly requiredFeatures?: Partial<Record<(typeof SYNTAX_FEATURE_NAMES)[number], string>>;
   readonly inheritFunctions?: boolean;
   readonly inheritValencyFrames?: boolean;
   readonly inheritOccurrenceCapabilities?: boolean;
   readonly inheritFeatures?: boolean;
-  readonly entryBinding?: string;
-  readonly formalLiteral?: string;
-  /** Select which versioned derivation bound caps this repeatable edge. */
-  readonly cardinalityBound?: ConstituentCardinalityBound;
-  /** Prevent selected rule classes only at this child category root. */
-  readonly excludedRuleClasses?: readonly ProductionRuleClass[];
+  readonly min: number;
+  readonly max: number;
+  readonly recursive?: boolean;
 }
 
-export interface SurfaceOrder {
-  readonly id: string;
-  readonly constituentKeys: readonly string[];
+export type ProductionConstraint = ProductionPresenceConstraint | ProductionFeatureConstraint;
+
+export interface ProductionPresenceConstraint {
+  readonly kind: "presence";
+  readonly ifPresent: string;
+  readonly thenPresent: string;
 }
-export type ProductionConstraint =
-  | {
-      readonly kind: "feature-equals" | "feature-not-equals";
-      readonly constituentKey: string;
-      readonly feature: SyntaxFeatureName;
-      readonly value: SyntaxFeatureValue;
-    }
-  | {
-      readonly kind: "requires-constituent" | "forbids-cooccurrence";
-      readonly ifPresentKey: string;
-      readonly targetKey: string;
-    };
-export interface ProductionRule {
-  readonly id: string;
-  readonly grammarVersion: FormalGrammarVersion;
-  readonly output: SyntaxCategory;
-  readonly constituents: readonly ProductionConstituent[];
-  readonly surfaceOrders: readonly SurfaceOrder[];
-  readonly constraints: readonly ProductionConstraint[];
-  readonly positiveFixtureIds: readonly string[];
-  readonly negativeFixtureIds: readonly string[];
-  readonly ruleClass?: ProductionRuleClass;
-  readonly coordinationItems?: number;
+
+export interface ProductionFeatureConstraint {
+  readonly kind: "feature";
+  readonly left: string;
+  readonly leftFeature: (typeof SYNTAX_FEATURE_NAMES)[number];
+  readonly right: string;
+  readonly rightFeature: (typeof SYNTAX_FEATURE_NAMES)[number];
+  readonly relation: "equal" | "not-equal";
 }
-export interface ProductionFixture {
-  readonly id: string;
-  readonly ruleId: string;
-  readonly expected: "accept" | "reject";
-  readonly surfaceOrderId: string;
-  readonly constituentCounts: Readonly<Record<string, number>>;
-}
-export interface SyntaxNode {
-  readonly id: string;
-  readonly category: SyntaxCategory;
-  readonly features: SyntaxFeatureSet;
-  readonly productionRuleId: string | null;
-  readonly syntaxProfileId: string | null;
-  readonly children: readonly SyntaxNode[];
-}
-export interface Derivation {
-  readonly id: string;
-  readonly grammarVersion: FormalGrammarVersion;
-  readonly root: SyntaxNode;
-  readonly productionRulePath: readonly string[];
-  readonly syntaxProfileIds: readonly string[];
-}
-export interface SurfaceToken {
-  readonly kind: "lexical-entry" | "punctuation";
-  readonly value: string;
-  readonly entryId: string | null;
-  readonly syntaxProfileId: string | null;
-}
-export interface SurfaceRealization {
-  readonly id: string;
-  readonly grammarVersion: FormalGrammarVersion;
-  readonly derivationId: string;
-  readonly productionRulePath: readonly string[];
-  readonly entryIds: readonly string[];
-  readonly syntaxProfileIds: readonly string[];
-  readonly tokens: readonly SurfaceToken[];
+
+export interface GrammarBundle {
+  readonly version: typeof FORMAL_GRAMMAR_VERSION;
+  readonly rules: readonly GrammarRule[];
 }
