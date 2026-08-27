@@ -87,4 +87,16 @@ describe("valency evidence semantics audit", () => {
       genericObliqueFeedsAdpositionalComplement: true,
     });
   });
+
+  it("fails closed when an observed predicate only has legacy aggregate evidence", () => {
+    expect(() => auditValencyEvidenceSemantics({
+      rows: [{
+        text: "吃",
+        observed: true,
+        occurrenceCount: 3,
+        uposCounts: { VERB: 3 },
+        valencySignatureCounts: { none: 1, "obj=1": 2 },
+      }],
+    })).toThrow(/requires per-UPOS syntaxProfileEvidence for 吃/u);
+  });
 });
