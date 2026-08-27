@@ -4,6 +4,7 @@ import { validRuntimeOccurrenceCapabilities } from "./runtime-occurrence-capabil
 
 export const RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS = [
   "same-token-voice-cau-direct-ccomp-v1",
+  "same-predicate-obl-patient-case-ba-v1",
 ] as const;
 export type RuntimeOccurrenceEvidenceContract =
   (typeof RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS)[number];
@@ -25,15 +26,25 @@ export interface RuntimeOccurrenceCapabilityProjectionArtifact {
 
 interface ReviewedProjectionContract {
   readonly evidenceContract: RuntimeOccurrenceEvidenceContract;
-  readonly hasRequiredAggregateInputs: (profile: RuntimeSyntaxProfile) => boolean;
+  /** Optional aggregate backstop; same-occurrence evidence remains authoritative. */
+  readonly acceptTargetProfile: (profile: RuntimeSyntaxProfile) => boolean;
 }
 
 const REVIEWED_PROJECTION_CONTRACTS = new Map<RuntimeOccurrenceCapability, ReviewedProjectionContract>([
   ["voice-cau-ccomp-same-occurrence", {
     evidenceContract: "same-token-voice-cau-direct-ccomp-v1",
-    hasRequiredAggregateInputs: (profile) =>
+    acceptTargetProfile: (profile) =>
       (profile.dependencyEvidence.morphologicalFeatureCounts?.["Voice=Cau"] ?? 0) > 0
       && profile.valencyFrames.includes("clausal-complement"),
+  }],
+  ["ba-obl-patient-case-same-occurrence", {
+    evidenceContract: "same-predicate-obl-patient-case-ba-v1",
+    // The aggregate projector collapses obl subtypes and therefore cannot
+    // independently validate BA. Requiring generic adpositional-complement or
+    // transitive evidence here would reintroduce the evidence-ownership bug
+    // this sidecar is designed to avoid. The pinned source + identity-safe
+    // generated artifact is the reviewed proof for this capability.
+    acceptTargetProfile: () => true,
   }],
 ]);
 
@@ -83,7 +94,7 @@ function applyReviewedProjection(
       throw new Error("runtime occurrence capability projection contains duplicate profile identities");
     }
     const profile = profilesById.get(profileId);
-    if (profile === undefined || !contract.hasRequiredAggregateInputs(profile)) {
+    if (profile === undefined || !contract.acceptTargetProfile(profile)) {
       throw new Error("runtime occurrence capability projection targets an invalid profile identity");
     }
     targetedProfileIds.add(profileId);
