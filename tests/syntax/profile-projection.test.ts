@@ -80,13 +80,78 @@ describe("syntax profile projection", () => {
     const secondVerb = result.profilesByEntryId[second.id]?.find(
       (profile) => profile.upos === "VERB",
     );
-    expect(firstVerb?.valencyFrames).toEqual([
-      "ambitransitive",
-      "intransitive",
-      "transitive",
-    ]);
+    expect(firstVerb?.valencyFrames).toEqual(["transitive"]);
     expect(firstVerb?.dependencyEvidence).toEqual(secondVerb?.dependencyEvidence);
     expect(firstVerb?.id).not.toBe(secondVerb?.id);
+  });
+
+  it("keeps complementless-only predicate evidence on the provisional intransitive fallback", () => {
+    const item = entry("走", "ㄗㄡ3");
+    const result = projectSyntaxProfiles([item], {
+      source: { sourceId: "ud:test" },
+      rows: [{
+        text: "走",
+        observed: true,
+        occurrenceCount: 3,
+        uposCounts: { VERB: 3 },
+        syntaxProfileEvidence: [{
+          upos: "VERB",
+          occurrenceCount: 3,
+          dependencyRelationCounts: { root: 3 },
+          valencySignatureCounts: { none: 3 },
+        }],
+      }],
+    });
+
+    expect(result.profilesByEntryId[item.id]?.[0]?.valencyFrames).toEqual(["intransitive"]);
+  });
+
+  it("does not turn a complementless occurrence into a second lexical frame", () => {
+    const item = entry("希望", "ㄒㄧ1 ㄨㄤ4");
+    const result = projectSyntaxProfiles([item], {
+      source: { sourceId: "ud:test" },
+      rows: [{
+        text: "希望",
+        observed: true,
+        occurrenceCount: 3,
+        uposCounts: { VERB: 3 },
+        syntaxProfileEvidence: [{
+          upos: "VERB",
+          occurrenceCount: 3,
+          dependencyRelationCounts: { root: 3 },
+          childRelationCounts: { ccomp: 2 },
+          valencyRelationCounts: { ccomp: 2 },
+          valencySignatureCounts: { none: 1, "ccomp=1": 2 },
+        }],
+      }],
+    });
+
+    expect(result.profilesByEntryId[item.id]?.[0]?.valencyFrames)
+      .toEqual(["clausal-complement"]);
+  });
+
+  it("keeps generic obl projection unchanged until an unresolved-oblique state exists", () => {
+    const item = entry("住", "ㄓㄨ4");
+    const result = projectSyntaxProfiles([item], {
+      source: { sourceId: "ud:test" },
+      rows: [{
+        text: "住",
+        observed: true,
+        occurrenceCount: 3,
+        uposCounts: { VERB: 3 },
+        syntaxProfileEvidence: [{
+          upos: "VERB",
+          occurrenceCount: 3,
+          dependencyRelationCounts: { root: 3 },
+          childRelationCounts: { obl: 2 },
+          valencyRelationCounts: { obl: 2 },
+          valencySignatureCounts: { none: 1, "obl=1": 2 },
+        }],
+      }],
+    });
+
+    expect(result.profilesByEntryId[item.id]?.[0]?.valencyFrames)
+      .toEqual(["adpositional-complement"]);
   });
 
   it("keeps basic xcomp evidence generic instead of inventing controller type", () => {
