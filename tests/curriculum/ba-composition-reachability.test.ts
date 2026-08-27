@@ -98,7 +98,7 @@ describe("packaged BA composition reachability", () => {
     expect(candidate.syntaxRootRuleId).toBe("sentence.declarative");
     expect(candidate.entries.some((entry) => entry.prompt.text === "把" || entry.prompt.text === "將"))
       .toBe(true);
-    expect(candidate.syntaxProfileIds.some((profileId) => reachablePredicateIds.has(profileId)))
+    expect((candidate.syntaxProfileIds ?? []).some((profileId) => reachablePredicateIds.has(profileId)))
       .toBe(true);
   });
 });
