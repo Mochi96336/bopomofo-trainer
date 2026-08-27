@@ -68,12 +68,13 @@ if (!(pinnedSourceRecord?.values.notes ?? "").includes(expectedPin)) {
   throw new Error(`provenance ${UD_GSD_PROVENANCE_ID} must record ${expectedPin}`);
 }
 
-const markerCounts = Object.fromEntries([...sourceEvidence.markerCounts].sort(([left], [right]) => left.localeCompare(right)));
 if (sourceEvidence.oblPatientPredicateTokenCount !== 196
   || sourceEvidence.oblPatientPredicateCounts.size !== 165
   || sourceEvidence.baMarkedPatientPredicateTokenCount !== 193
   || sourceEvidence.baMarkedPatientPredicateCounts.size !== 162
-  || JSON.stringify(markerCounts) !== JSON.stringify({ "把": 61, "將": 132 })) {
+  || sourceEvidence.markerCounts.get("把") !== 61
+  || sourceEvidence.markerCounts.get("將") !== 132
+  || sourceEvidence.markerCounts.size !== 2) {
   throw new Error("pinned BA same-occurrence source evidence drifted from the reviewed boundary");
 }
 
