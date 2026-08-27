@@ -62,7 +62,7 @@ function matrixSlot() {
 }
 
 describe("same-occurrence causative construction view", () => {
-  it("derives a stricter ccomp view without mutating canonical grammar", () => {
+  it("derives a stricter ccomp requirement over canonical Predicate inheritance", () => {
     expect(ACTIVE_CAUSATIVE_CONSTRUCTION_VIEWS).toEqual([CAUSATIVE_FINITE_CCOMP_VIEW]);
     expect(CAUSATIVE_FINITE_CCOMP_VIEW).toMatchObject({
       id: "causative.finite-ccomp",
@@ -88,7 +88,7 @@ describe("same-occurrence causative construction view", () => {
     const derivedPredicateHeads = rules
       .filter((rule) => rule.output === "Predicate")
       .map((rule) => rule.constituents.find((item) => item.key === "head"));
-    expect(canonicalPredicateHeads.every((head) => head?.inheritOccurrenceCapabilities === undefined))
+    expect(canonicalPredicateHeads.every((head) => head?.inheritOccurrenceCapabilities === true))
       .toBe(true);
     expect(derivedPredicateHeads.every((head) => head?.inheritOccurrenceCapabilities === true))
       .toBe(true);
