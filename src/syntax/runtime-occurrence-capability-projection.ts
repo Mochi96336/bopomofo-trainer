@@ -22,16 +22,10 @@ function hasRequiredAggregateInputs(profile: RuntimeSyntaxProfile): boolean {
     && profile.valencyFrames.includes("clausal-complement");
 }
 
-/**
- * Join a small reviewed same-occurrence sidecar onto the independently generated
- * runtime profiles. This keeps the multi-fact occurrence claim out of both the
- * aggregate morphology projection and the aggregate valency projection.
- */
-export function applyRuntimeOccurrenceCapabilityProjection(
-  profiles: readonly RuntimeSyntaxProfile[],
+function validateArtifact(
   sourceProfileArtifactDigest: string,
   artifact: RuntimeOccurrenceCapabilityProjectionArtifact,
-): readonly RuntimeSyntaxProfile[] {
+): void {
   const { determinismDigest, ...core } = artifact;
   if (artifact.schemaVersion !== "runtime-occurrence-capability-projection-v1"
     || artifact.sourceProfileArtifactDigest !== sourceProfileArtifactDigest
@@ -45,6 +39,15 @@ export function applyRuntimeOccurrenceCapabilityProjection(
     || determinismDigest !== sha256Canonical(core)) {
     throw new Error("runtime occurrence capability projection artifact is stale or invalid");
   }
+}
+
+function applyReviewedProjection(
+  profiles: readonly RuntimeSyntaxProfile[],
+  sourceProfileArtifactDigest: string,
+  artifact: RuntimeOccurrenceCapabilityProjectionArtifact,
+  allowPreviouslyProjectedCapabilities: boolean,
+): readonly RuntimeSyntaxProfile[] {
+  validateArtifact(sourceProfileArtifactDigest, artifact);
 
   const profilesById = new Map(profiles.map((profile) => [profile.id, profile]));
   const targetedProfileIds = new Set<string>();
@@ -65,11 +68,57 @@ export function applyRuntimeOccurrenceCapabilityProjection(
   }
 
   return profiles.map((profile) => {
-    if (profile.occurrenceCapabilities !== undefined) {
+    const existing = profile.occurrenceCapabilities;
+    if (!allowPreviouslyProjectedCapabilities && existing !== undefined) {
       throw new Error("runtime source profile already contains occurrence capability evidence");
     }
-    return targetedProfileIds.has(profile.id)
-      ? { ...profile, occurrenceCapabilities: [artifact.reviewedCapability] }
-      : profile;
+    if (existing !== undefined && !validRuntimeOccurrenceCapabilities(existing)) {
+      throw new Error("runtime profile contains invalid occurrence capability evidence");
+    }
+    if (!targetedProfileIds.has(profile.id)) return profile;
+    if (existing?.includes(artifact.reviewedCapability) === true) {
+      throw new Error("runtime occurrence capability projection duplicates a reviewed capability");
+    }
+    const occurrenceCapabilities = [...(existing ?? []), artifact.reviewedCapability].sort();
+    return { ...profile, occurrenceCapabilities };
   });
+}
+
+/**
+ * Join one reviewed same-occurrence sidecar onto clean independently generated
+ * runtime profiles. A pre-populated capability list is rejected so callers do
+ * not accidentally treat embedded aggregate data as reviewed sidecar evidence.
+ */
+export function applyRuntimeOccurrenceCapabilityProjection(
+  profiles: readonly RuntimeSyntaxProfile[],
+  sourceProfileArtifactDigest: string,
+  artifact: RuntimeOccurrenceCapabilityProjectionArtifact,
+): readonly RuntimeSyntaxProfile[] {
+  return applyReviewedProjection(profiles, sourceProfileArtifactDigest, artifact, false);
+}
+
+/**
+ * Compose multiple independently reviewed sidecars against the same immutable
+ * source-profile artifact. Each artifact is still validated separately and may
+ * only add its own reviewed capability; capabilities accumulated from earlier
+ * sidecars are preserved rather than reconstructed from aggregate evidence.
+ */
+export function applyRuntimeOccurrenceCapabilityProjections(
+  profiles: readonly RuntimeSyntaxProfile[],
+  sourceProfileArtifactDigest: string,
+  artifacts: readonly RuntimeOccurrenceCapabilityProjectionArtifact[],
+): readonly RuntimeSyntaxProfile[] {
+  if (profiles.some((profile) => profile.occurrenceCapabilities !== undefined)) {
+    throw new Error("runtime source profile already contains occurrence capability evidence");
+  }
+  let projected = profiles;
+  for (const artifact of artifacts) {
+    projected = applyReviewedProjection(
+      projected,
+      sourceProfileArtifactDigest,
+      artifact,
+      true,
+    );
+  }
+  return projected;
 }
