@@ -47,6 +47,11 @@ function canonicalBaPredicateSlot() {
   return slot!;
 }
 
+function reachableBaPredicateProfiles() {
+  const index = buildLexicalProfileIndex(PRACTICE_CATALOG, SYNTAX_PROFILES);
+  return compatibleProfilesForSlot(canonicalBaPredicateSlot(), index);
+}
+
 describe("packaged BA composition reachability", () => {
   it("retains a non-empty identity-safe lexical predicate frontier", () => {
     const packagedBaProfiles = SYNTAX_PROFILES.filter((profile) =>
@@ -56,8 +61,7 @@ describe("packaged BA composition reachability", () => {
     );
     expect(packagedBaProfiles).toHaveLength(139);
 
-    const index = buildLexicalProfileIndex(PRACTICE_CATALOG, SYNTAX_PROFILES);
-    const reachable = compatibleProfilesForSlot(canonicalBaPredicateSlot(), index);
+    const reachable = reachableBaPredicateProfiles();
     console.log(`BA_COMPOSITION_REACHABLE_PREDICATES=${reachable.length}`);
 
     expect(reachable.length).toBeGreaterThan(0);
@@ -70,6 +74,7 @@ describe("packaged BA composition reachability", () => {
   });
 
   it("realizes a targeted BA sentence from the packaged catalog and profiles", () => {
+    const reachablePredicateIds = new Set(reachableBaPredicateProfiles().map((profile) => profile.id));
     const result = composeFormalSyntaxUtterances({
       eligibleEntries: PRACTICE_CATALOG,
       profiles: SYNTAX_PROFILES,
@@ -93,16 +98,7 @@ describe("packaged BA composition reachability", () => {
     expect(candidate.syntaxRootRuleId).toBe("sentence.declarative");
     expect(candidate.entries.some((entry) => entry.prompt.text === "把" || entry.prompt.text === "將"))
       .toBe(true);
-
-    const profilesById = new Map(SYNTAX_PROFILES.map((profile) => [profile.id, profile]));
-    const selectedProfiles = candidate.syntaxProfileIds
-      .map((profileId) => profilesById.get(profileId))
-      .filter((profile) => profile !== undefined);
-    expect(selectedProfiles.some((profile) =>
-      profile.upos === "VERB"
-      && (profile.occurrenceCapabilities?.includes(
-        BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY,
-      ) ?? false)
-    )).toBe(true);
+    expect(candidate.syntaxProfileIds.some((profileId) => reachablePredicateIds.has(profileId)))
+      .toBe(true);
   });
 });
