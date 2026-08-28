@@ -24,6 +24,9 @@ export interface FormalSyntaxConstructionPracticePlan {
  * product-family sampling mass. The target edge must occur exactly once so a
  * requested construction cannot silently disappear or multiply within one
  * Sentence derivation.
+ *
+ * This plan owns grammar intent only. Execution bounds are derived where the
+ * production selector actually executes the structural target.
  */
 export function createSentenceConstructionPracticePlan(
   view: FormalSyntaxConstructionView,
