@@ -5,7 +5,10 @@ import {
 } from "../../src/app/generated/catalog.js";
 import { CAUSATIVE_OCCURRENCE_CAPABILITY } from "../../scripts/causative-occurrence-source.js";
 import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
-import { BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY } from "../../src/syntax/runtime-occurrence-capabilities.js";
+import {
+  BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY,
+  SHORT_PASSIVE_AUX_PASS_SAME_OCCURRENCE_CAPABILITY,
+} from "../../src/syntax/runtime-occurrence-capabilities.js";
 
 describe("packaged same-occurrence capabilities", () => {
   it("preserves the reviewed causative-ccomp boundary", () => {
@@ -40,11 +43,24 @@ describe("packaged same-occurrence capabilities", () => {
     expect(new Set(occurrenceBacked.map((profile) => profile.entryId)).size).toBe(139);
   });
 
-  it("does not make BA a grammar requirement in the packaging slice", () => {
+  it("packages all 248 identity-safe reviewed short-passive profiles", () => {
+    const occurrenceBacked = SYNTAX_PROFILES.filter((profile) =>
+      profile.occurrenceCapabilities?.includes(
+        SHORT_PASSIVE_AUX_PASS_SAME_OCCURRENCE_CAPABILITY,
+      ) ?? false,
+    );
+
+    expect(occurrenceBacked).toHaveLength(248);
+    expect(new Set(occurrenceBacked.map((profile) => profile.entryId)).size).toBe(248);
+    expect(occurrenceBacked.every((profile) => profile.upos === "VERB")).toBe(true);
+  });
+
+  it("does not make BA or short passive a grammar requirement in the packaging slice", () => {
     const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
       rule.constituents.filter((constituent) =>
-        constituent.requiredOccurrenceCapabilities?.includes(
-          BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY,
+        constituent.requiredOccurrenceCapabilities?.some((capability) =>
+          capability === BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY
+          || capability === SHORT_PASSIVE_AUX_PASS_SAME_OCCURRENCE_CAPABILITY,
         ) ?? false,
       ).map((constituent) => `${rule.id}:${constituent.key}`),
     );
