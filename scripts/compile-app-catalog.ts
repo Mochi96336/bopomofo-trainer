@@ -16,7 +16,7 @@ import {
 import { FORMAL_GRAMMAR_VERSION } from "../src/syntax/features.js";
 import { FORMAL_SYNTAX_RULES } from "../src/syntax/grammar.js";
 import {
-  applyRuntimeOccurrenceCapabilityProjection,
+  applyRuntimeOccurrenceCapabilityProjections,
   type RuntimeOccurrenceCapabilityProjectionArtifact,
 } from "../src/syntax/runtime-occurrence-capability-projection.js";
 import { buildSyntaxRuleIndex } from "../src/syntax/rule-index.js";
@@ -40,6 +40,7 @@ const [
   syntaxLegalitySource,
   syntaxProfilesSource,
   occurrenceCapabilitiesSource,
+  baOccurrenceCapabilitiesSource,
   syntaxRuntimeLockSource,
 ] = await Promise.all([
   loadResolvedCatalogSource(),
@@ -48,6 +49,7 @@ const [
   readFile(new URL("../data/grammar/formal-syntax-active-catalog-legality.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-active-catalog-profiles.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-runtime-occurrence-capabilities.json", import.meta.url), "utf8"),
+  readFile(new URL("../data/grammar/formal-syntax-runtime-ba-occurrence-capabilities.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-runtime-lock.json", import.meta.url), "utf8"),
 ]);
 
@@ -83,10 +85,13 @@ const baseSyntaxProfiles = loadActiveCatalogSyntaxProfilesArtifact(
 const occurrenceCapabilitiesArtifact = JSON.parse(
   occurrenceCapabilitiesSource,
 ) as RuntimeOccurrenceCapabilityProjectionArtifact;
-const sourceSyntaxProfiles = applyRuntimeOccurrenceCapabilityProjection(
+const baOccurrenceCapabilitiesArtifact = JSON.parse(
+  baOccurrenceCapabilitiesSource,
+) as RuntimeOccurrenceCapabilityProjectionArtifact;
+const sourceSyntaxProfiles = applyRuntimeOccurrenceCapabilityProjections(
   baseSyntaxProfiles,
   syntaxProfilesArtifact.determinismDigest,
-  occurrenceCapabilitiesArtifact,
+  [occurrenceCapabilitiesArtifact, baOccurrenceCapabilitiesArtifact],
 );
 if (syntaxProfilesArtifact.sourceRuleIndexDigest !== sourceSyntaxArtifact.sourceRuleIndexDigest) {
   throw new Error("syntax profile and legality artifacts disagree about their source rule index");
@@ -175,6 +180,7 @@ const moduleSource = [
   `export const SYNTAX_GRAMMAR_RULES_DIGEST = ${JSON.stringify(currentRuleIndex.grammarRulesDigest)};`,
   `export const SYNTAX_RUNTIME_PROFILES_DIGEST = ${JSON.stringify(syntaxProfilesArtifact.determinismDigest)};`,
   `export const SYNTAX_RUNTIME_OCCURRENCE_CAPABILITIES_DIGEST = ${JSON.stringify(occurrenceCapabilitiesArtifact.determinismDigest)};`,
+  `export const SYNTAX_RUNTIME_BA_OCCURRENCE_CAPABILITIES_DIGEST = ${JSON.stringify(baOccurrenceCapabilitiesArtifact.determinismDigest)};`,
   "",
   `const ENCODED_PRACTICE: readonly EncodedCatalogEntry[] = ${JSON.stringify(encodeCatalogEntries(syntaxLegalEntries))};`,
   "const ENCODED_EVALUATION: readonly EncodedCatalogEntry[] = [];",
