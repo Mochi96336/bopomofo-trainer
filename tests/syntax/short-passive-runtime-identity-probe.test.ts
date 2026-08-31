@@ -78,13 +78,15 @@ describe("temporary short-passive runtime identity probe", () => {
       adpositionalProfileCount,
       ambiguousSourceKeys,
     };
+    const summaryJson = JSON.stringify(summary);
 
-    console.log(`SHORT_PASSIVE_RUNTIME_IDENTITY=${JSON.stringify(summary)}`);
+    console.log(`SHORT_PASSIVE_RUNTIME_IDENTITY=${summaryJson}`);
+    console.log(`::notice title=SHORT_PASSIVE_RUNTIME_IDENTITY::${summaryJson}`);
     const stepSummaryPath = process.env.GITHUB_STEP_SUMMARY;
     if (stepSummaryPath !== undefined) {
       await appendFile(
         stepSummaryPath,
-        `\n### Short passive runtime identity probe\n\n\`\`\`json\n${JSON.stringify(summary)}\n\`\`\`\n`,
+        `\n### Short passive runtime identity probe\n\n\`\`\`json\n${summaryJson}\n\`\`\`\n`,
       );
     }
 
