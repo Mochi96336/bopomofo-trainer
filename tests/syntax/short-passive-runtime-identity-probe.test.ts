@@ -1,4 +1,4 @@
-import { appendFile, readFile } from "node:fs/promises";
+import { appendFile, readFile, writeFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { compileCatalog } from "../../src/catalog/compile-catalog.js";
 import { parseCsv } from "../../src/catalog/csv.js";
@@ -82,6 +82,7 @@ describe("temporary short-passive runtime identity probe", () => {
 
     console.log(`SHORT_PASSIVE_RUNTIME_IDENTITY=${summaryJson}`);
     console.log(`::notice title=SHORT_PASSIVE_RUNTIME_IDENTITY::${summaryJson}`);
+    await writeFile("short-passive-runtime-identity.json", `${summaryJson}\n`, "utf8");
     const stepSummaryPath = process.env.GITHUB_STEP_SUMMARY;
     if (stepSummaryPath !== undefined) {
       await appendFile(
