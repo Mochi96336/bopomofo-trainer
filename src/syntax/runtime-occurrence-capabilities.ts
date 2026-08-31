@@ -7,6 +7,8 @@ export const CAUSATIVE_CCOMP_SAME_OCCURRENCE_CAPABILITY: RuntimeOccurrenceCapabi
   "voice-cau-ccomp-same-occurrence";
 export const BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY: RuntimeOccurrenceCapability =
   "ba-obl-patient-case-same-occurrence";
+export const SHORT_PASSIVE_AUX_PASS_SAME_OCCURRENCE_CAPABILITY: RuntimeOccurrenceCapability =
+  "short-passive-aux-pass-bei-same-occurrence";
 
 const REVIEWED_CAPABILITIES = new Set<string>(RUNTIME_OCCURRENCE_CAPABILITIES);
 

@@ -5,6 +5,7 @@ import { validRuntimeOccurrenceCapabilities } from "./runtime-occurrence-capabil
 export const RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS = [
   "same-token-voice-cau-direct-ccomp-v1",
   "same-predicate-obl-patient-case-ba-v1",
+  "same-predicate-aux-pass-bei-v1",
 ] as const;
 export type RuntimeOccurrenceEvidenceContract =
   (typeof RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS)[number];
@@ -44,6 +45,14 @@ const REVIEWED_PROJECTION_CONTRACTS = new Map<RuntimeOccurrenceCapability, Revie
     // transitive evidence here would reintroduce the evidence-ownership bug
     // this sidecar is designed to avoid. The pinned source + identity-safe
     // generated artifact is the reviewed proof for this capability.
+    acceptTargetProfile: () => true,
+  }],
+  ["short-passive-aux-pass-bei-same-occurrence", {
+    evidenceContract: "same-predicate-aux-pass-bei-v1",
+    // Direct aux:pass + 被 on the same predicate occurrence is authoritative.
+    // Generic transitivity is only partial overlap (167/248 identity-safe
+    // profiles) and adpositional-complement is a different relation family
+    // entirely (145/248), so neither is a valid projection prerequisite.
     acceptTargetProfile: () => true,
   }],
 ]);

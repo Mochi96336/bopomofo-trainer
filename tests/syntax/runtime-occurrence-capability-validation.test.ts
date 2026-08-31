@@ -7,9 +7,11 @@ describe("runtime occurrence capability validation", () => {
     expect(validRuntimeOccurrenceCapabilities([])).toBe(true);
     expect(validRuntimeOccurrenceCapabilities(["voice-cau-ccomp-same-occurrence"])).toBe(true);
     expect(validRuntimeOccurrenceCapabilities(["ba-obl-patient-case-same-occurrence"])).toBe(true);
+    expect(validRuntimeOccurrenceCapabilities(["short-passive-aux-pass-bei-same-occurrence"])).toBe(true);
     expect(validRuntimeOccurrenceCapabilities([
       "voice-cau-ccomp-same-occurrence",
       "ba-obl-patient-case-same-occurrence",
+      "short-passive-aux-pass-bei-same-occurrence",
     ])).toBe(true);
   });
 
@@ -17,8 +19,8 @@ describe("runtime occurrence capability validation", () => {
     expect(validRuntimeOccurrenceCapabilities(null)).toBe(false);
     expect(validRuntimeOccurrenceCapabilities("voice-cau-ccomp-same-occurrence")).toBe(false);
     expect(validRuntimeOccurrenceCapabilities([
-      "ba-obl-patient-case-same-occurrence",
-      "ba-obl-patient-case-same-occurrence",
+      "short-passive-aux-pass-bei-same-occurrence",
+      "short-passive-aux-pass-bei-same-occurrence",
     ])).toBe(false);
     expect(validRuntimeOccurrenceCapabilities(["made-up-capability"])).toBe(false);
   });

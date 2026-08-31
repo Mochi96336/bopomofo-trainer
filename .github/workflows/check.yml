@@ -93,6 +93,21 @@ jobs:
             ba-occurrence-capabilities.log
             runtime-ba-occurrence-capabilities-candidate.json
           if-no-files-found: ignore
+      - name: Verify short-passive runtime occurrence capabilities
+        id: short-passive-occurrence-capabilities
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run grammar:runtime-short-passive-occurrence-capabilities -- --output runtime-short-passive-occurrence-capabilities-candidate.json 2>&1 | tee short-passive-occurrence-capabilities.log
+      - name: Upload short-passive runtime occurrence capability verification
+        if: failure() && steps.short-passive-occurrence-capabilities.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-short-passive-occurrence-capability-verification
+          path: |
+            short-passive-occurrence-capabilities.log
+            runtime-short-passive-occurrence-capabilities-candidate.json
+          if-no-files-found: ignore
       - name: Typecheck
         id: typecheck
         shell: bash

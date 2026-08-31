@@ -38,6 +38,17 @@ const baOnly: RuntimeSyntaxProfile = {
     morphologicalFeatureCounts: {},
   },
 };
+const shortPassiveOnly: RuntimeSyntaxProfile = {
+  ...supported,
+  id: "short-passive-only",
+  entryId: "entry:short-passive-only",
+  valencyFrames: [],
+  dependencyEvidence: {
+    dependencyRelationCounts: {},
+    surfacePositionCounts: {},
+    morphologicalFeatureCounts: {},
+  },
+};
 
 function causativeArtifact(profileIds: readonly string[]): RuntimeOccurrenceCapabilityProjectionArtifact {
   const core = {
@@ -73,6 +84,23 @@ function baArtifact(profileIds: readonly string[]): RuntimeOccurrenceCapabilityP
   return { ...core, determinismDigest: sha256Canonical(core) };
 }
 
+function shortPassiveArtifact(profileIds: readonly string[]): RuntimeOccurrenceCapabilityProjectionArtifact {
+  const core = {
+    schemaVersion: "runtime-occurrence-capability-projection-v1" as const,
+    sourceProfileArtifactDigest: sourceDigest,
+    sourceProvenanceId: "ud:chinese-gsd-r2.18",
+    sourceVersion: "r2.18",
+    sourceCommit: "e0d85a020182e264d6384be2a59c0f4879a1cc35",
+    reviewedCapability: "short-passive-aux-pass-bei-same-occurrence" as const,
+    evidenceContract: "same-predicate-aux-pass-bei-v1" as const,
+    identityPolicy: "unique-active-entry-per-form-upos-v1" as const,
+    profileCount: profileIds.length,
+    entryCount: profileIds.length,
+    profileIds,
+  };
+  return { ...core, determinismDigest: sha256Canonical(core) };
+}
+
 describe("runtime occurrence capability sidecar", () => {
   it("adds the reviewed capability only to explicitly targeted profiles", () => {
     const projected = applyRuntimeOccurrenceCapabilityProjection(
@@ -93,15 +121,31 @@ describe("runtime occurrence capability sidecar", () => {
     expect(projected[0]?.occurrenceCapabilities).toEqual(["ba-obl-patient-case-same-occurrence"]);
   });
 
-  it("composes different reviewed capabilities without discarding an earlier projection", () => {
+  it("accepts reviewed short-passive targets without a generic transitivity backstop", () => {
+    const projected = applyRuntimeOccurrenceCapabilityProjection(
+      [shortPassiveOnly],
+      sourceDigest,
+      shortPassiveArtifact([shortPassiveOnly.id]),
+    );
+    expect(projected[0]?.occurrenceCapabilities).toEqual([
+      "short-passive-aux-pass-bei-same-occurrence",
+    ]);
+  });
+
+  it("composes independently reviewed capabilities without discarding earlier projections", () => {
     const projected = applyRuntimeOccurrenceCapabilityProjections(
       [supported],
       sourceDigest,
-      [causativeArtifact([supported.id]), baArtifact([supported.id])],
+      [
+        causativeArtifact([supported.id]),
+        baArtifact([supported.id]),
+        shortPassiveArtifact([supported.id]),
+      ],
     );
 
     expect(projected[0]?.occurrenceCapabilities).toEqual([
       "ba-obl-patient-case-same-occurrence",
+      "short-passive-aux-pass-bei-same-occurrence",
       "voice-cau-ccomp-same-occurrence",
     ]);
   });
