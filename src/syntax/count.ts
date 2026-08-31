@@ -5,6 +5,7 @@ import {
 } from "./derivation-limits.js";
 import { DEFAULT_DERIVATION_BOUNDS } from "./features.js";
 import { presenceConstraintsSatisfied } from "./presence-constraints.js";
+import type { NestedProductionTarget } from "./sample.js";
 import type {
   DerivationBounds,
   ProductionConstituent,
@@ -18,6 +19,10 @@ export interface StructuralDerivationCountOptions {
   readonly rootCategory: SyntaxCategory;
   readonly rules: readonly ProductionRule[];
   readonly bounds?: DerivationBounds;
+  /** Count only derivations rooted at this production. */
+  readonly rootProductionRuleId?: string;
+  /** Count only derivations using these child productions at the named edges. */
+  readonly nestedProductionTargets?: readonly NestedProductionTarget[];
 }
 
 interface BudgetState {
@@ -105,11 +110,69 @@ function buildRulesByOutput(
   return result;
 }
 
+function nestedTargetKey(parentRuleId: string, constituentKey: string): string {
+  return `${parentRuleId}\u0000${constituentKey}`;
+}
+
+function validatedRootRuleId(options: StructuralDerivationCountOptions): string | undefined {
+  const ruleId = options.rootProductionRuleId;
+  if (ruleId === undefined) return undefined;
+  const rule = options.rules.find((candidate) => candidate.id === ruleId);
+  if (rule === undefined || rule.output !== options.rootCategory) {
+    throw new Error(`rootProductionRuleId references non-root production: ${ruleId}`);
+  }
+  return ruleId;
+}
+
+function validatedNestedProductionTargets(
+  options: StructuralDerivationCountOptions,
+): ReadonlyMap<string, string> {
+  const rulesById = new Map(options.rules.map((rule) => [rule.id, rule]));
+  const targets = new Map<string, string>();
+  for (const target of options.nestedProductionTargets ?? []) {
+    const parent = rulesById.get(target.parentRuleId);
+    if (parent === undefined) {
+      throw new Error(`nested production target references missing parent: ${target.parentRuleId}`);
+    }
+    const constituent = parent.constituents.find((item) => item.key === target.constituentKey);
+    if (constituent === undefined) {
+      throw new Error(
+        `nested production target references missing constituent: ${target.parentRuleId}:${target.constituentKey}`,
+      );
+    }
+    if (constituent.category === "Lexeme") {
+      throw new Error(
+        `nested production target cannot target lexical constituent: ${target.parentRuleId}:${target.constituentKey}`,
+      );
+    }
+    const child = rulesById.get(target.childRuleId);
+    if (child === undefined) {
+      throw new Error(`nested production target references missing child: ${target.childRuleId}`);
+    }
+    if (child.output !== constituent.category) {
+      throw new Error(
+        `nested production target child category mismatch: ${target.parentRuleId}:${target.constituentKey} -> ${target.childRuleId}`,
+      );
+    }
+    const key = nestedTargetKey(target.parentRuleId, target.constituentKey);
+    if (targets.has(key)) {
+      throw new Error(
+        `nested production target duplicates parent constituent: ${target.parentRuleId}:${target.constituentKey}`,
+      );
+    }
+    targets.set(key, target.childRuleId);
+  }
+  return targets;
+}
+
 export function countStructuralDerivationShapes(
   options: StructuralDerivationCountOptions,
 ): string {
   const bounds = options.bounds ?? DEFAULT_DERIVATION_BOUNDS;
   assertValidGrammar(options.rules, bounds);
+  const requestedRootRuleId = validatedRootRuleId(options);
+  const nestedProductionTargets = validatedNestedProductionTargets(options);
+  const targeted = requestedRootRuleId !== undefined || nestedProductionTargets.size > 0;
   const rulesByOutput = buildRulesByOutput(options.rules);
   const memo = new Map<string, readonly CountResult[]>();
   const active = new Set<string>();
@@ -118,13 +181,15 @@ export function countStructuralDerivationShapes(
     category: SyntaxCategory,
     inputState: BudgetState,
     excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
+    requestedProductionRuleId?: string,
   ): readonly CountResult[] => {
     let state = inputState;
     if (category === "Clause" || category === "OpenClause") {
       if (state.clauseCount >= bounds.maximumClausesPerSentence) return [];
       state = { ...state, clauseCount: state.clauseCount + 1 };
     }
-    const key = `${category}|${stateKey(state)}|${excludedKey(excludedRuleClasses)}`;
+    const baseKey = `${category}|${stateKey(state)}|${excludedKey(excludedRuleClasses)}`;
+    const key = targeted ? `${baseKey}|${requestedProductionRuleId ?? "*"}` : baseKey;
     const cached = memo.get(key);
     if (cached !== undefined) return cached;
     if (active.has(key)) {
@@ -132,8 +197,11 @@ export function countStructuralDerivationShapes(
     }
     active.add(key);
     const output = new Map<string, CountResult>();
-    const candidateRules = (rulesByOutput.get(category) ?? [])
+    const allowedRules = (rulesByOutput.get(category) ?? [])
       .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses));
+    const candidateRules = targeted && requestedProductionRuleId !== undefined
+      ? allowedRules.filter((rule) => rule.id === requestedProductionRuleId)
+      : allowedRules;
     for (const rule of candidateRules) {
       const byKey = new Map(rule.constituents.map((item) => [item.key, item]));
       for (const vector of countVectors(rule.constituents, bounds)) {
@@ -163,10 +231,24 @@ export function countStructuralDerivationShapes(
                   }, current.count);
                   continue;
                 }
+                if (!targeted) {
+                  for (const child of countCategory(
+                    constituent.category,
+                    afterDepth,
+                    excludedClassesForConstituent(constituent),
+                  )) {
+                    mergeCount(next, child.state, current.count * child.count);
+                  }
+                  continue;
+                }
+                const requestedChildRuleId = nestedProductionTargets.get(
+                  nestedTargetKey(rule.id, constituent.key),
+                );
                 for (const child of countCategory(
                   constituent.category,
                   afterDepth,
                   excludedClassesForConstituent(constituent),
+                  requestedChildRuleId,
                 )) {
                   mergeCount(next, child.state, current.count * child.count);
                 }
@@ -192,7 +274,10 @@ export function countStructuralDerivationShapes(
     clauseCount: 0,
     lexicalCount: 0,
   };
-  return countCategory(options.rootCategory, initial, new Set())
+  const results = targeted
+    ? countCategory(options.rootCategory, initial, new Set(), requestedRootRuleId)
+    : countCategory(options.rootCategory, initial, new Set());
+  return results
     .reduce((sum, item) => sum + item.count, 0n)
     .toString(10);
 }
