@@ -1,0 +1,33 @@
+name: short-passive-runtime-identity-probe
+
+on:
+  pull_request:
+    paths:
+      - "tests/syntax/short-passive-runtime-identity-probe.test.ts"
+      - "scripts/passive-occurrence-source.ts"
+      - ".github/workflows/short-passive-runtime-identity-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Measure short-passive runtime identity frontier
+        run: npx vitest run tests/syntax/short-passive-runtime-identity-probe.test.ts --reporter=verbose
+      - name: Upload short-passive identity result
+        uses: actions/upload-artifact@v4
+        with:
+          name: short-passive-runtime-identity
+          path: short-passive-runtime-identity.json
+          if-no-files-found: error
