@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { appendFile, readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { compileCatalog } from "../../src/catalog/compile-catalog.js";
 import { parseCsv } from "../../src/catalog/csv.js";
@@ -64,8 +64,7 @@ describe("temporary short-passive runtime identity probe", () => {
     const adpositionalProfileCount = activatedProfiles.filter((profile) =>
       profile.valencyFrames.includes("adpositional-complement"),
     ).length;
-
-    console.log(`SHORT_PASSIVE_RUNTIME_IDENTITY=${JSON.stringify({
+    const summary = {
       sourceTokenCount: evidence.shortPassivePredicateTokenCount,
       sourceLexemeUposCount: sourceKeys.size,
       matchedLexemeUposCount: identity.matchedSourceKeys.size,
@@ -78,7 +77,16 @@ describe("temporary short-passive runtime identity probe", () => {
       transitiveLikeProfileCount,
       adpositionalProfileCount,
       ambiguousSourceKeys,
-    })}`);
+    };
+
+    console.log(`SHORT_PASSIVE_RUNTIME_IDENTITY=${JSON.stringify(summary)}`);
+    const stepSummaryPath = process.env.GITHUB_STEP_SUMMARY;
+    if (stepSummaryPath !== undefined) {
+      await appendFile(
+        stepSummaryPath,
+        `\n### Short passive runtime identity probe\n\n\`\`\`json\n${JSON.stringify(summary)}\n\`\`\`\n`,
+      );
+    }
 
     expect(identity.activatableSourceKeys.size).toBeGreaterThan(0);
     expect(activatedProfiles.length).toBeGreaterThan(0);
