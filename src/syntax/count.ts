@@ -37,6 +37,11 @@ interface CountResult {
   readonly count: bigint;
 }
 
+interface ValidatedNestedProductionTarget {
+  readonly childRuleId?: string;
+  readonly exactCount?: number;
+}
+
 const CLAUSE_LIKE = new Set<SyntaxCategory>([
   "Sentence", "Clause", "OpenClause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
 ]);
@@ -126,9 +131,10 @@ function validatedRootRuleId(options: StructuralDerivationCountOptions): string 
 
 function validatedNestedProductionTargets(
   options: StructuralDerivationCountOptions,
-): ReadonlyMap<string, string> {
+  bounds: DerivationBounds,
+): ReadonlyMap<string, ValidatedNestedProductionTarget> {
   const rulesById = new Map(options.rules.map((rule) => [rule.id, rule]));
-  const targets = new Map<string, string>();
+  const targets = new Map<string, ValidatedNestedProductionTarget>();
   for (const target of options.nestedProductionTargets ?? []) {
     const parent = rulesById.get(target.parentRuleId);
     if (parent === undefined) {
@@ -140,19 +146,36 @@ function validatedNestedProductionTargets(
         `nested production target references missing constituent: ${target.parentRuleId}:${target.constituentKey}`,
       );
     }
-    if (constituent.category === "Lexeme") {
+    if (target.childRuleId === undefined && target.exactCount === undefined) {
       throw new Error(
-        `nested production target cannot target lexical constituent: ${target.parentRuleId}:${target.constituentKey}`,
+        `nested production target requires childRuleId or exactCount: ${target.parentRuleId}:${target.constituentKey}`,
       );
     }
-    const child = rulesById.get(target.childRuleId);
-    if (child === undefined) {
-      throw new Error(`nested production target references missing child: ${target.childRuleId}`);
+    if (target.exactCount !== undefined) {
+      const maximum = effectiveConstituentMaximum(constituent, bounds);
+      if (!Number.isInteger(target.exactCount)
+        || target.exactCount < constituent.minimum
+        || target.exactCount > maximum) {
+        throw new RangeError(
+          `nested production target exactCount is outside constituent bounds: ${target.parentRuleId}:${target.constituentKey}`,
+        );
+      }
     }
-    if (child.output !== constituent.category) {
-      throw new Error(
-        `nested production target child category mismatch: ${target.parentRuleId}:${target.constituentKey} -> ${target.childRuleId}`,
-      );
+    if (target.childRuleId !== undefined) {
+      if (constituent.category === "Lexeme") {
+        throw new Error(
+          `nested production target cannot target lexical constituent: ${target.parentRuleId}:${target.constituentKey}`,
+        );
+      }
+      const child = rulesById.get(target.childRuleId);
+      if (child === undefined) {
+        throw new Error(`nested production target references missing child: ${target.childRuleId}`);
+      }
+      if (child.output !== constituent.category) {
+        throw new Error(
+          `nested production target child category mismatch: ${target.parentRuleId}:${target.constituentKey} -> ${target.childRuleId}`,
+        );
+      }
     }
     const key = nestedTargetKey(target.parentRuleId, target.constituentKey);
     if (targets.has(key)) {
@@ -160,7 +183,10 @@ function validatedNestedProductionTargets(
         `nested production target duplicates parent constituent: ${target.parentRuleId}:${target.constituentKey}`,
       );
     }
-    targets.set(key, target.childRuleId);
+    targets.set(key, {
+      ...(target.childRuleId === undefined ? {} : { childRuleId: target.childRuleId }),
+      ...(target.exactCount === undefined ? {} : { exactCount: target.exactCount }),
+    });
   }
   return targets;
 }
@@ -171,7 +197,7 @@ export function countStructuralDerivationShapes(
   const bounds = options.bounds ?? DEFAULT_DERIVATION_BOUNDS;
   assertValidGrammar(options.rules, bounds);
   const requestedRootRuleId = validatedRootRuleId(options);
-  const nestedProductionTargets = validatedNestedProductionTargets(options);
+  const nestedProductionTargets = validatedNestedProductionTargets(options, bounds);
   const targeted = requestedRootRuleId !== undefined || nestedProductionTargets.size > 0;
   const rulesByOutput = buildRulesByOutput(options.rules);
   const memo = new Map<string, readonly CountResult[]>();
@@ -206,6 +232,13 @@ export function countStructuralDerivationShapes(
       const byKey = new Map(rule.constituents.map((item) => [item.key, item]));
       for (const vector of countVectors(rule.constituents, bounds)) {
         if (!presenceConstraintsSatisfied(rule.constraints, vector)) continue;
+        const targetCountMismatch = rule.constituents.some((constituent) => {
+          const exactCount = nestedProductionTargets.get(
+            nestedTargetKey(rule.id, constituent.key),
+          )?.exactCount;
+          return exactCount !== undefined && vector[constituent.key] !== exactCount;
+        });
+        if (targetCountMismatch) continue;
         for (const order of rule.surfaceOrders) {
           const ordered = order.constituentKeys.map((constituentKey) => {
             const constituent = byKey.get(constituentKey);
@@ -243,7 +276,7 @@ export function countStructuralDerivationShapes(
                 }
                 const requestedChildRuleId = nestedProductionTargets.get(
                   nestedTargetKey(rule.id, constituent.key),
-                );
+                )?.childRuleId;
                 for (const child of countCategory(
                   constituent.category,
                   afterDepth,
