@@ -25,10 +25,14 @@ jobs:
       - name: Build app catalog
         run: npm run app:catalog
       - name: Audit BA structural licensing v2
-        run: npx tsx scripts/audit-ba-structural-licensing-v2.ts | tee /tmp/ba-structural-licensing-v2.json
+        run: npx tsx scripts/audit-ba-structural-licensing-v2.ts > /tmp/ba-structural-licensing-v2.json
+      - name: Audit BA completion shapes
+        run: npx tsx scripts/audit-ba-completion-shapes.ts | tee /tmp/ba-completion-shapes.json
       - name: Upload audit
         uses: actions/upload-artifact@v4
         with:
-          name: ba-structural-licensing-audit-v2
-          path: /tmp/ba-structural-licensing-v2.json
+          name: ba-structural-licensing-audit-v3
+          path: |
+            /tmp/ba-structural-licensing-v2.json
+            /tmp/ba-completion-shapes.json
           if-no-files-found: error
