@@ -142,6 +142,13 @@ function composeBa(options: {
       childRuleId: options.baPredicateRuleId,
     });
   }
+  if (options.baPredicateRuleId === "ba-predicate.attested") {
+    nestedProductionTargets.push({
+      parentRuleId: "ba-predicate.attested",
+      constituentKey: "predicate",
+      childRuleId: "predicate.verb.lexical",
+    });
+  }
   if (options.baPredicateRuleId === "ba-predicate.completed.complement") {
     nestedProductionTargets.push({
       parentRuleId: "ba-predicate.completed.complement",
@@ -183,8 +190,8 @@ describe("canonical BA composition", () => {
 
     const attested = canonicalRule("ba-predicate.attested");
     expect(attested.constituents[0]).toMatchObject({
-      category: "Lexeme",
-      allowedUpos: ["VERB"],
+      category: "Predicate",
+      requiredFunctions: ["predicate"],
       requiredOccurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY],
     });
 
@@ -198,7 +205,7 @@ describe("canonical BA composition", () => {
     expect(completed.constituents.find((item) => item.key === "complement")?.minimum).toBe(1);
   });
 
-  it("keeps direct same-occurrence BA evidence as a bare/lexicalized backstop", () => {
+  it("keeps same-occurrence BA evidence as the reviewed Predicate compatibility route", () => {
     const result = composeBa({
       predicateText: "丟掉",
       baCapability: true,
