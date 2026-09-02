@@ -110,8 +110,8 @@ function composeBa(options: {
     profile("profile:book", book.id, "NOUN"),
     profile("profile:predicate", predicateEntry.id, "VERB", {
       functions: ["predicate"],
-      valencyFrames: options.valencyFrames,
-      baCapability: options.baCapability,
+      ...(options.valencyFrames === undefined ? {} : { valencyFrames: options.valencyFrames }),
+      ...(options.baCapability === undefined ? {} : { baCapability: options.baCapability }),
     }),
   ];
 
