@@ -40,7 +40,7 @@ describe("packaged same-occurrence capabilities", () => {
     expect(new Set(occurrenceBacked.map((profile) => profile.entryId)).size).toBe(139);
   });
 
-  it("makes canonical clause.ba the only BA occurrence-capability consumer", () => {
+  it("uses reviewed BA occurrence evidence only on the attested BAPredicate backstop", () => {
     const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
       rule.constituents.filter((constituent) =>
         constituent.requiredOccurrenceCapabilities?.includes(
@@ -49,13 +49,22 @@ describe("packaged same-occurrence capabilities", () => {
       ).map((constituent) => `${rule.id}:${constituent.key}`),
     );
 
-    expect(consumers).toEqual(["clause.ba:predicate"]);
-    const baPredicate = FORMAL_SYNTAX_RULES
+    expect(consumers).toEqual(["ba-predicate.attested:predicate"]);
+
+    const clausePredicate = FORMAL_SYNTAX_RULES
       .find((rule) => rule.id === "clause.ba")
       ?.constituents.find((constituent) => constituent.key === "predicate");
-    expect(baPredicate).toMatchObject({
-      category: "Predicate",
+    expect(clausePredicate).toMatchObject({
+      category: "BAPredicate",
       requiredValencyFrames: [],
+    });
+    expect(clausePredicate?.requiredOccurrenceCapabilities ?? []).toEqual([]);
+
+    const attestedPredicate = FORMAL_SYNTAX_RULES
+      .find((rule) => rule.id === "ba-predicate.attested")
+      ?.constituents.find((constituent) => constituent.key === "predicate");
+    expect(attestedPredicate).toMatchObject({
+      category: "Predicate",
       requiredOccurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY],
     });
   });
