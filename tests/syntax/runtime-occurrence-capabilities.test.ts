@@ -40,7 +40,7 @@ describe("packaged same-occurrence capabilities", () => {
     expect(new Set(occurrenceBacked.map((profile) => profile.entryId)).size).toBe(139);
   });
 
-  it("uses reviewed BA occurrence evidence only on the attested BAPredicate backstop", () => {
+  it("uses reviewed BA occurrence evidence only on the direct attested BAPredicate backstop", () => {
     const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
       rule.constituents.filter((constituent) =>
         constituent.requiredOccurrenceCapabilities?.includes(
@@ -64,7 +64,8 @@ describe("packaged same-occurrence capabilities", () => {
       .find((rule) => rule.id === "ba-predicate.attested")
       ?.constituents.find((constituent) => constituent.key === "predicate");
     expect(attestedPredicate).toMatchObject({
-      category: "Predicate",
+      category: "Lexeme",
+      allowedUpos: ["VERB"],
       requiredOccurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY],
     });
   });
