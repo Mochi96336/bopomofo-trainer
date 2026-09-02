@@ -1,9 +1,11 @@
 import { FORMAL_GRAMMAR_VERSION } from "./features.js";
+import { BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY } from "./runtime-occurrence-capabilities.js";
 import type {
   ConstituentCardinalityBound,
   ProductionConstituent,
   ProductionFixture,
   ProductionRule,
+  RuntimeOccurrenceCapability,
   SyntacticFunction,
   SyntaxCategory,
   SyntaxFeatureSet,
@@ -18,13 +20,16 @@ interface ConstituentOptions {
   readonly allowedUpos?: readonly Upos[];
   readonly requiredFunctions?: readonly SyntacticFunction[];
   readonly requiredValencyFrames?: readonly ValencyFrame[];
+  readonly requiredOccurrenceCapabilities?: readonly RuntimeOccurrenceCapability[];
   readonly requiredFeatures?: SyntaxFeatureSet;
-  readonly inheritFunctions?: boolean;
-  readonly inheritValencyFrames?: boolean;
-  readonly inheritOccurrenceCapabilities?: boolean;
-  readonly inheritFeatures?: boolean;
   readonly cardinalityBound?: ConstituentCardinalityBound;
 }
+
+const PATIENT_TAKING_FRAMES = [
+  "transitive",
+  "ditransitive",
+  "ambitransitive",
+] as const satisfies readonly ValencyFrame[];
 
 function constituent(
   key: string,
@@ -40,12 +45,13 @@ function constituent(
     allowedUpos: options.allowedUpos ?? [],
     requiredFunctions: options.requiredFunctions ?? [],
     requiredValencyFrames: options.requiredValencyFrames ?? [],
+    ...(options.requiredOccurrenceCapabilities === undefined
+      ? {}
+      : { requiredOccurrenceCapabilities: options.requiredOccurrenceCapabilities }),
     requiredFeatures: options.requiredFeatures ?? {},
-    ...(options.inheritFunctions ? { inheritFunctions: true } : {}),
-    ...(options.inheritValencyFrames ? { inheritValencyFrames: true } : {}),
-    ...(options.inheritOccurrenceCapabilities ? { inheritOccurrenceCapabilities: true } : {}),
-    ...(options.inheritFeatures ? { inheritFeatures: true } : {}),
-    ...(options.cardinalityBound === undefined ? {} : { cardinalityBound: options.cardinalityBound }),
+    ...(options.cardinalityBound === undefined
+      ? {}
+      : { cardinalityBound: options.cardinalityBound }),
   };
 }
 
@@ -65,7 +71,7 @@ function production(
   return {
     id,
     grammarVersion: FORMAL_GRAMMAR_VERSION,
-    output: "Predicate",
+    output: "BAPredicate",
     constituents,
     surfaceOrders: [{ id: "canonical", constituentKeys: constituents.map((item) => item.key) }],
     constraints: [],
@@ -116,29 +122,8 @@ function fixturesForRule(rule: ProductionRule): readonly ProductionFixture[] {
   return result;
 }
 
-/**
- * Transitional object-free predicate core for Clause-model v2 migration.
- *
- * Clause/argument constructions that already own their arguments use this
- * category so a nested VerbPhrase cannot silently add another object. Legacy
- * VerbPhrase remains executable for callers that have not migrated yet.
- *
- * Predicate heads inherit lexical valency, same-occurrence capability, and
- * feature requirements but deliberately do not inherit the enclosing structural
- * `predicate` function. In the current UD projection that function is evidence
- * that this written form was observed as `root`; it is not a complete lexical-
- * capability inventory. Marking and complement constituents intentionally
- * remain here for behavior parity until their own v2 axes become executable.
- */
-export const PREDICATE_PRODUCTION_RULES: readonly ProductionRule[] = [
-  production("predicate.verb.lexical", [
-    lexical("head", ["VERB"], {
-      inheritValencyFrames: true,
-      inheritOccurrenceCapabilities: true,
-      inheritFeatures: true,
-    }),
-  ]),
-  production("predicate.verb.expanded", [
+function optionalPrefix(): readonly ProductionConstituent[] {
+  return [
     lexical("negation", ["ADV", "AUX", "PART", "VERB"], {
       minimum: 0,
       maximum: 1,
@@ -150,13 +135,42 @@ export const PREDICATE_PRODUCTION_RULES: readonly ProductionRule[] = [
       maximum: 3,
       cardinalityBound: "consecutive-modifiers",
     }),
-    lexical("head", ["VERB"], {
-      inheritValencyFrames: true,
-      inheritOccurrenceCapabilities: true,
-      inheritFeatures: true,
+  ];
+}
+
+function patientTakingHead(): ProductionConstituent {
+  return lexical("head", ["VERB"], { requiredValencyFrames: PATIENT_TAKING_FRAMES });
+}
+
+/**
+ * BA owns a distinct predicate-structure boundary instead of turning corpus
+ * attestation into the whole productive grammar.
+ *
+ * The reviewed route intentionally preserves the former canonical Predicate
+ * subtree, but only for lexemes carrying exact same-occurrence BA evidence.
+ * That makes attestation a positive compatibility path rather than a complete
+ * whitelist of productive BA heads.
+ *
+ * Productive completed routes are additional legality paths for patient-taking
+ * heads with completion realized by this derivation. The structural sampler
+ * treats the BAPredicate alternatives as ordered licensing fallbacks rather than
+ * a new product probability dimension: the reviewed route is sampled first to
+ * preserve the existing deterministic product path, and productive routes are
+ * consulted only when that route is unavailable. Corpus non-attestation is
+ * never negative grammatical evidence.
+ */
+export const BA_PREDICATE_PRODUCTION_RULES: readonly ProductionRule[] = [
+  production("ba-predicate.attested", [
+    constituent("predicate", "Predicate", {
+      requiredFunctions: ["predicate"],
+      requiredOccurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY],
     }),
+  ]),
+  production("ba-predicate.completed.complement", [
+    ...optionalPrefix(),
+    patientTakingHead(),
     constituent("complement", "Complement", {
-      minimum: 0,
+      minimum: 1,
       maximum: 2,
       cardinalityBound: "complements-per-predicate",
     }),
@@ -166,7 +180,12 @@ export const PREDICATE_PRODUCTION_RULES: readonly ProductionRule[] = [
       requiredFeatures: { aspect: "marked" },
     }),
   ]),
+  production("ba-predicate.completed.aspect", [
+    ...optionalPrefix(),
+    patientTakingHead(),
+    lexical("aspect", ["AUX", "PART"], { requiredFeatures: { aspect: "marked" } }),
+  ]),
 ];
 
-export const PREDICATE_PRODUCTION_FIXTURES: readonly ProductionFixture[] =
-  PREDICATE_PRODUCTION_RULES.flatMap(fixturesForRule);
+export const BA_PREDICATE_PRODUCTION_FIXTURES: readonly ProductionFixture[] =
+  BA_PREDICATE_PRODUCTION_RULES.flatMap(fixturesForRule);

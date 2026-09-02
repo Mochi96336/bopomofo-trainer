@@ -83,6 +83,8 @@ const CLAUSE_LIKE = new Set<SyntaxCategory>([
   "Sentence", "Clause", "OpenClause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
 ]);
 
+const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };
+
 function nextUnit(random: RandomSource): number {
   const value = random.next();
   if (!Number.isFinite(value) || value < 0 || value >= 1) {
@@ -173,6 +175,7 @@ function sampleRuleChildren(
   rootProductionRuleId: string | undefined,
   nestedProductionTargets: ReadonlyMap<string, string>,
   fixedCounts?: ConstituentCounts,
+  deterministicCounts = false,
 ): SampledRuleChildren | null {
   let workingState = inputState;
   const children: StructuralElement[] = [];
@@ -183,7 +186,9 @@ function sampleRuleChildren(
     const maximum = effectiveConstituentMaximum(constituent, bounds);
     if (maximum < constituent.minimum) return null;
     const count = fixedCounts === undefined
-      ? constituent.minimum + chooseIndex(random, maximum - constituent.minimum + 1)
+      ? deterministicCounts
+        ? constituent.minimum
+        : constituent.minimum + chooseIndex(random, maximum - constituent.minimum + 1)
       : fixedCounts[constituent.key] ?? 0;
     if (count < constituent.minimum || count > maximum) return null;
 
@@ -260,9 +265,23 @@ function sampleCategory(
     .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))
     .filter((rule) => !isRoot || rootProductionRuleId === undefined || rule.id === rootProductionRuleId)
     .filter((rule) => requestedProductionRuleId === undefined || rule.id === requestedProductionRuleId);
-  const candidates = shuffled(eligibleRules, random);
+
+  // BAPredicate is a licensing disjunction, not a probability dimension. Its
+  // reviewed route is deliberately first and preserves the old Predicate
+  // subtree. If that route is unavailable, productive generalization is tested
+  // with a local deterministic source so failed/new alternatives do not advance
+  // the parent product RNG and perturb unrelated sentence-family retries.
+  const orderedLicensingAlternatives = category === "BAPredicate";
+  const candidates = orderedLicensingAlternatives
+    ? eligibleRules
+    : shuffled(eligibleRules, random);
   for (const rule of candidates) {
-    const order = rule.surfaceOrders[chooseIndex(random, rule.surfaceOrders.length)];
+    const productiveBaAlternative = orderedLicensingAlternatives
+      && rule.id !== "ba-predicate.attested";
+    const ruleRandom = productiveBaAlternative ? DETERMINISTIC_MINIMUM_RANDOM : random;
+    const order = orderedLicensingAlternatives && rule.surfaceOrders.length === 1
+      ? rule.surfaceOrders[0]
+      : rule.surfaceOrders[chooseIndex(ruleRandom, rule.surfaceOrders.length)];
     if (order === undefined) continue;
     const byKey = new Map(rule.constituents.map((item) => [item.key, item]));
     const ordered = order.constituentKeys.map((key) => byKey.get(key));
@@ -272,7 +291,7 @@ function sampleCategory(
     if (rule.constraints.length > 0) {
       const assignments = [...validConstituentCountAssignments(rule, bounds)];
       if (assignments.length === 0) continue;
-      fixedCounts = assignments[chooseIndex(random, assignments.length)];
+      fixedCounts = assignments[chooseIndex(ruleRandom, assignments.length)];
     }
 
     const sampledChildren = sampleRuleChildren(
@@ -280,7 +299,7 @@ function sampleCategory(
       ordered as readonly ProductionConstituent[],
       requirements,
       rulesByOutput,
-      random,
+      ruleRandom,
       bounds,
       state,
       [...path, rule.id],
@@ -288,6 +307,7 @@ function sampleCategory(
       rootProductionRuleId,
       nestedProductionTargets,
       fixedCounts,
+      orderedLicensingAlternatives && !productiveBaAlternative,
     );
     if (sampledChildren === null) continue;
 
