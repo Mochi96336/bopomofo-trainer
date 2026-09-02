@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
 import { BA_MARKERS } from "./ba-occurrence-source.js";
 import {
@@ -49,9 +48,6 @@ function isBaPostverbalExtension(child: UdOccurrenceToken, predicateId: number):
   if (isGenericFormalExtension(child, predicateId)) return true;
   if (child.id <= predicateId) return false;
   const base = relationBase(child.relation);
-  // In a BA occurrence the displaced patient is already `obl:patient`; a
-  // postverbal obj/iobj is therefore additional predicate structure rather than
-  // the ordinary SVO patient that would make this test trivial in non-BA data.
   return base === "obj" || base === "iobj";
 }
 
@@ -59,6 +55,7 @@ const sources = await loadPinnedUdGsdOccurrenceSources();
 const allBaKeys = new Set<string>();
 const verbBaKeys = new Set<string>();
 const objectKeys = new Set<string>();
+const genericExtensionKeys = new Set<string>();
 const objectPlusGenericExtensionKeys = new Set<string>();
 const verbBaOccurrenceKeys: string[] = [];
 const nonVerbBaOccurrences: Array<Record<string, unknown>> = [];
@@ -85,12 +82,10 @@ for (const source of sources) {
 
       if (predicate.upos === "VERB") {
         const hasObject = children.some((child) => child.relation === "obj" || child.relation === "iobj");
-        if (hasObject) {
-          objectKeys.add(key);
-          if (children.some((child) => isGenericFormalExtension(child, predicate.id))) {
-            objectPlusGenericExtensionKeys.add(key);
-          }
-        }
+        const hasGenericExtension = children.some((child) => isGenericFormalExtension(child, predicate.id));
+        if (hasObject) objectKeys.add(key);
+        if (hasGenericExtension) genericExtensionKeys.add(key);
+        if (hasObject && hasGenericExtension) objectPlusGenericExtensionKeys.add(key);
       }
 
       const patients = children.filter((child) => child.relation === "obl:patient");
@@ -157,42 +152,9 @@ for (const source of sources) {
   }
 }
 
-interface SourceRuleIndex {
-  readonly entries: readonly { readonly entryId: string; readonly text: string }[];
-}
-interface SourceProfile {
-  readonly entryId: string;
-  readonly upos: string;
-  readonly valencyFrames: readonly string[];
-  readonly dependencyEvidence: {
-    readonly childRelationCounts: Readonly<Record<string, number>>;
-  };
-}
-interface SourceProfilesArtifact {
-  readonly profiles: readonly SourceProfile[];
-}
-
-const [ruleIndex, sourceProfilesArtifact] = await Promise.all([
-  readFile("data/generated/lexicon/naer-1141208-top-10000/syntax-rule-index.json", "utf8")
-    .then((source) => JSON.parse(source) as SourceRuleIndex),
-  readFile("data/generated/lexicon/naer-1141208-top-10000/syntax-profiles.json", "utf8")
-    .then((source) => JSON.parse(source) as SourceProfilesArtifact),
-]);
-const sourceTextByEntryId = new Map(ruleIndex.entries.map((entry) => [entry.entryId, entry.text]));
-const aggregateObjectPlusExtensionKeys = new Set<string>();
-for (const profile of sourceProfilesArtifact.profiles) {
-  if (profile.upos !== "VERB") continue;
-  const text = sourceTextByEntryId.get(profile.entryId);
-  if (text === undefined) continue;
-  const objectBearing = profile.valencyFrames.includes("transitive")
-    || profile.valencyFrames.includes("ambitransitive")
-    || profile.valencyFrames.includes("ditransitive");
-  if (!objectBearing) continue;
-  const hasExtension = Object.entries(profile.dependencyEvidence.childRelationCounts).some(([relation, count]) =>
-    count > 0 && (GENERIC_EXTENSION_RELATIONS.has(relationBase(relation)) || relationBase(relation) === "mark"),
-  );
-  if (hasExtension) aggregateObjectPlusExtensionKeys.add(lexemeUposKey(text, profile.upos));
-}
+const aggregateObjectPlusExtensionKeys = new Set(
+  [...objectKeys].filter((key) => genericExtensionKeys.has(key)),
+);
 
 const textByEntryId = new Map(PRACTICE_CATALOG.map((entry) => [entry.id, entry.prompt.text]));
 const packagedVerbProfiles = SYNTAX_PROFILES.filter((profile) => profile.upos === "VERB");
