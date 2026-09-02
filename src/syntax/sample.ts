@@ -260,9 +260,20 @@ function sampleCategory(
     .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))
     .filter((rule) => !isRoot || rootProductionRuleId === undefined || rule.id === rootProductionRuleId)
     .filter((rule) => requestedProductionRuleId === undefined || rule.id === requestedProductionRuleId);
-  const candidates = shuffled(eligibleRules, random);
+
+  // BAPredicate alternatives express a legality disjunction with a reviewed
+  // backstop; they are not a product probability dimension. Trying them in
+  // declaration order keeps productive licensing ahead of the backstop without
+  // adding a nested random-choice weight that can perturb Sentence-family retry
+  // behavior. Other categories retain the existing raw structural sampling.
+  const orderedLicensingAlternatives = category === "BAPredicate";
+  const candidates = orderedLicensingAlternatives
+    ? eligibleRules
+    : shuffled(eligibleRules, random);
   for (const rule of candidates) {
-    const order = rule.surfaceOrders[chooseIndex(random, rule.surfaceOrders.length)];
+    const order = orderedLicensingAlternatives && rule.surfaceOrders.length === 1
+      ? rule.surfaceOrders[0]
+      : rule.surfaceOrders[chooseIndex(random, rule.surfaceOrders.length)];
     if (order === undefined) continue;
     const byKey = new Map(rule.constituents.map((item) => [item.key, item]));
     const ordered = order.constituentKeys.map((key) => byKey.get(key));
