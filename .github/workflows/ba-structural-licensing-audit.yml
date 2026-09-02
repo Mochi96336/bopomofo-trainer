@@ -12,7 +12,7 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -24,6 +24,10 @@ jobs:
         run: npm ci --include=dev --ignore-scripts
       - name: Build app catalog
         run: npm run app:catalog
+      - name: Typecheck prototype grammar
+        run: npx tsc --noEmit
+      - name: Test canonical BA two-path grammar
+        run: npx vitest run tests/curriculum/formal-syntax-ba-canonical.test.ts --testTimeout=15000
       - name: Audit BA structural licensing v2
         run: npx tsx scripts/audit-ba-structural-licensing-v2.ts > /tmp/ba-structural-licensing-v2.json
       - name: Audit BA completion shapes
@@ -33,7 +37,7 @@ jobs:
       - name: Upload audit
         uses: actions/upload-artifact@v4
         with:
-          name: ba-structural-licensing-audit-v4
+          name: ba-structural-licensing-audit-v5
           path: |
             /tmp/ba-structural-licensing-v2.json
             /tmp/ba-completion-shapes.json
