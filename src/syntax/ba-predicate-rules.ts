@@ -146,21 +146,18 @@ function patientTakingHead(): ProductionConstituent {
  * BA owns a distinct predicate-structure boundary instead of turning corpus
  * attestation into the whole productive grammar.
  *
- * - `attested` is a positive backstop for lexicalized/bare predicates whose
- *   internal completion is not represented by the current tokenizer/grammar.
- * - `completed.*` is productive: the head only needs a patient-taking frame,
- *   while the CURRENT derivation must realize an explicit completion.
+ * `BAPredicate` is a licensing disjunction, not a product sampling dimension.
+ * The structural sampler therefore tries these rules in declaration order:
+ * productive completed paths first, then the reviewed direct-attestation
+ * backstop. Corpus non-attestation is never negative evidence.
  *
- * More completion families can be added here as their formal representation is
- * made executable. Corpus non-attestation is never negative evidence.
+ * The backstop is intentionally a direct VERB slot rather than another
+ * `Predicate` subtree. Its purpose is to license lexicalized/bare BA predicates
+ * whose completion is not represented by the current tokenizer/grammar; it must
+ * not reopen optional generic Predicate structure after the productive paths
+ * have failed.
  */
 export const BA_PREDICATE_PRODUCTION_RULES: readonly ProductionRule[] = [
-  production("ba-predicate.attested", [
-    constituent("predicate", "Predicate", {
-      requiredFunctions: ["predicate"],
-      requiredOccurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY],
-    }),
-  ]),
   production("ba-predicate.completed.complement", [
     ...optionalPrefix(),
     patientTakingHead(),
@@ -179,6 +176,12 @@ export const BA_PREDICATE_PRODUCTION_RULES: readonly ProductionRule[] = [
     ...optionalPrefix(),
     patientTakingHead(),
     lexical("aspect", ["AUX", "PART"], { requiredFeatures: { aspect: "marked" } }),
+  ]),
+  production("ba-predicate.attested", [
+    lexical("predicate", ["VERB"], {
+      requiredFunctions: ["predicate"],
+      requiredOccurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY],
+    }),
   ]),
 ];
 
