@@ -24,7 +24,6 @@ const REQUIRED_CONSTRUCTIONS = [
   "clause.existential",
   "clause.locative",
   "clause.modal",
-  "clause.negative",
   "clause.aspect",
   "clause.ba",
   "clause.bei",
