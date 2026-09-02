@@ -12,6 +12,8 @@ export {
  * The finite-ccomp causative view reuses the ordinary content-complement shape.
  * Its causative license is one explicit same-occurrence capability, not an AND
  * of aggregate Voice=Cau morphology and aggregate ccomp valency at the consumer.
+ * Predicate heads now inherit occurrence capabilities canonically, so this view
+ * only adds the construction-specific requirement at the matrix predicate edge.
  */
 export const CAUSATIVE_FINITE_CCOMP_VIEW: ConstructionView = {
   id: "causative.finite-ccomp",
@@ -22,13 +24,7 @@ export const CAUSATIVE_FINITE_CCOMP_VIEW: ConstructionView = {
     constituentKey: "predicate",
     capability: CAUSATIVE_CCOMP_SAME_OCCURRENCE_CAPABILITY,
   }],
-  // Predicate requirements reach only the lexical head. The derived view adds
-  // this inheritance marker without mutating the canonical Predicate rules or
-  // their runtime-lock digest.
-  occurrenceCapabilityInheritanceTargets: [{
-    outputCategory: "Predicate",
-    constituentKey: "head",
-  }],
+  occurrenceCapabilityInheritanceTargets: [],
   evidenceContract: "same-token-voice-cau-direct-ccomp-v1",
 };
 

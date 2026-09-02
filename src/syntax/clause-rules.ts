@@ -1,9 +1,11 @@
 import { ARGUMENT_PRODUCTION_RULES } from "./argument-rules.js";
 import { FORMAL_GRAMMAR_VERSION } from "./features.js";
+import { BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY } from "./runtime-occurrence-capabilities.js";
 import type {
   ProductionConstituent,
   ProductionFixture,
   ProductionRule,
+  RuntimeOccurrenceCapability,
   SyntacticFunction,
   SyntaxCategory,
   SyntaxFeatureSet,
@@ -18,6 +20,7 @@ interface ConstituentOptions {
   readonly allowedUpos?: readonly Upos[];
   readonly requiredFunctions?: readonly SyntacticFunction[];
   readonly requiredValencyFrames?: readonly ValencyFrame[];
+  readonly requiredOccurrenceCapabilities?: readonly RuntimeOccurrenceCapability[];
   readonly requiredFeatures?: SyntaxFeatureSet;
   readonly entryBinding?: string;
 }
@@ -36,6 +39,9 @@ function constituent(
     allowedUpos: options.allowedUpos ?? [],
     requiredFunctions: options.requiredFunctions ?? [],
     requiredValencyFrames: options.requiredValencyFrames ?? [],
+    ...(options.requiredOccurrenceCapabilities === undefined
+      ? {}
+      : { requiredOccurrenceCapabilities: options.requiredOccurrenceCapabilities }),
     requiredFeatures: options.requiredFeatures ?? {},
     ...(options.entryBinding === undefined ? {} : { entryBinding: options.entryBinding }),
   };
@@ -126,6 +132,11 @@ const corePredicate = (frames: readonly ValencyFrame[]) => constituent("predicat
   requiredValencyFrames: frames,
 });
 
+const baPredicate = () => constituent("predicate", "Predicate", {
+  requiredFunctions: ["predicate"],
+  requiredOccurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY],
+});
+
 const aNotALexeme = (
   key: string,
   frames: readonly ValencyFrame[],
@@ -211,7 +222,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     subject(),
     lexical("marker", ["ADP"], { requiredFeatures: { voice: "disposal" } }),
     constituent("patient", "DisposalPatient"),
-    corePredicate(["transitive", "ambitransitive"]),
+    baPredicate(),
   ]),
   production("clause.bei", "Clause", [
     constituent("patient", "Subject"),
