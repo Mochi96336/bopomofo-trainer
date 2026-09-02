@@ -142,13 +142,6 @@ function composeBa(options: {
       childRuleId: options.baPredicateRuleId,
     });
   }
-  if (options.baPredicateRuleId === "ba-predicate.attested") {
-    nestedProductionTargets.push({
-      parentRuleId: "ba-predicate.attested",
-      constituentKey: "predicate",
-      childRuleId: "predicate.verb.lexical",
-    });
-  }
   if (options.baPredicateRuleId === "ba-predicate.completed.complement") {
     nestedProductionTargets.push({
       parentRuleId: "ba-predicate.completed.complement",
@@ -189,9 +182,11 @@ describe("canonical BA composition", () => {
     expect(predicate?.requiredOccurrenceCapabilities ?? []).toEqual([]);
 
     const attested = canonicalRule("ba-predicate.attested");
-    expect(attested.constituents[0]?.requiredOccurrenceCapabilities).toEqual([
-      BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY,
-    ]);
+    expect(attested.constituents[0]).toMatchObject({
+      category: "Lexeme",
+      allowedUpos: ["VERB"],
+      requiredOccurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY],
+    });
 
     const completed = canonicalRule("ba-predicate.completed.complement");
     const head = completed.constituents.find((item) => item.key === "head");
