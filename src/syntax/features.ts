@@ -10,6 +10,7 @@ export const SYNTAX_CATEGORIES = [
   "Topic",
   "Subject",
   "Predicate",
+  "BAPredicate",
   "Object",
   "IndirectObject",
   "DisposalPatient",
