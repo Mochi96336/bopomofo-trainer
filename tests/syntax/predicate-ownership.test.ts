@@ -60,7 +60,7 @@ describe("Clause-model v2 predicate argument ownership", () => {
     }
   });
 
-  it("routes already argument-owning Clause paths through Predicate", () => {
+  it("routes ordinary argument-owning Clause paths through Predicate", () => {
     const migrated = [
       "clause.intransitive",
       "clause.transitive",
@@ -68,7 +68,6 @@ describe("Clause-model v2 predicate argument ownership", () => {
       "clause.modal",
       "clause.negative",
       "clause.aspect",
-      "clause.ba",
       "clause.bei",
       "clause.subject-omission",
       "clause.object-omission",
@@ -83,6 +82,24 @@ describe("Clause-model v2 predicate argument ownership", () => {
       const predicate = rule(ruleId).constituents.find((item) => item.key === "predicate");
       expect(predicate?.category, ruleId).toBe("Predicate");
     }
+  });
+
+  it("lets BA own patient structure at Clause and completion alternatives at BAPredicate", () => {
+    const ba = rule("clause.ba");
+    expect(ba.constituents.find((item) => item.key === "patient")?.category)
+      .toBe("DisposalPatient");
+    expect(ba.constituents.find((item) => item.key === "predicate")?.category)
+      .toBe("BAPredicate");
+
+    const alternatives = FORMAL_SYNTAX_RULES
+      .filter((item) => item.output === "BAPredicate")
+      .map((item) => item.id)
+      .sort();
+    expect(alternatives).toEqual([
+      "ba-predicate.attested",
+      "ba-predicate.completed.aspect",
+      "ba-predicate.completed.complement",
+    ]);
   });
 
   it("keeps finite ccomp and quoted-content structure while moving only predicate ownership", () => {

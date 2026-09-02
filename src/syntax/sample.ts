@@ -98,6 +98,8 @@ const CLAUSE_LIKE = new Set<SyntaxCategory>([
   "Sentence", "Clause", "OpenClause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
 ]);
 
+const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };
+
 function nextUnit(random: RandomSource): number {
   const value = random.next();
   if (!Number.isFinite(value) || value < 0 || value >= 1) {
@@ -242,6 +244,7 @@ function sampleRuleChildren(
   rootProductionRuleId: string | undefined,
   nestedProductionTargets: ReadonlyMap<string, ValidatedNestedProductionTarget>,
   fixedCounts?: ConstituentCounts,
+  deterministicCounts = false,
 ): SampledRuleChildren | null {
   let workingState = inputState;
   const children: StructuralElement[] = [];
@@ -256,7 +259,9 @@ function sampleRuleChildren(
     );
     const count = fixedCounts === undefined
       ? target?.exactCount ?? (
-          constituent.minimum + chooseIndex(random, maximum - constituent.minimum + 1)
+          deterministicCounts
+            ? constituent.minimum
+            : constituent.minimum + chooseIndex(random, maximum - constituent.minimum + 1)
         )
       : fixedCounts[constituent.key] ?? 0;
     if (count < constituent.minimum || count > maximum) return null;
@@ -333,16 +338,31 @@ function sampleCategory(
     .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))
     .filter((rule) => !isRoot || rootProductionRuleId === undefined || rule.id === rootProductionRuleId)
     .filter((rule) => requestedProductionRuleId === undefined || rule.id === requestedProductionRuleId);
-  const stableNestedClause = !isRoot
+  // BAPredicate alternatives are licensing fallbacks, not a product-probability
+  // dimension. Keep the reviewed path first; productive paths use a local
+  // deterministic source. Nested Clause candidates independently retain #248's
+  // fixed-cost keyed ordering and candidate-local substreams.
+  const orderedLicensingAlternatives = category === "BAPredicate";
+  const stableNestedClause = !orderedLicensingAlternatives
+    && !isRoot
     && category === "Clause"
     && requestedProductionRuleId === undefined;
-  const candidates: readonly NestedClauseCandidate[] = stableNestedClause
-    ? stableNestedClauseCandidates(eligibleRules, random)
-    : shuffled(eligibleRules, random).map((rule) => ({ rule, random }));
+  const candidates: readonly NestedClauseCandidate[] = orderedLicensingAlternatives
+    ? eligibleRules.map((rule) => ({
+        rule,
+        random: rule.id === "ba-predicate.attested" ? random : DETERMINISTIC_MINIMUM_RANDOM,
+      }))
+    : stableNestedClause
+      ? stableNestedClauseCandidates(eligibleRules, random)
+      : shuffled(eligibleRules, random).map((rule) => ({ rule, random }));
   for (const candidate of candidates) {
     const { rule } = candidate;
     const candidateRandom = candidate.random;
-    const order = rule.surfaceOrders[chooseIndex(candidateRandom, rule.surfaceOrders.length)];
+    const productiveBaAlternative = orderedLicensingAlternatives
+      && rule.id !== "ba-predicate.attested";
+    const order = orderedLicensingAlternatives && rule.surfaceOrders.length === 1
+      ? rule.surfaceOrders[0]
+      : rule.surfaceOrders[chooseIndex(candidateRandom, rule.surfaceOrders.length)];
     if (order === undefined) continue;
     const byKey = new Map(rule.constituents.map((item) => [item.key, item]));
     const ordered = order.constituentKeys.map((key) => byKey.get(key));
@@ -375,6 +395,7 @@ function sampleCategory(
       rootProductionRuleId,
       nestedProductionTargets,
       fixedCounts,
+      orderedLicensingAlternatives && !productiveBaAlternative,
     );
     if (sampledChildren === null) continue;
 
