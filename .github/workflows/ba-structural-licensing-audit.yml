@@ -24,11 +24,11 @@ jobs:
         run: npm ci --include=dev --ignore-scripts
       - name: Build app catalog
         run: npm run app:catalog
-      - name: Audit BA structural licensing
-        run: npx tsx scripts/audit-ba-structural-licensing.ts | tee /tmp/ba-structural-licensing.json
+      - name: Audit BA structural licensing v2
+        run: npx tsx scripts/audit-ba-structural-licensing-v2.ts | tee /tmp/ba-structural-licensing-v2.json
       - name: Upload audit
         uses: actions/upload-artifact@v4
         with:
-          name: ba-structural-licensing-audit
-          path: /tmp/ba-structural-licensing.json
+          name: ba-structural-licensing-audit-v2
+          path: /tmp/ba-structural-licensing-v2.json
           if-no-files-found: error
