@@ -30,10 +30,20 @@ import type {
 } from "./types.js";
 import { assertValidGrammar } from "./validate.js";
 
+export const NESTED_CLAUSE_RULE_ORDER_VERSION = "stable-keyed-rule-substream-v2";
+
 export interface NestedProductionTarget {
   readonly parentRuleId: string;
   readonly constituentKey: string;
-  readonly childRuleId: string;
+  /** For a non-lexical constituent, constrain the production selected at this edge. */
+  readonly childRuleId?: string;
+  /** Constrain this constituent's multiplicity at the named parent production. */
+  readonly exactCount?: number;
+}
+
+interface ValidatedNestedProductionTarget {
+  readonly childRuleId?: string;
+  readonly exactCount?: number;
 }
 
 export interface StructuralSamplingOptions {
@@ -79,6 +89,11 @@ interface SampledRuleChildren {
   readonly slots: readonly StructuralLexicalSlot[];
 }
 
+interface NestedClauseCandidate {
+  readonly rule: ProductionRule;
+  readonly random: RandomSource;
+}
+
 const CLAUSE_LIKE = new Set<SyntaxCategory>([
   "Sentence", "Clause", "OpenClause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
 ]);
@@ -104,6 +119,60 @@ function shuffled<T>(values: readonly T[], random: RandomSource): readonly T[] {
     [result[index], result[swap]] = [result[swap]!, result[index]!];
   }
   return result;
+}
+
+function nestedClauseCandidateSeed(ticket: number, ruleId: string): number {
+  const digest = stableRuntimeDigest({
+    version: NESTED_CLAUSE_RULE_ORDER_VERSION,
+    purpose: "candidate-substream",
+    ticket,
+    ruleId,
+  });
+  return Number.parseInt(digest.slice(0, 8), 16) >>> 0;
+}
+
+function nestedClauseCandidateRandom(ticket: number, ruleId: string): RandomSource {
+  let state = nestedClauseCandidateSeed(ticket, ruleId);
+  return {
+    next: () => {
+      state = (state + 0x6d2b79f5) >>> 0;
+      let value = state;
+      value = Math.imul(value ^ (value >>> 15), value | 1);
+      value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+      return ((value ^ (value >>> 14)) >>> 0) / 0x1_0000_0000;
+    },
+  };
+}
+
+/**
+ * Raw nested Clause sampling gets one fixed-cost random ticket per choice point.
+ * Each candidate receives both a stable keyed priority and its own keyed random
+ * substream. Removing an unrelated candidate therefore cannot reorder the
+ * remaining candidates, and a failed candidate cannot consume random draws that
+ * would otherwise alter a later candidate or the parent sampling trajectory.
+ */
+function stableNestedClauseCandidates(
+  values: readonly ProductionRule[],
+  random: RandomSource,
+): readonly NestedClauseCandidate[] {
+  if (values.length === 0) return [];
+  const ticket = Math.floor(nextUnit(random) * 0x1_0000_0000);
+  return values
+    .map((rule) => ({
+      rule,
+      random: nestedClauseCandidateRandom(ticket, rule.id),
+      priority: stableRuntimeDigest({
+        version: NESTED_CLAUSE_RULE_ORDER_VERSION,
+        purpose: "priority",
+        ticket,
+        ruleId: rule.id,
+      }),
+    }))
+    .sort((left, right) => {
+      const priorityOrder = left.priority.localeCompare(right.priority);
+      return priorityOrder !== 0 ? priorityOrder : left.rule.id.localeCompare(right.rule.id);
+    })
+    .map(({ rule, random: candidateRandom }) => ({ rule, random: candidateRandom }));
 }
 
 function decrement(state: State, constituent: ProductionConstituent): State | null {
@@ -173,7 +242,7 @@ function sampleRuleChildren(
   path: readonly string[],
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   rootProductionRuleId: string | undefined,
-  nestedProductionTargets: ReadonlyMap<string, string>,
+  nestedProductionTargets: ReadonlyMap<string, ValidatedNestedProductionTarget>,
   fixedCounts?: ConstituentCounts,
   deterministicCounts = false,
 ): SampledRuleChildren | null {
@@ -185,12 +254,18 @@ function sampleRuleChildren(
   for (const constituent of ordered) {
     const maximum = effectiveConstituentMaximum(constituent, bounds);
     if (maximum < constituent.minimum) return null;
+    const target = nestedProductionTargets.get(
+      nestedTargetKey(parentRuleId, constituent.key),
+    );
     const count = fixedCounts === undefined
-      ? deterministicCounts
-        ? constituent.minimum
-        : constituent.minimum + chooseIndex(random, maximum - constituent.minimum + 1)
+      ? target?.exactCount ?? (
+          deterministicCounts
+            ? constituent.minimum
+            : constituent.minimum + chooseIndex(random, maximum - constituent.minimum + 1)
+        )
       : fixedCounts[constituent.key] ?? 0;
     if (count < constituent.minimum || count > maximum) return null;
+    if (target?.exactCount !== undefined && count !== target.exactCount) return null;
 
     for (let occurrenceIndex = 0; occurrenceIndex < count; occurrenceIndex += 1) {
       const afterDepth = decrement(workingState, constituent);
@@ -212,9 +287,7 @@ function sampleRuleChildren(
         workingState = { ...workingState, lexicalCount: workingState.lexicalCount + 1 };
         continue;
       }
-      const requestedChildRuleId = nestedProductionTargets.get(
-        nestedTargetKey(parentRuleId, constituent.key),
-      );
+      const requestedChildRuleId = target?.childRuleId;
       const child = sampleCategory(
         constituent.category,
         childRequirements,
@@ -252,7 +325,7 @@ function sampleCategory(
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
   rootProductionRuleId: string | undefined,
-  nestedProductionTargets: ReadonlyMap<string, string>,
+  nestedProductionTargets: ReadonlyMap<string, ValidatedNestedProductionTarget>,
   isRoot: boolean,
   requestedProductionRuleId?: string,
 ): Sampled | null {
@@ -265,23 +338,31 @@ function sampleCategory(
     .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))
     .filter((rule) => !isRoot || rootProductionRuleId === undefined || rule.id === rootProductionRuleId)
     .filter((rule) => requestedProductionRuleId === undefined || rule.id === requestedProductionRuleId);
-
-  // BAPredicate is a licensing disjunction, not a probability dimension. Its
-  // reviewed route is deliberately first and preserves the old Predicate
-  // subtree. If that route is unavailable, productive generalization is tested
-  // with a local deterministic source so failed/new alternatives do not advance
-  // the parent product RNG and perturb unrelated sentence-family retries.
+  // BAPredicate alternatives are licensing fallbacks, not a product-probability
+  // dimension. Keep the reviewed path first; productive paths use a local
+  // deterministic source. Nested Clause candidates independently retain #248's
+  // fixed-cost keyed ordering and candidate-local substreams.
   const orderedLicensingAlternatives = category === "BAPredicate";
-  const candidates = orderedLicensingAlternatives
-    ? eligibleRules
-    : shuffled(eligibleRules, random);
-  for (const rule of candidates) {
+  const stableNestedClause = !orderedLicensingAlternatives
+    && !isRoot
+    && category === "Clause"
+    && requestedProductionRuleId === undefined;
+  const candidates: readonly NestedClauseCandidate[] = orderedLicensingAlternatives
+    ? eligibleRules.map((rule) => ({
+        rule,
+        random: rule.id === "ba-predicate.attested" ? random : DETERMINISTIC_MINIMUM_RANDOM,
+      }))
+    : stableNestedClause
+      ? stableNestedClauseCandidates(eligibleRules, random)
+      : shuffled(eligibleRules, random).map((rule) => ({ rule, random }));
+  for (const candidate of candidates) {
+    const { rule } = candidate;
+    const candidateRandom = candidate.random;
     const productiveBaAlternative = orderedLicensingAlternatives
       && rule.id !== "ba-predicate.attested";
-    const ruleRandom = productiveBaAlternative ? DETERMINISTIC_MINIMUM_RANDOM : random;
     const order = orderedLicensingAlternatives && rule.surfaceOrders.length === 1
       ? rule.surfaceOrders[0]
-      : rule.surfaceOrders[chooseIndex(ruleRandom, rule.surfaceOrders.length)];
+      : rule.surfaceOrders[chooseIndex(candidateRandom, rule.surfaceOrders.length)];
     if (order === undefined) continue;
     const byKey = new Map(rule.constituents.map((item) => [item.key, item]));
     const ordered = order.constituentKeys.map((key) => byKey.get(key));
@@ -289,9 +370,16 @@ function sampleCategory(
 
     let fixedCounts: ConstituentCounts | undefined;
     if (rule.constraints.length > 0) {
-      const assignments = [...validConstituentCountAssignments(rule, bounds)];
+      const assignments = [...validConstituentCountAssignments(rule, bounds)].filter((assignment) =>
+        rule.constituents.every((constituent) => {
+          const exactCount = nestedProductionTargets.get(
+            nestedTargetKey(rule.id, constituent.key),
+          )?.exactCount;
+          return exactCount === undefined || assignment[constituent.key] === exactCount;
+        }),
+      );
       if (assignments.length === 0) continue;
-      fixedCounts = assignments[chooseIndex(ruleRandom, assignments.length)];
+      fixedCounts = assignments[chooseIndex(candidateRandom, assignments.length)];
     }
 
     const sampledChildren = sampleRuleChildren(
@@ -299,7 +387,7 @@ function sampleCategory(
       ordered as readonly ProductionConstituent[],
       requirements,
       rulesByOutput,
-      ruleRandom,
+      candidateRandom,
       bounds,
       state,
       [...path, rule.id],
@@ -347,9 +435,10 @@ function validatedRootRuleId(options: StructuralSamplingOptions): string | undef
 
 function validatedNestedProductionTargets(
   options: StructuralSamplingOptions,
-): ReadonlyMap<string, string> {
+  bounds: DerivationBounds,
+): ReadonlyMap<string, ValidatedNestedProductionTarget> {
   const rulesById = new Map(options.rules.map((rule) => [rule.id, rule]));
-  const targets = new Map<string, string>();
+  const targets = new Map<string, ValidatedNestedProductionTarget>();
   for (const target of options.nestedProductionTargets ?? []) {
     const parent = rulesById.get(target.parentRuleId);
     if (parent === undefined) {
@@ -361,19 +450,36 @@ function validatedNestedProductionTargets(
         `nested production target references missing constituent: ${target.parentRuleId}:${target.constituentKey}`,
       );
     }
-    if (constituent.category === "Lexeme") {
+    if (target.childRuleId === undefined && target.exactCount === undefined) {
       throw new Error(
-        `nested production target cannot target lexical constituent: ${target.parentRuleId}:${target.constituentKey}`,
+        `nested production target requires childRuleId or exactCount: ${target.parentRuleId}:${target.constituentKey}`,
       );
     }
-    const child = rulesById.get(target.childRuleId);
-    if (child === undefined) {
-      throw new Error(`nested production target references missing child: ${target.childRuleId}`);
+    if (target.exactCount !== undefined) {
+      const maximum = effectiveConstituentMaximum(constituent, bounds);
+      if (!Number.isInteger(target.exactCount)
+        || target.exactCount < constituent.minimum
+        || target.exactCount > maximum) {
+        throw new RangeError(
+          `nested production target exactCount is outside constituent bounds: ${target.parentRuleId}:${target.constituentKey}`,
+        );
+      }
     }
-    if (child.output !== constituent.category) {
-      throw new Error(
-        `nested production target child category mismatch: ${target.parentRuleId}:${target.constituentKey} -> ${target.childRuleId}`,
-      );
+    if (target.childRuleId !== undefined) {
+      if (constituent.category === "Lexeme") {
+        throw new Error(
+          `nested production target cannot target lexical constituent: ${target.parentRuleId}:${target.constituentKey}`,
+        );
+      }
+      const child = rulesById.get(target.childRuleId);
+      if (child === undefined) {
+        throw new Error(`nested production target references missing child: ${target.childRuleId}`);
+      }
+      if (child.output !== constituent.category) {
+        throw new Error(
+          `nested production target child category mismatch: ${target.parentRuleId}:${target.constituentKey} -> ${target.childRuleId}`,
+        );
+      }
     }
     const key = nestedTargetKey(target.parentRuleId, target.constituentKey);
     if (targets.has(key)) {
@@ -381,7 +487,10 @@ function validatedNestedProductionTargets(
         `nested production target duplicates parent constituent: ${target.parentRuleId}:${target.constituentKey}`,
       );
     }
-    targets.set(key, target.childRuleId);
+    targets.set(key, {
+      ...(target.childRuleId === undefined ? {} : { childRuleId: target.childRuleId }),
+      ...(target.exactCount === undefined ? {} : { exactCount: target.exactCount }),
+    });
   }
   return targets;
 }
@@ -396,7 +505,7 @@ export function sampleStructuralDerivation(
   }
   assertValidGrammar(options.rules, bounds);
   const requestedRootRuleId = validatedRootRuleId(options);
-  const nestedProductionTargets = validatedNestedProductionTargets(options);
+  const nestedProductionTargets = validatedNestedProductionTargets(options, bounds);
   const rulesByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();
   for (const rule of options.rules) {
     rulesByOutput.set(rule.output, [...(rulesByOutput.get(rule.output) ?? []), rule]);
