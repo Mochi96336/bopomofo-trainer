@@ -30,6 +30,8 @@ import type {
 } from "./types.js";
 import { assertValidGrammar } from "./validate.js";
 
+export const NESTED_CLAUSE_RULE_ORDER_VERSION = "stable-keyed-rule-substream-v2";
+
 export interface NestedProductionTarget {
   readonly parentRuleId: string;
   readonly constituentKey: string;
@@ -87,6 +89,11 @@ interface SampledRuleChildren {
   readonly slots: readonly StructuralLexicalSlot[];
 }
 
+interface NestedClauseCandidate {
+  readonly rule: ProductionRule;
+  readonly random: RandomSource;
+}
+
 const CLAUSE_LIKE = new Set<SyntaxCategory>([
   "Sentence", "Clause", "OpenClause", "ClauseSequence", "RelativeClause", "ContentClause", "QuotedClause",
 ]);
@@ -110,6 +117,60 @@ function shuffled<T>(values: readonly T[], random: RandomSource): readonly T[] {
     [result[index], result[swap]] = [result[swap]!, result[index]!];
   }
   return result;
+}
+
+function nestedClauseCandidateSeed(ticket: number, ruleId: string): number {
+  const digest = stableRuntimeDigest({
+    version: NESTED_CLAUSE_RULE_ORDER_VERSION,
+    purpose: "candidate-substream",
+    ticket,
+    ruleId,
+  });
+  return Number.parseInt(digest.slice(0, 8), 16) >>> 0;
+}
+
+function nestedClauseCandidateRandom(ticket: number, ruleId: string): RandomSource {
+  let state = nestedClauseCandidateSeed(ticket, ruleId);
+  return {
+    next: () => {
+      state = (state + 0x6d2b79f5) >>> 0;
+      let value = state;
+      value = Math.imul(value ^ (value >>> 15), value | 1);
+      value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+      return ((value ^ (value >>> 14)) >>> 0) / 0x1_0000_0000;
+    },
+  };
+}
+
+/**
+ * Raw nested Clause sampling gets one fixed-cost random ticket per choice point.
+ * Each candidate receives both a stable keyed priority and its own keyed random
+ * substream. Removing an unrelated candidate therefore cannot reorder the
+ * remaining candidates, and a failed candidate cannot consume random draws that
+ * would otherwise alter a later candidate or the parent sampling trajectory.
+ */
+function stableNestedClauseCandidates(
+  values: readonly ProductionRule[],
+  random: RandomSource,
+): readonly NestedClauseCandidate[] {
+  if (values.length === 0) return [];
+  const ticket = Math.floor(nextUnit(random) * 0x1_0000_0000);
+  return values
+    .map((rule) => ({
+      rule,
+      random: nestedClauseCandidateRandom(ticket, rule.id),
+      priority: stableRuntimeDigest({
+        version: NESTED_CLAUSE_RULE_ORDER_VERSION,
+        purpose: "priority",
+        ticket,
+        ruleId: rule.id,
+      }),
+    }))
+    .sort((left, right) => {
+      const priorityOrder = left.priority.localeCompare(right.priority);
+      return priorityOrder !== 0 ? priorityOrder : left.rule.id.localeCompare(right.rule.id);
+    })
+    .map(({ rule, random: candidateRandom }) => ({ rule, random: candidateRandom }));
 }
 
 function decrement(state: State, constituent: ProductionConstituent): State | null {
@@ -272,9 +333,16 @@ function sampleCategory(
     .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))
     .filter((rule) => !isRoot || rootProductionRuleId === undefined || rule.id === rootProductionRuleId)
     .filter((rule) => requestedProductionRuleId === undefined || rule.id === requestedProductionRuleId);
-  const candidates = shuffled(eligibleRules, random);
-  for (const rule of candidates) {
-    const order = rule.surfaceOrders[chooseIndex(random, rule.surfaceOrders.length)];
+  const stableNestedClause = !isRoot
+    && category === "Clause"
+    && requestedProductionRuleId === undefined;
+  const candidates: readonly NestedClauseCandidate[] = stableNestedClause
+    ? stableNestedClauseCandidates(eligibleRules, random)
+    : shuffled(eligibleRules, random).map((rule) => ({ rule, random }));
+  for (const candidate of candidates) {
+    const { rule } = candidate;
+    const candidateRandom = candidate.random;
+    const order = rule.surfaceOrders[chooseIndex(candidateRandom, rule.surfaceOrders.length)];
     if (order === undefined) continue;
     const byKey = new Map(rule.constituents.map((item) => [item.key, item]));
     const ordered = order.constituentKeys.map((key) => byKey.get(key));
@@ -291,7 +359,7 @@ function sampleCategory(
         }),
       );
       if (assignments.length === 0) continue;
-      fixedCounts = assignments[chooseIndex(random, assignments.length)];
+      fixedCounts = assignments[chooseIndex(candidateRandom, assignments.length)];
     }
 
     const sampledChildren = sampleRuleChildren(
@@ -299,7 +367,7 @@ function sampleCategory(
       ordered as readonly ProductionConstituent[],
       requirements,
       rulesByOutput,
-      random,
+      candidateRandom,
       bounds,
       state,
       [...path, rule.id],
