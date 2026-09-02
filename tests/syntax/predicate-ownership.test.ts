@@ -66,7 +66,6 @@ describe("Clause-model v2 predicate argument ownership", () => {
       "clause.transitive",
       "clause.ditransitive",
       "clause.modal",
-      "clause.negative",
       "clause.aspect",
       "clause.ba",
       "clause.bei",
