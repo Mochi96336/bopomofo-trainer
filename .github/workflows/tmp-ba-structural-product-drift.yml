@@ -1,0 +1,138 @@
+name: tmp BA structural product drift
+
+on:
+  push:
+    branches:
+      - agent/ba-structural-licensing-audit
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      BASE_SHA: f0a67eed6fe53d6f1a02b323af1895c7b5e7a618
+      HEAD_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout baseline #235
+        uses: actions/checkout@v6
+        with:
+          ref: f0a67eed6fe53d6f1a02b323af1895c7b5e7a618
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install baseline dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Restore drift probe from prototype
+        shell: bash
+        run: git show "$HEAD_SHA:scripts/tmp-ba-structural-product-drift.ts" > scripts/tmp-ba-structural-product-drift.ts
+      - name: Measure baseline
+        shell: bash
+        run: |
+          npm run app:catalog > /tmp/base-catalog.log
+          npx tsx scripts/tmp-ba-structural-product-drift.ts > /tmp/base.json
+
+      - name: Checkout prototype
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          clean: true
+      - name: Install prototype dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Measure prototype
+        shell: bash
+        run: |
+          npm run app:catalog > /tmp/head-catalog.log
+          npx tsx scripts/tmp-ba-structural-product-drift.ts > /tmp/head.json
+
+      - name: Compare product output
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from collections import Counter
+
+          with open('/tmp/base.json', encoding='utf-8') as handle:
+              base = json.load(handle)
+          with open('/tmp/head.json', encoding='utf-8') as handle:
+              head = json.load(handle)
+
+          if base['sampleCount'] != head['sampleCount']:
+              raise SystemExit('sample count mismatch')
+
+          structural = []
+          text_changes = []
+          changed_roots = Counter()
+          ba_localized = 0
+          for before, after in zip(base['records'], head['records']):
+              if before['seed'] != after['seed']:
+                  raise SystemExit('seed order mismatch')
+              changed = {
+                  key: (before[key], after[key])
+                  for key in ('success', 'rootRuleId', 'family', 'fallbackReasons')
+                  if before[key] != after[key]
+              }
+              if changed:
+                  structural.append({'seed': before['seed'], 'changed': changed})
+              if before['text'] != after['text']:
+                  item = {
+                      'seed': before['seed'],
+                      'rootRuleId': after['rootRuleId'],
+                      'before': before['text'],
+                      'after': after['text'],
+                  }
+                  text_changes.append(item)
+                  changed_roots[after['rootRuleId'] or '<none>'] += 1
+                  if any(marker in (before['text'] or '') or marker in (after['text'] or '') for marker in ('把', '將')):
+                      ba_localized += 1
+
+          aggregate_equal = {
+              key: base[key] == head[key]
+              for key in ('successCount', 'rootCounts', 'familyCounts', 'fallbackCounts')
+          }
+          summary = {
+              'baseSha': 'f0a67eed6fe53d6f1a02b323af1895c7b5e7a618',
+              'headSha': '${{ github.sha }}',
+              'sampleCount': base['sampleCount'],
+              'baseSuccessCount': base['successCount'],
+              'headSuccessCount': head['successCount'],
+              'aggregateEqual': aggregate_equal,
+              'structuralMismatchCount': len(structural),
+              'structuralMismatchShare': len(structural) / base['sampleCount'],
+              'textChangeCount': len(text_changes),
+              'textChangeShare': len(text_changes) / base['sampleCount'],
+              'baLocalizedTextChangeCount': ba_localized,
+              'baLocalizedTextChangeShareOfChanges': (ba_localized / len(text_changes)) if text_changes else 1,
+              'textChangesByRootRule': dict(sorted(changed_roots.items())),
+              'baseRootCounts': base['rootCounts'],
+              'headRootCounts': head['rootCounts'],
+              'baseFamilyCounts': base['familyCounts'],
+              'headFamilyCounts': head['familyCounts'],
+              'baseFallbackCounts': base['fallbackCounts'],
+              'headFallbackCounts': head['fallbackCounts'],
+              'firstStructuralMismatches': structural[:40],
+              'firstTextChanges': text_changes[:60],
+          }
+          with open('/tmp/summary.json', 'w', encoding='utf-8') as handle:
+              json.dump(summary, handle, ensure_ascii=False, indent=2)
+          print(json.dumps(summary, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload product drift evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ba-structural-product-drift
+          path: |
+            /tmp/base.json
+            /tmp/head.json
+            /tmp/summary.json
+            /tmp/base-catalog.log
+            /tmp/head-catalog.log
+          if-no-files-found: warn
