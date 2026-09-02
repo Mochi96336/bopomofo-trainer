@@ -146,18 +146,26 @@ function patientTakingHead(): ProductionConstituent {
  * BA owns a distinct predicate-structure boundary instead of turning corpus
  * attestation into the whole productive grammar.
  *
- * `BAPredicate` is a licensing disjunction, not a product sampling dimension.
- * The structural sampler therefore tries these rules in declaration order:
- * productive completed paths first, then the reviewed direct-attestation
- * backstop. Corpus non-attestation is never negative evidence.
+ * The reviewed route intentionally preserves the former canonical Predicate
+ * subtree, but only for lexemes carrying exact same-occurrence BA evidence.
+ * That makes attestation a positive compatibility path rather than a complete
+ * whitelist of productive BA heads.
  *
- * The backstop is intentionally a direct VERB slot rather than another
- * `Predicate` subtree. Its purpose is to license lexicalized/bare BA predicates
- * whose completion is not represented by the current tokenizer/grammar; it must
- * not reopen optional generic Predicate structure after the productive paths
- * have failed.
+ * Productive completed routes are additional legality paths for patient-taking
+ * heads with completion realized by this derivation. The structural sampler
+ * treats the BAPredicate alternatives as ordered licensing fallbacks rather than
+ * a new product probability dimension: the reviewed route is sampled first to
+ * preserve the existing deterministic product path, and productive routes are
+ * consulted only when that route is unavailable. Corpus non-attestation is
+ * never negative grammatical evidence.
  */
 export const BA_PREDICATE_PRODUCTION_RULES: readonly ProductionRule[] = [
+  production("ba-predicate.attested", [
+    constituent("predicate", "Predicate", {
+      requiredFunctions: ["predicate"],
+      requiredOccurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY],
+    }),
+  ]),
   production("ba-predicate.completed.complement", [
     ...optionalPrefix(),
     patientTakingHead(),
@@ -176,12 +184,6 @@ export const BA_PREDICATE_PRODUCTION_RULES: readonly ProductionRule[] = [
     ...optionalPrefix(),
     patientTakingHead(),
     lexical("aspect", ["AUX", "PART"], { requiredFeatures: { aspect: "marked" } }),
-  ]),
-  production("ba-predicate.attested", [
-    lexical("predicate", ["VERB"], {
-      requiredFunctions: ["predicate"],
-      requiredOccurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY],
-    }),
   ]),
 ];
 
