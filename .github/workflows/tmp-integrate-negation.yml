@@ -1,0 +1,120 @@
+name: tmp integrate negation on BA sampler
+
+on:
+  push:
+    branches:
+      - agent/integrate-ba-negation-v2
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    if: ${{ !contains(github.event.head_commit.message, '[integrated-negation-v2]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Merge negation retirement and resolve expected cross-stack conflicts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          set +e
+          git merge --no-commit --no-ff 43b711c6fd135ce27b54927ce07e3bc0a183862e
+          merge_status=$?
+          set -e
+
+          mapfile -t conflicts < <(git diff --name-only --diff-filter=U | sort)
+          printf 'Conflicts:\n'; printf '  %s\n' "${conflicts[@]:-<none>}"
+          allowed=(
+            data/grammar/formal-syntax-runtime-lock.json
+            src/syntax/clause-rules.ts
+            tests/syntax/clause-rules.test.ts
+            tests/syntax/predicate-ownership.test.ts
+          )
+          for file in "${conflicts[@]}"; do
+            ok=0
+            for expected in "${allowed[@]}"; do
+              if [ "$file" = "$expected" ]; then ok=1; break; fi
+            done
+            if [ "$ok" -ne 1 ]; then
+              echo "Unexpected conflict: $file"
+              exit 1
+            fi
+          done
+          if [ "$merge_status" -ne 0 ] && [ "${#conflicts[@]}" -eq 0 ]; then
+            echo "Merge failed without a resolvable conflict"
+            exit 1
+          fi
+
+          # Keep the integrated BA versions at shared files, then apply only the
+          # negation-retirement delta to them.
+          git checkout --ours -- data/grammar/formal-syntax-runtime-lock.json
+          git checkout --ours -- src/syntax/clause-rules.ts
+          git checkout --ours -- tests/syntax/clause-rules.test.ts
+          git checkout --ours -- tests/syntax/predicate-ownership.test.ts
+
+          python - <<'PY'
+          from pathlib import Path
+
+          clause = Path('src/syntax/clause-rules.ts')
+          source = clause.read_text()
+          block = '''  production("clause.negative", "Clause", [\n    subject({ minimum: 0, maximum: 1 }),\n    lexical("negation", ["ADV", "AUX", "PART", "VERB"], { requiredFeatures: { polarity: "negative" } }),\n    constituent("predicate", "Predicate", { requiredFunctions: ["predicate"] }),\n    object({ minimum: 0, maximum: 1 }),\n  ]),\n'''
+          if source.count(block) != 1:
+              raise SystemExit(f'expected one clause.negative block, found {source.count(block)}')
+          clause.write_text(source.replace(block, '', 1))
+
+          for name in ('tests/syntax/clause-rules.test.ts', 'tests/syntax/predicate-ownership.test.ts'):
+              path = Path(name)
+              text = path.read_text()
+              needle = '      "clause.negative",\n'
+              if text.count(needle) != 1:
+                  raise SystemExit(f'{name}: expected one clause.negative identity pin, found {text.count(needle)}')
+              path.write_text(text.replace(needle, '', 1))
+          PY
+
+          git add -A
+
+          npm ci --include=dev --ignore-scripts
+          set +e
+          npm run app:catalog > /tmp/catalog-first.log 2>&1
+          catalog_status=$?
+          set -e
+          if [ "$catalog_status" -eq 0 ]; then
+            echo "Expected runtime lock to require a combined grammar digest update"
+            cat /tmp/catalog-first.log
+            exit 1
+          fi
+          cat /tmp/catalog-first.log
+
+          python - <<'PY'
+          import json, re
+          from pathlib import Path
+
+          log = Path('/tmp/catalog-first.log').read_text()
+          match = re.search(r'expected grammarRulesDigest=([0-9a-f]+), sourceRuleIndexDigest=([0-9a-f]+)', log)
+          if not match:
+              raise SystemExit('could not extract combined runtime-lock digests')
+          grammar, source = match.groups()
+          path = Path('data/grammar/formal-syntax-runtime-lock.json')
+          lock = json.loads(path.read_text())
+          if lock['sourceRuleIndexDigest'] != source:
+              raise SystemExit(f'source digest unexpectedly changed: {lock["sourceRuleIndexDigest"]} -> {source}')
+          lock['grammarRulesDigest'] = grammar
+          path.write_text(json.dumps(lock, ensure_ascii=False, separators=(',', ':')) + '\n')
+          print(f'combined grammarRulesDigest={grammar}')
+          PY
+
+          npm run app:catalog
+          git add -A
+          git commit -m "test: integrate negation retirement on BA sampler [integrated-negation-v2]"
+          git push origin HEAD:agent/integrate-ba-negation-v2
