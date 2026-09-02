@@ -1,6 +1,5 @@
 import { ARGUMENT_PRODUCTION_RULES } from "./argument-rules.js";
 import { FORMAL_GRAMMAR_VERSION } from "./features.js";
-import { BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY } from "./runtime-occurrence-capabilities.js";
 import type {
   ProductionConstituent,
   ProductionFixture,
@@ -132,11 +131,6 @@ const corePredicate = (frames: readonly ValencyFrame[]) => constituent("predicat
   requiredValencyFrames: frames,
 });
 
-const baPredicate = () => constituent("predicate", "Predicate", {
-  requiredFunctions: ["predicate"],
-  requiredOccurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY],
-});
-
 const aNotALexeme = (
   key: string,
   frames: readonly ValencyFrame[],
@@ -222,7 +216,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     subject(),
     lexical("marker", ["ADP"], { requiredFeatures: { voice: "disposal" } }),
     constituent("patient", "DisposalPatient"),
-    baPredicate(),
+    constituent("predicate", "BAPredicate", { requiredFunctions: ["predicate"] }),
   ]),
   production("clause.bei", "Clause", [
     constituent("patient", "Subject"),
