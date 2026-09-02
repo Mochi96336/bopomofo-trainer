@@ -21,7 +21,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
-      - name: Merge negation retirement and resolve expected cross-stack conflicts
+      - name: Merge negation retirement and resolve combined runtime lock
         shell: bash
         run: |
           set -euo pipefail
@@ -35,53 +35,36 @@ jobs:
 
           mapfile -t conflicts < <(git diff --name-only --diff-filter=U | sort)
           printf 'Conflicts:\n'; printf '  %s\n' "${conflicts[@]:-<none>}"
-          allowed=(
-            data/grammar/formal-syntax-runtime-lock.json
-            src/syntax/clause-rules.ts
-            tests/syntax/clause-rules.test.ts
-            tests/syntax/predicate-ownership.test.ts
-          )
-          for file in "${conflicts[@]}"; do
-            ok=0
-            for expected in "${allowed[@]}"; do
-              if [ "$file" = "$expected" ]; then ok=1; break; fi
-            done
-            if [ "$ok" -ne 1 ]; then
-              echo "Unexpected conflict: $file"
-              exit 1
-            fi
-          done
-          if [ "$merge_status" -ne 0 ] && [ "${#conflicts[@]}" -eq 0 ]; then
-            echo "Merge failed without a resolvable conflict"
+          if [ "${#conflicts[@]}" -ne 1 ] || [ "${conflicts[0]}" != "data/grammar/formal-syntax-runtime-lock.json" ]; then
+            echo "Expected exactly the runtime-lock conflict"
+            exit 1
+          fi
+          if [ "$merge_status" -eq 0 ]; then
+            echo "Expected a runtime-lock merge conflict"
             exit 1
           fi
 
-          # Keep the integrated BA versions at shared files, then apply only the
-          # negation-retirement delta to them.
+          # Git cleanly auto-merges the actual grammar/test changes. Verify both
+          # sides survived before resolving the derived lock.
+          if ! grep -q 'constituent("predicate", "BAPredicate"' src/syntax/clause-rules.ts; then
+            echo "BA predicate routing was lost during auto-merge"
+            exit 1
+          fi
+          if grep -q 'production("clause.negative"' src/syntax/clause-rules.ts; then
+            echo "clause.negative survived the retirement merge"
+            exit 1
+          fi
+          if grep -q '"clause.negative"' tests/syntax/clause-rules.test.ts; then
+            echo "clause-rules test retained stale negative identity"
+            exit 1
+          fi
+          if grep -q '"clause.negative"' tests/syntax/predicate-ownership.test.ts; then
+            echo "predicate ownership test retained stale negative identity"
+            exit 1
+          fi
+
+          # Runtime lock is derived from the combined executable grammar.
           git checkout --ours -- data/grammar/formal-syntax-runtime-lock.json
-          git checkout --ours -- src/syntax/clause-rules.ts
-          git checkout --ours -- tests/syntax/clause-rules.test.ts
-          git checkout --ours -- tests/syntax/predicate-ownership.test.ts
-
-          python - <<'PY'
-          from pathlib import Path
-
-          clause = Path('src/syntax/clause-rules.ts')
-          source = clause.read_text()
-          block = '''  production("clause.negative", "Clause", [\n    subject({ minimum: 0, maximum: 1 }),\n    lexical("negation", ["ADV", "AUX", "PART", "VERB"], { requiredFeatures: { polarity: "negative" } }),\n    constituent("predicate", "Predicate", { requiredFunctions: ["predicate"] }),\n    object({ minimum: 0, maximum: 1 }),\n  ]),\n'''
-          if source.count(block) != 1:
-              raise SystemExit(f'expected one clause.negative block, found {source.count(block)}')
-          clause.write_text(source.replace(block, '', 1))
-
-          for name in ('tests/syntax/clause-rules.test.ts', 'tests/syntax/predicate-ownership.test.ts'):
-              path = Path(name)
-              text = path.read_text()
-              needle = '      "clause.negative",\n'
-              if text.count(needle) != 1:
-                  raise SystemExit(f'{name}: expected one clause.negative identity pin, found {text.count(needle)}')
-              path.write_text(text.replace(needle, '', 1))
-          PY
-
           git add -A
 
           npm ci --include=dev --ignore-scripts
