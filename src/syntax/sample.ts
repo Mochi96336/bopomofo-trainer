@@ -544,9 +544,10 @@ export function sampleStructuralDerivation(
       true,
     );
     if (sampled === null || sampled.element.kind !== "syntax-node") continue;
-    if (options.requiredLexicalSlotFeatures !== undefined
+    const requiredLexicalSlotFeatures = options.requiredLexicalSlotFeatures;
+    if (requiredLexicalSlotFeatures !== undefined
       && !sampled.slots.some((slot) =>
-        lexicalSlotMatchesRequiredFeatures(slot, options.requiredLexicalSlotFeatures!),
+        lexicalSlotMatchesRequiredFeatures(slot, requiredLexicalSlotFeatures),
       )) continue;
     const identity = {
       grammarVersion: FORMAL_GRAMMAR_VERSION,

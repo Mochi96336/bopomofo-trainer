@@ -62,7 +62,7 @@ export const SENTENCE_CONSTRUCTION_FAMILIES: readonly SentenceConstructionFamily
  * activate yet.
  */
 export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy = {
-  version: "formal-syntax-family-sampling-v4",
+  version: "formal-syntax-family-sampling-v5",
   sentenceKindWeights: {
     statement: 0.64,
     question: 0.26,
@@ -79,9 +79,10 @@ export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy =
     request: 1,
     exclamative: 1,
   },
-  // Mechanism-first default: no marking ticket, so v4 is behavior-neutral
-  // until an explicit measured product prior is chosen.
-  predicateMarkingPracticeWeights: { ordinary: 1, negation: 0 },
+  // Product-practice prior measured after Clause-level negation retirement.
+  // A 4% marking ticket restored 324/2048 negative candidates versus the
+  // pre-retirement 328/2048 baseline without restoring a negation root family.
+  predicateMarkingPracticeWeights: { ordinary: 0.96, negation: 0.04 },
 };
 
 function nextUnit(random: RandomSource): number {

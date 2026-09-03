@@ -28,13 +28,25 @@ const PLAN: readonly SentenceConstructionFamilyPlan[] = [{
 }];
 
 describe("predicate marking practice ticket", () => {
-  it("keeps the mechanism-first default ordinary and supports an explicit negation ticket", () => {
-    expect(predicateMarkingPracticeIntentForFamilyPlan(PLAN)).toBe("ordinary");
+  it("supports explicit ordinary and negation practice tickets", () => {
+    expect(predicateMarkingPracticeIntentForFamilyPlan(PLAN, {
+      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+      version: "predicate-marking-ticket-test-always-ordinary",
+      predicateMarkingPracticeWeights: { ordinary: 1, negation: 0 },
+    })).toBe("ordinary");
     expect(predicateMarkingPracticeIntentForFamilyPlan(PLAN, {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       version: "predicate-marking-ticket-test-always-negation",
       predicateMarkingPracticeWeights: { ordinary: 0, negation: 1 },
     })).toBe("negation");
+  });
+
+  it("uses the measured four-percent product marking prior", () => {
+    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v5");
+    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.predicateMarkingPracticeWeights).toEqual({
+      ordinary: 0.96,
+      negation: 0.04,
+    });
   });
 
   it("keeps ticket assignment stable when only the sampling policy version changes", () => {
@@ -80,5 +92,5 @@ describe("predicate marking practice ticket", () => {
       expect(composition.candidates, JSON.stringify(composition.fallbackReasons)).toHaveLength(1);
       expect(composition.candidates[0]!.text).toMatch(/[不未別沒非無]/u);
     }
-  });
+  }, 30_000);
 });

@@ -222,32 +222,44 @@ export function composeFormalSyntaxUtterances(
   const sentenceRules = useProductFamilyPolicy
     ? rules.filter((rule) => rule.output === "Sentence")
     : [];
-  let rootFamilyPlan: readonly SentenceConstructionFamilyPlan[] | null = null;
+  let rootFamilySearch: {
+    readonly plan: readonly SentenceConstructionFamilyPlan[];
+    readonly predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent;
+  } | null = null;
   let rootFamilyIndex = 0;
   let attemptsInRootFamily = 0;
   let attemptsPerRootFamily = 0;
   let rootFamilyBudgetInsufficient = false;
-  let predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent = "ordinary";
 
-  const currentRootFamily = (remainingAttempts: number): SentenceConstructionFamilyPlan | null => {
+  const currentRootFamily = (remainingAttempts: number): {
+    readonly family: SentenceConstructionFamilyPlan;
+    readonly predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent;
+  } | null => {
     if (!useProductFamilyPolicy || samplingPolicy === null) return null;
-    if (rootFamilyPlan === null) {
-      rootFamilyPlan = createSentenceConstructionFamilyPlan(
+    if (rootFamilySearch === null) {
+      const plan = createSentenceConstructionFamilyPlan(
         sentenceRules,
         input.random,
         samplingPolicy,
       );
-      predicateMarkingPracticeIntent = predicateMarkingPracticeIntentForFamilyPlan(
-        rootFamilyPlan,
-        samplingPolicy,
-      );
+      rootFamilySearch = {
+        plan,
+        predicateMarkingPracticeIntent: predicateMarkingPracticeIntentForFamilyPlan(
+          plan,
+          samplingPolicy,
+        ),
+      };
       rootFamilyIndex = 0;
       attemptsInRootFamily = 0;
-      rootFamilyBudgetInsufficient = remainingAttempts < rootFamilyPlan.length;
+      rootFamilyBudgetInsufficient = remainingAttempts < plan.length;
       if (rootFamilyBudgetInsufficient) return null;
-      attemptsPerRootFamily = rootFamilyAttemptBudget(remainingAttempts, rootFamilyPlan.length);
+      attemptsPerRootFamily = rootFamilyAttemptBudget(remainingAttempts, plan.length);
     }
-    return rootFamilyPlan[rootFamilyIndex] ?? null;
+    const family = rootFamilySearch.plan[rootFamilyIndex];
+    return family === undefined ? null : {
+      family,
+      predicateMarkingPracticeIntent: rootFamilySearch.predicateMarkingPracticeIntent,
+    };
   };
   const recordRootFamilyFailure = (): void => {
     if (!useProductFamilyPolicy) return;
@@ -258,12 +270,11 @@ export function composeFormalSyntaxUtterances(
     }
   };
   const resetRootFamilySearch = (): void => {
-    rootFamilyPlan = null;
+    rootFamilySearch = null;
     rootFamilyIndex = 0;
     attemptsInRootFamily = 0;
     attemptsPerRootFamily = 0;
     rootFamilyBudgetInsufficient = false;
-    predicateMarkingPracticeIntent = "ordinary";
   };
 
   const candidates = new Map<string, GrammarUtteranceCandidate>();
@@ -272,16 +283,17 @@ export function composeFormalSyntaxUtterances(
   for (let attempt = 0;
     attempt < input.maximumAttempts && candidates.size < input.maximumCandidates;
     attempt += 1) {
-    const rootFamily = currentRootFamily(input.maximumAttempts - attempt);
-    if (useProductFamilyPolicy && rootFamily === null) {
+    const rootFamilySelection = currentRootFamily(input.maximumAttempts - attempt);
+    if (useProductFamilyPolicy && rootFamilySelection === null) {
       fallbackReasons.add(rootFamilyBudgetInsufficient
         ? "formal-syntax-root-family-budget-insufficient"
         : "formal-syntax-root-family-search-exhausted");
       break;
     }
-    const requiresNegationPractice = useProductFamilyPolicy
-    && (predicateMarkingPracticeIntent as PredicateMarkingPracticeIntent) === "negation";
-  const rootProductionRuleId = rootFamily === null
+    const rootFamily = rootFamilySelection?.family ?? null;
+    const requiresNegationPractice =
+      rootFamilySelection?.predicateMarkingPracticeIntent === "negation";
+    const rootProductionRuleId = rootFamily === null
       ? input.structuralTarget?.rootProductionRuleId
       : chooseSentenceConstructionVariant(rootFamily, input.random);
     const shape = sampleStructuralDerivation({
