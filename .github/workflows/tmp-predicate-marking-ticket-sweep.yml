@@ -30,7 +30,8 @@ jobs:
         run: |
           git checkout d166f9a0069458a524370403a827c22d28615ec6
           git show 9adef5b600bfb8230f9650ad0d0c243dc14d2413:scripts/tmp-negation-post-stabilization-audit.ts > scripts/tmp-negation-post-stabilization-audit.ts
-          SAMPLE_COUNT=1024 npx tsx scripts/tmp-negation-post-stabilization-audit.ts > /tmp/base.json
+          sed -i 's/const SAMPLE_COUNT = 2048;/const SAMPLE_COUNT = 1024;/' scripts/tmp-negation-post-stabilization-audit.ts
+          npx tsx scripts/tmp-negation-post-stabilization-audit.ts > /tmp/base.json
       - name: Measure ticket head and sweep
         shell: bash
         run: |
