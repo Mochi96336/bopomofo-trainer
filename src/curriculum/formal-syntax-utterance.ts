@@ -29,9 +29,11 @@ import {
   chooseSentenceConstructionVariant,
   createSentenceConstructionFamilyPlan,
   PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+  predicateMarkingPracticeIntentForFamilyPlan,
   rootFamilyAttemptBudget,
   validateFormalSyntaxSamplingPolicy,
   type FormalSyntaxSamplingPolicy,
+  type PredicateMarkingPracticeIntent,
   type SentenceConstructionFamilyPlan,
 } from "./formal-syntax-sampling-policy.js";
 
@@ -225,6 +227,7 @@ export function composeFormalSyntaxUtterances(
   let attemptsInRootFamily = 0;
   let attemptsPerRootFamily = 0;
   let rootFamilyBudgetInsufficient = false;
+  let predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent = "ordinary";
 
   const currentRootFamily = (remainingAttempts: number): SentenceConstructionFamilyPlan | null => {
     if (!useProductFamilyPolicy || samplingPolicy === null) return null;
@@ -232,6 +235,10 @@ export function composeFormalSyntaxUtterances(
       rootFamilyPlan = createSentenceConstructionFamilyPlan(
         sentenceRules,
         input.random,
+        samplingPolicy,
+      );
+      predicateMarkingPracticeIntent = predicateMarkingPracticeIntentForFamilyPlan(
+        rootFamilyPlan,
         samplingPolicy,
       );
       rootFamilyIndex = 0;
@@ -256,6 +263,7 @@ export function composeFormalSyntaxUtterances(
     attemptsInRootFamily = 0;
     attemptsPerRootFamily = 0;
     rootFamilyBudgetInsufficient = false;
+    predicateMarkingPracticeIntent = "ordinary";
   };
 
   const candidates = new Map<string, GrammarUtteranceCandidate>();
@@ -271,14 +279,19 @@ export function composeFormalSyntaxUtterances(
         : "formal-syntax-root-family-search-exhausted");
       break;
     }
-    const rootProductionRuleId = rootFamily === null
+    const requiresNegationPractice = useProductFamilyPolicy
+    && (predicateMarkingPracticeIntent as PredicateMarkingPracticeIntent) === "negation";
+  const rootProductionRuleId = rootFamily === null
       ? input.structuralTarget?.rootProductionRuleId
       : chooseSentenceConstructionVariant(rootFamily, input.random);
     const shape = sampleStructuralDerivation({
       rootCategory: "Sentence",
       rules,
       random: input.random,
-      maximumAttempts: 1,
+      maximumAttempts: requiresNegationPractice ? 8 : 1,
+      ...(requiresNegationPractice
+        ? { requiredLexicalSlotFeatures: { polarity: "negative" } }
+        : {}),
       isLexicalSlotReachable: (slot) => {
         if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") return true;
         return compatibleProfilesForSlot(slot, index).length > 0;
@@ -290,7 +303,9 @@ export function composeFormalSyntaxUtterances(
         : { nestedProductionTargets: input.structuralTarget.nestedProductionTargets }),
     });
     if (shape === null) {
-      fallbackReasons.add("formal-syntax-structural-sampling-exhausted");
+      fallbackReasons.add(requiresNegationPractice
+        ? "formal-syntax-predicate-marking-search-exhausted"
+        : "formal-syntax-structural-sampling-exhausted");
       recordRootFamilyFailure();
       continue;
     }

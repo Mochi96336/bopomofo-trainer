@@ -27,6 +27,8 @@ import type {
   ProductionRule,
   ProductionRuleClass,
   SyntaxCategory,
+  SyntaxFeatureName,
+  SyntaxFeatureSet,
 } from "./types.js";
 import { assertValidGrammar } from "./validate.js";
 
@@ -66,6 +68,8 @@ export interface StructuralSamplingOptions {
    * recursively embedded occurrences below the targeted child.
    */
   readonly nestedProductionTargets?: readonly NestedProductionTarget[];
+  /** Require at least one realized lexical slot to carry all named formal requirements. */
+  readonly requiredLexicalSlotFeatures?: SyntaxFeatureSet;
 }
 
 interface State {
@@ -495,6 +499,15 @@ function validatedNestedProductionTargets(
   return targets;
 }
 
+function lexicalSlotMatchesRequiredFeatures(
+  slot: StructuralLexicalSlot,
+  required: SyntaxFeatureSet,
+): boolean {
+  return (Object.keys(required) as SyntaxFeatureName[]).every((feature) =>
+    slot.requiredFeatures[feature] === required[feature],
+  );
+}
+
 export function sampleStructuralDerivation(
   options: StructuralSamplingOptions,
 ): StructuralDerivationShape | null {
@@ -531,6 +544,10 @@ export function sampleStructuralDerivation(
       true,
     );
     if (sampled === null || sampled.element.kind !== "syntax-node") continue;
+    if (options.requiredLexicalSlotFeatures !== undefined
+      && !sampled.slots.some((slot) =>
+        lexicalSlotMatchesRequiredFeatures(slot, options.requiredLexicalSlotFeatures!),
+      )) continue;
     const identity = {
       grammarVersion: FORMAL_GRAMMAR_VERSION,
       root: sampled.element,
