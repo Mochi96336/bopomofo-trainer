@@ -1,0 +1,136 @@
+name: tmp predicate marking ticket sweep
+
+on:
+  push:
+    branches:
+      - agent/predicate-marking-practice-ticket-clean
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Save head audit script
+        run: cp scripts/tmp-predicate-marking-ticket-sweep.ts /tmp/ticket-sweep.ts
+      - name: Measure #250 baseline
+        shell: bash
+        run: |
+          git checkout d166f9a0069458a524370403a827c22d28615ec6
+          git show 9adef5b600bfb8230f9650ad0d0c243dc14d2413:scripts/tmp-negation-post-stabilization-audit.ts > scripts/tmp-negation-post-stabilization-audit.ts
+          SAMPLE_COUNT=1024 npx tsx scripts/tmp-negation-post-stabilization-audit.ts > /tmp/base.json
+      - name: Measure ticket head and sweep
+        shell: bash
+        run: |
+          git checkout "$GITHUB_SHA"
+          cp /tmp/ticket-sweep.ts scripts/tmp-predicate-marking-ticket-sweep.ts
+          for weight in 0 0.04 0.05 0.06 0.07 0.08; do
+            SAMPLE_COUNT=1024 NEGATION_TICKET_WEIGHT="$weight" \
+              npx tsx scripts/tmp-predicate-marking-ticket-sweep.ts > "/tmp/ticket-${weight}.json"
+          done
+      - name: Verify parity and summarize sweep
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+
+          def load(path):
+              with open(path, encoding='utf-8') as handle:
+                  return json.load(handle)
+
+          def distance(left, right):
+              keys = set(left) | set(right)
+              return sum(abs(left.get(k, 0) - right.get(k, 0)) for k in keys) / 2
+
+          base = load('/tmp/base.json')
+          zero = load('/tmp/ticket-0.json')
+          if base['sampleCount'] != 1024 or zero['sampleCount'] != 1024:
+              raise SystemExit('unexpected sample count')
+          if base['catalogEntryCount'] != zero['catalogEntryCount'] or base['syntaxProfileCount'] != zero['syntaxProfileCount']:
+              raise SystemExit('catalog/package boundary changed')
+          if base['successCount'] != 1024 or zero['successCount'] != 1024:
+              raise SystemExit('default path lost successful seeds')
+
+          mismatch = []
+          derivation = []
+          text = []
+          for before, after in zip(base['records'], zero['records']):
+              if before['seed'] != after['seed']:
+                  raise SystemExit('seed order mismatch')
+              changed = {
+                  key: [before[key], after[key]]
+                  for key in ('success', 'rootRuleId', 'family', 'fallbackReasons')
+                  if before[key] != after[key]
+              }
+              if changed:
+                  mismatch.append({'seed': before['seed'], 'changed': changed})
+              if before['syntaxDerivationId'] != after['syntaxDerivationId']:
+                  derivation.append(before['seed'])
+              if before['text'] != after['text']:
+                  text.append(before['seed'])
+          if mismatch or derivation or text:
+              raise SystemExit(f'default ticket mechanism drifted: policy={len(mismatch)} derivation={len(derivation)} text={len(text)}')
+
+          weights = [0, 0.04, 0.05, 0.06, 0.07, 0.08]
+          rows = []
+          previous_negative = -1
+          for weight in weights:
+              item = load(f'/tmp/ticket-{weight}.json')
+              if item['successCount'] != item['sampleCount']:
+                  raise SystemExit(f'weight {weight}: lost successful seeds')
+              if item['negativeCandidateCount'] < previous_negative:
+                  raise SystemExit(f'weight {weight}: negation incidence is not monotone')
+              previous_negative = item['negativeCandidateCount']
+              rows.append({
+                  'weight': weight,
+                  'successCount': item['successCount'],
+                  'negativeCandidateCount': item['negativeCandidateCount'],
+                  'negativeShare': item['negativeShare'],
+                  'rootDistanceFromZero': distance(zero['rootCounts'], item['rootCounts']),
+                  'familyDistanceFromZero': distance(zero['familyCounts'], item['familyCounts']),
+                  'fallbackDistanceFromZero': distance(zero['fallbackCounts'], item['fallbackCounts']),
+                  'markingSearchExhaustedCount': item['fallbackCounts'].get('formal-syntax-predicate-marking-search-exhausted', 0),
+                  'rootCounts': item['rootCounts'],
+                  'familyCounts': item['familyCounts'],
+                  'negativeRootCounts': item['negativeRootCounts'],
+                  'fallbackCounts': item['fallbackCounts'],
+              })
+
+          summary = {
+              'defaultParity': {
+                  'sampleCount': 1024,
+                  'policyMismatchCount': len(mismatch),
+                  'derivationChangeCount': len(derivation),
+                  'textChangeCount': len(text),
+                  'rootDistance': distance(base['rootCounts'], zero['rootCounts']),
+                  'familyDistance': distance(base['familyCounts'], zero['familyCounts']),
+                  'fallbackDistance': distance(base['fallbackCounts'], zero['fallbackCounts']),
+              },
+              'sweep': rows,
+          }
+          with open('/tmp/summary.json', 'w', encoding='utf-8') as handle:
+              json.dump(summary, handle, ensure_ascii=False, indent=2)
+          print(json.dumps(summary, ensure_ascii=False, indent=2))
+          PY
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: predicate-marking-ticket-sweep
+          path: |
+            /tmp/base.json
+            /tmp/ticket-*.json
+            /tmp/summary.json
+          if-no-files-found: warn
