@@ -37,6 +37,20 @@ describe("predicate marking practice ticket", () => {
     })).toBe("negation");
   });
 
+  it("keeps ticket assignment stable when only the sampling policy version changes", () => {
+    const common = {
+      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+      predicateMarkingPracticeWeights: { ordinary: 0.5, negation: 0.5 },
+    } as const;
+    expect(predicateMarkingPracticeIntentForFamilyPlan(PLAN, {
+      ...common,
+      version: "ticket-version-stability-a",
+    })).toBe(predicateMarkingPracticeIntentForFamilyPlan(PLAN, {
+      ...common,
+      version: "ticket-version-stability-b",
+    }));
+  });
+
   it("fails closed on invalid marking practice weights", () => {
     expect(() => predicateMarkingPracticeIntentForFamilyPlan(PLAN, {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,

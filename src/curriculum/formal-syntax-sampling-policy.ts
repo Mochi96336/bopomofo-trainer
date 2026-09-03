@@ -10,6 +10,9 @@ import {
 
 export type PredicateMarkingPracticeIntent = "ordinary" | "negation";
 
+export const PREDICATE_MARKING_PRACTICE_TICKET_VERSION =
+  "predicate-marking-practice-ticket-v1";
+
 export interface PredicateMarkingPracticeWeights {
   readonly ordinary: number;
   readonly negation: number;
@@ -259,7 +262,7 @@ export function predicateMarkingPracticeIntentForFamilyPlan(
   if (weights.negation === 0) return "ordinary";
   if (weights.ordinary === 0) return "negation";
   const ticket = deterministicPracticeUnit({
-    version: policy.version,
+    ticketVersion: PREDICATE_MARKING_PRACTICE_TICKET_VERSION,
     purpose: "predicate-marking-practice",
     familyPlan: plan.map((item) => ({
       kind: item.kind,
