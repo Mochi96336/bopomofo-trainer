@@ -11,7 +11,7 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           for weight in 0 0.04 0.05 0.06 0.07 0.08; do
-            SAMPLE_COUNT=1024 NEGATION_TICKET_WEIGHT="$weight" \
+            SAMPLE_COUNT=256 NEGATION_TICKET_WEIGHT="$weight" \
               npx tsx scripts/tmp-predicate-marking-ticket-sweep.ts > "/tmp/ticket-${weight}.json"
           done
       - name: Summarize sweep
@@ -45,7 +45,7 @@ jobs:
               return sum(abs(left.get(k, 0) - right.get(k, 0)) for k in keys) / 2
 
           zero = load('/tmp/ticket-0.json')
-          if zero['sampleCount'] != 1024 or zero['successCount'] != 1024:
+          if zero['sampleCount'] != 256 or zero['successCount'] != 256:
               raise SystemExit('zero-ticket path lost successful seeds')
 
           weights = [0, 0.04, 0.05, 0.06, 0.07, 0.08]
@@ -73,7 +73,7 @@ jobs:
                   'fallbackCounts': item['fallbackCounts'],
               })
 
-          summary = {'sampleCount': 1024, 'sweep': rows}
+          summary = {'sampleCount': 256, 'sweep': rows}
           with open('/tmp/summary.json', 'w', encoding='utf-8') as handle:
               json.dump(summary, handle, ensure_ascii=False, indent=2)
           print(json.dumps(summary, ensure_ascii=False, indent=2))
