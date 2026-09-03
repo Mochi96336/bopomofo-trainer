@@ -68,7 +68,10 @@ text = replace_once(
   let attemptsPerRootFamily = 0;
   let rootFamilyBudgetInsufficient = false;
 
-  const currentRootFamily = (remainingAttempts: number): SentenceConstructionFamilyPlan | null => {
+  const currentRootFamily = (remainingAttempts: number): {
+    readonly family: SentenceConstructionFamilyPlan;
+    readonly predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent;
+  } | null => {
     if (!useProductFamilyPolicy || samplingPolicy === null) return null;
     if (rootFamilySearch === null) {
       const plan = createSentenceConstructionFamilyPlan(
@@ -89,7 +92,11 @@ text = replace_once(
       if (rootFamilyBudgetInsufficient) return null;
       attemptsPerRootFamily = rootFamilyAttemptBudget(remainingAttempts, plan.length);
     }
-    return rootFamilySearch.plan[rootFamilyIndex] ?? null;
+    const family = rootFamilySearch.plan[rootFamilyIndex];
+    return family === undefined ? null : {
+      family,
+      predicateMarkingPracticeIntent: rootFamilySearch.predicateMarkingPracticeIntent,
+    };
   };""",
     "root family search",
 )
@@ -114,12 +121,32 @@ text = replace_once(
 )
 text = replace_once(
     text,
-    """    const requiresNegationPractice = useProductFamilyPolicy
+    """    const rootFamily = currentRootFamily(input.maximumAttempts - attempt);
+    if (useProductFamilyPolicy && rootFamily === null) {
+      fallbackReasons.add(rootFamilyBudgetInsufficient
+        ? \"formal-syntax-root-family-budget-insufficient\"
+        : \"formal-syntax-root-family-search-exhausted\");
+      break;
+    }
+    const requiresNegationPractice = useProductFamilyPolicy
     && (predicateMarkingPracticeIntent as PredicateMarkingPracticeIntent) === \"negation\";
-  const rootProductionRuleId = rootFamily === null""",
-    """    const requiresNegationPractice = rootFamilySearch?.predicateMarkingPracticeIntent === \"negation\";
-    const rootProductionRuleId = rootFamily === null""",
-    "marking intent use",
+  const rootProductionRuleId = rootFamily === null
+      ? input.structuralTarget?.rootProductionRuleId
+      : chooseSentenceConstructionVariant(rootFamily, input.random);""",
+    """    const rootFamilySelection = currentRootFamily(input.maximumAttempts - attempt);
+    if (useProductFamilyPolicy && rootFamilySelection === null) {
+      fallbackReasons.add(rootFamilyBudgetInsufficient
+        ? \"formal-syntax-root-family-budget-insufficient\"
+        : \"formal-syntax-root-family-search-exhausted\");
+      break;
+    }
+    const rootFamily = rootFamilySelection?.family ?? null;
+    const requiresNegationPractice =
+      rootFamilySelection?.predicateMarkingPracticeIntent === \"negation\";
+    const rootProductionRuleId = rootFamily === null
+      ? input.structuralTarget?.rootProductionRuleId
+      : chooseSentenceConstructionVariant(rootFamily, input.random);""",
+    "root family selection",
 )
 utterance.write_text(text)
 
