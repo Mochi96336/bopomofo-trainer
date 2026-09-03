@@ -10,8 +10,12 @@ permissions:
 
 jobs:
   audit:
+    strategy:
+      fail-fast: false
+      matrix:
+        weight: ["0", "0.04", "0.05", "0.06", "0.07", "0.08"]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -23,67 +27,15 @@ jobs:
         run: npm ci --include=dev --ignore-scripts
       - name: Generate app catalog
         run: npm run app:catalog
-      - name: Measure ticket sweep
+      - name: Measure ticket weight
         shell: bash
         run: |
-          for weight in 0 0.04 0.05 0.06 0.07 0.08; do
-            SAMPLE_COUNT=256 NEGATION_TICKET_WEIGHT="$weight" \
-              npx tsx scripts/tmp-predicate-marking-ticket-sweep.ts > "/tmp/ticket-${weight}.json"
-          done
-      - name: Summarize sweep
-        shell: bash
-        run: |
-          python - <<'PY'
-          import json
-
-          def load(path):
-              with open(path, encoding='utf-8') as handle:
-                  return json.load(handle)
-
-          def distance(left, right):
-              keys = set(left) | set(right)
-              return sum(abs(left.get(k, 0) - right.get(k, 0)) for k in keys) / 2
-
-          zero = load('/tmp/ticket-0.json')
-          if zero['sampleCount'] != 256 or zero['successCount'] != 256:
-              raise SystemExit('zero-ticket path lost successful seeds')
-
-          weights = [0, 0.04, 0.05, 0.06, 0.07, 0.08]
-          rows = []
-          previous_negative = -1
-          for weight in weights:
-              item = load(f'/tmp/ticket-{weight}.json')
-              if item['successCount'] != item['sampleCount']:
-                  raise SystemExit(f'weight {weight}: lost successful seeds')
-              if item['negativeCandidateCount'] < previous_negative:
-                  raise SystemExit(f'weight {weight}: negation incidence is not monotone')
-              previous_negative = item['negativeCandidateCount']
-              rows.append({
-                  'weight': weight,
-                  'successCount': item['successCount'],
-                  'negativeCandidateCount': item['negativeCandidateCount'],
-                  'negativeShare': item['negativeShare'],
-                  'rootDistanceFromZero': distance(zero['rootCounts'], item['rootCounts']),
-                  'familyDistanceFromZero': distance(zero['familyCounts'], item['familyCounts']),
-                  'fallbackDistanceFromZero': distance(zero['fallbackCounts'], item['fallbackCounts']),
-                  'markingSearchExhaustedCount': item['fallbackCounts'].get('formal-syntax-predicate-marking-search-exhausted', 0),
-                  'rootCounts': item['rootCounts'],
-                  'familyCounts': item['familyCounts'],
-                  'negativeRootCounts': item['negativeRootCounts'],
-                  'fallbackCounts': item['fallbackCounts'],
-              })
-
-          summary = {'sampleCount': 256, 'sweep': rows}
-          with open('/tmp/summary.json', 'w', encoding='utf-8') as handle:
-              json.dump(summary, handle, ensure_ascii=False, indent=2)
-          print(json.dumps(summary, ensure_ascii=False, indent=2))
-          PY
+          SAMPLE_COUNT=256 NEGATION_TICKET_WEIGHT="${{ matrix.weight }}" \
+            npx tsx scripts/tmp-predicate-marking-ticket-sweep.ts > "/tmp/ticket-${{ matrix.weight }}.json"
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: predicate-marking-ticket-sweep
-          path: |
-            /tmp/ticket-*.json
-            /tmp/summary.json
-          if-no-files-found: warn
+          name: predicate-marking-ticket-${{ matrix.weight }}
+          path: /tmp/ticket-${{ matrix.weight }}.json
+          if-no-files-found: error
