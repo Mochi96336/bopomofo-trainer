@@ -1,0 +1,168 @@
+name: tmp build predicate marking practice ticket
+
+on:
+  push:
+    branches:
+      - agent/predicate-marking-practice-ticket
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Patch curriculum-level marking ticket
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          policy = Path('src/curriculum/formal-syntax-sampling-policy.ts')
+          text = policy.read_text()
+          text = text.replace(
+              'import type { RandomSource } from "../core/model.js";\n',
+              'import type { RandomSource } from "../core/model.js";\nimport { stableRuntimeDigest } from "../core/stable-id.js";\n',
+          )
+          text = text.replace(
+              'export interface FormalSyntaxSamplingPolicy {\n',
+              'export type PredicateMarkingPracticeIntent = "ordinary" | "negation";\n\n'
+              'export interface PredicateMarkingPracticeWeights {\n'
+              '  readonly ordinary: number;\n'
+              '  readonly negation: number;\n'
+              '}\n\n'
+              'export interface FormalSyntaxSamplingPolicy {\n',
+          )
+          text = text.replace(
+              '  readonly sentenceFamilyWeights: Readonly<Partial<Record<SentenceConstructionFamily, number>>>;\n}',
+              '  readonly sentenceFamilyWeights: Readonly<Partial<Record<SentenceConstructionFamily, number>>>;\n'
+              '  /** Product practice intent for predicate-internal marking, separate from grammar legality. */\n'
+              '  readonly predicateMarkingPracticeWeights: PredicateMarkingPracticeWeights;\n'
+              '}',
+          )
+          text = text.replace(
+              '  version: "formal-syntax-family-sampling-v3",',
+              '  version: "formal-syntax-family-sampling-v4",',
+          )
+          text = text.replace(
+              '    exclamative: 1,\n  },\n};',
+              '    exclamative: 1,\n  },\n'
+              '  // Mechanism-first default: no marking ticket, so v4 is behavior-neutral\n'
+              '  // until an explicit measured product prior is chosen.\n'
+              '  predicateMarkingPracticeWeights: { ordinary: 1, negation: 0 },\n'
+              '};',
+          )
+          text = text.replace(
+              '  for (const kind of SENTENCE_KINDS) {\n'
+              '    const activeForKind = configuredFamilies.filter((family) => sentenceConstructionKind(family) === kind);\n'
+              '    if (activeForKind.length === 0) {\n'
+              '      throw new Error(`sentence kind ${kind} has positive mass but no active construction families`);\n'
+              '    }\n'
+              '  }\n}',
+              '  for (const kind of SENTENCE_KINDS) {\n'
+              '    const activeForKind = configuredFamilies.filter((family) => sentenceConstructionKind(family) === kind);\n'
+              '    if (activeForKind.length === 0) {\n'
+              '      throw new Error(`sentence kind ${kind} has positive mass but no active construction families`);\n'
+              '    }\n'
+              '  }\n'
+              '  const marking = policy.predicateMarkingPracticeWeights;\n'
+              '  if ([marking.ordinary, marking.negation].some((weight) => !Number.isFinite(weight) || weight < 0)) {\n'
+              '    throw new Error("predicate marking practice weights must be finite and non-negative");\n'
+              '  }\n'
+              '  if (!(marking.ordinary > 0 || marking.negation > 0)) {\n'
+              '    throw new Error("predicate marking practice weights require positive mass");\n'
+              '  }\n'
+              '}',
+          )
+          marker = '''export interface SentenceConstructionFamilyPlan {\n  readonly kind: SentenceKind;\n  readonly family: SentenceConstructionFamily;\n  readonly productionRuleIds: readonly string[];\n}\n'''
+          addition = marker + '''\nfunction deterministicPracticeUnit(identity: unknown): number {\n  const digest = stableRuntimeDigest(identity);\n  return (Number.parseInt(digest.slice(0, 8), 16) >>> 0) / 0x1_0000_0000;\n}\n\n/**\n * Choose a product marking intent from the already-randomized Sentence family plan\n * without consuming another parent RNG draw. The ticket therefore cannot move the\n * root-family PRNG trajectory merely by being enabled.\n */\nexport function predicateMarkingPracticeIntentForFamilyPlan(\n  plan: readonly SentenceConstructionFamilyPlan[],\n  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n): PredicateMarkingPracticeIntent {\n  validateFormalSyntaxSamplingPolicy(policy);\n  const weights = policy.predicateMarkingPracticeWeights;\n  if (weights.negation === 0) return "ordinary";\n  if (weights.ordinary === 0) return "negation";\n  const ticket = deterministicPracticeUnit({\n    version: policy.version,\n    purpose: "predicate-marking-practice",\n    familyPlan: plan.map((item) => ({\n      kind: item.kind,\n      family: item.family,\n      productionRuleIds: item.productionRuleIds,\n    })),\n  });\n  return ticket * (weights.ordinary + weights.negation) < weights.ordinary\n    ? "ordinary"\n    : "negation";\n}\n'''
+          if marker not in text:
+              raise SystemExit('policy family plan marker not found')
+          text = text.replace(marker, addition)
+          policy.write_text(text)
+
+          utterance = Path('src/curriculum/formal-syntax-utterance.ts')
+          text = utterance.read_text()
+          text = text.replace(
+              '  PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n  rootFamilyAttemptBudget,',
+              '  PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n'
+              '  predicateMarkingPracticeIntentForFamilyPlan,\n'
+              '  rootFamilyAttemptBudget,',
+          )
+          text = text.replace(
+              '  type FormalSyntaxSamplingPolicy,\n  type SentenceConstructionFamilyPlan,',
+              '  type FormalSyntaxSamplingPolicy,\n'
+              '  type PredicateMarkingPracticeIntent,\n'
+              '  type SentenceConstructionFamilyPlan,',
+          )
+          text = text.replace(
+              '  let rootFamilyBudgetInsufficient = false;\n',
+              '  let rootFamilyBudgetInsufficient = false;\n'
+              '  let predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent = "ordinary";\n',
+          )
+          text = text.replace(
+              '      rootFamilyPlan = createSentenceConstructionFamilyPlan(\n'
+              '        sentenceRules,\n'
+              '        input.random,\n'
+              '        samplingPolicy,\n'
+              '      );\n'
+              '      rootFamilyIndex = 0;',
+              '      rootFamilyPlan = createSentenceConstructionFamilyPlan(\n'
+              '        sentenceRules,\n'
+              '        input.random,\n'
+              '        samplingPolicy,\n'
+              '      );\n'
+              '      predicateMarkingPracticeIntent = predicateMarkingPracticeIntentForFamilyPlan(\n'
+              '        rootFamilyPlan,\n'
+              '        samplingPolicy,\n'
+              '      );\n'
+              '      rootFamilyIndex = 0;',
+          )
+          text = text.replace(
+              '    rootFamilyBudgetInsufficient = false;\n  };',
+              '    rootFamilyBudgetInsufficient = false;\n'
+              '    predicateMarkingPracticeIntent = "ordinary";\n'
+              '  };',
+          )
+          text = text.replace(
+              '    if (shape === null) {\n'
+              '      fallbackReasons.add("formal-syntax-structural-sampling-exhausted");\n'
+              '      recordRootFamilyFailure();\n'
+              '      continue;\n'
+              '    }\n'
+              '    if (shape.lexicalSlots.filter(isPracticeLexicalSlot).length < minimumLexicalEntries) {',
+              '    if (shape === null) {\n'
+              '      fallbackReasons.add("formal-syntax-structural-sampling-exhausted");\n'
+              '      recordRootFamilyFailure();\n'
+              '      continue;\n'
+              '    }\n'
+              '    if (useProductFamilyPolicy\n'
+              '      && predicateMarkingPracticeIntent === "negation"\n'
+              '      && !shape.lexicalSlots.some((slot) => slot.requiredFeatures.polarity === "negative")) {\n'
+              '      fallbackReasons.add("formal-syntax-predicate-marking-practice-mismatch");\n'
+              '      recordRootFamilyFailure();\n'
+              '      continue;\n'
+              '    }\n'
+              '    if (shape.lexicalSlots.filter(isPracticeLexicalSlot).length < minimumLexicalEntries) {',
+          )
+          utterance.write_text(text)
+
+          test = Path('tests/curriculum/predicate-marking-practice-ticket.test.ts')
+          test.write_text('''import { describe, expect, it } from "vitest";\nimport {\n  PRACTICE_CATALOG,\n  SYNTAX_PROFILES,\n} from "../../src/app/generated/catalog.js";\nimport {\n  PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n  predicateMarkingPracticeIntentForFamilyPlan,\n  type SentenceConstructionFamilyPlan,\n} from "../../src/curriculum/formal-syntax-sampling-policy.js";\nimport { createSeededRandom } from "../../src/curriculum/random.js";\nimport { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";\n\nconst PRODUCT_BOUNDS = {\n  maximumPhraseDepth: 3,\n  maximumClauseNesting: 1,\n  maximumClausesPerSentence: 2,\n  maximumCoordinationItems: 2,\n  maximumConsecutiveModifiers: 2,\n  maximumComplementsPerPredicate: 1,\n  maximumLexicalEntriesPerUtterance: 6,\n} as const;\n\nconst PLAN: readonly SentenceConstructionFamilyPlan[] = [{\n  kind: "statement",\n  family: "statement.declarative",\n  productionRuleIds: ["sentence.declarative"],\n}];\n\ndescribe("predicate marking practice ticket", () => {\n  it("keeps the mechanism-first default ordinary and supports an explicit negation ticket", () => {\n    expect(predicateMarkingPracticeIntentForFamilyPlan(PLAN)).toBe("ordinary");\n    expect(predicateMarkingPracticeIntentForFamilyPlan(PLAN, {\n      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n      version: "predicate-marking-ticket-test-always-negation",\n      predicateMarkingPracticeWeights: { ordinary: 0, negation: 1 },\n    })).toBe("negation");\n  });\n\n  it("fails closed on invalid marking practice weights", () => {\n    expect(() => predicateMarkingPracticeIntentForFamilyPlan(PLAN, {\n      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n      version: "predicate-marking-ticket-test-zero",\n      predicateMarkingPracticeWeights: { ordinary: 0, negation: 0 },\n    })).toThrow(/require positive mass/u);\n  });\n\n  it("accepts only overt negative surfaces when the product ticket always requires negation", () => {\n    const policy = {\n      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n      version: "predicate-marking-ticket-test-product",\n      predicateMarkingPracticeWeights: { ordinary: 0, negation: 1 },\n    } as const;\n    for (let round = 0; round < 16; round += 1) {\n      const composition = composeFormalSyntaxUtterances({\n        eligibleEntries: PRACTICE_CATALOG,\n        profiles: SYNTAX_PROFILES,\n        random: createSeededRandom(`predicate-marking-ticket:${round}`),\n        samplingMode: "product-family",\n        samplingPolicy: policy,\n        minimumLexicalEntries: 2,\n        maximumCandidates: 1,\n        maximumAttempts: 64,\n        bounds: PRODUCT_BOUNDS,\n      });\n      expect(composition.candidates, JSON.stringify(composition.fallbackReasons)).toHaveLength(1);\n      expect(composition.candidates[0]!.text).toMatch(/[不未別沒非無]/u);\n    }\n  });\n});\n''')
+          PY
+          npm ci --include=dev --ignore-scripts
+          npm run typecheck
+          npx vitest run tests/curriculum/predicate-marking-practice-ticket.test.ts tests/curriculum/formal-syntax-sampling-policy.test.ts tests/curriculum/formal-syntax-effective-distribution.test.ts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/curriculum/formal-syntax-sampling-policy.ts src/curriculum/formal-syntax-utterance.ts tests/curriculum/predicate-marking-practice-ticket.test.ts
+          git commit -m 'feat: add predicate marking practice ticket [prototype]'
+          git push origin HEAD:agent/predicate-marking-practice-ticket
