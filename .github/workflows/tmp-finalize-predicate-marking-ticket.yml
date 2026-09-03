@@ -1,0 +1,237 @@
+name: tmp finalize predicate marking ticket
+
+on:
+  push:
+    branches:
+      - agent/predicate-marking-practice-ticket-clean
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Finalize implementation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          policy = Path('src/curriculum/formal-syntax-sampling-policy.ts')
+          text = policy.read_text()
+          old = '''  version: "formal-syntax-family-sampling-v4",
+'''
+          new = '''  version: "formal-syntax-family-sampling-v5",
+'''
+          if old not in text:
+              raise SystemExit('sampling policy version marker not found')
+          text = text.replace(old, new, 1)
+          old = '''  // Mechanism-first default: no marking ticket, so v4 is behavior-neutral
+  // until an explicit measured product prior is chosen.
+  predicateMarkingPracticeWeights: { ordinary: 1, negation: 0 },
+'''
+          new = '''  // Product-practice prior measured after Clause-level negation retirement.
+  // A 4% marking ticket restored 324/2048 negative candidates versus the
+  // pre-retirement 328/2048 baseline without restoring a negation root family.
+  predicateMarkingPracticeWeights: { ordinary: 0.96, negation: 0.04 },
+'''
+          if old not in text:
+              raise SystemExit('marking prior marker not found')
+          text = text.replace(old, new, 1)
+          policy.write_text(text)
+
+          utterance = Path('src/curriculum/formal-syntax-utterance.ts')
+          text = utterance.read_text()
+          old = '''  let rootFamilyPlan: readonly SentenceConstructionFamilyPlan[] | null = null;
+  let rootFamilyIndex = 0;
+  let attemptsInRootFamily = 0;
+  let attemptsPerRootFamily = 0;
+  let rootFamilyBudgetInsufficient = false;
+  let predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent = "ordinary";
+
+  const currentRootFamily = (remainingAttempts: number): SentenceConstructionFamilyPlan | null => {
+    if (!useProductFamilyPolicy || samplingPolicy === null) return null;
+    if (rootFamilyPlan === null) {
+      rootFamilyPlan = createSentenceConstructionFamilyPlan(
+        sentenceRules,
+        input.random,
+        samplingPolicy,
+      );
+      predicateMarkingPracticeIntent = predicateMarkingPracticeIntentForFamilyPlan(
+        rootFamilyPlan,
+        samplingPolicy,
+      );
+      rootFamilyIndex = 0;
+      attemptsInRootFamily = 0;
+      rootFamilyBudgetInsufficient = remainingAttempts < rootFamilyPlan.length;
+      if (rootFamilyBudgetInsufficient) return null;
+      attemptsPerRootFamily = rootFamilyAttemptBudget(remainingAttempts, rootFamilyPlan.length);
+    }
+    return rootFamilyPlan[rootFamilyIndex] ?? null;
+  };
+'''
+          new = '''  let rootFamilySearch: {
+    readonly plan: readonly SentenceConstructionFamilyPlan[];
+    readonly predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent;
+  } | null = null;
+  let rootFamilyIndex = 0;
+  let attemptsInRootFamily = 0;
+  let attemptsPerRootFamily = 0;
+  let rootFamilyBudgetInsufficient = false;
+
+  const currentRootFamily = (remainingAttempts: number): SentenceConstructionFamilyPlan | null => {
+    if (!useProductFamilyPolicy || samplingPolicy === null) return null;
+    if (rootFamilySearch === null) {
+      const plan = createSentenceConstructionFamilyPlan(
+        sentenceRules,
+        input.random,
+        samplingPolicy,
+      );
+      rootFamilySearch = {
+        plan,
+        predicateMarkingPracticeIntent: predicateMarkingPracticeIntentForFamilyPlan(
+          plan,
+          samplingPolicy,
+        ),
+      };
+      rootFamilyIndex = 0;
+      attemptsInRootFamily = 0;
+      rootFamilyBudgetInsufficient = remainingAttempts < plan.length;
+      if (rootFamilyBudgetInsufficient) return null;
+      attemptsPerRootFamily = rootFamilyAttemptBudget(remainingAttempts, plan.length);
+    }
+    return rootFamilySearch.plan[rootFamilyIndex] ?? null;
+  };
+'''
+          if old not in text:
+              raise SystemExit('root family search initialization block not found')
+          text = text.replace(old, new, 1)
+          old = '''  const resetRootFamilySearch = (): void => {
+    rootFamilyPlan = null;
+    rootFamilyIndex = 0;
+    attemptsInRootFamily = 0;
+    attemptsPerRootFamily = 0;
+    rootFamilyBudgetInsufficient = false;
+    predicateMarkingPracticeIntent = "ordinary";
+  };
+'''
+          new = '''  const resetRootFamilySearch = (): void => {
+    rootFamilySearch = null;
+    rootFamilyIndex = 0;
+    attemptsInRootFamily = 0;
+    attemptsPerRootFamily = 0;
+    rootFamilyBudgetInsufficient = false;
+  };
+'''
+          if old not in text:
+              raise SystemExit('root family search reset block not found')
+          text = text.replace(old, new, 1)
+          old = '''    const requiresNegationPractice = useProductFamilyPolicy
+    && (predicateMarkingPracticeIntent as PredicateMarkingPracticeIntent) === "negation";
+  const rootProductionRuleId = rootFamily === null
+'''
+          new = '''    const requiresNegationPractice = rootFamilySearch?.predicateMarkingPracticeIntent === "negation";
+    const rootProductionRuleId = rootFamily === null
+'''
+          if old not in text:
+              raise SystemExit('marking intent use block not found')
+          text = text.replace(old, new, 1)
+          utterance.write_text(text)
+
+          sampler = Path('src/syntax/sample.ts')
+          text = sampler.read_text()
+          old = '''    if (sampled === null || sampled.element.kind !== "syntax-node") continue;
+    if (options.requiredLexicalSlotFeatures !== undefined
+      && !sampled.slots.some((slot) =>
+        lexicalSlotMatchesRequiredFeatures(slot, options.requiredLexicalSlotFeatures!),
+      )) continue;
+'''
+          new = '''    if (sampled === null || sampled.element.kind !== "syntax-node") continue;
+    const requiredLexicalSlotFeatures = options.requiredLexicalSlotFeatures;
+    if (requiredLexicalSlotFeatures !== undefined
+      && !sampled.slots.some((slot) =>
+        lexicalSlotMatchesRequiredFeatures(slot, requiredLexicalSlotFeatures),
+      )) continue;
+'''
+          if old not in text:
+              raise SystemExit('required lexical feature block not found')
+          text = text.replace(old, new, 1)
+          sampler.write_text(text)
+
+          test = Path('tests/curriculum/predicate-marking-practice-ticket.test.ts')
+          text = test.read_text()
+          old = '''  it("keeps the mechanism-first default ordinary and supports an explicit negation ticket", () => {
+    expect(predicateMarkingPracticeIntentForFamilyPlan(PLAN)).toBe("ordinary");
+    expect(predicateMarkingPracticeIntentForFamilyPlan(PLAN, {
+      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+      version: "predicate-marking-ticket-test-always-negation",
+      predicateMarkingPracticeWeights: { ordinary: 0, negation: 1 },
+    })).toBe("negation");
+  });
+'''
+          new = '''  it("supports explicit ordinary and negation practice tickets", () => {
+    expect(predicateMarkingPracticeIntentForFamilyPlan(PLAN, {
+      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+      version: "predicate-marking-ticket-test-always-ordinary",
+      predicateMarkingPracticeWeights: { ordinary: 1, negation: 0 },
+    })).toBe("ordinary");
+    expect(predicateMarkingPracticeIntentForFamilyPlan(PLAN, {
+      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+      version: "predicate-marking-ticket-test-always-negation",
+      predicateMarkingPracticeWeights: { ordinary: 0, negation: 1 },
+    })).toBe("negation");
+  });
+
+  it("uses the measured four-percent product marking prior", () => {
+    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v5");
+    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.predicateMarkingPracticeWeights).toEqual({
+      ordinary: 0.96,
+      negation: 0.04,
+    });
+  });
+'''
+          if old not in text:
+              raise SystemExit('ticket behavior test block not found')
+          text = text.replace(old, new, 1)
+          old = '''      expect(composition.candidates[0]!.text).toMatch(/[不未別沒非無]/u);
+    }
+  });
+});
+'''
+          new = '''      expect(composition.candidates[0]!.text).toMatch(/[不未別沒非無]/u);
+    }
+  }, 30_000);
+});
+'''
+          if old not in text:
+              raise SystemExit('integration timeout marker not found')
+          text = text.replace(old, new, 1)
+          test.write_text(text)
+          PY
+
+          npm ci --include=dev --ignore-scripts
+          npm run typecheck
+          npx vitest run \
+            tests/curriculum/predicate-marking-practice-ticket.test.ts \
+            tests/curriculum/formal-syntax-sampling-policy.test.ts \
+            --testTimeout=30000
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            src/curriculum/formal-syntax-sampling-policy.ts \
+            src/curriculum/formal-syntax-utterance.ts \
+            src/syntax/sample.ts \
+            tests/curriculum/predicate-marking-practice-ticket.test.ts
+          git commit -m 'feat: finalize predicate marking practice ticket'
+          git push origin HEAD:agent/predicate-marking-practice-ticket-clean
