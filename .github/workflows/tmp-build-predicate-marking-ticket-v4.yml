@@ -1,0 +1,97 @@
+name: tmp build predicate marking practice ticket v4
+
+on:
+  push:
+    branches:
+      - agent/predicate-marking-practice-ticket
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Build bounded marking-ticket search with typed feature predicate
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # Reapply the original curriculum prototype patch from the v1 workflow.
+          workflow = Path('.github/workflows/tmp-build-predicate-marking-ticket.yml').read_text().splitlines()
+          start = next(i for i, line in enumerate(workflow) if "python - <<'PY'" in line)
+          end = next(i for i in range(start + 1, len(workflow)) if workflow[i].strip() == 'PY')
+          script = '\n'.join(line[10:] if line.startswith('          ') else line for line in workflow[start + 1:end])
+          exec(compile(script, 'prototype-patch.py', 'exec'))
+
+          # Avoid TS closure narrowing on the mutable prototype variable.
+          utterance = Path('src/curriculum/formal-syntax-utterance.ts')
+          text = utterance.read_text()
+          text = text.replace(
+            '  const rootProductionRuleId = rootFamily === null\n',
+            '  const requiresNegationPractice = useProductFamilyPolicy\n'
+            '    && (predicateMarkingPracticeIntent as PredicateMarkingPracticeIntent) === "negation";\n'
+            '  const rootProductionRuleId = rootFamily === null\n',
+          )
+          text = text.replace(
+            '      maximumAttempts: 1,\n',
+            '      maximumAttempts: requiresNegationPractice ? 8 : 1,\n'
+            '      ...(requiresNegationPractice\n'
+            '        ? { requiredLexicalSlotFeatures: { polarity: "negative" } }\n'
+            '        : {}),\n',
+            1,
+          )
+          old = '''    if (shape === null) {\n      fallbackReasons.add("formal-syntax-structural-sampling-exhausted");\n      recordRootFamilyFailure();\n      continue;\n    }\n    if (useProductFamilyPolicy\n      && predicateMarkingPracticeIntent === "negation"\n      && !shape.lexicalSlots.some((slot) => slot.requiredFeatures.polarity === "negative")) {\n      fallbackReasons.add("formal-syntax-predicate-marking-practice-mismatch");\n      recordRootFamilyFailure();\n      continue;\n    }\n'''
+          if old not in text:
+            raise SystemExit('expected prototype post-filter not found')
+          text = text.replace(old, '''    if (shape === null) {\n      fallbackReasons.add(requiresNegationPractice\n        ? "formal-syntax-predicate-marking-search-exhausted"\n        : "formal-syntax-structural-sampling-exhausted");\n      recordRootFamilyFailure();\n      continue;\n    }\n''')
+          utterance.write_text(text)
+
+          sample = Path('src/syntax/sample.ts')
+          text = sample.read_text()
+          old_import = '''  ProductionRuleClass,\n  SyntaxCategory,\n} from "./types.js";'''
+          new_import = '''  ProductionRuleClass,\n  SyntaxCategory,\n  SyntaxFeatureName,\n  SyntaxFeatureSet,\n} from "./types.js";'''
+          if old_import not in text:
+            raise SystemExit('sample type import marker not found')
+          text = text.replace(old_import, new_import)
+          text = text.replace(
+            '  readonly nestedProductionTargets?: readonly NestedProductionTarget[];\n}',
+            '  readonly nestedProductionTargets?: readonly NestedProductionTarget[];\n'
+            '  /** Require at least one realized lexical slot to carry all named formal requirements. */\n'
+            '  readonly requiredLexicalSlotFeatures?: SyntaxFeatureSet;\n'
+            '}',
+          )
+          marker = '''export function sampleStructuralDerivation(\n  options: StructuralSamplingOptions,\n): StructuralDerivationShape | null {\n'''
+          helper = '''function lexicalSlotMatchesRequiredFeatures(\n  slot: StructuralLexicalSlot,\n  required: SyntaxFeatureSet,\n): boolean {\n  return (Object.keys(required) as SyntaxFeatureName[]).every((feature) =>\n    slot.requiredFeatures[feature] === required[feature],\n  );\n}\n\n''' + marker
+          if marker not in text:
+            raise SystemExit('sampleStructuralDerivation marker not found')
+          text = text.replace(marker, helper)
+          text = text.replace(
+            '    if (sampled === null || sampled.element.kind !== "syntax-node") continue;\n'
+            '    const identity = {',
+            '    if (sampled === null || sampled.element.kind !== "syntax-node") continue;\n'
+            '    if (options.requiredLexicalSlotFeatures !== undefined\n'
+            '      && !sampled.slots.some((slot) =>\n'
+            '        lexicalSlotMatchesRequiredFeatures(slot, options.requiredLexicalSlotFeatures!),\n'
+            '      )) continue;\n'
+            '    const identity = {',
+          )
+          sample.write_text(text)
+          PY
+          npm ci --include=dev --ignore-scripts
+          npm run typecheck
+          npx vitest run tests/curriculum/predicate-marking-practice-ticket.test.ts tests/curriculum/formal-syntax-sampling-policy.test.ts tests/curriculum/formal-syntax-effective-distribution.test.ts
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/curriculum/formal-syntax-sampling-policy.ts src/curriculum/formal-syntax-utterance.ts src/syntax/sample.ts tests/curriculum/predicate-marking-practice-ticket.test.ts
+          git commit -m 'feat: add bounded predicate marking practice ticket [prototype]'
+          git push origin HEAD:agent/predicate-marking-practice-ticket
