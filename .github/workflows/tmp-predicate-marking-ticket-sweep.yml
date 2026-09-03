@@ -13,9 +13,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        weight: ["0.025", "0.03", "0.035", "0.04"]
+        weight: ["0", "0.025", "0.03"]
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -30,12 +30,12 @@ jobs:
       - name: Measure ticket weight
         shell: bash
         run: |
-          SAMPLE_COUNT=256 NEGATION_TICKET_WEIGHT="${{ matrix.weight }}" \
+          SAMPLE_COUNT=2048 NEGATION_TICKET_WEIGHT="${{ matrix.weight }}" \
             npx tsx scripts/tmp-predicate-marking-ticket-sweep.ts > "/tmp/ticket-${{ matrix.weight }}.json"
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: predicate-marking-ticket-${{ matrix.weight }}
+          name: predicate-marking-ticket-final-${{ matrix.weight }}
           path: /tmp/ticket-${{ matrix.weight }}.json
           if-no-files-found: error
