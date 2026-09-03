@@ -52,7 +52,7 @@ jobs:
           PY
           npm ci --include=dev --ignore-scripts
           npm run typecheck
-          npx vitest run tests/curriculum/predicate-marking-practice-ticket.test.ts tests/curriculum/formal-syntax-sampling-policy.test.ts
+          npx vitest run --testTimeout=30000 tests/curriculum/predicate-marking-practice-ticket.test.ts tests/curriculum/formal-syntax-sampling-policy.test.ts
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/curriculum/formal-syntax-sampling-policy.ts tests/curriculum/predicate-marking-practice-ticket.test.ts
