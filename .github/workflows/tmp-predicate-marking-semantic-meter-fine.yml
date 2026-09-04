@@ -1,0 +1,82 @@
+name: tmp predicate marking semantic meter fine
+
+on:
+  push:
+    branches:
+      - agent/predicate-marking-meter-fine-semantic
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Preserve audit tools outside worktree
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/predicate-meter-tools" "$RUNNER_TEMP/predicate-meter-output"
+          cp scripts/tmp-predicate-marking-semantic-trace-patch.mjs "$RUNNER_TEMP/predicate-meter-tools/patch.mjs"
+          cp scripts/tmp-predicate-marking-semantic-audit.ts "$RUNNER_TEMP/predicate-meter-tools/audit.ts"
+      - name: Measure fine corrected semantic meter
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/predicate-meter-output"
+          PATCH="$RUNNER_TEMP/predicate-meter-tools/patch.mjs"
+          AUDIT="$RUNNER_TEMP/predicate-meter-tools/audit.ts"
+          git reset --hard
+          git clean -fd
+          git checkout --detach 37fdf17164d926043da24ba35bf59b2be7188f0b
+          cp "$PATCH" scripts/tmp-predicate-marking-semantic-trace-patch.mjs
+          cp "$AUDIT" scripts/tmp-predicate-marking-semantic-audit.ts
+          node scripts/tmp-predicate-marking-semantic-trace-patch.mjs 2>"$OUT/final-patch.log"
+          npm run app:catalog >"$OUT/final-catalog.log" 2>&1
+          for weight in 0.0301 0.0302 0.0303 0.0304; do
+            NEGATION_PRESENT_WEIGHT="$weight" SAMPLE_COUNT=2048 \
+              npx tsx scripts/tmp-predicate-marking-semantic-audit.ts >"$OUT/sweep-${weight}.json"
+          done
+      - name: Build compact summary
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const out = process.env.RUNNER_TEMP + '/predicate-meter-output';
+          const names = fs.readdirSync(out).filter((name) => name.endsWith('.json')).sort();
+          const rows = names.map((name) => {
+            const value = JSON.parse(fs.readFileSync(path.join(out, name), 'utf8'));
+            return {
+              name,
+              presentWeight: value.presentWeight,
+              successCount: value.successCount,
+              negativeCandidateCount: value.negativeCandidateCount,
+              negativeShare: value.negativeShare,
+              aNotACandidateCount: value.aNotACandidateCount,
+              ticketNegationSuccessCount: value.ticketNegationSuccessCount,
+              negativeOriginCounts: value.negativeOriginCounts,
+              negativeRootCounts: value.negativeRootCounts,
+              negativeFamilyCounts: value.negativeFamilyCounts,
+              ticketRootCounts: value.ticketRootCounts,
+              ticketFamilyCounts: value.ticketFamilyCounts,
+              fallbackCounts: value.fallbackCounts,
+              rootCounts: value.rootCounts,
+              familyCounts: value.familyCounts,
+            };
+          });
+          fs.writeFileSync(path.join(out, 'summary.json'), JSON.stringify(rows, null, 2));
+          console.log(JSON.stringify(rows, null, 2));
+          NODE
+      - name: Upload semantic meter artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: predicate-marking-semantic-meter-fine
+          path: ${{ runner.temp }}/predicate-meter-output
+          if-no-files-found: error
