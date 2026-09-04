@@ -49,6 +49,7 @@ jobs:
           PY
           git diff --check
           npm ci
+          npm run app:catalog
           npx vitest run tests/curriculum/predicate-marking-practice-ticket.test.ts --testTimeout=30000
           git add src/curriculum/formal-syntax-sampling-policy.ts tests/curriculum/predicate-marking-practice-ticket.test.ts
           git commit -m "fix: recalibrate predicate marking prior on structural meter"
