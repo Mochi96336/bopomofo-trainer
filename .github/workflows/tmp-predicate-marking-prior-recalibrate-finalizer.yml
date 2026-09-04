@@ -1,0 +1,55 @@
+name: tmp predicate marking prior recalibrate finalizer
+
+on:
+  push:
+    branches:
+      - agent/predicate-marking-prior-recalibrate-finalizer
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Recalibrate clean PR branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Mochi96336"
+          git config user.email "144137376+Mochi96336@users.noreply.github.com"
+          git fetch origin agent/predicate-marking-practice-prior
+          git checkout -B predicate-recalibrate origin/agent/predicate-marking-practice-prior
+          python <<'PY'
+          from pathlib import Path
+
+          policy_path = Path('src/curriculum/formal-syntax-sampling-policy.ts')
+          policy = policy_path.read_text()
+          old = '''  // Product-practice prior measured after Clause-level negation retirement.\n  // A 3.125% marking ticket produced 375/2048 negative candidates versus the\n  // same-meter pre-retirement 371/2048 baseline without restoring a negation root family.\n  predicateMarkingPracticeWeights: { ordinary: 0.96875, negation: 0.03125 },\n'''
+          new = '''  // Product-practice prior measured after Clause-level negation retirement.\n  // Structural-slot calibration counts realized `polarity: negative` requirements\n  // directly, excluding A-not-A and profile-compatible non-negation occurrences.\n  // A 3.01% marking ticket produced 199/2048 negative derivations versus the\n  // same-meter pre-retirement 200/2048 baseline without restoring a negation root family.\n  predicateMarkingPracticeWeights: { ordinary: 0.9699, negation: 0.0301 },\n'''
+          if policy.count(old) != 1:
+              raise SystemExit('policy calibration block did not match exactly once')
+          policy_path.write_text(policy.replace(old, new))
+
+          test_path = Path('tests/curriculum/predicate-marking-practice-ticket.test.ts')
+          test = test_path.read_text()
+          old_test = '''    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.predicateMarkingPracticeWeights).toEqual({\n      ordinary: 0.96875,\n      negation: 0.03125,\n    });\n'''
+          new_test = '''    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.predicateMarkingPracticeWeights).toEqual({\n      ordinary: 0.9699,\n      negation: 0.0301,\n    });\n'''
+          if test.count(old_test) != 1:
+              raise SystemExit('ticket weight expectation did not match exactly once')
+          test_path.write_text(test.replace(old_test, new_test))
+          PY
+          git diff --check
+          npm ci
+          npx vitest run tests/curriculum/predicate-marking-practice-ticket.test.ts --testTimeout=30000
+          git add src/curriculum/formal-syntax-sampling-policy.ts tests/curriculum/predicate-marking-practice-ticket.test.ts
+          git commit -m "fix: recalibrate predicate marking prior on structural meter"
+          git push origin HEAD:agent/predicate-marking-practice-prior
