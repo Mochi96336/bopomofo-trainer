@@ -46,6 +46,20 @@ const baseRules: readonly ProductionRule[] = [
   },
 ];
 
+const alternateNounRule: ProductionRule = {
+  ...baseRules[1]!,
+  id: "noun.alternate",
+  positiveFixtureIds: ["noun.alternate:positive"],
+  negativeFixtureIds: ["noun.alternate:negative"],
+};
+
+const alternateSentenceRule: ProductionRule = {
+  ...baseRules[0]!,
+  id: "sentence.alternate",
+  positiveFixtureIds: ["sentence.alternate:positive"],
+  negativeFixtureIds: ["sentence.alternate:negative"],
+};
+
 describe("exact structural derivation shape counting", () => {
   it("counts the complete non-recursive closure without materializing shapes", () => {
     expect(countStructuralDerivationShapes({
@@ -80,5 +94,50 @@ describe("exact structural derivation shape counting", () => {
         maximumLexicalEntriesPerUtterance: 12,
       },
     })).toBe("3");
+  });
+
+  it("narrows exact counting by root production without filtering descendant choices", () => {
+    const rules = [...baseRules, alternateNounRule, alternateSentenceRule];
+    expect(countStructuralDerivationShapes({
+      rootCategory: "Sentence",
+      rules,
+    })).toBe("4");
+    expect(countStructuralDerivationShapes({
+      rootCategory: "Sentence",
+      rules,
+      rootProductionRuleId: "sentence.base",
+    })).toBe("2");
+  });
+
+  it("targets one named child edge while leaving the same category otherwise general", () => {
+    const rules = [...baseRules, alternateNounRule];
+    expect(countStructuralDerivationShapes({
+      rootCategory: "Sentence",
+      rules,
+      rootProductionRuleId: "sentence.base",
+      nestedProductionTargets: [{
+        parentRuleId: "sentence.base",
+        constituentKey: "noun",
+        childRuleId: "noun.alternate",
+      }],
+    })).toBe("1");
+  });
+
+  it("rejects malformed structural targets instead of silently counting another tree", () => {
+    expect(() => countStructuralDerivationShapes({
+      rootCategory: "Sentence",
+      rules: baseRules,
+      rootProductionRuleId: "noun.base",
+    })).toThrow(/non-root production/u);
+
+    expect(() => countStructuralDerivationShapes({
+      rootCategory: "Sentence",
+      rules: baseRules,
+      nestedProductionTargets: [{
+        parentRuleId: "sentence.base",
+        constituentKey: "noun",
+        childRuleId: "sentence.base",
+      }],
+    })).toThrow(/child category mismatch/u);
   });
 });

@@ -13,8 +13,14 @@ import type {
   GrammarTemplate,
   GrammarUtteranceCandidate,
 } from "../grammar/types.js";
-import type { RuntimeSyntaxProfile } from "../syntax/types.js";
-import { composeFormalSyntaxUtterances } from "./formal-syntax-utterance.js";
+import { countStructuralDerivationShapes } from "../syntax/count.js";
+import { DEFAULT_DERIVATION_BOUNDS } from "../syntax/features.js";
+import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";
+import type { DerivationBounds, RuntimeSyntaxProfile } from "../syntax/types.js";
+import {
+  composeFormalSyntaxUtterances,
+  type FormalSyntaxUtteranceInput,
+} from "./formal-syntax-utterance.js";
 import {
   generateSlotWeightedGrammar,
   type GrammarSlotSelectionTrace,
@@ -143,6 +149,11 @@ export interface FrequencyFirstUtteranceSelection {
 
 export type LearnerEvidenceMode = "binding-only" | "legacy-binding-transition";
 
+export type FormalSyntaxCompositionOverride = Pick<
+  FormalSyntaxUtteranceInput,
+  "rules" | "samplingMode" | "structuralTarget"
+>;
+
 export interface FrequencyFirstUtteranceInput {
   readonly entries: readonly CatalogEntry[];
   readonly annotations: Readonly<Record<string, GrammarAnnotation>>;
@@ -156,6 +167,12 @@ export interface FrequencyFirstUtteranceInput {
   readonly learnerEvidenceMode?: LearnerEvidenceMode;
   /** Production path: compact profiles admitted by the formal syntax gate. */
   readonly profiles?: readonly RuntimeSyntaxProfile[];
+  /**
+   * Optional construction-specific formal-syntax search space. This may narrow
+   * grammar composition only; frequency/learner/history scoring stays owned by
+   * this selector. It is meaningful only when runtime syntax profiles are used.
+   */
+  readonly formalSyntaxComposition?: FormalSyntaxCompositionOverride;
   /** Explicit compatibility-only templates. Production has no built-in list. */
   readonly templates?: readonly GrammarTemplate[];
 }
@@ -409,6 +426,63 @@ function scoreCandidate(
   };
 }
 
+function formalSyntaxExecutionBounds(maximumClauseNesting: number): DerivationBounds {
+  return {
+    maximumPhraseDepth: 3,
+    maximumClauseNesting,
+    maximumClausesPerSentence: 2,
+    maximumCoordinationItems: 2,
+    maximumConsecutiveModifiers: 2,
+    maximumComplementsPerPredicate: 1,
+    maximumLexicalEntriesPerUtterance: 6,
+  };
+}
+
+function derivedConstructionClauseNesting(
+  input: FrequencyFirstScoringInput,
+): number {
+  const composition = input.formalSyntaxComposition;
+  const target = composition?.structuralTarget;
+  if (target === undefined) return 1;
+  if (composition?.samplingMode !== "raw") {
+    throw new Error("formalSyntaxComposition structuralTarget requires raw samplingMode");
+  }
+  const rules = composition.rules ?? FORMAL_SYNTAX_RULES;
+  for (
+    let maximumClauseNesting = 1;
+    maximumClauseNesting <= DEFAULT_DERIVATION_BOUNDS.maximumClauseNesting;
+    maximumClauseNesting += 1
+  ) {
+    const count = countStructuralDerivationShapes({
+      rootCategory: "Sentence",
+      rules,
+      bounds: formalSyntaxExecutionBounds(maximumClauseNesting),
+      ...(target.rootProductionRuleId === undefined
+        ? {}
+        : { rootProductionRuleId: target.rootProductionRuleId }),
+      ...(target.nestedProductionTargets === undefined
+        ? {}
+        : { nestedProductionTargets: target.nestedProductionTargets }),
+    });
+    if (count !== "0") return maximumClauseNesting;
+  }
+  throw new RangeError("formalSyntaxComposition structuralTarget exceeds selector clause ceiling");
+}
+
+function composerCompositionOverride(
+  input: FrequencyFirstScoringInput,
+): Pick<FormalSyntaxUtteranceInput, "rules" | "samplingMode" | "structuralTarget"> {
+  const composition = input.formalSyntaxComposition;
+  if (composition === undefined) return {};
+  return {
+    ...(composition.rules === undefined ? {} : { rules: composition.rules }),
+    ...(composition.samplingMode === undefined ? {} : { samplingMode: composition.samplingMode }),
+    ...(composition.structuralTarget === undefined
+      ? {}
+      : { structuralTarget: composition.structuralTarget }),
+  };
+}
+
 function enrichSlotSelections(
   traces: readonly GrammarSlotSelectionTrace[],
   entriesById: ReadonlyMap<string, CatalogEntry>,
@@ -433,6 +507,7 @@ function enrichSlotSelections(
 function generateOnce(
   eligibleEntries: readonly CatalogEntry[],
   input: FrequencyFirstScoringInput,
+  maximumClauseNesting: number,
 ): SlotWeightedGrammarGeneration {
   const entryScores = new Map<string, EntrySelectionScore>();
   const entryWeight = (entry: CatalogEntry): number => {
@@ -453,15 +528,8 @@ function generateOnce(
       minimumLexicalEntries: 2,
       maximumCandidates: 1,
       maximumAttempts: 64,
-      bounds: {
-        maximumPhraseDepth: 3,
-        maximumClauseNesting: 1,
-        maximumClausesPerSentence: 2,
-        maximumCoordinationItems: 2,
-        maximumConsecutiveModifiers: 2,
-        maximumComplementsPerPredicate: 1,
-        maximumLexicalEntriesPerUtterance: 6,
-      },
+      ...composerCompositionOverride(input),
+      bounds: formalSyntaxExecutionBounds(maximumClauseNesting),
     });
     return {
       candidate: composition.candidates[0] ?? null,
@@ -470,6 +538,9 @@ function generateOnce(
       slotAttempts: 0,
       fallbackReasons: composition.fallbackReasons,
     };
+  }
+  if (input.formalSyntaxComposition !== undefined) {
+    throw new Error("formalSyntaxComposition requires formal syntax profiles");
   }
   const templateScores = new Map<string, TemplateSelectionScore>();
   return generateSlotWeightedGrammar({
@@ -539,13 +610,16 @@ function selectFrequencyFirstUtteranceFromEvidence(
   validateFrequencyFirstUtterancePolicy(input.policy);
   const eligibleEntries = input.entries;
   const entriesById = new Map(eligibleEntries.map((entry) => [entry.id, entry]));
+  const maximumClauseNesting = input.profiles === undefined
+    ? 1
+    : derivedConstructionClauseNesting(input);
   let generation: SlotWeightedGrammarGeneration | null = null;
   let score: UtteranceCandidateScore | null = null;
   let generationAttempts = 0;
 
   while (generationAttempts < MAXIMUM_RECENT_UTTERANCE_ATTEMPTS) {
     generationAttempts += 1;
-    generation = generateOnce(eligibleEntries, input);
+    generation = generateOnce(eligibleEntries, input, maximumClauseNesting);
     if (generation.candidate === null) {
       throw new Error(`no grammar-valid utterance candidate: ${generation.fallbackReasons.join(",")}`);
     }

@@ -1,4 +1,5 @@
 import type { RandomSource } from "../core/model.js";
+import { stableRuntimeDigest } from "../core/stable-id.js";
 import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";
 import type { ProductionRule } from "../syntax/types.js";
 import {
@@ -7,11 +8,23 @@ import {
   type SentenceKind,
 } from "./formal-syntax-taxonomy.js";
 
+export type PredicateMarkingPracticeIntent = "ordinary" | "negation";
+
+export const PREDICATE_MARKING_PRACTICE_TICKET_VERSION =
+  "predicate-marking-practice-ticket-v1";
+
+export interface PredicateMarkingPracticeWeights {
+  readonly ordinary: number;
+  readonly negation: number;
+}
+
 export interface FormalSyntaxSamplingPolicy {
   readonly version: string;
   readonly sentenceKindWeights: Readonly<Record<SentenceKind, number>>;
   /** Omitted families remain classified by taxonomy but are inactive in product sampling. */
   readonly sentenceFamilyWeights: Readonly<Partial<Record<SentenceConstructionFamily, number>>>;
+  /** Product practice intent for predicate-internal marking, separate from grammar legality. */
+  readonly predicateMarkingPracticeWeights: PredicateMarkingPracticeWeights;
 }
 
 export const SENTENCE_KINDS: readonly SentenceKind[] = [
@@ -49,7 +62,7 @@ export const SENTENCE_CONSTRUCTION_FAMILIES: readonly SentenceConstructionFamily
  * activate yet.
  */
 export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy = {
-  version: "formal-syntax-family-sampling-v3",
+  version: "formal-syntax-family-sampling-v5",
   sentenceKindWeights: {
     statement: 0.64,
     question: 0.26,
@@ -66,6 +79,10 @@ export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy =
     request: 1,
     exclamative: 1,
   },
+  // Product-practice prior measured after Clause-level negation retirement.
+  // A 3.125% marking ticket produced 375/2048 negative candidates versus the
+  // same-meter pre-retirement 371/2048 baseline without restoring a negation root family.
+  predicateMarkingPracticeWeights: { ordinary: 0.96875, negation: 0.03125 },
 };
 
 function nextUnit(random: RandomSource): number {
@@ -148,6 +165,13 @@ export function validateFormalSyntaxSamplingPolicy(policy: FormalSyntaxSamplingP
       throw new Error(`sentence kind ${kind} has positive mass but no active construction families`);
     }
   }
+  const marking = policy.predicateMarkingPracticeWeights;
+  if ([marking.ordinary, marking.negation].some((weight) => !Number.isFinite(weight) || weight < 0)) {
+    throw new Error("predicate marking practice weights must be finite and non-negative");
+  }
+  if (!(marking.ordinary > 0 || marking.negation > 0)) {
+    throw new Error("predicate marking practice weights require positive mass");
+  }
 }
 
 function weightedPermutation<T>(
@@ -218,6 +242,38 @@ export interface SentenceConstructionFamilyPlan {
   readonly kind: SentenceKind;
   readonly family: SentenceConstructionFamily;
   readonly productionRuleIds: readonly string[];
+}
+
+function deterministicPracticeUnit(identity: unknown): number {
+  const digest = stableRuntimeDigest(identity);
+  return (Number.parseInt(digest.slice(0, 8), 16) >>> 0) / 0x1_0000_0000;
+}
+
+/**
+ * Choose a product marking intent from the already-randomized Sentence family plan
+ * without consuming another parent RNG draw. The ticket therefore cannot move the
+ * root-family PRNG trajectory merely by being enabled.
+ */
+export function predicateMarkingPracticeIntentForFamilyPlan(
+  plan: readonly SentenceConstructionFamilyPlan[],
+  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+): PredicateMarkingPracticeIntent {
+  validateFormalSyntaxSamplingPolicy(policy);
+  const weights = policy.predicateMarkingPracticeWeights;
+  if (weights.negation === 0) return "ordinary";
+  if (weights.ordinary === 0) return "negation";
+  const ticket = deterministicPracticeUnit({
+    ticketVersion: PREDICATE_MARKING_PRACTICE_TICKET_VERSION,
+    purpose: "predicate-marking-practice",
+    familyPlan: plan.map((item) => ({
+      kind: item.kind,
+      family: item.family,
+      productionRuleIds: item.productionRuleIds,
+    })),
+  });
+  return ticket * (weights.ordinary + weights.negation) < weights.ordinary
+    ? "ordinary"
+    : "negation";
 }
 
 /**
