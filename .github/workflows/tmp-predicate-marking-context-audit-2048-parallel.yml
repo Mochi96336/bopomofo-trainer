@@ -1,0 +1,65 @@
+name: tmp predicate marking context audit 2048 parallel
+
+on:
+  push:
+    branches:
+      - agent/predicate-marking-context-audit-2048-parallel
+
+jobs:
+  audit:
+    strategy:
+      fail-fast: false
+      matrix:
+        weight: ["0", "0.03", "0.0301", "0.0303", "0.031", "0.032"]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install semantic trace and build catalog
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin agent/predicate-marking-meter-audit
+          git show origin/agent/predicate-marking-meter-audit:scripts/tmp-predicate-marking-semantic-trace-patch.mjs > scripts/tmp-predicate-marking-semantic-trace-patch.mjs
+          git show origin/agent/predicate-marking-meter-audit:scripts/tmp-predicate-marking-semantic-audit.ts > scripts/tmp-predicate-marking-semantic-audit.ts
+          node scripts/tmp-predicate-marking-semantic-trace-patch.mjs
+          npm run app:catalog
+      - name: Measure one 2048 weight
+        shell: bash
+        env:
+          NEGATION_PRESENT_WEIGHT: ${{ matrix.weight }}
+          SAMPLE_COUNT: "2048"
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          npx tsx scripts/tmp-predicate-marking-semantic-audit.ts > "$RUNNER_TEMP/out/result.json"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const p = process.env.RUNNER_TEMP + '/out/result.json';
+          const v = JSON.parse(fs.readFileSync(p, 'utf8'));
+          console.log(JSON.stringify({
+            weight: process.env.NEGATION_PRESENT_WEIGHT,
+            successCount: v.successCount,
+            negativeCandidateCount: v.negativeCandidateCount,
+            ticketNegationSuccessCount: v.ticketNegationSuccessCount,
+            negativeOriginCounts: v.negativeOriginCounts,
+            negativeRootCounts: v.negativeRootCounts,
+            negativeFamilyCounts: v.negativeFamilyCounts,
+            fallbackCounts: v.fallbackCounts,
+            rootCounts: v.rootCounts,
+            familyCounts: v.familyCounts,
+          }, null, 2));
+          NODE
+      - name: Upload result
+        uses: actions/upload-artifact@v4
+        with:
+          name: predicate-marking-context-2048-${{ matrix.weight }}
+          path: ${{ runner.temp }}/out/result.json
+          if-no-files-found: error
