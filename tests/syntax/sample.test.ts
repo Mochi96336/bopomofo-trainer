@@ -104,6 +104,22 @@ const nestedTargetRules: readonly ProductionRule[] = [
   production("content.wrapper", "ContentClause", [constituent("clause", "Clause", true)]),
 ];
 
+const contextualNegativeRules: readonly ProductionRule[] = [
+  production("sentence.predicate-context", "Sentence", [{
+    ...constituent("predicate", "AdjectivePhrase"),
+    requiredFunctions: ["predicate"] as const,
+  }]),
+  production("sentence.modifier-context", "Sentence", [{
+    ...constituent("modifier", "AdjectivePhrase"),
+    requiredFunctions: ["modifier"] as const,
+  }]),
+  production("adjective.negative", "AdjectivePhrase", [{
+    ...constituent("negation", "Lexeme"),
+    allowedUpos: ["ADV"] as const,
+    requiredFeatures: { polarity: "negative" },
+  }]),
+];
+
 describe("random structural sampling", () => {
   it("samples a deterministic shape from an injected random source", () => {
     const first = sampleStructuralDerivation({
@@ -265,6 +281,44 @@ describe("random structural sampling", () => {
         },
       ],
     })).toThrow(/duplicates parent constituent/u);
+  });
+
+  it("matches lexical requirements only in the requested enclosing function context", () => {
+    const requiredLexicalSlot = {
+      requiredFeatures: { polarity: "negative" },
+      enclosingRequiredFunctions: ["predicate"],
+    } as const;
+    const predicate = sampleStructuralDerivation({
+      rootCategory: "Sentence",
+      rootProductionRuleId: "sentence.predicate-context",
+      rules: contextualNegativeRules,
+      random: new SequenceRandom([0]),
+      maximumAttempts: 1,
+      requiredLexicalSlot,
+    });
+    const modifierFeatureOnly = sampleStructuralDerivation({
+      rootCategory: "Sentence",
+      rootProductionRuleId: "sentence.modifier-context",
+      rules: contextualNegativeRules,
+      random: new SequenceRandom([0]),
+      maximumAttempts: 1,
+      requiredLexicalSlot: { requiredFeatures: { polarity: "negative" } },
+    });
+    const modifierWithPredicateContext = sampleStructuralDerivation({
+      rootCategory: "Sentence",
+      rootProductionRuleId: "sentence.modifier-context",
+      rules: contextualNegativeRules,
+      random: new SequenceRandom([0]),
+      maximumAttempts: 1,
+      requiredLexicalSlot,
+    });
+
+    expect(predicate?.productionRulePath).toEqual([
+      "sentence.predicate-context",
+      "adjective.negative",
+    ]);
+    expect(modifierFeatureOnly).not.toBeNull();
+    expect(modifierWithPredicateContext).toBeNull();
   });
 
   it("rejects random values outside the unit interval", () => {

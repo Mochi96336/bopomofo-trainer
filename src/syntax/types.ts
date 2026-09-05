@@ -34,6 +34,7 @@ export type ValencyFrame = (typeof VALENCY_FRAMES)[number];
  */
 export const RUNTIME_OCCURRENCE_CAPABILITIES = [
   "voice-cau-ccomp-same-occurrence",
+  "ba-obl-patient-case-same-occurrence",
 ] as const;
 export type RuntimeOccurrenceCapability = (typeof RUNTIME_OCCURRENCE_CAPABILITIES)[number];
 

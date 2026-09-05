@@ -24,7 +24,6 @@ const REQUIRED_CONSTRUCTIONS = [
   "clause.existential",
   "clause.locative",
   "clause.modal",
-  "clause.negative",
   "clause.aspect",
   "clause.ba",
   "clause.bei",
@@ -54,13 +53,13 @@ describe("formal clause and question production inventory", () => {
     expect(ids.has("clause.causative")).toBe(false);
   });
 
-  it("represents BA patient as a construction role instead of an ordinary object", () => {
+  it("represents BA patient as a construction role and delegates predicate structure", () => {
     const ba = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "clause.ba");
     expect(ba?.constituents.map((item) => [item.key, item.category])).toEqual([
       ["subject", "Subject"],
       ["marker", "Lexeme"],
       ["patient", "DisposalPatient"],
-      ["predicate", "Predicate"],
+      ["predicate", "BAPredicate"],
     ]);
     expect(ba?.constituents.find((item) => item.key === "marker")).toMatchObject({
       allowedUpos: ["ADP"],
@@ -71,6 +70,7 @@ describe("formal clause and question production inventory", () => {
   it("keeps BA marker evidence hard without corpus-role gating the patient noun", () => {
     const keep = new Set([
       "clause.ba",
+      "ba-predicate.attested",
       "argument.subject.noun",
       "argument.disposal-patient.noun",
       "predicate.verb.lexical",
@@ -83,6 +83,7 @@ describe("formal clause and question production inventory", () => {
     })];
     expect(shapes).toHaveLength(1);
     expect(shapes[0]!.productionRulePath).toContain("argument.disposal-patient.noun");
+    expect(shapes[0]!.productionRulePath).toContain("ba-predicate.attested");
 
     const slots = shapes[0]!.lexicalSlots;
     expect(slots.some((slot) => slot.allowedUpos.includes("ADP")
