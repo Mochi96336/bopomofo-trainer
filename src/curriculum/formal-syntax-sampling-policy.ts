@@ -78,9 +78,10 @@ export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy =
   // Product-practice prior measured after Clause-level negation retirement.
   // Structural-slot calibration counts realized `polarity: negative` requirements
   // directly, excluding A-not-A and profile-compatible non-negation occurrences.
-  // A 3.01% marking ticket produced 199/2048 negative derivations versus the
-  // same-meter pre-retirement 200/2048 baseline without restoring a negation root family.
-  predicateMarkingPracticeWeights: { ordinary: 0.9699, negation: 0.0301 },
+  // A 5.70% terminal-draw marking ticket produced 200/2048 negative derivations,
+  // matching the same-meter pre-retirement baseline without restoring a negation
+  // root family or coupling ticket assignment to family-plan identity.
+  predicateMarkingPracticeWeights: { ordinary: 0.943, negation: 0.057 },
 };
 
 function nextUnit(random: RandomSource): number {

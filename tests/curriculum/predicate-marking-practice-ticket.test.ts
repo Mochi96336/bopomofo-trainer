@@ -51,14 +51,14 @@ describe("predicate marking practice ticket", () => {
   it("uses the measured product marking prior", () => {
     expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v5");
     expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.predicateMarkingPracticeWeights).toEqual({
-      ordinary: 0.9699,
-      negation: 0.0301,
+      ordinary: 0.943,
+      negation: 0.057,
     });
   });
 
   it("maps the terminal unit directly through the configured weights", () => {
-    expect(predicateMarkingPracticeIntentForTicketUnit(0.9698)).toBe("ordinary");
-    expect(predicateMarkingPracticeIntentForTicketUnit(0.9699)).toBe("negation");
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.9429)).toBe("ordinary");
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.943)).toBe("negation");
     expect(() => predicateMarkingPracticeIntentForTicketUnit(1)).toThrow(/ticket unit/u);
   });
 
@@ -93,7 +93,7 @@ describe("predicate marking practice ticket", () => {
         negationCount += 1;
       }
     }
-    expect(Math.abs(negationCount / sampleCount - 0.0301)).toBeLessThan(0.006);
+    expect(Math.abs(negationCount / sampleCount - 0.057)).toBeLessThan(0.008);
   });
 
   it("fails closed on invalid marking practice weights", () => {
