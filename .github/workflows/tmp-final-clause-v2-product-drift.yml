@@ -1,0 +1,55 @@
+name: tmp final Clause V2 product drift
+
+on:
+  push:
+    branches:
+      - agent/clause-v2-final-product-drift-audit
+
+jobs:
+  measure:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: main
+            ref: a9d7858cda17f244c6fecd08a522c00830f6499c
+          - label: landing
+            ref: aa06635ab77ee29a1dee4e624d1dc31c5ca2c6bc
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Preserve structural audit tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin agent/predicate-marking-meter-audit
+          mkdir -p "$RUNNER_TEMP/final-drift-tools" "$RUNNER_TEMP/final-drift-output"
+          git show origin/agent/predicate-marking-meter-audit:scripts/tmp-predicate-marking-semantic-trace-patch.mjs > "$RUNNER_TEMP/final-drift-tools/patch.mjs"
+          git show origin/agent/predicate-marking-meter-audit:scripts/tmp-predicate-marking-semantic-audit.ts > "$RUNNER_TEMP/final-drift-tools/audit.ts"
+      - name: Measure ${{ matrix.label }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard
+          git clean -fd
+          git checkout --detach '${{ matrix.ref }}'
+          cp "$RUNNER_TEMP/final-drift-tools/patch.mjs" scripts/tmp-predicate-marking-semantic-trace-patch.mjs
+          cp "$RUNNER_TEMP/final-drift-tools/audit.ts" scripts/tmp-predicate-marking-semantic-audit.ts
+          node scripts/tmp-predicate-marking-semantic-trace-patch.mjs 2>"$RUNNER_TEMP/final-drift-output/${{ matrix.label }}-patch.log"
+          npm run app:catalog >"$RUNNER_TEMP/final-drift-output/${{ matrix.label }}-catalog.log" 2>&1
+          SAMPLE_COUNT=8192 npx tsx scripts/tmp-predicate-marking-semantic-audit.ts >"$RUNNER_TEMP/final-drift-output/${{ matrix.label }}.json"
+      - name: Upload ${{ matrix.label }} result
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-clause-v2-drift-${{ matrix.label }}
+          path: ${{ runner.temp }}/final-drift-output
+          if-no-files-found: error
