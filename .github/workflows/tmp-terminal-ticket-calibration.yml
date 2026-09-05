@@ -1,0 +1,81 @@
+name: tmp terminal ticket calibration
+
+on:
+  push:
+    branches:
+      - agent/predicate-marking-terminal-ticket-audit
+
+jobs:
+  measure:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: base
+            ref: d166f9a0069458a524370403a827c22d28615ec6
+            weight: ""
+          - label: w0
+            ref: 9ebfe41400416a66182eb29eaaf5a7c47f494c7d
+            weight: "0"
+          - label: w045
+            ref: 9ebfe41400416a66182eb29eaaf5a7c47f494c7d
+            weight: "0.045"
+          - label: w050
+            ref: 9ebfe41400416a66182eb29eaaf5a7c47f494c7d
+            weight: "0.05"
+          - label: w0525
+            ref: 9ebfe41400416a66182eb29eaaf5a7c47f494c7d
+            weight: "0.0525"
+          - label: w055
+            ref: 9ebfe41400416a66182eb29eaaf5a7c47f494c7d
+            weight: "0.055"
+          - label: w0575
+            ref: 9ebfe41400416a66182eb29eaaf5a7c47f494c7d
+            weight: "0.0575"
+          - label: w060
+            ref: 9ebfe41400416a66182eb29eaaf5a7c47f494c7d
+            weight: "0.06"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Preserve structural audit tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin agent/predicate-marking-meter-audit
+          mkdir -p "$RUNNER_TEMP/terminal-ticket-tools" "$RUNNER_TEMP/terminal-ticket-output"
+          git show origin/agent/predicate-marking-meter-audit:scripts/tmp-predicate-marking-semantic-trace-patch.mjs > "$RUNNER_TEMP/terminal-ticket-tools/patch.mjs"
+          git show origin/agent/predicate-marking-meter-audit:scripts/tmp-predicate-marking-semantic-audit.ts > "$RUNNER_TEMP/terminal-ticket-tools/audit.ts"
+      - name: Measure ${{ matrix.label }}
+        shell: bash
+        env:
+          WEIGHT: ${{ matrix.weight }}
+        run: |
+          set -euo pipefail
+          git reset --hard
+          git clean -fd
+          git checkout --detach '${{ matrix.ref }}'
+          cp "$RUNNER_TEMP/terminal-ticket-tools/patch.mjs" scripts/tmp-predicate-marking-semantic-trace-patch.mjs
+          cp "$RUNNER_TEMP/terminal-ticket-tools/audit.ts" scripts/tmp-predicate-marking-semantic-audit.ts
+          node scripts/tmp-predicate-marking-semantic-trace-patch.mjs 2>"$RUNNER_TEMP/terminal-ticket-output/${{ matrix.label }}-patch.log"
+          npm run app:catalog >"$RUNNER_TEMP/terminal-ticket-output/${{ matrix.label }}-catalog.log" 2>&1
+          if [ -z "$WEIGHT" ]; then
+            SAMPLE_COUNT=2048 npx tsx scripts/tmp-predicate-marking-semantic-audit.ts >"$RUNNER_TEMP/terminal-ticket-output/${{ matrix.label }}.json"
+          else
+            NEGATION_PRESENT_WEIGHT="$WEIGHT" SAMPLE_COUNT=2048 npx tsx scripts/tmp-predicate-marking-semantic-audit.ts >"$RUNNER_TEMP/terminal-ticket-output/${{ matrix.label }}.json"
+          fi
+      - name: Upload ${{ matrix.label }} result
+        uses: actions/upload-artifact@v4
+        with:
+          name: terminal-ticket-calibration-${{ matrix.label }}
+          path: ${{ runner.temp }}/terminal-ticket-output
+          if-no-files-found: error
