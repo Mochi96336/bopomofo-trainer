@@ -1,0 +1,48 @@
+name: tmp rerun terminal practice ticket builder
+
+on:
+  push:
+    branches:
+      - agent/predicate-marking-terminal-ticket-builder
+
+jobs:
+  rerun:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Reuse builder with Sentence-only test candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/tmp-build-terminal-practice-ticket.yml')
+          lines = path.read_text().splitlines()
+          start = None
+          for index, line in enumerate(lines):
+              if line == '        run: |' and index > 0 and 'Build terminal-draw practice ticket' in lines[index - 2]:
+                  start = index + 1
+                  break
+          if start is None:
+              raise SystemExit('builder run block not found')
+          body = []
+          for line in lines[start:]:
+              if line.startswith('      - name:'):
+                  break
+              body.append(line[10:] if line.startswith('          ') else line)
+          script = '\n'.join(body) + '\n'
+          old = '      FORMAL_SYNTAX_RULES,\\n'
+          new = '      FORMAL_SYNTAX_RULES.filter((rule) => rule.output === "Sentence"),\\n'
+          count = script.count(old)
+          if count != 3:
+              raise SystemExit(f'expected 3 full-grammar test calls, found {count}')
+          script = script.replace(old, new)
+          Path('/tmp/rerun-builder.sh').write_text(script)
+          PY
+          bash /tmp/rerun-builder.sh
