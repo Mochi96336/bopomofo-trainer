@@ -26,7 +26,10 @@ import type {
   ProductionConstituent,
   ProductionRule,
   ProductionRuleClass,
+  SyntacticFunction,
   SyntaxCategory,
+  SyntaxFeatureName,
+  SyntaxFeatureSet,
 } from "./types.js";
 import { assertValidGrammar } from "./validate.js";
 
@@ -39,6 +42,13 @@ export interface NestedProductionTarget {
   readonly childRuleId?: string;
   /** Constrain this constituent's multiplicity at the named parent production. */
   readonly exactCount?: number;
+}
+
+export interface RequiredLexicalSlotConstraint {
+  /** Requirements carried by the lexical slot itself. */
+  readonly requiredFeatures?: SyntaxFeatureSet;
+  /** Requirements carried by the syntax category that directly contains the slot. */
+  readonly enclosingRequiredFunctions?: readonly SyntacticFunction[];
 }
 
 interface ValidatedNestedProductionTarget {
@@ -66,6 +76,12 @@ export interface StructuralSamplingOptions {
    * recursively embedded occurrences below the targeted child.
    */
   readonly nestedProductionTargets?: readonly NestedProductionTarget[];
+  /**
+   * Require at least one realized lexical slot matching both lexical requirements
+   * and requirements on its immediately enclosing syntax category. Enclosing
+   * requirements are sampler-only metadata and do not alter derivation identity.
+   */
+  readonly requiredLexicalSlot?: RequiredLexicalSlotConstraint;
 }
 
 interface State {
@@ -75,11 +91,17 @@ interface State {
   readonly lexicalCount: number;
 }
 
+interface SampledLexicalSlotContext {
+  readonly slot: StructuralLexicalSlot;
+  readonly enclosingRequiredFunctions: readonly SyntacticFunction[];
+}
+
 interface Sampled {
   readonly element: StructuralElement;
   readonly state: State;
   readonly rulePath: readonly string[];
   readonly slots: readonly StructuralLexicalSlot[];
+  readonly slotContexts: readonly SampledLexicalSlotContext[];
 }
 
 interface SampledRuleChildren {
@@ -87,6 +109,7 @@ interface SampledRuleChildren {
   readonly children: readonly StructuralElement[];
   readonly rulePath: readonly string[];
   readonly slots: readonly StructuralLexicalSlot[];
+  readonly slotContexts: readonly SampledLexicalSlotContext[];
 }
 
 interface NestedClauseCandidate {
@@ -249,6 +272,7 @@ function sampleRuleChildren(
   let workingState = inputState;
   const children: StructuralElement[] = [];
   const slots: StructuralLexicalSlot[] = [];
+  const slotContexts: SampledLexicalSlotContext[] = [];
   const rulePath: string[] = [];
 
   for (const constituent of ordered) {
@@ -284,6 +308,10 @@ function sampleRuleChildren(
         if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) return null;
         children.push(slot);
         slots.push(slot);
+        slotContexts.push({
+          slot,
+          enclosingRequiredFunctions: requirements.requiredFunctions,
+        });
         workingState = { ...workingState, lexicalCount: workingState.lexicalCount + 1 };
         continue;
       }
@@ -306,12 +334,13 @@ function sampleRuleChildren(
       if (child === null) return null;
       children.push(child.element);
       slots.push(...child.slots);
+      slotContexts.push(...child.slotContexts);
       rulePath.push(...child.rulePath);
       workingState = child.state;
     }
   }
 
-  return { state: workingState, children, rulePath, slots };
+  return { state: workingState, children, rulePath, slots, slotContexts };
 }
 
 function sampleCategory(
@@ -418,6 +447,7 @@ function sampleCategory(
       state: sampledChildren.state,
       rulePath: [rule.id, ...sampledChildren.rulePath],
       slots: sampledChildren.slots,
+      slotContexts: sampledChildren.slotContexts,
     };
   }
   return null;
@@ -495,6 +525,21 @@ function validatedNestedProductionTargets(
   return targets;
 }
 
+function lexicalSlotMatchesConstraint(
+  context: SampledLexicalSlotContext,
+  required: RequiredLexicalSlotConstraint,
+): boolean {
+  const requiredFeatures = required.requiredFeatures ?? {};
+  const featuresMatch = (Object.keys(requiredFeatures) as SyntaxFeatureName[]).every((feature) =>
+    context.slot.requiredFeatures[feature] === requiredFeatures[feature],
+  );
+  if (!featuresMatch) return false;
+  const requiredFunctions = required.enclosingRequiredFunctions ?? [];
+  return requiredFunctions.every((requiredFunction) =>
+    context.enclosingRequiredFunctions.includes(requiredFunction),
+  );
+}
+
 export function sampleStructuralDerivation(
   options: StructuralSamplingOptions,
 ): StructuralDerivationShape | null {
@@ -531,6 +576,11 @@ export function sampleStructuralDerivation(
       true,
     );
     if (sampled === null || sampled.element.kind !== "syntax-node") continue;
+    const requiredLexicalSlot = options.requiredLexicalSlot;
+    if (requiredLexicalSlot !== undefined
+      && !sampled.slotContexts.some((context) =>
+        lexicalSlotMatchesConstraint(context, requiredLexicalSlot),
+      )) continue;
     const identity = {
       grammarVersion: FORMAL_GRAMMAR_VERSION,
       root: sampled.element,
