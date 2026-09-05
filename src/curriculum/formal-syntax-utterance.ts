@@ -29,9 +29,11 @@ import {
   chooseSentenceConstructionVariant,
   createSentenceConstructionFamilyPlan,
   PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+  predicateMarkingPracticeIntentForFamilyPlan,
   rootFamilyAttemptBudget,
   validateFormalSyntaxSamplingPolicy,
   type FormalSyntaxSamplingPolicy,
+  type PredicateMarkingPracticeIntent,
   type SentenceConstructionFamilyPlan,
 } from "./formal-syntax-sampling-policy.js";
 
@@ -220,27 +222,67 @@ export function composeFormalSyntaxUtterances(
   const sentenceRules = useProductFamilyPolicy
     ? rules.filter((rule) => rule.output === "Sentence")
     : [];
-  let rootFamilyPlan: readonly SentenceConstructionFamilyPlan[] | null = null;
+  let rootFamilySearch: {
+    readonly plan: readonly SentenceConstructionFamilyPlan[];
+    readonly predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent;
+    readonly availabilityFallbackReserved: boolean;
+    availabilityFallbackActive: boolean;
+  } | null = null;
   let rootFamilyIndex = 0;
   let attemptsInRootFamily = 0;
   let attemptsPerRootFamily = 0;
   let rootFamilyBudgetInsufficient = false;
 
-  const currentRootFamily = (remainingAttempts: number): SentenceConstructionFamilyPlan | null => {
+  const currentRootFamily = (remainingAttempts: number): {
+    readonly family: SentenceConstructionFamilyPlan;
+    readonly predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent;
+    readonly availabilityFallbackActive: boolean;
+  } | null => {
     if (!useProductFamilyPolicy || samplingPolicy === null) return null;
-    if (rootFamilyPlan === null) {
-      rootFamilyPlan = createSentenceConstructionFamilyPlan(
+    if (rootFamilySearch === null) {
+      const plan = createSentenceConstructionFamilyPlan(
         sentenceRules,
         input.random,
         samplingPolicy,
       );
+      const predicateMarkingPracticeIntent = predicateMarkingPracticeIntentForFamilyPlan(
+        plan,
+        samplingPolicy,
+      );
+      const availabilityFallbackReserved = predicateMarkingPracticeIntent === "negation"
+        && remainingAttempts >= plan.length * 2;
+      const primaryAttempts = remainingAttempts
+        - (availabilityFallbackReserved ? plan.length : 0);
+      rootFamilySearch = {
+        plan,
+        predicateMarkingPracticeIntent,
+        availabilityFallbackReserved,
+        availabilityFallbackActive: false,
+      };
       rootFamilyIndex = 0;
       attemptsInRootFamily = 0;
-      rootFamilyBudgetInsufficient = remainingAttempts < rootFamilyPlan.length;
+      rootFamilyBudgetInsufficient = primaryAttempts < plan.length;
       if (rootFamilyBudgetInsufficient) return null;
-      attemptsPerRootFamily = rootFamilyAttemptBudget(remainingAttempts, rootFamilyPlan.length);
+      attemptsPerRootFamily = rootFamilyAttemptBudget(primaryAttempts, plan.length);
     }
-    return rootFamilyPlan[rootFamilyIndex] ?? null;
+    let family = rootFamilySearch.plan[rootFamilyIndex];
+    if (family === undefined
+      && rootFamilySearch.availabilityFallbackReserved
+      && !rootFamilySearch.availabilityFallbackActive) {
+      rootFamilySearch.availabilityFallbackActive = true;
+      rootFamilyIndex = 0;
+      attemptsInRootFamily = 0;
+      attemptsPerRootFamily = 1;
+      family = rootFamilySearch.plan[rootFamilyIndex];
+    }
+    if (family === undefined) return null;
+    return {
+      family,
+      predicateMarkingPracticeIntent: rootFamilySearch.availabilityFallbackActive
+        ? "ordinary"
+        : rootFamilySearch.predicateMarkingPracticeIntent,
+      availabilityFallbackActive: rootFamilySearch.availabilityFallbackActive,
+    };
   };
   const recordRootFamilyFailure = (): void => {
     if (!useProductFamilyPolicy) return;
@@ -251,7 +293,7 @@ export function composeFormalSyntaxUtterances(
     }
   };
   const resetRootFamilySearch = (): void => {
-    rootFamilyPlan = null;
+    rootFamilySearch = null;
     rootFamilyIndex = 0;
     attemptsInRootFamily = 0;
     attemptsPerRootFamily = 0;
@@ -264,12 +306,18 @@ export function composeFormalSyntaxUtterances(
   for (let attempt = 0;
     attempt < input.maximumAttempts && candidates.size < input.maximumCandidates;
     attempt += 1) {
-    const rootFamily = currentRootFamily(input.maximumAttempts - attempt);
-    if (useProductFamilyPolicy && rootFamily === null) {
+    const rootFamilySelection = currentRootFamily(input.maximumAttempts - attempt);
+    if (useProductFamilyPolicy && rootFamilySelection === null) {
       fallbackReasons.add(rootFamilyBudgetInsufficient
         ? "formal-syntax-root-family-budget-insufficient"
         : "formal-syntax-root-family-search-exhausted");
       break;
+    }
+    const rootFamily = rootFamilySelection?.family ?? null;
+    const requiresNegationPractice =
+      rootFamilySelection?.predicateMarkingPracticeIntent === "negation";
+    if (rootFamilySelection?.availabilityFallbackActive === true) {
+      fallbackReasons.add("formal-syntax-predicate-marking-availability-fallback");
     }
     const rootProductionRuleId = rootFamily === null
       ? input.structuralTarget?.rootProductionRuleId
@@ -278,7 +326,15 @@ export function composeFormalSyntaxUtterances(
       rootCategory: "Sentence",
       rules,
       random: input.random,
-      maximumAttempts: 1,
+      maximumAttempts: requiresNegationPractice ? 8 : 1,
+      ...(requiresNegationPractice
+        ? {
+            requiredLexicalSlot: {
+              requiredFeatures: { polarity: "negative" },
+              enclosingRequiredFunctions: ["predicate"],
+            },
+          }
+        : {}),
       isLexicalSlotReachable: (slot) => {
         if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") return true;
         return compatibleProfilesForSlot(slot, index).length > 0;
@@ -290,7 +346,9 @@ export function composeFormalSyntaxUtterances(
         : { nestedProductionTargets: input.structuralTarget.nestedProductionTargets }),
     });
     if (shape === null) {
-      fallbackReasons.add("formal-syntax-structural-sampling-exhausted");
+      fallbackReasons.add(requiresNegationPractice
+        ? "formal-syntax-predicate-marking-search-exhausted"
+        : "formal-syntax-structural-sampling-exhausted");
       recordRootFamilyFailure();
       continue;
     }
