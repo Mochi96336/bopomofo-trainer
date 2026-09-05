@@ -1,0 +1,133 @@
+name: tmp build terminal practice ticket
+
+on:
+  push:
+    branches:
+      - agent/predicate-marking-terminal-ticket-builder
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Build terminal-draw practice ticket
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Mochi96336"
+          git config user.email "144137376+Mochi96336@users.noreply.github.com"
+          git fetch origin agent/predicate-marking-terminal-ticket
+          git checkout -B terminal-ticket origin/agent/predicate-marking-terminal-ticket
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              return text.replace(old, new, 1)
+
+          def regex_once(text: str, pattern: str, replacement: str, label: str) -> str:
+              updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one regex match, found {count}")
+              return updated
+
+          policy_path = Path("src/curriculum/formal-syntax-sampling-policy.ts")
+          policy = policy_path.read_text()
+          policy = replace_once(
+              policy,
+              'import { stableRuntimeDigest } from "../core/stable-id.js";\n',
+              '',
+              'remove stable digest import',
+          )
+          policy = regex_once(
+              policy,
+              r'export const PREDICATE_MARKING_PRACTICE_TICKET_VERSION =\n\s+"predicate-marking-practice-ticket-v1";\n\n',
+              '',
+              'remove old ticket version',
+          )
+          policy = regex_once(
+              policy,
+              r'function weightedPermutation<T>\(.*?\n\}\n\nfunction normalizedWeight',
+              '''interface WeightedPermutationSample<T> {\n  readonly values: readonly T[];\n  /** Existing final draw from the one-item permutation step; it cannot affect ordering. */\n  readonly terminalUnit: number;\n}\n\nfunction weightedPermutation<T>(\n  values: readonly T[],\n  weightFor: (value: T) => number,\n  random: RandomSource,\n): WeightedPermutationSample<T> {\n  if (values.length === 0) throw new Error("formal syntax sampling permutation requires values");\n  const pool = [...values];\n  const result: T[] = [];\n  let terminalUnit: number | null = null;\n  while (pool.length > 0) {\n    const weights = pool.map(weightFor);\n    if (weights.some((weight) => !Number.isFinite(weight) || weight <= 0)) {\n      throw new Error("formal syntax sampling weights must be finite and positive");\n    }\n    const total = weights.reduce((sum, weight) => sum + weight, 0);\n    const unit = nextUnit(random);\n    if (pool.length === 1) terminalUnit = unit;\n    let target = unit * total;\n    let selectedIndex = weights.length - 1;\n    for (let index = 0; index < weights.length; index += 1) {\n      target -= weights[index]!;\n      if (target < 0) {\n        selectedIndex = index;\n        break;\n      }\n    }\n    result.push(pool[selectedIndex]!);\n    pool.splice(selectedIndex, 1);\n  }\n  if (terminalUnit === null) throw new Error("formal syntax sampling terminal draw missing");\n  return { values: result, terminalUnit };\n}\n\nfunction normalizedWeight''',
+              'weighted permutation terminal draw',
+          )
+          policy = regex_once(
+              policy,
+              r'function deterministicPracticeUnit\(.*?\n\}\n\n/\*\*\n \* Build one weighted permutation',
+              '''/**\n * Map an already-consumed unit draw to predicate-marking practice intent. The\n * caller supplies the behaviorally inert terminal draw from Sentence-family\n * permutation, so this decision does not consume parent RNG or hash family identity.\n */\nexport function predicateMarkingPracticeIntentForTicketUnit(\n  ticketUnit: number,\n  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n): PredicateMarkingPracticeIntent {\n  validateFormalSyntaxSamplingPolicy(policy);\n  if (!Number.isFinite(ticketUnit) || ticketUnit < 0 || ticketUnit >= 1) {\n    throw new Error("predicate marking practice ticket unit must be in [0, 1)");\n  }\n  const weights = policy.predicateMarkingPracticeWeights;\n  if (weights.negation === 0) return "ordinary";\n  if (weights.ordinary === 0) return "negation";\n  return ticketUnit * (weights.ordinary + weights.negation) < weights.ordinary\n    ? "ordinary"\n    : "negation";\n}\n\n/**\n * Build one weighted permutation''',
+              'replace family hash ticket',
+          )
+          old_decl = '''export function createSentenceConstructionFamilyPlan(\n  candidates: readonly ProductionRule[],\n  random: RandomSource,\n  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n): readonly SentenceConstructionFamilyPlan[] {\n'''
+          new_decl = '''export interface SentenceConstructionFamilyPlanSample {\n  readonly plan: readonly SentenceConstructionFamilyPlan[];\n  /** Terminal permutation draw already consumed by the historical sampler. */\n  readonly predicateMarkingTicketUnit: number;\n}\n\nexport function createSentenceConstructionFamilyPlanSample(\n  candidates: readonly ProductionRule[],\n  random: RandomSource,\n  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n): SentenceConstructionFamilyPlanSample {\n'''
+          policy = replace_once(policy, old_decl, new_decl, 'plan sample declaration')
+          old_return = '''  return weightedPermutation(\n    [...byFamily.values()],\n    (item) => sentenceFamilyJointWeight(item.family, policy),\n    random,\n  );\n}\n\n/**\n * One family attempt gets exactly one executable root variant.'''
+          new_return = '''  const sampled = weightedPermutation(\n    [...byFamily.values()],\n    (item) => sentenceFamilyJointWeight(item.family, policy),\n    random,\n  );\n  return {\n    plan: sampled.values,\n    predicateMarkingTicketUnit: sampled.terminalUnit,\n  };\n}\n\n/** Backward-compatible family-plan view; consumes exactly the same RNG draws. */\nexport function createSentenceConstructionFamilyPlan(\n  candidates: readonly ProductionRule[],\n  random: RandomSource,\n  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n): readonly SentenceConstructionFamilyPlan[] {\n  return createSentenceConstructionFamilyPlanSample(candidates, random, policy).plan;\n}\n\n/**\n * One family attempt gets exactly one executable root variant.'''
+          policy = replace_once(policy, old_return, new_return, 'plan sample return')
+          policy_path.write_text(policy)
+
+          composer_path = Path("src/curriculum/formal-syntax-utterance.ts")
+          composer = composer_path.read_text()
+          composer = replace_once(
+              composer,
+              '  createSentenceConstructionFamilyPlan,\n',
+              '  createSentenceConstructionFamilyPlanSample,\n',
+              'composer plan import',
+          )
+          composer = replace_once(
+              composer,
+              '  predicateMarkingPracticeIntentForFamilyPlan,\n',
+              '  predicateMarkingPracticeIntentForTicketUnit,\n',
+              'composer ticket import',
+          )
+          old_plan = '''      const plan = createSentenceConstructionFamilyPlan(\n        sentenceRules,\n        input.random,\n        samplingPolicy,\n      );\n      const predicateMarkingPracticeIntent = predicateMarkingPracticeIntentForFamilyPlan(\n        plan,\n        samplingPolicy,\n      );\n'''
+          new_plan = '''      const planSample = createSentenceConstructionFamilyPlanSample(\n        sentenceRules,\n        input.random,\n        samplingPolicy,\n      );\n      const plan = planSample.plan;\n      const predicateMarkingPracticeIntent = predicateMarkingPracticeIntentForTicketUnit(\n        planSample.predicateMarkingTicketUnit,\n        samplingPolicy,\n      );\n'''
+          composer = replace_once(composer, old_plan, new_plan, 'composer ticket source')
+          composer_path.write_text(composer)
+
+          test_path = Path("tests/curriculum/predicate-marking-practice-ticket.test.ts")
+          test = test_path.read_text()
+          old_import = '''import {\n  PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n  predicateMarkingPracticeIntentForFamilyPlan,\n  type SentenceConstructionFamilyPlan,\n} from "../../src/curriculum/formal-syntax-sampling-policy.js";\n'''
+          new_import = '''import {\n  createSentenceConstructionFamilyPlan,\n  createSentenceConstructionFamilyPlanSample,\n  predicateMarkingPracticeIntentForTicketUnit,\n  PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n} from "../../src/curriculum/formal-syntax-sampling-policy.js";\n'''
+          test = replace_once(test, old_import, new_import, 'test policy imports')
+          test = replace_once(
+              test,
+              'import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";\n',
+              'import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";\nimport { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";\n',
+              'test grammar import',
+          )
+          test = regex_once(
+              test,
+              r'const PLAN: readonly SentenceConstructionFamilyPlan\[\] = \[\{.*?\n\}\];\n\n',
+              '''class SequenceRandom {\n  private index = 0;\n  constructor(private readonly values: readonly number[]) {}\n  next(): number {\n    const value = this.values[this.index];\n    if (value === undefined) throw new Error("sequence random exhausted");\n    this.index += 1;\n    return value;\n  }\n}\n\n''',
+              'replace plan fixture with sequence random',
+          )
+          prefix_pattern = r'describe\("predicate marking practice ticket", \(\) => \{\n.*?  it\("accepts only overt negative surfaces when the product ticket always requires negation", \(\) => \{'
+          prefix_replacement = '''describe("predicate marking practice ticket", () => {\n  it("supports explicit ordinary and negation practice tickets", () => {\n    expect(predicateMarkingPracticeIntentForTicketUnit(0.5, {\n      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n      version: "predicate-marking-ticket-test-always-ordinary",\n      predicateMarkingPracticeWeights: { ordinary: 1, negation: 0 },\n    })).toBe("ordinary");\n    expect(predicateMarkingPracticeIntentForTicketUnit(0.5, {\n      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n      version: "predicate-marking-ticket-test-always-negation",\n      predicateMarkingPracticeWeights: { ordinary: 0, negation: 1 },\n    })).toBe("negation");\n  });\n\n  it("uses the measured product marking prior", () => {\n    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v5");\n    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.predicateMarkingPracticeWeights).toEqual({\n      ordinary: 0.9699,\n      negation: 0.0301,\n    });\n  });\n\n  it("maps the terminal unit directly through the configured weights", () => {\n    expect(predicateMarkingPracticeIntentForTicketUnit(0.9698)).toBe("ordinary");\n    expect(predicateMarkingPracticeIntentForTicketUnit(0.9699)).toBe("negation");\n    expect(() => predicateMarkingPracticeIntentForTicketUnit(1)).toThrow(/ticket unit/u);\n  });\n\n  it("reuses the existing terminal permutation draw without moving RNG trajectory", () => {\n    const values = Array.from({ length: 32 }, (_, index) => (index + 1) / 40);\n    const sampledRandom = new SequenceRandom(values);\n    const wrappedRandom = new SequenceRandom(values);\n    const sampled = createSentenceConstructionFamilyPlanSample(\n      FORMAL_SYNTAX_RULES,\n      sampledRandom,\n    );\n    const wrapped = createSentenceConstructionFamilyPlan(\n      FORMAL_SYNTAX_RULES,\n      wrappedRandom,\n    );\n\n    expect(sampled.plan).toEqual(wrapped);\n    expect(sampled.predicateMarkingTicketUnit).toBe(values[sampled.plan.length - 1]);\n    expect(sampledRandom.next()).toBe(values[sampled.plan.length]);\n    expect(wrappedRandom.next()).toBe(values[sampled.plan.length]);\n  });\n\n  it("keeps terminal-ticket incidence close to the configured weight", () => {\n    const sampleCount = 8192;\n    let negationCount = 0;\n    for (let round = 0; round < sampleCount; round += 1) {\n      const sampled = createSentenceConstructionFamilyPlanSample(\n        FORMAL_SYNTAX_RULES,\n        createSeededRandom(`predicate-marking-terminal-ticket:${round}`),\n      );\n      if (predicateMarkingPracticeIntentForTicketUnit(sampled.predicateMarkingTicketUnit) === "negation") {\n        negationCount += 1;\n      }\n    }\n    expect(Math.abs(negationCount / sampleCount - 0.0301)).toBeLessThan(0.006);\n  });\n\n  it("fails closed on invalid marking practice weights", () => {\n    expect(() => predicateMarkingPracticeIntentForTicketUnit(0.5, {\n      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,\n      version: "predicate-marking-ticket-test-zero",\n      predicateMarkingPracticeWeights: { ordinary: 0, negation: 0 },\n    })).toThrow(/require positive mass/u);\n  });\n\n  it("accepts only overt negative surfaces when the product ticket always requires negation", () => {'''
+          test = regex_once(test, prefix_pattern, prefix_replacement, 'replace ticket tests')
+          test_path.write_text(test)
+          PY
+          git diff --check
+          if git grep -n 'predicateMarkingPracticeIntentForFamilyPlan\|stableRuntimeDigest' -- src/curriculum/formal-syntax-sampling-policy.ts src/curriculum/formal-syntax-utterance.ts tests/curriculum/predicate-marking-practice-ticket.test.ts; then
+            echo 'old family-hash ticket reference remains' >&2
+            exit 1
+          fi
+          npm ci
+          npm run app:catalog
+          npm run typecheck
+          npx vitest run tests/curriculum/predicate-marking-practice-ticket.test.ts tests/curriculum/formal-syntax-effective-distribution.test.ts --testTimeout=30000
+          git status --short
+          git add src/curriculum/formal-syntax-sampling-policy.ts src/curriculum/formal-syntax-utterance.ts tests/curriculum/predicate-marking-practice-ticket.test.ts
+          git commit -m "fix: decouple predicate marking ticket entropy"
+          git push origin HEAD:agent/predicate-marking-terminal-ticket
