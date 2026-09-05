@@ -4,12 +4,14 @@ import {
   SYNTAX_PROFILES,
 } from "../../src/app/generated/catalog.js";
 import {
+  createSentenceConstructionFamilyPlan,
+  createSentenceConstructionFamilyPlanSample,
+  predicateMarkingPracticeIntentForTicketUnit,
   PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
-  predicateMarkingPracticeIntentForFamilyPlan,
-  type SentenceConstructionFamilyPlan,
 } from "../../src/curriculum/formal-syntax-sampling-policy.js";
 import { createSeededRandom } from "../../src/curriculum/random.js";
 import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
+import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
 
 const PRODUCT_BOUNDS = {
   maximumPhraseDepth: 3,
@@ -21,20 +23,25 @@ const PRODUCT_BOUNDS = {
   maximumLexicalEntriesPerUtterance: 6,
 } as const;
 
-const PLAN: readonly SentenceConstructionFamilyPlan[] = [{
-  kind: "statement",
-  family: "statement.declarative",
-  productionRuleIds: ["sentence.declarative"],
-}];
+class SequenceRandom {
+  private index = 0;
+  constructor(private readonly values: readonly number[]) {}
+  next(): number {
+    const value = this.values[this.index];
+    if (value === undefined) throw new Error("sequence random exhausted");
+    this.index += 1;
+    return value;
+  }
+}
 
 describe("predicate marking practice ticket", () => {
   it("supports explicit ordinary and negation practice tickets", () => {
-    expect(predicateMarkingPracticeIntentForFamilyPlan(PLAN, {
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.5, {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       version: "predicate-marking-ticket-test-always-ordinary",
       predicateMarkingPracticeWeights: { ordinary: 1, negation: 0 },
     })).toBe("ordinary");
-    expect(predicateMarkingPracticeIntentForFamilyPlan(PLAN, {
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.5, {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       version: "predicate-marking-ticket-test-always-negation",
       predicateMarkingPracticeWeights: { ordinary: 0, negation: 1 },
@@ -49,22 +56,48 @@ describe("predicate marking practice ticket", () => {
     });
   });
 
-  it("keeps ticket assignment stable when only the sampling policy version changes", () => {
-    const common = {
-      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
-      predicateMarkingPracticeWeights: { ordinary: 0.5, negation: 0.5 },
-    } as const;
-    expect(predicateMarkingPracticeIntentForFamilyPlan(PLAN, {
-      ...common,
-      version: "ticket-version-stability-a",
-    })).toBe(predicateMarkingPracticeIntentForFamilyPlan(PLAN, {
-      ...common,
-      version: "ticket-version-stability-b",
-    }));
+  it("maps the terminal unit directly through the configured weights", () => {
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.9698)).toBe("ordinary");
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.9699)).toBe("negation");
+    expect(() => predicateMarkingPracticeIntentForTicketUnit(1)).toThrow(/ticket unit/u);
+  });
+
+  it("reuses the existing terminal permutation draw without moving RNG trajectory", () => {
+    const values = Array.from({ length: 32 }, (_, index) => (index + 1) / 40);
+    const sampledRandom = new SequenceRandom(values);
+    const wrappedRandom = new SequenceRandom(values);
+    const sampled = createSentenceConstructionFamilyPlanSample(
+      FORMAL_SYNTAX_RULES.filter((rule) => rule.output === "Sentence"),
+      sampledRandom,
+    );
+    const wrapped = createSentenceConstructionFamilyPlan(
+      FORMAL_SYNTAX_RULES.filter((rule) => rule.output === "Sentence"),
+      wrappedRandom,
+    );
+
+    expect(sampled.plan).toEqual(wrapped);
+    expect(sampled.predicateMarkingTicketUnit).toBe(values[sampled.plan.length - 1]);
+    expect(sampledRandom.next()).toBe(values[sampled.plan.length]);
+    expect(wrappedRandom.next()).toBe(values[sampled.plan.length]);
+  });
+
+  it("keeps terminal-ticket incidence close to the configured weight", () => {
+    const sampleCount = 8192;
+    let negationCount = 0;
+    for (let round = 0; round < sampleCount; round += 1) {
+      const sampled = createSentenceConstructionFamilyPlanSample(
+        FORMAL_SYNTAX_RULES.filter((rule) => rule.output === "Sentence"),
+        createSeededRandom(`predicate-marking-terminal-ticket:${round}`),
+      );
+      if (predicateMarkingPracticeIntentForTicketUnit(sampled.predicateMarkingTicketUnit) === "negation") {
+        negationCount += 1;
+      }
+    }
+    expect(Math.abs(negationCount / sampleCount - 0.0301)).toBeLessThan(0.006);
   });
 
   it("fails closed on invalid marking practice weights", () => {
-    expect(() => predicateMarkingPracticeIntentForFamilyPlan(PLAN, {
+    expect(() => predicateMarkingPracticeIntentForTicketUnit(0.5, {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       version: "predicate-marking-ticket-test-zero",
       predicateMarkingPracticeWeights: { ordinary: 0, negation: 0 },

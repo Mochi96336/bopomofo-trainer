@@ -1,5 +1,4 @@
 import type { RandomSource } from "../core/model.js";
-import { stableRuntimeDigest } from "../core/stable-id.js";
 import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";
 import type { ProductionRule } from "../syntax/types.js";
 import {
@@ -9,9 +8,6 @@ import {
 } from "./formal-syntax-taxonomy.js";
 
 export type PredicateMarkingPracticeIntent = "ordinary" | "negation";
-
-export const PREDICATE_MARKING_PRACTICE_TICKET_VERSION =
-  "predicate-marking-practice-ticket-v1";
 
 export interface PredicateMarkingPracticeWeights {
   readonly ordinary: number;
@@ -176,20 +172,30 @@ export function validateFormalSyntaxSamplingPolicy(policy: FormalSyntaxSamplingP
   }
 }
 
+interface WeightedPermutationSample<T> {
+  readonly values: readonly T[];
+  /** Existing final draw from the one-item permutation step; it cannot affect ordering. */
+  readonly terminalUnit: number;
+}
+
 function weightedPermutation<T>(
   values: readonly T[],
   weightFor: (value: T) => number,
   random: RandomSource,
-): readonly T[] {
+): WeightedPermutationSample<T> {
+  if (values.length === 0) throw new Error("formal syntax sampling permutation requires values");
   const pool = [...values];
   const result: T[] = [];
+  let terminalUnit: number | null = null;
   while (pool.length > 0) {
     const weights = pool.map(weightFor);
     if (weights.some((weight) => !Number.isFinite(weight) || weight <= 0)) {
       throw new Error("formal syntax sampling weights must be finite and positive");
     }
     const total = weights.reduce((sum, weight) => sum + weight, 0);
-    let target = nextUnit(random) * total;
+    const unit = nextUnit(random);
+    if (pool.length === 1) terminalUnit = unit;
+    let target = unit * total;
     let selectedIndex = weights.length - 1;
     for (let index = 0; index < weights.length; index += 1) {
       target -= weights[index]!;
@@ -201,7 +207,8 @@ function weightedPermutation<T>(
     result.push(pool[selectedIndex]!);
     pool.splice(selectedIndex, 1);
   }
-  return result;
+  if (terminalUnit === null) throw new Error("formal syntax sampling terminal draw missing");
+  return { values: result, terminalUnit };
 }
 
 function normalizedWeight(
@@ -246,34 +253,23 @@ export interface SentenceConstructionFamilyPlan {
   readonly productionRuleIds: readonly string[];
 }
 
-function deterministicPracticeUnit(identity: unknown): number {
-  const digest = stableRuntimeDigest(identity);
-  return (Number.parseInt(digest.slice(0, 8), 16) >>> 0) / 0x1_0000_0000;
-}
-
 /**
- * Choose a product marking intent from the already-randomized Sentence family plan
- * without consuming another parent RNG draw. The ticket therefore cannot move the
- * root-family PRNG trajectory merely by being enabled.
+ * Map an already-consumed unit draw to predicate-marking practice intent. The
+ * caller supplies the behaviorally inert terminal draw from Sentence-family
+ * permutation, so this decision does not consume parent RNG or hash family identity.
  */
-export function predicateMarkingPracticeIntentForFamilyPlan(
-  plan: readonly SentenceConstructionFamilyPlan[],
+export function predicateMarkingPracticeIntentForTicketUnit(
+  ticketUnit: number,
   policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
 ): PredicateMarkingPracticeIntent {
   validateFormalSyntaxSamplingPolicy(policy);
+  if (!Number.isFinite(ticketUnit) || ticketUnit < 0 || ticketUnit >= 1) {
+    throw new Error("predicate marking practice ticket unit must be in [0, 1)");
+  }
   const weights = policy.predicateMarkingPracticeWeights;
   if (weights.negation === 0) return "ordinary";
   if (weights.ordinary === 0) return "negation";
-  const ticket = deterministicPracticeUnit({
-    ticketVersion: PREDICATE_MARKING_PRACTICE_TICKET_VERSION,
-    purpose: "predicate-marking-practice",
-    familyPlan: plan.map((item) => ({
-      kind: item.kind,
-      family: item.family,
-      productionRuleIds: item.productionRuleIds,
-    })),
-  });
-  return ticket * (weights.ordinary + weights.negation) < weights.ordinary
+  return ticketUnit * (weights.ordinary + weights.negation) < weights.ordinary
     ? "ordinary"
     : "negation";
 }
@@ -283,11 +279,17 @@ export function predicateMarkingPracticeIntentForFamilyPlan(
  * the joint family prior P(kind) × P(family | kind). Legal but inactive families
  * stay in the grammar/taxonomy and receive no product root attempts.
  */
-export function createSentenceConstructionFamilyPlan(
+export interface SentenceConstructionFamilyPlanSample {
+  readonly plan: readonly SentenceConstructionFamilyPlan[];
+  /** Terminal permutation draw already consumed by the historical sampler. */
+  readonly predicateMarkingTicketUnit: number;
+}
+
+export function createSentenceConstructionFamilyPlanSample(
   candidates: readonly ProductionRule[],
   random: RandomSource,
   policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
-): readonly SentenceConstructionFamilyPlan[] {
+): SentenceConstructionFamilyPlanSample {
   validateFormalSyntaxSamplingPolicy(policy);
   const activeFamilies = new Set(activeSentenceFamiliesUnchecked(policy));
   const byFamily = new Map<SentenceConstructionFamily, SentenceConstructionFamilyPlan>();
@@ -318,11 +320,24 @@ export function createSentenceConstructionFamilyPlan(
   if (missingActiveFamilies.length > 0) {
     throw new Error(`active sentence construction families have no candidate rules: ${missingActiveFamilies.join(",")}`);
   }
-  return weightedPermutation(
+  const sampled = weightedPermutation(
     [...byFamily.values()],
     (item) => sentenceFamilyJointWeight(item.family, policy),
     random,
   );
+  return {
+    plan: sampled.values,
+    predicateMarkingTicketUnit: sampled.terminalUnit,
+  };
+}
+
+/** Backward-compatible family-plan view; consumes exactly the same RNG draws. */
+export function createSentenceConstructionFamilyPlan(
+  candidates: readonly ProductionRule[],
+  random: RandomSource,
+  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+): readonly SentenceConstructionFamilyPlan[] {
+  return createSentenceConstructionFamilyPlanSample(candidates, random, policy).plan;
 }
 
 /**

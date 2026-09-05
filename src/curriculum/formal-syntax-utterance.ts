@@ -27,9 +27,9 @@ import type {
 } from "../syntax/types.js";
 import {
   chooseSentenceConstructionVariant,
-  createSentenceConstructionFamilyPlan,
+  createSentenceConstructionFamilyPlanSample,
   PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
-  predicateMarkingPracticeIntentForFamilyPlan,
+  predicateMarkingPracticeIntentForTicketUnit,
   rootFamilyAttemptBudget,
   validateFormalSyntaxSamplingPolicy,
   type FormalSyntaxSamplingPolicy,
@@ -240,13 +240,14 @@ export function composeFormalSyntaxUtterances(
   } | null => {
     if (!useProductFamilyPolicy || samplingPolicy === null) return null;
     if (rootFamilySearch === null) {
-      const plan = createSentenceConstructionFamilyPlan(
+      const planSample = createSentenceConstructionFamilyPlanSample(
         sentenceRules,
         input.random,
         samplingPolicy,
       );
-      const predicateMarkingPracticeIntent = predicateMarkingPracticeIntentForFamilyPlan(
-        plan,
+      const plan = planSample.plan;
+      const predicateMarkingPracticeIntent = predicateMarkingPracticeIntentForTicketUnit(
+        planSample.predicateMarkingTicketUnit,
         samplingPolicy,
       );
       const availabilityFallbackReserved = predicateMarkingPracticeIntent === "negation"
