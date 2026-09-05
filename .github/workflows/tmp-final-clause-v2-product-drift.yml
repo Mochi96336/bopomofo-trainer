@@ -14,7 +14,7 @@ jobs:
           - label: main
             ref: a9d7858cda17f244c6fecd08a522c00830f6499c
           - label: landing
-            ref: aa06635ab77ee29a1dee4e624d1dc31c5ca2c6bc
+            ref: c3ee13c32300e23af2801b9bb5e794500149d81c
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
