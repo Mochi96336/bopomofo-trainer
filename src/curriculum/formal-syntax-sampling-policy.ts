@@ -7,11 +7,20 @@ import {
   type SentenceKind,
 } from "./formal-syntax-taxonomy.js";
 
+export type PredicateMarkingPracticeIntent = "ordinary" | "negation";
+
+export interface PredicateMarkingPracticeWeights {
+  readonly ordinary: number;
+  readonly negation: number;
+}
+
 export interface FormalSyntaxSamplingPolicy {
   readonly version: string;
   readonly sentenceKindWeights: Readonly<Record<SentenceKind, number>>;
   /** Omitted families remain classified by taxonomy but are inactive in product sampling. */
   readonly sentenceFamilyWeights: Readonly<Partial<Record<SentenceConstructionFamily, number>>>;
+  /** Product practice intent for predicate-internal marking, separate from grammar legality. */
+  readonly predicateMarkingPracticeWeights: PredicateMarkingPracticeWeights;
 }
 
 export const SENTENCE_KINDS: readonly SentenceKind[] = [
@@ -49,7 +58,7 @@ export const SENTENCE_CONSTRUCTION_FAMILIES: readonly SentenceConstructionFamily
  * activate yet.
  */
 export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy = {
-  version: "formal-syntax-family-sampling-v3",
+  version: "formal-syntax-family-sampling-v5",
   sentenceKindWeights: {
     statement: 0.64,
     question: 0.26,
@@ -66,6 +75,13 @@ export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy =
     request: 1,
     exclamative: 1,
   },
+  // Product-practice prior measured after Clause-level negation retirement.
+  // Structural-slot calibration counts realized `polarity: negative` requirements
+  // directly, excluding A-not-A and profile-compatible non-negation occurrences.
+  // A 5.70% terminal-draw marking ticket produced 200/2048 negative derivations,
+  // matching the same-meter pre-retirement baseline without restoring a negation
+  // root family or coupling ticket assignment to family-plan identity.
+  predicateMarkingPracticeWeights: { ordinary: 0.943, negation: 0.057 },
 };
 
 function nextUnit(random: RandomSource): number {
@@ -148,22 +164,39 @@ export function validateFormalSyntaxSamplingPolicy(policy: FormalSyntaxSamplingP
       throw new Error(`sentence kind ${kind} has positive mass but no active construction families`);
     }
   }
+  const marking = policy.predicateMarkingPracticeWeights;
+  if ([marking.ordinary, marking.negation].some((weight) => !Number.isFinite(weight) || weight < 0)) {
+    throw new Error("predicate marking practice weights must be finite and non-negative");
+  }
+  if (!(marking.ordinary > 0 || marking.negation > 0)) {
+    throw new Error("predicate marking practice weights require positive mass");
+  }
+}
+
+interface WeightedPermutationSample<T> {
+  readonly values: readonly T[];
+  /** Existing final draw from the one-item permutation step; it cannot affect ordering. */
+  readonly terminalUnit: number;
 }
 
 function weightedPermutation<T>(
   values: readonly T[],
   weightFor: (value: T) => number,
   random: RandomSource,
-): readonly T[] {
+): WeightedPermutationSample<T> {
+  if (values.length === 0) throw new Error("formal syntax sampling permutation requires values");
   const pool = [...values];
   const result: T[] = [];
+  let terminalUnit: number | null = null;
   while (pool.length > 0) {
     const weights = pool.map(weightFor);
     if (weights.some((weight) => !Number.isFinite(weight) || weight <= 0)) {
       throw new Error("formal syntax sampling weights must be finite and positive");
     }
     const total = weights.reduce((sum, weight) => sum + weight, 0);
-    let target = nextUnit(random) * total;
+    const unit = nextUnit(random);
+    if (pool.length === 1) terminalUnit = unit;
+    let target = unit * total;
     let selectedIndex = weights.length - 1;
     for (let index = 0; index < weights.length; index += 1) {
       target -= weights[index]!;
@@ -175,7 +208,8 @@ function weightedPermutation<T>(
     result.push(pool[selectedIndex]!);
     pool.splice(selectedIndex, 1);
   }
-  return result;
+  if (terminalUnit === null) throw new Error("formal syntax sampling terminal draw missing");
+  return { values: result, terminalUnit };
 }
 
 function normalizedWeight(
@@ -221,15 +255,42 @@ export interface SentenceConstructionFamilyPlan {
 }
 
 /**
+ * Map an already-consumed unit draw to predicate-marking practice intent. The
+ * caller supplies the behaviorally inert terminal draw from Sentence-family
+ * permutation, so this decision does not consume parent RNG or hash family identity.
+ */
+export function predicateMarkingPracticeIntentForTicketUnit(
+  ticketUnit: number,
+  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+): PredicateMarkingPracticeIntent {
+  validateFormalSyntaxSamplingPolicy(policy);
+  if (!Number.isFinite(ticketUnit) || ticketUnit < 0 || ticketUnit >= 1) {
+    throw new Error("predicate marking practice ticket unit must be in [0, 1)");
+  }
+  const weights = policy.predicateMarkingPracticeWeights;
+  if (weights.negation === 0) return "ordinary";
+  if (weights.ordinary === 0) return "negation";
+  return ticketUnit * (weights.ordinary + weights.negation) < weights.ordinary
+    ? "ordinary"
+    : "negation";
+}
+
+/**
  * Build one weighted permutation over active Sentence construction families using
  * the joint family prior P(kind) × P(family | kind). Legal but inactive families
  * stay in the grammar/taxonomy and receive no product root attempts.
  */
-export function createSentenceConstructionFamilyPlan(
+export interface SentenceConstructionFamilyPlanSample {
+  readonly plan: readonly SentenceConstructionFamilyPlan[];
+  /** Terminal permutation draw already consumed by the historical sampler. */
+  readonly predicateMarkingTicketUnit: number;
+}
+
+export function createSentenceConstructionFamilyPlanSample(
   candidates: readonly ProductionRule[],
   random: RandomSource,
   policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
-): readonly SentenceConstructionFamilyPlan[] {
+): SentenceConstructionFamilyPlanSample {
   validateFormalSyntaxSamplingPolicy(policy);
   const activeFamilies = new Set(activeSentenceFamiliesUnchecked(policy));
   const byFamily = new Map<SentenceConstructionFamily, SentenceConstructionFamilyPlan>();
@@ -260,11 +321,24 @@ export function createSentenceConstructionFamilyPlan(
   if (missingActiveFamilies.length > 0) {
     throw new Error(`active sentence construction families have no candidate rules: ${missingActiveFamilies.join(",")}`);
   }
-  return weightedPermutation(
+  const sampled = weightedPermutation(
     [...byFamily.values()],
     (item) => sentenceFamilyJointWeight(item.family, policy),
     random,
   );
+  return {
+    plan: sampled.values,
+    predicateMarkingTicketUnit: sampled.terminalUnit,
+  };
+}
+
+/** Backward-compatible family-plan view; consumes exactly the same RNG draws. */
+export function createSentenceConstructionFamilyPlan(
+  candidates: readonly ProductionRule[],
+  random: RandomSource,
+  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+): readonly SentenceConstructionFamilyPlan[] {
+  return createSentenceConstructionFamilyPlanSample(candidates, random, policy).plan;
 }
 
 /**
