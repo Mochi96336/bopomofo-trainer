@@ -4,6 +4,7 @@ import type {
   ProductionConstituent,
   ProductionFixture,
   ProductionRule,
+  RuntimeOccurrenceCapability,
   SyntacticFunction,
   SyntaxCategory,
   SyntaxFeatureSet,
@@ -18,6 +19,7 @@ interface ConstituentOptions {
   readonly allowedUpos?: readonly Upos[];
   readonly requiredFunctions?: readonly SyntacticFunction[];
   readonly requiredValencyFrames?: readonly ValencyFrame[];
+  readonly requiredOccurrenceCapabilities?: readonly RuntimeOccurrenceCapability[];
   readonly requiredFeatures?: SyntaxFeatureSet;
   readonly entryBinding?: string;
 }
@@ -36,6 +38,9 @@ function constituent(
     allowedUpos: options.allowedUpos ?? [],
     requiredFunctions: options.requiredFunctions ?? [],
     requiredValencyFrames: options.requiredValencyFrames ?? [],
+    ...(options.requiredOccurrenceCapabilities === undefined
+      ? {}
+      : { requiredOccurrenceCapabilities: options.requiredOccurrenceCapabilities }),
     requiredFeatures: options.requiredFeatures ?? {},
     ...(options.entryBinding === undefined ? {} : { entryBinding: options.entryBinding }),
   };
@@ -195,12 +200,6 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     ]),
     object({ minimum: 0, maximum: 1 }),
   ]),
-  production("clause.negative", "Clause", [
-    subject({ minimum: 0, maximum: 1 }),
-    lexical("negation", ["ADV", "AUX", "PART", "VERB"], { requiredFeatures: { polarity: "negative" } }),
-    constituent("predicate", "Predicate", { requiredFunctions: ["predicate"] }),
-    object({ minimum: 0, maximum: 1 }),
-  ]),
   production("clause.aspect", "Clause", [
     subject({ minimum: 0, maximum: 1 }),
     constituent("predicate", "Predicate", { requiredFunctions: ["predicate"] }),
@@ -211,7 +210,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     subject(),
     lexical("marker", ["ADP"], { requiredFeatures: { voice: "disposal" } }),
     constituent("patient", "DisposalPatient"),
-    corePredicate(["transitive", "ambitransitive"]),
+    constituent("predicate", "BAPredicate", { requiredFunctions: ["predicate"] }),
   ]),
   production("clause.bei", "Clause", [
     constituent("patient", "Subject"),

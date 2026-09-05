@@ -37,7 +37,6 @@ export type ClauseConstructionFamily =
   | "core.existential"
   | "core.locative"
   | "marked.modal"
-  | "marked.negative"
   | "marked.aspect"
   | "marked.ba"
   | "marked.bei"
@@ -85,7 +84,6 @@ const CLAUSE_CLASSIFICATION_BY_RULE_ID: Readonly<Record<string, ClauseConstructi
   "clause.locative": { kind: "core-predication", family: "core.locative" },
 
   "clause.modal": { kind: "marked", family: "marked.modal" },
-  "clause.negative": { kind: "marked", family: "marked.negative" },
   "clause.aspect": { kind: "marked", family: "marked.aspect" },
   "clause.ba": { kind: "marked", family: "marked.ba" },
   "clause.bei": { kind: "marked", family: "marked.bei" },
