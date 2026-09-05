@@ -1,0 +1,142 @@
+name: tmp predicate marking context contract builder
+
+on:
+  push:
+    branches:
+      - agent/predicate-marking-context-contract-builder
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Build context-aware lexical slot constraint
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Mochi96336"
+          git config user.email "144137376+Mochi96336@users.noreply.github.com"
+          git fetch origin agent/predicate-marking-context-contract
+          git checkout -B context-contract origin/agent/predicate-marking-context-contract
+          python <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              if text.count(old) != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {text.count(old)}")
+              return text.replace(old, new, 1)
+
+          sample_path = Path("src/syntax/sample.ts")
+          sample = sample_path.read_text()
+          sample = replace_once(
+              sample,
+              '''  ProductionRuleClass,\n  SyntaxCategory,\n  SyntaxFeatureName,\n  SyntaxFeatureSet,\n''',
+              '''  ProductionRuleClass,\n  SyntacticFunction,\n  SyntaxCategory,\n  SyntaxFeatureName,\n  SyntaxFeatureSet,\n''',
+              "sample import",
+          )
+          sample = replace_once(
+              sample,
+              '''export interface NestedProductionTarget {\n  readonly parentRuleId: string;\n  readonly constituentKey: string;\n  /** For a non-lexical constituent, constrain the production selected at this edge. */\n  readonly childRuleId?: string;\n  /** Constrain this constituent's multiplicity at the named parent production. */\n  readonly exactCount?: number;\n}\n\ninterface ValidatedNestedProductionTarget {\n''',
+              '''export interface NestedProductionTarget {\n  readonly parentRuleId: string;\n  readonly constituentKey: string;\n  /** For a non-lexical constituent, constrain the production selected at this edge. */\n  readonly childRuleId?: string;\n  /** Constrain this constituent's multiplicity at the named parent production. */\n  readonly exactCount?: number;\n}\n\nexport interface RequiredLexicalSlotConstraint {\n  /** Requirements carried by the lexical slot itself. */\n  readonly requiredFeatures?: SyntaxFeatureSet;\n  /** Requirements carried by the syntax category that directly contains the slot. */\n  readonly enclosingRequiredFunctions?: readonly SyntacticFunction[];\n}\n\ninterface ValidatedNestedProductionTarget {\n''',
+              "constraint interface",
+          )
+          sample = replace_once(
+              sample,
+              '''  /** Require at least one realized lexical slot to carry all named formal requirements. */\n  readonly requiredLexicalSlotFeatures?: SyntaxFeatureSet;\n''',
+              '''  /**\n   * Require at least one realized lexical slot matching both lexical requirements\n   * and requirements on its immediately enclosing syntax category. Enclosing\n   * requirements are sampler-only metadata and do not alter derivation identity.\n   */\n  readonly requiredLexicalSlot?: RequiredLexicalSlotConstraint;\n''',
+              "sampling option",
+          )
+          sample = replace_once(
+              sample,
+              '''interface Sampled {\n  readonly element: StructuralElement;\n  readonly state: State;\n  readonly rulePath: readonly string[];\n  readonly slots: readonly StructuralLexicalSlot[];\n}\n\ninterface SampledRuleChildren {\n  readonly state: State;\n  readonly children: readonly StructuralElement[];\n  readonly rulePath: readonly string[];\n  readonly slots: readonly StructuralLexicalSlot[];\n}\n''',
+              '''interface SampledLexicalSlotContext {\n  readonly slot: StructuralLexicalSlot;\n  readonly enclosingRequiredFunctions: readonly SyntacticFunction[];\n}\n\ninterface Sampled {\n  readonly element: StructuralElement;\n  readonly state: State;\n  readonly rulePath: readonly string[];\n  readonly slots: readonly StructuralLexicalSlot[];\n  readonly slotContexts: readonly SampledLexicalSlotContext[];\n}\n\ninterface SampledRuleChildren {\n  readonly state: State;\n  readonly children: readonly StructuralElement[];\n  readonly rulePath: readonly string[];\n  readonly slots: readonly StructuralLexicalSlot[];\n  readonly slotContexts: readonly SampledLexicalSlotContext[];\n}\n''',
+              "sampled context interfaces",
+          )
+          sample = replace_once(
+              sample,
+              '''  const children: StructuralElement[] = [];\n  const slots: StructuralLexicalSlot[] = [];\n  const rulePath: string[] = [];\n''',
+              '''  const children: StructuralElement[] = [];\n  const slots: StructuralLexicalSlot[] = [];\n  const slotContexts: SampledLexicalSlotContext[] = [];\n  const rulePath: string[] = [];\n''',
+              "slot context accumulator",
+          )
+          sample = replace_once(
+              sample,
+              '''        children.push(slot);\n        slots.push(slot);\n        workingState = { ...workingState, lexicalCount: workingState.lexicalCount + 1 };\n''',
+              '''        children.push(slot);\n        slots.push(slot);\n        slotContexts.push({\n          slot,\n          enclosingRequiredFunctions: requirements.requiredFunctions,\n        });\n        workingState = { ...workingState, lexicalCount: workingState.lexicalCount + 1 };\n''',
+              "lexical slot context",
+          )
+          sample = replace_once(
+              sample,
+              '''      children.push(child.element);\n      slots.push(...child.slots);\n      rulePath.push(...child.rulePath);\n''',
+              '''      children.push(child.element);\n      slots.push(...child.slots);\n      slotContexts.push(...child.slotContexts);\n      rulePath.push(...child.rulePath);\n''',
+              "child slot contexts",
+          )
+          sample = replace_once(
+              sample,
+              '''  return { state: workingState, children, rulePath, slots };\n''',
+              '''  return { state: workingState, children, rulePath, slots, slotContexts };\n''',
+              "children return",
+          )
+          sample = replace_once(
+              sample,
+              '''      rulePath: [rule.id, ...sampledChildren.rulePath],\n      slots: sampledChildren.slots,\n''',
+              '''      rulePath: [rule.id, ...sampledChildren.rulePath],\n      slots: sampledChildren.slots,\n      slotContexts: sampledChildren.slotContexts,\n''',
+              "sampled return contexts",
+          )
+          sample = replace_once(
+              sample,
+              '''function lexicalSlotMatchesRequiredFeatures(\n  slot: StructuralLexicalSlot,\n  required: SyntaxFeatureSet,\n): boolean {\n  return (Object.keys(required) as SyntaxFeatureName[]).every((feature) =>\n    slot.requiredFeatures[feature] === required[feature],\n  );\n}\n''',
+              '''function lexicalSlotMatchesConstraint(\n  context: SampledLexicalSlotContext,\n  required: RequiredLexicalSlotConstraint,\n): boolean {\n  const requiredFeatures = required.requiredFeatures ?? {};\n  const featuresMatch = (Object.keys(requiredFeatures) as SyntaxFeatureName[]).every((feature) =>\n    context.slot.requiredFeatures[feature] === requiredFeatures[feature],\n  );\n  if (!featuresMatch) return false;\n  const requiredFunctions = required.enclosingRequiredFunctions ?? [];\n  return requiredFunctions.every((requiredFunction) =>\n    context.enclosingRequiredFunctions.includes(requiredFunction),\n  );\n}\n''',
+              "constraint matcher",
+          )
+          sample = replace_once(
+              sample,
+              '''    const requiredLexicalSlotFeatures = options.requiredLexicalSlotFeatures;\n    if (requiredLexicalSlotFeatures !== undefined\n      && !sampled.slots.some((slot) =>\n        lexicalSlotMatchesRequiredFeatures(slot, requiredLexicalSlotFeatures),\n      )) continue;\n''',
+              '''    const requiredLexicalSlot = options.requiredLexicalSlot;\n    if (requiredLexicalSlot !== undefined\n      && !sampled.slotContexts.some((context) =>\n        lexicalSlotMatchesConstraint(context, requiredLexicalSlot),\n      )) continue;\n''',
+              "constraint application",
+          )
+          sample_path.write_text(sample)
+
+          composer_path = Path("src/curriculum/formal-syntax-utterance.ts")
+          composer = composer_path.read_text()
+          composer = replace_once(
+              composer,
+              '''      ...(requiresNegationPractice\n        ? { requiredLexicalSlotFeatures: { polarity: "negative" } }\n        : {}),\n''',
+              '''      ...(requiresNegationPractice\n        ? {\n            requiredLexicalSlot: {\n              requiredFeatures: { polarity: "negative" },\n              enclosingRequiredFunctions: ["predicate"],\n            },\n          }\n        : {}),\n''',
+              "composer predicate context",
+          )
+          composer_path.write_text(composer)
+
+          test_path = Path("tests/syntax/sample.test.ts")
+          test = test_path.read_text()
+          test = replace_once(
+              test,
+              '''const nestedTargetRules: readonly ProductionRule[] = [\n  production("sentence.wrapper", "Sentence", [constituent("clause", "Clause")]),\n  production("clause.target", "Clause", [constituent("content", "ContentClause", true)]),\n  production("clause.other", "Clause", [constituent("head", "Lexeme")]),\n  production("content.wrapper", "ContentClause", [constituent("clause", "Clause", true)]),\n];\n\ndescribe("random structural sampling", () => {\n''',
+              '''const nestedTargetRules: readonly ProductionRule[] = [\n  production("sentence.wrapper", "Sentence", [constituent("clause", "Clause")]),\n  production("clause.target", "Clause", [constituent("content", "ContentClause", true)]),\n  production("clause.other", "Clause", [constituent("head", "Lexeme")]),\n  production("content.wrapper", "ContentClause", [constituent("clause", "Clause", true)]),\n];\n\nconst contextualNegativeRules: readonly ProductionRule[] = [\n  production("sentence.predicate-context", "Sentence", [{\n    ...constituent("predicate", "AdjectivePhrase"),\n    requiredFunctions: ["predicate"] as const,\n  }]),\n  production("sentence.modifier-context", "Sentence", [{\n    ...constituent("modifier", "AdjectivePhrase"),\n    requiredFunctions: ["modifier"] as const,\n  }]),\n  production("adjective.negative", "AdjectivePhrase", [{\n    ...constituent("negation", "Lexeme"),\n    allowedUpos: ["ADV"] as const,\n    requiredFeatures: { polarity: "negative" },\n  }]),\n];\n\ndescribe("random structural sampling", () => {\n''',
+              "context fixture",
+          )
+          test = replace_once(
+              test,
+              '''  it("rejects random values outside the unit interval", () => {\n''',
+              '''  it("matches lexical requirements only in the requested enclosing function context", () => {\n    const requiredLexicalSlot = {\n      requiredFeatures: { polarity: "negative" },\n      enclosingRequiredFunctions: ["predicate"],\n    } as const;\n    const predicate = sampleStructuralDerivation({\n      rootCategory: "Sentence",\n      rootProductionRuleId: "sentence.predicate-context",\n      rules: contextualNegativeRules,\n      random: new SequenceRandom([0]),\n      maximumAttempts: 1,\n      requiredLexicalSlot,\n    });\n    const modifierFeatureOnly = sampleStructuralDerivation({\n      rootCategory: "Sentence",\n      rootProductionRuleId: "sentence.modifier-context",\n      rules: contextualNegativeRules,\n      random: new SequenceRandom([0]),\n      maximumAttempts: 1,\n      requiredLexicalSlot: { requiredFeatures: { polarity: "negative" } },\n    });\n    const modifierWithPredicateContext = sampleStructuralDerivation({\n      rootCategory: "Sentence",\n      rootProductionRuleId: "sentence.modifier-context",\n      rules: contextualNegativeRules,\n      random: new SequenceRandom([0]),\n      maximumAttempts: 1,\n      requiredLexicalSlot,\n    });\n\n    expect(predicate?.productionRulePath).toEqual([\n      "sentence.predicate-context",\n      "adjective.negative",\n    ]);\n    expect(modifierFeatureOnly).not.toBeNull();\n    expect(modifierWithPredicateContext).toBeNull();\n  });\n\n  it("rejects random values outside the unit interval", () => {\n''',
+              "context test",
+          )
+          test_path.write_text(test)
+          PY
+          git diff --check
+          npm ci
+          npm run app:catalog
+          npx vitest run tests/syntax/sample.test.ts tests/curriculum/predicate-marking-practice-ticket.test.ts --testTimeout=30000
+          git status --short
+          git add src/syntax/sample.ts src/curriculum/formal-syntax-utterance.ts tests/syntax/sample.test.ts
+          git commit -m "fix: constrain predicate marking to predicate context"
+          git push origin HEAD:agent/predicate-marking-context-contract
