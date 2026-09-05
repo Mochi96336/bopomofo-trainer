@@ -1,0 +1,102 @@
+name: tmp predicate marking context audit quick
+
+on:
+  push:
+    branches:
+      - agent/predicate-marking-context-audit-quick
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Preserve semantic audit tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin agent/predicate-marking-meter-audit
+          mkdir -p "$RUNNER_TEMP/predicate-context-tools" "$RUNNER_TEMP/predicate-context-output"
+          git show origin/agent/predicate-marking-meter-audit:scripts/tmp-predicate-marking-semantic-trace-patch.mjs > "$RUNNER_TEMP/predicate-context-tools/patch.mjs"
+          git show origin/agent/predicate-marking-meter-audit:scripts/tmp-predicate-marking-semantic-audit.ts > "$RUNNER_TEMP/predicate-context-tools/audit.ts"
+      - name: Measure broad context-constrained sweep
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/predicate-context-output"
+          PATCH="$RUNNER_TEMP/predicate-context-tools/patch.mjs"
+          AUDIT="$RUNNER_TEMP/predicate-context-tools/audit.ts"
+
+          prepare_ref() {
+            local ref="$1"
+            local label="$2"
+            git reset --hard
+            git clean -fd
+            git checkout --detach "$ref"
+            cp "$PATCH" scripts/tmp-predicate-marking-semantic-trace-patch.mjs
+            cp "$AUDIT" scripts/tmp-predicate-marking-semantic-audit.ts
+            node scripts/tmp-predicate-marking-semantic-trace-patch.mjs 2>"$OUT/${label}-patch.log"
+            npm run app:catalog >"$OUT/${label}-catalog.log" 2>&1
+          }
+
+          measure_default() {
+            local label="$1"
+            SAMPLE_COUNT=512 npx tsx scripts/tmp-predicate-marking-semantic-audit.ts >"$OUT/${label}.json"
+          }
+
+          prepare_ref 8b9ad1cf0a736d68268e9e26b0ef0efff32a42ac pre-retirement
+          measure_default pre-retirement
+
+          prepare_ref d166f9a0069458a524370403a827c22d28615ec6 post-retirement
+          measure_default post-retirement
+
+          prepare_ref c47177ef77ae725eb4ba97aab35dcb4f5953b659 context
+          measure_default context-default
+          for weight in 0 0.02 0.03 0.04 0.05 0.06 0.08; do
+            NEGATION_PRESENT_WEIGHT="$weight" SAMPLE_COUNT=512 \
+              npx tsx scripts/tmp-predicate-marking-semantic-audit.ts >"$OUT/sweep-${weight}.json"
+          done
+      - name: Build compact summary
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const out = process.env.RUNNER_TEMP + '/predicate-context-output';
+          const rows = fs.readdirSync(out)
+            .filter((name) => name.endsWith('.json'))
+            .sort()
+            .map((name) => {
+              const value = JSON.parse(fs.readFileSync(path.join(out, name), 'utf8'));
+              return {
+                name,
+                presentWeight: value.presentWeight,
+                successCount: value.successCount,
+                negativeCandidateCount: value.negativeCandidateCount,
+                aNotACandidateCount: value.aNotACandidateCount,
+                ticketNegationSuccessCount: value.ticketNegationSuccessCount,
+                negativeOriginCounts: value.negativeOriginCounts,
+                negativeRootCounts: value.negativeRootCounts,
+                negativeFamilyCounts: value.negativeFamilyCounts,
+                fallbackCounts: value.fallbackCounts,
+                rootCounts: value.rootCounts,
+                familyCounts: value.familyCounts,
+              };
+            });
+          fs.writeFileSync(path.join(out, 'summary.json'), JSON.stringify(rows, null, 2));
+          console.log(JSON.stringify(rows, null, 2));
+          NODE
+      - name: Upload audit artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: predicate-marking-context-audit-quick
+          path: ${{ runner.temp }}/predicate-context-output
+          if-no-files-found: error
