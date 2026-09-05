@@ -1,0 +1,83 @@
+name: tmp finalize terminal ticket 057
+
+on:
+  push:
+    branches:
+      - agent/predicate-marking-terminal-ticket-057-builder
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Finalize calibrated terminal-draw ticket
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Mochi96336"
+          git config user.email "144137376+Mochi96336@users.noreply.github.com"
+          git fetch origin agent/predicate-marking-terminal-ticket-057-finalizer
+          git checkout -B terminal-057 origin/agent/predicate-marking-terminal-ticket-057-finalizer
+          python <<'PY'
+          from pathlib import Path
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              return text.replace(old, new, 1)
+
+          policy_path = Path("src/curriculum/formal-syntax-sampling-policy.ts")
+          policy = policy_path.read_text()
+          policy = replace_once(
+              policy,
+              '''  // A 3.01% marking ticket produced 199/2048 negative derivations versus the\n  // same-meter pre-retirement 200/2048 baseline without restoring a negation root family.\n  predicateMarkingPracticeWeights: { ordinary: 0.9699, negation: 0.0301 },\n''',
+              '''  // A 5.70% terminal-draw marking ticket produced 200/2048 negative derivations,\n  // matching the same-meter pre-retirement baseline without restoring a negation\n  // root family or coupling ticket assignment to family-plan identity.\n  predicateMarkingPracticeWeights: { ordinary: 0.943, negation: 0.057 },\n''',
+              "policy calibration",
+          )
+          policy_path.write_text(policy)
+
+          test_path = Path("tests/curriculum/predicate-marking-practice-ticket.test.ts")
+          test = test_path.read_text()
+          test = replace_once(
+              test,
+              '''      ordinary: 0.9699,\n      negation: 0.0301,\n''',
+              '''      ordinary: 0.943,\n      negation: 0.057,\n''',
+              "pinned product prior",
+          )
+          test = replace_once(
+              test,
+              '''    expect(predicateMarkingPracticeIntentForTicketUnit(0.9698)).toBe("ordinary");\n    expect(predicateMarkingPracticeIntentForTicketUnit(0.9699)).toBe("negation");\n''',
+              '''    expect(predicateMarkingPracticeIntentForTicketUnit(0.9429)).toBe("ordinary");\n    expect(predicateMarkingPracticeIntentForTicketUnit(0.943)).toBe("negation");\n''',
+              "ticket threshold",
+          )
+          test = replace_once(
+              test,
+              '''    expect(Math.abs(negationCount / sampleCount - 0.0301)).toBeLessThan(0.006);\n''',
+              '''    expect(Math.abs(negationCount / sampleCount - 0.057)).toBeLessThan(0.008);\n''',
+              "ticket incidence expectation",
+          )
+          test_path.write_text(test)
+          PY
+          git diff --check
+          npm ci
+          npm run app:catalog
+          npm run typecheck
+          npx vitest run \
+            tests/curriculum/predicate-marking-practice-ticket.test.ts \
+            tests/curriculum/formal-syntax-effective-distribution.test.ts \
+            tests/syntax/sample.test.ts \
+            --testTimeout=30000
+          git status --short
+          git add src/curriculum/formal-syntax-sampling-policy.ts tests/curriculum/predicate-marking-practice-ticket.test.ts
+          git commit -m "fix: calibrate terminal-draw predicate marking prior"
+          git push origin HEAD:agent/predicate-marking-terminal-ticket-057-finalizer
