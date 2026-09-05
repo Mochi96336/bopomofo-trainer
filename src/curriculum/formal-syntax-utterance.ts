@@ -328,7 +328,12 @@ export function composeFormalSyntaxUtterances(
       random: input.random,
       maximumAttempts: requiresNegationPractice ? 8 : 1,
       ...(requiresNegationPractice
-        ? { requiredLexicalSlotFeatures: { polarity: "negative" } }
+        ? {
+            requiredLexicalSlot: {
+              requiredFeatures: { polarity: "negative" },
+              enclosingRequiredFunctions: ["predicate"],
+            },
+          }
         : {}),
       isLexicalSlotReachable: (slot) => {
         if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") return true;
