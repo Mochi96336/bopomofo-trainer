@@ -1,0 +1,200 @@
+name: tmp terminal ticket final audit
+
+on:
+  push:
+    branches:
+      - agent/predicate-marking-terminal-ticket-final-audit
+
+jobs:
+  fine-calibration:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: w0560
+            weight: "0.056"
+          - label: w0565
+            weight: "0.0565"
+          - label: w0570
+            weight: "0.057"
+          - label: w05725
+            weight: "0.05725"
+          - label: w0575
+            weight: "0.0575"
+          - label: w05775
+            weight: "0.05775"
+          - label: w0580
+            weight: "0.058"
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Preserve structural audit tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin agent/predicate-marking-meter-audit
+          mkdir -p "$RUNNER_TEMP/final-ticket-tools" "$RUNNER_TEMP/final-ticket-output"
+          git show origin/agent/predicate-marking-meter-audit:scripts/tmp-predicate-marking-semantic-trace-patch.mjs > "$RUNNER_TEMP/final-ticket-tools/patch.mjs"
+          git show origin/agent/predicate-marking-meter-audit:scripts/tmp-predicate-marking-semantic-audit.ts > "$RUNNER_TEMP/final-ticket-tools/audit.ts"
+      - name: Measure ${{ matrix.label }}
+        shell: bash
+        env:
+          WEIGHT: ${{ matrix.weight }}
+        run: |
+          set -euo pipefail
+          git reset --hard
+          git clean -fd
+          git checkout --detach 9ebfe41400416a66182eb29eaaf5a7c47f494c7d
+          cp "$RUNNER_TEMP/final-ticket-tools/patch.mjs" scripts/tmp-predicate-marking-semantic-trace-patch.mjs
+          cp "$RUNNER_TEMP/final-ticket-tools/audit.ts" scripts/tmp-predicate-marking-semantic-audit.ts
+          node scripts/tmp-predicate-marking-semantic-trace-patch.mjs 2>"$RUNNER_TEMP/final-ticket-output/${{ matrix.label }}-patch.log"
+          npm run app:catalog >"$RUNNER_TEMP/final-ticket-output/${{ matrix.label }}-catalog.log" 2>&1
+          NEGATION_PRESENT_WEIGHT="$WEIGHT" SAMPLE_COUNT=2048 npx tsx scripts/tmp-predicate-marking-semantic-audit.ts >"$RUNNER_TEMP/final-ticket-output/${{ matrix.label }}.json"
+      - name: Upload ${{ matrix.label }} result
+        uses: actions/upload-artifact@v4
+        with:
+          name: terminal-ticket-final-${{ matrix.label }}
+          path: ${{ runner.temp }}/final-ticket-output
+          if-no-files-found: error
+
+  independence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Measure terminal ticket independence
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > scripts/tmp-terminal-ticket-independence-audit.ts <<'TS'
+          import { createSeededRandom } from "../src/curriculum/random.js";
+          import {
+            createSentenceConstructionFamilyPlanSample,
+            predicateMarkingPracticeIntentForTicketUnit,
+            PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+          } from "../src/curriculum/formal-syntax-sampling-policy.js";
+          import { FORMAL_SYNTAX_RULES } from "../src/syntax/grammar.js";
+
+          const sampleCount = 131072;
+          const negationWeight = 0.0575;
+          const policy = {
+            ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+            version: "terminal-ticket-independence-audit",
+            predicateMarkingPracticeWeights: {
+              ordinary: 1 - negationWeight,
+              negation: negationWeight,
+            },
+          } as const;
+          const sentenceRules = FORMAL_SYNTAX_RULES.filter((rule) => rule.output === "Sentence");
+
+          interface Bucket {
+            count: number;
+            negation: number;
+            unitSum: number;
+            unitSquaredSum: number;
+          }
+          const buckets = new Map<string, Bucket>();
+          let totalNegation = 0;
+          let unitSum = 0;
+          let unitSquaredSum = 0;
+
+          for (let seed = 0; seed < sampleCount; seed += 1) {
+            const sampled = createSentenceConstructionFamilyPlanSample(
+              sentenceRules,
+              createSeededRandom(`predicate-marking-terminal-independence:${seed}`),
+              policy,
+            );
+            const firstFamily = sampled.plan[0]?.family;
+            if (firstFamily === undefined) throw new Error("family plan unexpectedly empty");
+            const unit = sampled.predicateMarkingTicketUnit;
+            const isNegation = predicateMarkingPracticeIntentForTicketUnit(unit, policy) === "negation";
+            let bucket = buckets.get(firstFamily);
+            if (bucket === undefined) {
+              bucket = { count: 0, negation: 0, unitSum: 0, unitSquaredSum: 0 };
+              buckets.set(firstFamily, bucket);
+            }
+            bucket.count += 1;
+            bucket.negation += Number(isNegation);
+            bucket.unitSum += unit;
+            bucket.unitSquaredSum += unit * unit;
+            totalNegation += Number(isNegation);
+            unitSum += unit;
+            unitSquaredSum += unit * unit;
+          }
+
+          const overallRate = totalNegation / sampleCount;
+          const overallMean = unitSum / sampleCount;
+          const overallVariance = unitSquaredSum / sampleCount - overallMean * overallMean;
+          let chiSquare = 0;
+          let maxAbsRateDeviation = 0;
+          let maxAbsMeanDeviation = 0;
+          let maxAbsZ = 0;
+          const byFirstFamily = [...buckets.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([family, bucket]) => {
+            const rate = bucket.negation / bucket.count;
+            const mean = bucket.unitSum / bucket.count;
+            const variance = bucket.unitSquaredSum / bucket.count - mean * mean;
+            const expectedNegation = bucket.count * overallRate;
+            const expectedOrdinary = bucket.count * (1 - overallRate);
+            const observedOrdinary = bucket.count - bucket.negation;
+            chiSquare += (bucket.negation - expectedNegation) ** 2 / expectedNegation;
+            chiSquare += (observedOrdinary - expectedOrdinary) ** 2 / expectedOrdinary;
+            const standardError = Math.sqrt(overallRate * (1 - overallRate) / bucket.count);
+            const z = standardError === 0 ? 0 : (rate - overallRate) / standardError;
+            maxAbsRateDeviation = Math.max(maxAbsRateDeviation, Math.abs(rate - overallRate));
+            maxAbsMeanDeviation = Math.max(maxAbsMeanDeviation, Math.abs(mean - overallMean));
+            maxAbsZ = Math.max(maxAbsZ, Math.abs(z));
+            return {
+              family,
+              count: bucket.count,
+              negationCount: bucket.negation,
+              negationRate: rate,
+              rateDeviationFromOverall: rate - overallRate,
+              z,
+              terminalUnitMean: mean,
+              terminalUnitVariance: variance,
+              meanDeviationFromOverall: mean - overallMean,
+            };
+          });
+
+          const result = {
+            sampleCount,
+            configuredNegationWeight: negationWeight,
+            totalNegation,
+            overallNegationRate: overallRate,
+            overallNegationRateError: overallRate - negationWeight,
+            terminalUnitMean: overallMean,
+            terminalUnitVariance: overallVariance,
+            expectedUniformMean: 0.5,
+            expectedUniformVariance: 1 / 12,
+            chiSquareFirstFamilyVsTicket: chiSquare,
+            degreesOfFreedom: Math.max(0, buckets.size - 1),
+            cramersV: Math.sqrt(chiSquare / sampleCount),
+            maxAbsConditionalRateDeviation: maxAbsRateDeviation,
+            maxAbsConditionalZ: maxAbsZ,
+            maxAbsConditionalUnitMeanDeviation: maxAbsMeanDeviation,
+            byFirstFamily,
+          };
+          console.log(JSON.stringify(result, null, 2));
+          TS
+          npx tsx scripts/tmp-terminal-ticket-independence-audit.ts | tee "$RUNNER_TEMP/terminal-ticket-independence.json"
+      - name: Upload independence result
+        uses: actions/upload-artifact@v4
+        with:
+          name: terminal-ticket-independence
+          path: ${{ runner.temp }}/terminal-ticket-independence.json
+          if-no-files-found: error
