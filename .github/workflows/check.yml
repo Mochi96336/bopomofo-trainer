@@ -63,6 +63,18 @@ jobs:
         with:
           name: causative-occurrence-audit-failure
           path: causative-occurrence-audit.log
+      - name: Verify BA occurrence audit
+        id: ba-occurrence-audit
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx scripts/audit-ba-occurrence-evidence.ts --verify 2>&1 | tee ba-occurrence-audit.log
+      - name: Upload BA occurrence audit failure
+        if: failure() && steps.ba-occurrence-audit.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ba-occurrence-audit-failure
+          path: ba-occurrence-audit.log
       - name: Verify runtime occurrence capabilities
         id: occurrence-capabilities
         shell: bash
@@ -77,6 +89,21 @@ jobs:
           path: |
             occurrence-capabilities.log
             runtime-occurrence-capabilities-candidate.json
+          if-no-files-found: ignore
+      - name: Verify BA runtime occurrence capability projection
+        id: ba-occurrence-capabilities
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run grammar:runtime-ba-occurrence-capabilities -- --output runtime-ba-occurrence-capabilities-candidate.json 2>&1 | tee ba-occurrence-capabilities.log
+      - name: Upload BA runtime occurrence capability verification
+        if: failure() && steps.ba-occurrence-capabilities.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ba-runtime-occurrence-capability-verification
+          path: |
+            ba-occurrence-capabilities.log
+            runtime-ba-occurrence-capabilities-candidate.json
           if-no-files-found: ignore
       - name: Typecheck
         id: typecheck

@@ -34,9 +34,9 @@ describe("Clause model v2 migration inventory", () => {
       targetAxis: "predicate-marking",
       target: "modality",
     });
-    expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.negative"]).toMatchObject({
-      targetAxis: "predicate-marking",
-      target: "polarity",
+    expect(RETIRED_CLAUSE_RULE_V2_DECISIONS["clause.negative"]).toMatchObject({
+      targetAxes: ["predicate-marking"],
+      evidenceContract: "predicate.verb.expanded:negation",
     });
     expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.aspect"]).toMatchObject({
       targetAxis: "predicate-marking",
@@ -59,7 +59,7 @@ describe("Clause model v2 migration inventory", () => {
 
     expect(counts).toEqual({
       "preserve-core": 7,
-      "move-to-axis": 6,
+      "move-to-axis": 5,
       "rebuild-construction": 3,
       "rebuild-embedding-control": 5,
       "hold-for-corpus-rebuild": 2,
@@ -76,6 +76,7 @@ describe("Clause model v2 migration inventory", () => {
       evidenceContract: "causative-evidence-audit-v1",
     });
     expect(FORMAL_SYNTAX_RULES.some((rule) => rule.id === "clause.causative")).toBe(false);
+    expect(FORMAL_SYNTAX_RULES.some((rule) => rule.id === "clause.negative")).toBe(false);
 
     expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.bei"]).toMatchObject({
       group: "rebuild-construction",

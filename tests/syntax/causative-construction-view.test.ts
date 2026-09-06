@@ -68,6 +68,7 @@ describe("same-occurrence causative construction view", () => {
       id: "causative.finite-ccomp",
       rootCategory: "Clause",
       rootProductionRuleId: "clause.object-content",
+      occurrenceCapabilityInheritanceTargets: [],
       evidenceContract: "same-token-voice-cau-direct-ccomp-v1",
     });
 
@@ -88,7 +89,7 @@ describe("same-occurrence causative construction view", () => {
     const derivedPredicateHeads = rules
       .filter((rule) => rule.output === "Predicate")
       .map((rule) => rule.constituents.find((item) => item.key === "head"));
-    expect(canonicalPredicateHeads.every((head) => head?.inheritOccurrenceCapabilities === undefined))
+    expect(canonicalPredicateHeads.every((head) => head?.inheritOccurrenceCapabilities === true))
       .toBe(true);
     expect(derivedPredicateHeads.every((head) => head?.inheritOccurrenceCapabilities === true))
       .toBe(true);
