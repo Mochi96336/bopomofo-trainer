@@ -5,6 +5,7 @@ import { validRuntimeOccurrenceCapabilities } from "./runtime-occurrence-capabil
 export const RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS = [
   "same-token-voice-cau-direct-ccomp-v1",
   "same-predicate-obl-patient-case-ba-v1",
+  "same-token-exact-aux-preverbal-v1",
 ] as const;
 export type RuntimeOccurrenceEvidenceContract =
   (typeof RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS)[number];
@@ -45,6 +46,14 @@ const REVIEWED_PROJECTION_CONTRACTS = new Map<RuntimeOccurrenceCapability, Revie
     // this sidecar is designed to avoid. The pinned source + identity-safe
     // generated artifact is the reviewed proof for this capability.
     acceptTargetProfile: () => true,
+  }],
+  ["preverbal-auxiliary-same-occurrence", {
+    evidenceContract: "same-token-exact-aux-preverbal-v1",
+    // Head-relative token position is not retained by the aggregate runtime
+    // profile. The sidecar is authoritative for that same-occurrence fact; the
+    // aggregate profile only backstops the lexical UPOS/function identity.
+    acceptTargetProfile: (profile) =>
+      profile.upos === "AUX" && profile.functions.includes("auxiliary"),
   }],
 ]);
 
