@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - "scripts/probe-preverbal-aux-runtime-identity.ts"
+      - "scripts/migrate-active-runtime-preverbal-aux-occurrence-capabilities.ts"
+      - "src/syntax/runtime-occurrence-capabilities.ts"
+      - "src/syntax/runtime-occurrence-capability-projection.ts"
+      - "src/syntax/types.ts"
       - ".github/workflows/tmp-preverbal-aux-runtime-identity-probe.yml"
 
 permissions:
@@ -24,3 +28,13 @@ jobs:
         run: npm ci --include=dev --ignore-scripts
       - name: Measure identity frontier
         run: npx tsx scripts/probe-preverbal-aux-runtime-identity.ts
+      - name: Build sidecar candidate
+        run: >-
+          npx tsx scripts/migrate-active-runtime-preverbal-aux-occurrence-capabilities.ts
+          --write
+          --output runtime-preverbal-aux-occurrence-capabilities-candidate.json
+      - name: Upload sidecar candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-preverbal-aux-occurrence-capabilities-candidate
+          path: runtime-preverbal-aux-occurrence-capabilities-candidate.json
