@@ -51,16 +51,34 @@ const unmatchedSourceKeys = [...sourceKeys]
   .filter((key) => !identity.matchedSourceKeys.has(key))
   .sort();
 const ambiguousSourceKeys = [...identity.ambiguousSourceKeys].sort();
+const activatableSourceKeys = [...identity.activatableSourceKeys].sort();
 
 const activatedProfileIds = new Set<string>();
 const activatedEntryIds = new Set<string>();
-const activatedSourceKeys = new Set<string>();
 for (const [index, profile] of profilesArtifact.profiles.entries()) {
   const sourceKey = identityCandidates[index]?.sourceKey;
   if (sourceKey === undefined || !identity.activatableSourceKeys.has(sourceKey)) continue;
   activatedProfileIds.add(profile.id);
   activatedEntryIds.add(profile.entryId);
-  activatedSourceKeys.add(sourceKey);
+}
+
+function formForSourceKey(sourceKey: string): string {
+  return sourceKey.split("\u0000", 1)[0] ?? sourceKey;
+}
+
+function occurrenceCountForSourceKey(sourceKey: string): number {
+  return sourceEvidence.preverbalAuxFormCounts[formForSourceKey(sourceKey)] ?? 0;
+}
+
+function sourceKeyRows(keys: readonly string[]) {
+  return keys.map((sourceKey) => ({
+    sourceKey,
+    sourceOccurrenceCount: occurrenceCountForSourceKey(sourceKey),
+  }));
+}
+
+function tokenMass(keys: readonly string[]): number {
+  return keys.reduce((sum, key) => sum + occurrenceCountForSourceKey(key), 0);
 }
 
 const inspectForm = (form: string) => {
@@ -85,8 +103,11 @@ console.log(JSON.stringify({
   unmatchedSourceKeyCount: unmatchedSourceKeys.length,
   activatedProfileCount: activatedProfileIds.size,
   activatedEntryCount: activatedEntryIds.size,
-  activatedSourceKeyCount: activatedSourceKeys.size,
-  ambiguousSourceKeys,
-  unmatchedSourceKeys,
+  activatableSourceTokenCount: tokenMass(activatableSourceKeys),
+  ambiguousSourceTokenCount: tokenMass(ambiguousSourceKeys),
+  unmatchedSourceTokenCount: tokenMass(unmatchedSourceKeys),
+  activatableSourceKeys: sourceKeyRows(activatableSourceKeys),
+  ambiguousSourceKeys: sourceKeyRows(ambiguousSourceKeys),
+  unmatchedSourceKeys: sourceKeyRows(unmatchedSourceKeys),
   aspectExceptions: [inspectForm("了"), inspectForm("著")],
 }, null, 2));
