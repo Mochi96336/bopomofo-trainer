@@ -75,6 +75,18 @@ jobs:
         with:
           name: ba-occurrence-audit-failure
           path: ba-occurrence-audit.log
+      - name: Verify modality source evidence
+        id: modality-source-audit
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx scripts/audit-modality-source-evidence.ts --verify 2>&1 | tee modality-source-audit.log
+      - name: Upload modality source audit failure
+        if: failure() && steps.modality-source-audit.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: modality-source-audit-failure
+          path: modality-source-audit.log
       - name: Verify runtime occurrence capabilities
         id: occurrence-capabilities
         shell: bash
