@@ -117,6 +117,21 @@ jobs:
             ba-occurrence-capabilities.log
             runtime-ba-occurrence-capabilities-candidate.json
           if-no-files-found: ignore
+      - name: Verify preverbal AUX runtime occurrence capability projection
+        id: preverbal-aux-occurrence-capabilities
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run grammar:runtime-preverbal-aux-occurrence-capabilities -- --output runtime-preverbal-aux-occurrence-capabilities-candidate.json 2>&1 | tee preverbal-aux-occurrence-capabilities.log
+      - name: Upload preverbal AUX runtime occurrence capability verification
+        if: failure() && steps.preverbal-aux-occurrence-capabilities.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: preverbal-aux-runtime-occurrence-capability-verification
+          path: |
+            preverbal-aux-occurrence-capabilities.log
+            runtime-preverbal-aux-occurrence-capabilities-candidate.json
+          if-no-files-found: ignore
       - name: Typecheck
         id: typecheck
         shell: bash

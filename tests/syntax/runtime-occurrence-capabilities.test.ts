@@ -5,7 +5,10 @@ import {
 } from "../../src/app/generated/catalog.js";
 import { CAUSATIVE_OCCURRENCE_CAPABILITY } from "../../scripts/causative-occurrence-source.js";
 import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
-import { BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY } from "../../src/syntax/runtime-occurrence-capabilities.js";
+import {
+  BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY,
+  PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY,
+} from "../../src/syntax/runtime-occurrence-capabilities.js";
 
 describe("packaged same-occurrence capabilities", () => {
   it("preserves the reviewed causative-ccomp boundary", () => {
@@ -38,6 +41,42 @@ describe("packaged same-occurrence capabilities", () => {
 
     expect(occurrenceBacked).toHaveLength(139);
     expect(new Set(occurrenceBacked.map((profile) => profile.entryId)).size).toBe(139);
+  });
+
+  it("packages the 22 identity-safe preverbal auxiliary profiles without aspect exceptions", () => {
+    const textByEntryId = new Map(PRACTICE_CATALOG.map((entry) => [entry.id, entry.prompt.text]));
+    const occurrenceBacked = SYNTAX_PROFILES.filter((profile) =>
+      profile.occurrenceCapabilities?.includes(
+        PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY,
+      ) ?? false,
+    );
+
+    expect(occurrenceBacked).toHaveLength(22);
+    expect(new Set(occurrenceBacked.map((profile) => profile.entryId)).size).toBe(22);
+    expect(occurrenceBacked.every((profile) =>
+      profile.upos === "AUX" && profile.functions.includes("auxiliary"),
+    )).toBe(true);
+
+    const texts = occurrenceBacked
+      .map((profile) => textByEntryId.get(profile.entryId))
+      .filter((text): text is string => text !== undefined);
+    expect(texts).toContain("可以");
+    expect(texts).toContain("能");
+    expect(texts).toContain("可能");
+    expect(texts).not.toContain("了");
+    expect(texts).not.toContain("著");
+  });
+
+  it("keeps preverbal auxiliary evidence consumer-free until modality licensing is reviewed", () => {
+    const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
+      rule.constituents.filter((constituent) =>
+        constituent.requiredOccurrenceCapabilities?.includes(
+          PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY,
+        ) ?? false,
+      ).map((constituent) => `${rule.id}:${constituent.key}`),
+    );
+
+    expect(consumers).toEqual([]);
   });
 
   it("uses reviewed BA occurrence evidence only on the attested BAPredicate compatibility route", () => {
