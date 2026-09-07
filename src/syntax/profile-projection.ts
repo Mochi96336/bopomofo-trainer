@@ -77,6 +77,7 @@ export interface SyntaxProfileLexeme {
 
 const UPOS_SET = new Set<string>(UPOS_VALUES);
 const COMPLEMENT_RELATIONS = ["obj", "iobj", "ccomp", "xcomp", "obl"] as const;
+const STRONG_COMPLEMENT_RELATIONS = ["obj", "iobj", "ccomp", "xcomp"] as const;
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -229,27 +230,30 @@ function deriveValencyFrames(
 ): readonly ValencyFrame[] {
   if (upos !== "VERB" && upos !== "AUX" && upos !== "ADJ") return ["avalent"];
   const frames = new Set<ValencyFrame>();
-  let hasObjectBearing = false;
-  let hasObjectless = false;
+  let hasStrongPositiveComplementEvidence = false;
+  let hasComplementlessOccurrence = false;
   for (const [signature, observations] of Object.entries(evidence.valencySignatureCounts)) {
     if (observations <= 0) continue;
     const counts = signatureCounts(signature);
-    const hasComplement = COMPLEMENT_RELATIONS.some((relation) => (counts[relation] ?? 0) > 0);
-    hasObjectless ||= !hasComplement;
-    if ((counts.iobj ?? 0) > 0) {
-      frames.add("ditransitive");
-      hasObjectBearing = true;
-    }
-    if ((counts.obj ?? 0) > 0) {
-      frames.add("transitive");
-      hasObjectBearing = true;
-    }
+    const hasAnyComplement = COMPLEMENT_RELATIONS.some((relation) => (counts[relation] ?? 0) > 0);
+    const hasStrongComplement = STRONG_COMPLEMENT_RELATIONS
+      .some((relation) => (counts[relation] ?? 0) > 0);
+    hasStrongPositiveComplementEvidence ||= hasStrongComplement;
+    hasComplementlessOccurrence ||= !hasAnyComplement;
+    if ((counts.iobj ?? 0) > 0) frames.add("ditransitive");
+    if ((counts.obj ?? 0) > 0) frames.add("transitive");
     if ((counts.ccomp ?? 0) > 0) frames.add("clausal-complement");
     if ((counts.xcomp ?? 0) > 0) frames.add("open-clausal-complement");
     if ((counts.obl ?? 0) > 0) frames.add("adpositional-complement");
   }
-  if (hasObjectless) frames.add("intransitive");
-  if (hasObjectBearing && hasObjectless) frames.add("ambitransitive");
+  // Complementless occurrences are realization evidence. Strong lexical
+  // complement evidence (obj/iobj/ccomp/xcomp) suppresses the provisional
+  // intransitive fallback, but generic `obl` remains unresolved: until its
+  // selected/adjunct distinction is preserved, it must not erase an otherwise
+  // observed complementless realization.
+  if (!hasStrongPositiveComplementEvidence && hasComplementlessOccurrence) {
+    frames.add("intransitive");
+  }
   if ((evidence.constructionRelationCounts["child:cop"] ?? 0) > 0) {
     frames.add("copular");
   }
