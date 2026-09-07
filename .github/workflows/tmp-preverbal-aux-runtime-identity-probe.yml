@@ -1,0 +1,26 @@
+name: tmp preverbal AUX runtime identity probe
+
+on:
+  pull_request:
+    paths:
+      - "scripts/probe-preverbal-aux-runtime-identity.ts"
+      - ".github/workflows/tmp-preverbal-aux-runtime-identity-probe.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Measure identity frontier
+        run: npx tsx scripts/probe-preverbal-aux-runtime-identity.ts
