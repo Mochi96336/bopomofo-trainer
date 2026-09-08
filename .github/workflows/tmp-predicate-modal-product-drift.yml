@@ -1,9 +1,9 @@
-name: tmp Predicate modal product drift
+name: tmp Clause modal product drift
 
 on:
   push:
     branches:
-      - agent/predicate-modal-final-product-drift-audit
+      - agent/clause-modal-final-product-drift-audit
 
 permissions:
   contents: read
@@ -15,9 +15,9 @@ jobs:
       matrix:
         include:
           - label: base
-            ref: 511817f93a85c72ad5ab3a8809a9993a96745388
-          - label: landing
             ref: 753c6f28abe7939d850e131be3986fccce756a48
+          - label: landing
+            ref: 1f30e902f9831b8c25a4f6af13b2823edcc5412a
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -63,7 +63,7 @@ jobs:
       - name: Upload ${{ matrix.label }} result
         uses: actions/upload-artifact@v4
         with:
-          name: predicate-modal-drift-${{ matrix.label }}
+          name: clause-modal-drift-${{ matrix.label }}
           path: ${{ runner.temp }}/modal-drift-output
           if-no-files-found: error
 
@@ -73,7 +73,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: predicate-modal-drift-*
+          pattern: clause-modal-drift-*
           path: modal-drift
           merge-multiple: true
       - name: Compare exact product outputs
@@ -100,8 +100,8 @@ jobs:
           const summary = {
             sampleCount: base.sampleCount,
             refs: {
-              base: '511817f93a85c72ad5ab3a8809a9993a96745388',
-              landing: '753c6f28abe7939d850e131be3986fccce756a48',
+              base: '753c6f28abe7939d850e131be3986fccce756a48',
+              landing: '1f30e902f9831b8c25a4f6af13b2823edcc5412a',
             },
             aggregate: {
               success: [base.successCount, landing.successCount],
@@ -131,12 +131,12 @@ jobs:
               ticketIntent: mismatch('ticketIntent'),
             },
           };
-          fs.writeFileSync('predicate-modal-product-drift-8192.json', JSON.stringify(summary, null, 2) + '\n');
+          fs.writeFileSync('clause-modal-product-drift-8192.json', JSON.stringify(summary, null, 2) + '\n');
           console.log(JSON.stringify(summary, null, 2));
           NODE
       - name: Upload aggregate result
         uses: actions/upload-artifact@v4
         with:
-          name: predicate-modal-product-drift-8192
-          path: predicate-modal-product-drift-8192.json
+          name: clause-modal-product-drift-8192
+          path: clause-modal-product-drift-8192.json
           if-no-files-found: error
