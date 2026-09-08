@@ -1,0 +1,91 @@
+name: tmp Predicate modal drift postprocess
+
+on:
+  push:
+    branches:
+      - agent/predicate-modal-final-product-drift-audit
+    paths:
+      - .github/workflows/tmp-predicate-modal-drift-postprocess.yml
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  postprocess:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: Mochi96336/bopomofo-trainer
+          run-id: 34219171439
+          pattern: predicate-modal-drift-*
+          path: modal-drift
+          merge-multiple: true
+      - name: Analyze changed seeds
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const base = JSON.parse(fs.readFileSync('modal-drift/base.json', 'utf8'));
+          const landing = JSON.parse(fs.readFileSync('modal-drift/landing.json', 'utf8'));
+          const changed = [];
+          const pathCounts = {};
+          let changedWithPredicateExpanded = 0;
+          let profileOnlyNoText = 0;
+          let derivationOnly = 0;
+          let unchangedTextButDerivation = 0;
+          for (let i = 0; i < base.records.length; i += 1) {
+            const a = base.records[i];
+            const b = landing.records[i];
+            const textChanged = a.text !== b.text;
+            const profilesChanged = JSON.stringify(a.syntaxProfileIds) !== JSON.stringify(b.syntaxProfileIds);
+            const derivationChanged = a.syntaxDerivationId !== b.syntaxDerivationId;
+            if (!textChanged && !profilesChanged && !derivationChanged) continue;
+            const hasPredicateExpanded = (a.productionRulePath ?? []).includes('predicate.verb.expanded')
+              || (b.productionRulePath ?? []).includes('predicate.verb.expanded');
+            if (hasPredicateExpanded) changedWithPredicateExpanded += 1;
+            if (profilesChanged && !textChanged) profileOnlyNoText += 1;
+            if (derivationChanged && !profilesChanged && !textChanged) derivationOnly += 1;
+            if (derivationChanged && !textChanged) unchangedTextButDerivation += 1;
+            const key = (a.productionRulePath ?? []).filter((id) => id.includes('predicate') || id.includes('verb') || id === 'clause.modal').join(' > ');
+            pathCounts[key] = (pathCounts[key] ?? 0) + 1;
+            changed.push({
+              seed: a.seed,
+              textChanged,
+              profilesChanged,
+              derivationChanged,
+              hasPredicateExpanded,
+              baseText: a.text,
+              landingText: b.text,
+              baseSyntaxProfileIds: a.syntaxProfileIds,
+              landingSyntaxProfileIds: b.syntaxProfileIds,
+              productionRulePath: a.productionRulePath,
+            });
+          }
+          const summary = {
+            changedAny: changed.length,
+            changedWithPredicateExpanded,
+            changedOutsidePredicateExpanded: changed.length - changedWithPredicateExpanded,
+            textChanged: changed.filter((row) => row.textChanged).length,
+            profilesChanged: changed.filter((row) => row.profilesChanged).length,
+            derivationChanged: changed.filter((row) => row.derivationChanged).length,
+            profileOnlyNoText,
+            derivationOnly,
+            unchangedTextButDerivation,
+            pathCounts: Object.fromEntries(Object.entries(pathCounts).sort((a,b) => b[1]-a[1])),
+            firstChangedExamples: changed.slice(0, 20),
+          };
+          console.log(JSON.stringify(summary, null, 2));
+          fs.writeFileSync('predicate-modal-drift-postprocess.json', JSON.stringify(summary, null, 2) + '\n');
+          if (summary.changedOutsidePredicateExpanded !== 0) {
+            throw new Error(`found ${summary.changedOutsidePredicateExpanded} changed outputs outside predicate.verb.expanded`);
+          }
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: predicate-modal-drift-postprocess
+          path: predicate-modal-drift-postprocess.json
+          if-no-files-found: error
