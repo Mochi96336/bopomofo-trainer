@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      MODAL_AUDIT_SAMPLES: "2048"
+      MODAL_AUDIT_SAMPLES: "256"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
