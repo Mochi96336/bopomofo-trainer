@@ -1,0 +1,35 @@
+name: tmp modal consumer frontier audit
+
+on:
+  pull_request:
+    paths:
+      - "scripts/audit-modal-consumer-frontier.ts"
+      - ".github/workflows/tmp-modal-consumer-frontier-audit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MODAL_AUDIT_SAMPLES: "2048"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Audit modal consumer frontier
+        run: npx tsx scripts/audit-modal-consumer-frontier.ts | tee modal-consumer-frontier.json
+      - name: Upload audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: modal-consumer-frontier-audit
+          path: modal-consumer-frontier.json
+          if-no-files-found: error
