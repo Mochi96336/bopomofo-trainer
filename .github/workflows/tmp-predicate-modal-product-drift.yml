@@ -1,0 +1,142 @@
+name: tmp Predicate modal product drift
+
+on:
+  push:
+    branches:
+      - agent/predicate-modal-final-product-drift-audit
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: base
+            ref: 511817f93a85c72ad5ab3a8809a9993a96745388
+          - label: landing
+            ref: 753c6f28abe7939d850e131be3986fccce756a48
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Preserve structural audit tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin agent/predicate-marking-meter-audit
+          mkdir -p "$RUNNER_TEMP/modal-drift-tools" "$RUNNER_TEMP/modal-drift-output"
+          git show origin/agent/predicate-marking-meter-audit:scripts/tmp-predicate-marking-semantic-trace-patch.mjs > "$RUNNER_TEMP/modal-drift-tools/patch.mjs"
+          git show origin/agent/predicate-marking-meter-audit:scripts/tmp-predicate-marking-semantic-audit.ts > "$RUNNER_TEMP/modal-drift-tools/audit.ts"
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = process.env.RUNNER_TEMP + '/modal-drift-tools/audit.ts';
+          let source = fs.readFileSync(path, 'utf8');
+          const needle = '    text: candidate?.text ?? null,\n    productionRulePath,\n';
+          if (!source.includes(needle)) throw new Error('audit profile trace insertion point missing');
+          source = source.replace(needle, '    text: candidate?.text ?? null,\n    syntaxProfileIds: candidate?.syntaxProfileIds ?? [],\n    productionRulePath,\n');
+          fs.writeFileSync(path, source);
+          NODE
+      - name: Measure ${{ matrix.label }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git reset --hard
+          git clean -fd
+          git checkout --detach '${{ matrix.ref }}'
+          cp "$RUNNER_TEMP/modal-drift-tools/patch.mjs" scripts/tmp-predicate-marking-semantic-trace-patch.mjs
+          cp "$RUNNER_TEMP/modal-drift-tools/audit.ts" scripts/tmp-predicate-marking-semantic-audit.ts
+          node scripts/tmp-predicate-marking-semantic-trace-patch.mjs 2>"$RUNNER_TEMP/modal-drift-output/${{ matrix.label }}-patch.log"
+          npm run app:catalog >"$RUNNER_TEMP/modal-drift-output/${{ matrix.label }}-catalog.log" 2>&1
+          SAMPLE_COUNT=8192 npx tsx scripts/tmp-predicate-marking-semantic-audit.ts >"$RUNNER_TEMP/modal-drift-output/${{ matrix.label }}.json"
+      - name: Upload ${{ matrix.label }} result
+        uses: actions/upload-artifact@v4
+        with:
+          name: predicate-modal-drift-${{ matrix.label }}
+          path: ${{ runner.temp }}/modal-drift-output
+          if-no-files-found: error
+
+  aggregate:
+    needs: measure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: predicate-modal-drift-*
+          path: modal-drift
+          merge-multiple: true
+      - name: Compare exact product outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs = require('node:fs');
+          const base = JSON.parse(fs.readFileSync('modal-drift/base.json', 'utf8'));
+          const landing = JSON.parse(fs.readFileSync('modal-drift/landing.json', 'utf8'));
+          if (base.sampleCount !== 8192 || landing.sampleCount !== 8192) throw new Error('expected 8192 samples per side');
+          if (base.records.length !== landing.records.length) throw new Error('record count mismatch');
+          const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+          const mismatch = (field) => base.records.reduce((count, row, index) => count + (same(row[field], landing.records[index][field]) ? 0 : 1), 0);
+          for (let index = 0; index < base.records.length; index += 1) {
+            if (base.records[index].seed !== landing.records[index].seed) throw new Error(`seed mismatch at ${index}`);
+          }
+          const tvCount = (left, right) => {
+            const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+            let absolute = 0;
+            for (const key of keys) absolute += Math.abs((left[key] ?? 0) - (right[key] ?? 0));
+            return absolute / 2;
+          };
+          const summary = {
+            sampleCount: base.sampleCount,
+            refs: {
+              base: '511817f93a85c72ad5ab3a8809a9993a96745388',
+              landing: '753c6f28abe7939d850e131be3986fccce756a48',
+            },
+            aggregate: {
+              success: [base.successCount, landing.successCount],
+              structuralNegative: [base.negativeCandidateCount, landing.negativeCandidateCount],
+              aNotA: [base.aNotACandidateCount, landing.aNotACandidateCount],
+              ticketNegationSuccess: [base.ticketNegationSuccessCount, landing.ticketNegationSuccessCount],
+              rootTvCount: tvCount(base.rootCounts, landing.rootCounts),
+              familyTvCount: tvCount(base.familyCounts, landing.familyCounts),
+              fallbackCountsBase: base.fallbackCounts,
+              fallbackCountsLanding: landing.fallbackCounts,
+              rootCountsBase: base.rootCounts,
+              rootCountsLanding: landing.rootCounts,
+            },
+            perSeedMismatch: {
+              success: mismatch('success'),
+              rootRuleId: mismatch('rootRuleId'),
+              family: mismatch('family'),
+              fallbackReasons: mismatch('fallbackReasons'),
+              productionRulePath: mismatch('productionRulePath'),
+              syntaxProfileIds: mismatch('syntaxProfileIds'),
+              syntaxDerivationId: mismatch('syntaxDerivationId'),
+              text: mismatch('text'),
+              hasNegativeSlot: mismatch('hasNegativeSlot'),
+              negativeSlotCount: mismatch('negativeSlotCount'),
+              hasANotASlot: mismatch('hasANotASlot'),
+              aNotASlotCount: mismatch('aNotASlotCount'),
+              ticketIntent: mismatch('ticketIntent'),
+            },
+          };
+          fs.writeFileSync('predicate-modal-product-drift-8192.json', JSON.stringify(summary, null, 2) + '\n');
+          console.log(JSON.stringify(summary, null, 2));
+          NODE
+      - name: Upload aggregate result
+        uses: actions/upload-artifact@v4
+        with:
+          name: predicate-modal-product-drift-8192
+          path: predicate-modal-product-drift-8192.json
+          if-no-files-found: error
