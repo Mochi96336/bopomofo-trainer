@@ -67,7 +67,7 @@ describe("packaged same-occurrence capabilities", () => {
     expect(texts).not.toContain("著");
   });
 
-  it("uses preverbal auxiliary evidence only on Predicate modal licensing", () => {
+  it("uses preverbal auxiliary evidence only on the two reviewed modal consumers", () => {
     const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
       rule.constituents.filter((constituent) =>
         constituent.requiredOccurrenceCapabilities?.includes(
@@ -76,16 +76,31 @@ describe("packaged same-occurrence capabilities", () => {
       ).map((constituent) => `${rule.id}:${constituent.key}`),
     );
 
-    expect(consumers).toEqual(["predicate.verb.expanded:modal"]);
+    expect(consumers).toEqual([
+      "predicate.verb.expanded:modal",
+      "clause.modal:modal",
+    ]);
 
-    const modal = FORMAL_SYNTAX_RULES
+    const predicateModal = FORMAL_SYNTAX_RULES
       .find((rule) => rule.id === "predicate.verb.expanded")
       ?.constituents.find((constituent) => constituent.key === "modal");
-    expect(modal).toMatchObject({
+    expect(predicateModal).toMatchObject({
       category: "Lexeme",
       allowedUpos: ["AUX"],
       minimum: 0,
       maximum: 2,
+      requiredOccurrenceCapabilities: [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY],
+    });
+
+    const clauseModal = FORMAL_SYNTAX_RULES
+      .find((rule) => rule.id === "clause.modal")
+      ?.constituents.find((constituent) => constituent.key === "modal");
+    expect(clauseModal).toMatchObject({
+      category: "Lexeme",
+      allowedUpos: ["AUX"],
+      minimum: 1,
+      maximum: 1,
+      requiredFunctions: ["auxiliary"],
       requiredOccurrenceCapabilities: [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY],
     });
   });
