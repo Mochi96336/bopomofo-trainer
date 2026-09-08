@@ -67,7 +67,7 @@ describe("packaged same-occurrence capabilities", () => {
     expect(texts).not.toContain("著");
   });
 
-  it("uses preverbal auxiliary evidence only on the three reviewed modal consumers", () => {
+  it("uses preverbal auxiliary evidence only on the four reviewed modal consumers", () => {
     const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
       rule.constituents.filter((constituent) =>
         constituent.requiredOccurrenceCapabilities?.includes(
@@ -79,6 +79,7 @@ describe("packaged same-occurrence capabilities", () => {
     expect(consumers).toEqual([
       "phrase.verb.expanded:modal",
       "predicate.verb.expanded:modal",
+      "predicate-marking.modal:modal",
       "clause.modal:modal",
     ]);
 
@@ -104,6 +105,29 @@ describe("packaged same-occurrence capabilities", () => {
       requiredOccurrenceCapabilities: [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY],
     });
 
+    const markingModal = FORMAL_SYNTAX_RULES
+      .find((rule) => rule.id === "predicate-marking.modal")
+      ?.constituents.find((constituent) => constituent.key === "modal");
+    expect(markingModal).toMatchObject({
+      category: "Lexeme",
+      allowedUpos: ["AUX"],
+      minimum: 1,
+      maximum: 1,
+      requiredFunctions: [],
+      requiredOccurrenceCapabilities: [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY],
+    });
+
+    const baModal = FORMAL_SYNTAX_RULES
+      .find((rule) => rule.id === "clause.ba")
+      ?.constituents.find((constituent) => constituent.key === "modal");
+    expect(baModal).toMatchObject({
+      category: "PredicateModalMarking",
+      minimum: 0,
+      maximum: 2,
+      requiredFunctions: ["predicate"],
+      requiredOccurrenceCapabilities: [],
+    });
+
     const clauseModal = FORMAL_SYNTAX_RULES
       .find((rule) => rule.id === "clause.modal")
       ?.constituents.find((constituent) => constituent.key === "modal");
@@ -116,16 +140,13 @@ describe("packaged same-occurrence capabilities", () => {
       requiredOccurrenceCapabilities: [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY],
     });
 
-    const productiveBaModals = FORMAL_SYNTAX_RULES
-      .filter((rule) => rule.id.startsWith("ba-predicate.completed."))
-      .map((rule) => rule.constituents.find((constituent) => constituent.key === "modal"));
-    expect(productiveBaModals).toHaveLength(2);
-    expect(productiveBaModals.every((modal) =>
-      modal !== undefined && (modal.requiredOccurrenceCapabilities ?? []).length === 0
-    )).toBe(true);
+    const postDisposalModals = FORMAL_SYNTAX_RULES
+      .filter((rule) => rule.id.startsWith("ba-predicate."))
+      .flatMap((rule) => rule.constituents.filter((constituent) => constituent.key === "modal"));
+    expect(postDisposalModals).toEqual([]);
   });
 
-  it("uses reviewed BA occurrence evidence only on the attested BAPredicate compatibility route", () => {
+  it("uses reviewed BA occurrence evidence only on the attested BAPredicate head", () => {
     const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
       rule.constituents.filter((constituent) =>
         constituent.requiredOccurrenceCapabilities?.includes(
@@ -134,7 +155,7 @@ describe("packaged same-occurrence capabilities", () => {
       ).map((constituent) => `${rule.id}:${constituent.key}`),
     );
 
-    expect(consumers).toEqual(["ba-predicate.attested:predicate"]);
+    expect(consumers).toEqual(["ba-predicate.attested:head"]);
 
     const clausePredicate = FORMAL_SYNTAX_RULES
       .find((rule) => rule.id === "clause.ba")
@@ -145,12 +166,13 @@ describe("packaged same-occurrence capabilities", () => {
     });
     expect(clausePredicate?.requiredOccurrenceCapabilities ?? []).toEqual([]);
 
-    const attestedPredicate = FORMAL_SYNTAX_RULES
+    const attestedHead = FORMAL_SYNTAX_RULES
       .find((rule) => rule.id === "ba-predicate.attested")
-      ?.constituents.find((constituent) => constituent.key === "predicate");
-    expect(attestedPredicate).toMatchObject({
-      category: "Predicate",
-      requiredFunctions: ["predicate"],
+      ?.constituents.find((constituent) => constituent.key === "head");
+    expect(attestedHead).toMatchObject({
+      category: "Lexeme",
+      allowedUpos: ["VERB"],
+      requiredFunctions: [],
       requiredOccurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY],
     });
   });
