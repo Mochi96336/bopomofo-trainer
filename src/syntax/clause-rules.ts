@@ -147,7 +147,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     lexical("marker", ["AUX"], { requiredFeatures: { voice: "passive" } }),
   ]),
   production("phrase.passive.long", "PassivePhrase", [
-    lexical("marker", ["ADP"], { requiredFunctions: ["adposition"] }),
+    lexical("marker", ["ADP"], { requiredFeatures: { voice: "passive" } }),
     constituent("agent", "PassiveAgent"),
   ]),
   production("clause.nominal-predicate", "Clause", [
