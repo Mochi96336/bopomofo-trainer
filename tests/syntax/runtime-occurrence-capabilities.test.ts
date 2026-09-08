@@ -67,7 +67,7 @@ describe("packaged same-occurrence capabilities", () => {
     expect(texts).not.toContain("著");
   });
 
-  it("uses preverbal auxiliary evidence only on the two reviewed modal consumers", () => {
+  it("uses preverbal auxiliary evidence only on the three reviewed modal consumers", () => {
     const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
       rule.constituents.filter((constituent) =>
         constituent.requiredOccurrenceCapabilities?.includes(
@@ -77,9 +77,21 @@ describe("packaged same-occurrence capabilities", () => {
     );
 
     expect(consumers).toEqual([
+      "phrase.verb.expanded:modal",
       "predicate.verb.expanded:modal",
       "clause.modal:modal",
     ]);
+
+    const legacyModal = FORMAL_SYNTAX_RULES
+      .find((rule) => rule.id === "phrase.verb.expanded")
+      ?.constituents.find((constituent) => constituent.key === "modal");
+    expect(legacyModal).toMatchObject({
+      category: "Lexeme",
+      allowedUpos: ["AUX"],
+      minimum: 0,
+      maximum: 2,
+      requiredOccurrenceCapabilities: [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY],
+    });
 
     const predicateModal = FORMAL_SYNTAX_RULES
       .find((rule) => rule.id === "predicate.verb.expanded")
@@ -103,6 +115,14 @@ describe("packaged same-occurrence capabilities", () => {
       requiredFunctions: ["auxiliary"],
       requiredOccurrenceCapabilities: [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY],
     });
+
+    const productiveBaModals = FORMAL_SYNTAX_RULES
+      .filter((rule) => rule.id.startsWith("ba-predicate.completed."))
+      .map((rule) => rule.constituents.find((constituent) => constituent.key === "modal"));
+    expect(productiveBaModals).toHaveLength(2);
+    expect(productiveBaModals.every((modal) =>
+      modal !== undefined && (modal.requiredOccurrenceCapabilities ?? []).length === 0
+    )).toBe(true);
   });
 
   it("uses reviewed BA occurrence evidence only on the attested BAPredicate compatibility route", () => {
