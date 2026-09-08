@@ -35,7 +35,7 @@ jobs:
           set -euo pipefail
           git fetch origin agent/modal-consumer-incidence-audit
           git show origin/agent/modal-consumer-incidence-audit:scripts/audit-modal-consumer-frontier.ts > scripts/tmp-clause-modal-migration-audit.ts
-      - name: Adapt replay to Clause migration strategies
+      - name: Adapt replay to exact consumer classes
         shell: bash
         run: |
           set -euo pipefail
@@ -44,34 +44,65 @@ jobs:
           const path = 'scripts/tmp-clause-modal-migration-audit.ts';
           let source = fs.readFileSync(path, 'utf8');
 
+          const predicateBefore = `function isPredicateModalSlot(slot: StructuralLexicalSlot): boolean {\n  return slot.constituentKey === "modal"\n    && slot.allowedUpos.length === 1\n    && slot.allowedUpos[0] === "AUX"\n    && !slot.requiredFunctions.includes("auxiliary");\n}\n`;
+          const predicateAfter = `function isPredicateModalSlot(slot: StructuralLexicalSlot): boolean {\n  return slot.constituentKey === "modal"\n    && slot.allowedUpos.length === 1\n    && slot.allowedUpos[0] === "AUX"\n    && (slot.requiredOccurrenceCapabilities?.includes(\n      PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY,\n    ) ?? false);\n}\n\nfunction isLegacyNonClauseModalSlot(slot: StructuralLexicalSlot): boolean {\n  return slot.constituentKey === "modal"\n    && slot.allowedUpos.length === 1\n    && slot.allowedUpos[0] === "AUX"\n    && !slot.requiredFunctions.includes("auxiliary")\n    && !isPredicateModalSlot(slot);\n}\n`;
+          if (!source.includes(predicateBefore)) throw new Error('Predicate modal classifier insertion point missing');
+          source = source.replace(predicateBefore, predicateAfter);
+
           const compatibilityBefore = `  const compatible = compatibleProfilesForSlot(slot, profileIndex);\n  if (strategy === "current" || !isPredicateModalSlot(slot)) return compatible;\n  return compatible.filter((profile) => reviewedIds.has(profile.id));\n`;
-          const compatibilityAfter = `  const compatible = compatibleProfilesForSlot(slot, profileIndex);\n  if (strategy === "current") return compatible;\n  if (isPredicateModalSlot(slot) || isClauseModalSlot(slot)) {\n    return compatible.filter((profile) => reviewedIds.has(profile.id));\n  }\n  return compatible;\n`;
+          const compatibilityAfter = `  const compatible = compatibleProfilesForSlot(slot, profileIndex);\n  if (strategy === "current" || !isClauseModalSlot(slot)) return compatible;\n  return compatible.filter((profile) => reviewedIds.has(profile.id));\n`;
           if (!source.includes(compatibilityBefore)) throw new Error('compatibility strategy insertion point missing');
           source = source.replace(compatibilityBefore, compatibilityAfter);
 
-          const interfaceNeedle = `  predicateModalOutput: number;\n  clauseModalOutput: number;\n  predicateModalSlots: number;\n`;
-          const interfaceReplacement = `  predicateModalOutput: number;\n  clauseModalOutput: number;\n  modalAnyOutput: number;\n  modalBothOutput: number;\n  predicateModalSlots: number;\n`;
+          source = source.replace(
+            `readonly kind: "predicate-modal" | "clause-modal" | "other";`,
+            `readonly kind: "predicate-modal" | "clause-modal" | "legacy-modal" | "other";`,
+          );
+          const kindBefore = `        kind: isPredicateModalSlot(slot)\n          ? "predicate-modal"\n          : isClauseModalSlot(slot)\n            ? "clause-modal"\n            : "other",\n`;
+          const kindAfter = `        kind: isPredicateModalSlot(slot)\n          ? "predicate-modal"\n          : isClauseModalSlot(slot)\n            ? "clause-modal"\n            : isLegacyNonClauseModalSlot(slot)\n              ? "legacy-modal"\n              : "other",\n`;
+          if (!source.includes(kindBefore)) throw new Error('slot-kind insertion point missing');
+          source = source.replace(kindBefore, kindAfter);
+
+          const interfaceNeedle = `  predicateModalOutput: number;\n  clauseModalOutput: number;\n  predicateModalSlots: number;\n  clauseModalSlots: number;\n`;
+          const interfaceReplacement = `  predicateModalOutput: number;\n  clauseModalOutput: number;\n  legacyModalOutput: number;\n  modalAnyOutput: number;\n  modalMultiClassOutput: number;\n  predicateModalSlots: number;\n  clauseModalSlots: number;\n  legacyModalSlots: number;\n`;
           if (!source.includes(interfaceNeedle)) throw new Error('aggregate interface insertion point missing');
           source = source.replace(interfaceNeedle, interfaceReplacement);
 
-          const emptyNeedle = `    predicateModalOutput: 0,\n    clauseModalOutput: 0,\n    predicateModalSlots: 0,\n`;
-          const emptyReplacement = `    predicateModalOutput: 0,\n    clauseModalOutput: 0,\n    modalAnyOutput: 0,\n    modalBothOutput: 0,\n    predicateModalSlots: 0,\n`;
+          source = source.replace(
+            `  readonly clauseModalForms: Map<string, number>;\n`,
+            `  readonly clauseModalForms: Map<string, number>;\n  readonly legacyModalForms: Map<string, number>;\n`,
+          );
+          const emptyNeedle = `    predicateModalOutput: 0,\n    clauseModalOutput: 0,\n    predicateModalSlots: 0,\n    clauseModalSlots: 0,\n`;
+          const emptyReplacement = `    predicateModalOutput: 0,\n    clauseModalOutput: 0,\n    legacyModalOutput: 0,\n    modalAnyOutput: 0,\n    modalMultiClassOutput: 0,\n    predicateModalSlots: 0,\n    clauseModalSlots: 0,\n    legacyModalSlots: 0,\n`;
           if (!source.includes(emptyNeedle)) throw new Error('empty aggregate insertion point missing');
           source = source.replace(emptyNeedle, emptyReplacement);
+          source = source.replace(
+            `    clauseModalForms: new Map(),\n`,
+            `    clauseModalForms: new Map(),\n    legacyModalForms: new Map(),\n`,
+          );
 
-          const recordNeedle = `  if (predicateModal.length > 0) target.predicateModalOutput += 1;\n  if (clauseModal.length > 0) target.clauseModalOutput += 1;\n  target.predicateModalSlots += predicateModal.length;\n`;
-          const recordReplacement = `  if (predicateModal.length > 0) target.predicateModalOutput += 1;\n  if (clauseModal.length > 0) target.clauseModalOutput += 1;\n  if (predicateModal.length > 0 || clauseModal.length > 0) target.modalAnyOutput += 1;\n  if (predicateModal.length > 0 && clauseModal.length > 0) target.modalBothOutput += 1;\n  target.predicateModalSlots += predicateModal.length;\n`;
+          const recordNeedle = `  const predicateModal = trace.slotSelections.filter((selection) => selection.kind === "predicate-modal");\n  const clauseModal = trace.slotSelections.filter((selection) => selection.kind === "clause-modal");\n  if (predicateModal.length > 0) target.predicateModalOutput += 1;\n  if (clauseModal.length > 0) target.clauseModalOutput += 1;\n  target.predicateModalSlots += predicateModal.length;\n  target.clauseModalSlots += clauseModal.length;\n`;
+          const recordReplacement = `  const predicateModal = trace.slotSelections.filter((selection) => selection.kind === "predicate-modal");\n  const clauseModal = trace.slotSelections.filter((selection) => selection.kind === "clause-modal");\n  const legacyModal = trace.slotSelections.filter((selection) => selection.kind === "legacy-modal");\n  const modalClassCount = Number(predicateModal.length > 0) + Number(clauseModal.length > 0) + Number(legacyModal.length > 0);\n  if (predicateModal.length > 0) target.predicateModalOutput += 1;\n  if (clauseModal.length > 0) target.clauseModalOutput += 1;\n  if (legacyModal.length > 0) target.legacyModalOutput += 1;\n  if (modalClassCount > 0) target.modalAnyOutput += 1;\n  if (modalClassCount > 1) target.modalMultiClassOutput += 1;\n  target.predicateModalSlots += predicateModal.length;\n  target.clauseModalSlots += clauseModal.length;\n  target.legacyModalSlots += legacyModal.length;\n`;
           if (!source.includes(recordNeedle)) throw new Error('modal exposure insertion point missing');
           source = source.replace(recordNeedle, recordReplacement);
 
-          const summaryNeedle = `    predicateModalOutput: target.predicateModalOutput,\n    clauseModalOutput: target.clauseModalOutput,\n    predicateModalSlots: target.predicateModalSlots,\n`;
-          const summaryReplacement = `    predicateModalOutput: target.predicateModalOutput,\n    clauseModalOutput: target.clauseModalOutput,\n    modalAnyOutput: target.modalAnyOutput,\n    modalBothOutput: target.modalBothOutput,\n    predicateModalSlots: target.predicateModalSlots,\n`;
+          const clauseLoopNeedle = `  for (const selection of clauseModal) {\n    increment(target.clauseModalForms, selection.text);\n    if (reviewedIds.has(selection.profileId)) target.clauseModalReviewed += 1;\n    else if (legacyOnlyIds.has(selection.profileId)) target.clauseModalLegacyOnly += 1;\n  }\n`;
+          const clauseLoopReplacement = `${clauseLoopNeedle}  for (const selection of legacyModal) {\n    increment(target.legacyModalForms, selection.text);\n  }\n`;
+          if (!source.includes(clauseLoopNeedle)) throw new Error('legacy modal form insertion point missing');
+          source = source.replace(clauseLoopNeedle, clauseLoopReplacement);
+
+          const summaryNeedle = `    predicateModalOutput: target.predicateModalOutput,\n    clauseModalOutput: target.clauseModalOutput,\n    predicateModalSlots: target.predicateModalSlots,\n    clauseModalSlots: target.clauseModalSlots,\n`;
+          const summaryReplacement = `    predicateModalOutput: target.predicateModalOutput,\n    clauseModalOutput: target.clauseModalOutput,\n    legacyModalOutput: target.legacyModalOutput,\n    modalAnyOutput: target.modalAnyOutput,\n    modalMultiClassOutput: target.modalMultiClassOutput,\n    predicateModalSlots: target.predicateModalSlots,\n    clauseModalSlots: target.clauseModalSlots,\n    legacyModalSlots: target.legacyModalSlots,\n`;
           if (!source.includes(summaryNeedle)) throw new Error('summary exposure insertion point missing');
           source = source.replace(summaryNeedle, summaryReplacement);
+          source = source.replace(
+            `    clauseModalForms: sortedRecord(target.clauseModalForms),\n`,
+            `    clauseModalForms: sortedRecord(target.clauseModalForms),\n    legacyModalForms: sortedRecord(target.legacyModalForms),\n`,
+          );
 
           fs.writeFileSync(path, source);
           NODE
-          sed -i "s/modal-consumer-frontier:/clause-modal-migration-${{ matrix.shard }}:/g" scripts/tmp-clause-modal-migration-audit.ts
+          sed -i "s/modal-consumer-frontier:/clause-modal-migration-v2-${{ matrix.shard }}:/g" scripts/tmp-clause-modal-migration-audit.ts
       - name: Audit Clause modal migration
         shell: bash
         run: |
@@ -111,12 +142,13 @@ jobs:
 
           const numericFields = [
             'success', 'clauseModalPath', 'predicateExpandedPath',
-            'predicateModalOutput', 'clauseModalOutput', 'modalAnyOutput', 'modalBothOutput',
-            'predicateModalSlots', 'clauseModalSlots',
+            'predicateModalOutput', 'clauseModalOutput', 'legacyModalOutput',
+            'modalAnyOutput', 'modalMultiClassOutput',
+            'predicateModalSlots', 'clauseModalSlots', 'legacyModalSlots',
             'predicateModalReviewed', 'predicateModalLegacyOnly', 'predicateModalPredicateOnly',
             'clauseModalReviewed', 'clauseModalLegacyOnly',
           ];
-          const recordFields = ['rootCounts', 'fallbackCounts', 'predicateModalForms', 'clauseModalForms'];
+          const recordFields = ['rootCounts', 'fallbackCounts', 'predicateModalForms', 'clauseModalForms', 'legacyModalForms'];
           function sumRecord(values) {
             const out = {};
             for (const value of values) for (const [key, count] of Object.entries(value)) out[key] = (out[key] ?? 0) + count;
@@ -136,12 +168,12 @@ jobs:
           }
 
           const current = aggregate('current');
-          const narrowBothShadow = aggregate('narrowPredicateShadow');
+          const narrowClauseShadow = aggregate('narrowPredicateShadow');
           const retireClauseShadow = aggregate('narrowAndRetireClauseShadow');
           if (current.predicateModalLegacyOnly !== 0 || current.predicateModalPredicateOnly !== 0) {
-            throw new Error('current #256 Predicate modal escaped reviewed capability');
+            throw new Error('actual #256 Predicate V2 modal escaped reviewed capability');
           }
-          if (narrowBothShadow.clauseModalLegacyOnly !== 0) throw new Error('narrow-both shadow left unreviewed Clause modal slots');
+          if (narrowClauseShadow.clauseModalLegacyOnly !== 0) throw new Error('narrow-Clause shadow left unreviewed clause.modal slots');
           if (retireClauseShadow.clauseModalOutput !== 0 || retireClauseShadow.clauseModalPath !== 0) {
             throw new Error('retirement shadow still contains clause.modal');
           }
@@ -149,12 +181,12 @@ jobs:
           const sampleCount = shards.reduce((sum, shard) => sum + shard.sampleCount, 0);
           const drift = {
             parityMismatches: 0,
-            currentVsNarrowBothSuccessMismatch: shards.reduce((sum, shard) => sum + shard.drift.currentVsNarrowSuccessMismatch, 0),
+            currentVsNarrowClauseSuccessMismatch: shards.reduce((sum, shard) => sum + shard.drift.currentVsNarrowSuccessMismatch, 0),
             currentVsRetireSuccessMismatch: shards.reduce((sum, shard) => sum + shard.drift.currentVsRetiredSuccessMismatch, 0),
-            currentVsNarrowBothTextMismatch: shards.reduce((sum, shard) => sum + shard.drift.currentVsNarrowTextMismatch, 0),
+            currentVsNarrowClauseTextMismatch: shards.reduce((sum, shard) => sum + shard.drift.currentVsNarrowTextMismatch, 0),
             currentVsRetireTextMismatch: shards.reduce((sum, shard) => sum + shard.drift.currentVsRetiredTextMismatch, 0),
-            narrowBothVsRetireTextMismatch: shards.reduce((sum, shard) => sum + shard.drift.narrowVsRetiredTextMismatch, 0),
-            currentVsNarrowBothRootTvCount: tv(current.rootCounts, narrowBothShadow.rootCounts),
+            narrowClauseVsRetireTextMismatch: shards.reduce((sum, shard) => sum + shard.drift.narrowVsRetiredTextMismatch, 0),
+            currentVsNarrowClauseRootTvCount: tv(current.rootCounts, narrowClauseShadow.rootCounts),
             currentVsRetireRootTvCount: tv(current.rootCounts, retireClauseShadow.rootCounts),
           };
           const ratio = (value, denominator = sampleCount) => denominator === 0 ? 0 : value / denominator;
@@ -163,20 +195,22 @@ jobs:
             shardCount: shards.length,
             exactOfficialParitySampleCount: sampleCount,
             current,
-            narrowBothShadow,
+            narrowClauseShadow,
             retireClauseShadow,
             drift,
             rates: {
               currentAnyModalExposure: ratio(current.modalAnyOutput),
-              narrowBothAnyModalExposure: ratio(narrowBothShadow.modalAnyOutput),
+              narrowClauseAnyModalExposure: ratio(narrowClauseShadow.modalAnyOutput),
               retireAnyModalExposure: ratio(retireClauseShadow.modalAnyOutput),
-              currentPredicateModalExposure: ratio(current.predicateModalOutput),
+              currentPredicateV2ModalExposure: ratio(current.predicateModalOutput),
+              currentLegacyNonClauseModalExposure: ratio(current.legacyModalOutput),
               currentClauseModalExposure: ratio(current.clauseModalOutput),
-              currentBothModalExposure: ratio(current.modalBothOutput),
-              narrowBothClauseReviewedShare: ratio(narrowBothShadow.clauseModalReviewed, narrowBothShadow.clauseModalSlots),
-              currentVsNarrowBothTextMismatch: ratio(drift.currentVsNarrowBothTextMismatch),
+              currentMultiClassModalExposure: ratio(current.modalMultiClassOutput),
+              currentClauseReviewedShare: ratio(current.clauseModalReviewed, current.clauseModalSlots),
+              narrowClauseReviewedShare: ratio(narrowClauseShadow.clauseModalReviewed, narrowClauseShadow.clauseModalSlots),
+              currentVsNarrowClauseTextMismatch: ratio(drift.currentVsNarrowClauseTextMismatch),
               currentVsRetireTextMismatch: ratio(drift.currentVsRetireTextMismatch),
-              currentVsNarrowBothRootTv: ratio(drift.currentVsNarrowBothRootTvCount),
+              currentVsNarrowClauseRootTv: ratio(drift.currentVsNarrowClauseRootTvCount),
               currentVsRetireRootTv: ratio(drift.currentVsRetireRootTvCount),
             },
           };
