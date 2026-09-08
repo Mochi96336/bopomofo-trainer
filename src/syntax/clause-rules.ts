@@ -1,5 +1,6 @@
 import { ARGUMENT_PRODUCTION_RULES } from "./argument-rules.js";
 import { FORMAL_GRAMMAR_VERSION } from "./features.js";
+import { PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY } from "./runtime-occurrence-capabilities.js";
 import type {
   ProductionConstituent,
   ProductionFixture,
@@ -146,7 +147,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     lexical("marker", ["AUX"], { requiredFeatures: { voice: "passive" } }),
   ]),
   production("phrase.passive.long", "PassivePhrase", [
-    lexical("marker", ["ADP"], { requiredFeatures: { voice: "passive" } }),
+    lexical("marker", ["ADP"], { requiredFunctions: ["adposition"] }),
     constituent("agent", "PassiveAgent"),
   ]),
   production("clause.nominal-predicate", "Clause", [
@@ -193,7 +194,10 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   ]),
   production("clause.modal", "Clause", [
     subject(),
-    lexical("modal", ["AUX"], { requiredFunctions: ["auxiliary"] }),
+    lexical("modal", ["AUX"], {
+      requiredFunctions: ["auxiliary"],
+      requiredOccurrenceCapabilities: [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY],
+    }),
     corePredicate([
       "intransitive", "transitive", "ditransitive", "ambitransitive",
       "clausal-complement", "open-clausal-complement", "adpositional-complement",
