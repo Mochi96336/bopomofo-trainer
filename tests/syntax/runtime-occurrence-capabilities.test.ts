@@ -67,7 +67,7 @@ describe("packaged same-occurrence capabilities", () => {
     expect(texts).not.toContain("著");
   });
 
-  it("keeps preverbal auxiliary evidence consumer-free until modality licensing is reviewed", () => {
+  it("uses preverbal auxiliary evidence only on Predicate modal licensing", () => {
     const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
       rule.constituents.filter((constituent) =>
         constituent.requiredOccurrenceCapabilities?.includes(
@@ -76,7 +76,18 @@ describe("packaged same-occurrence capabilities", () => {
       ).map((constituent) => `${rule.id}:${constituent.key}`),
     );
 
-    expect(consumers).toEqual([]);
+    expect(consumers).toEqual(["predicate.verb.expanded:modal"]);
+
+    const modal = FORMAL_SYNTAX_RULES
+      .find((rule) => rule.id === "predicate.verb.expanded")
+      ?.constituents.find((constituent) => constituent.key === "modal");
+    expect(modal).toMatchObject({
+      category: "Lexeme",
+      allowedUpos: ["AUX"],
+      minimum: 0,
+      maximum: 2,
+      requiredOccurrenceCapabilities: [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY],
+    });
   });
 
   it("uses reviewed BA occurrence evidence only on the attested BAPredicate compatibility route", () => {
