@@ -122,20 +122,30 @@ function fixturesForRule(rule: ProductionRule): readonly ProductionFixture[] {
   return result;
 }
 
-function optionalPrefix(): readonly ProductionConstituent[] {
+function predicateInteriorPrefix(): readonly ProductionConstituent[] {
   return [
-    lexical("negation", ["ADV", "AUX", "PART", "VERB"], {
-      minimum: 0,
-      maximum: 1,
-      requiredFeatures: { polarity: "negative" },
-    }),
-    lexical("modal", ["AUX"], { minimum: 0, maximum: 2 }),
     constituent("adverbial", "AdverbPhrase", {
       minimum: 0,
       maximum: 3,
       cardinalityBound: "consecutive-modifiers",
     }),
   ];
+}
+
+function optionalAspect(): ProductionConstituent {
+  return lexical("aspect", ["AUX", "PART"], {
+    minimum: 0,
+    maximum: 1,
+    requiredFeatures: { aspect: "marked" },
+  });
+}
+
+function optionalComplements(): ProductionConstituent {
+  return constituent("complement", "Complement", {
+    minimum: 0,
+    maximum: 2,
+    cardinalityBound: "complements-per-predicate",
+  });
 }
 
 function patientTakingHead(): ProductionConstituent {
@@ -146,42 +156,41 @@ function patientTakingHead(): ProductionConstituent {
  * BA owns a distinct predicate-structure boundary instead of turning corpus
  * attestation into the whole productive grammar.
  *
- * The reviewed route intentionally preserves the former canonical Predicate
- * subtree, but only for lexemes carrying exact same-occurrence BA evidence.
- * That makes attestation a positive compatibility path rather than a complete
- * whitelist of productive BA heads.
+ * Negation and modal marking scope over the BA disposal construction and are
+ * therefore realized by clause.ba before the BA marker. BAPredicate contains
+ * only material that can remain after the patient: adverbials, the lexical
+ * predicate head, complements, and aspect.
  *
- * Productive completed routes are additional legality paths for patient-taking
- * heads with completion realized by this derivation. The structural sampler
- * treats the BAPredicate alternatives as ordered licensing fallbacks rather than
- * a new product probability dimension: the reviewed route is sampled first to
- * preserve the existing deterministic product path, and productive routes are
- * consulted only when that route is unavailable. Corpus non-attestation is
- * never negative grammatical evidence.
+ * The reviewed route licenses its lexical head directly from exact
+ * same-occurrence BA evidence. Productive completed routes remain additional
+ * legality paths for patient-taking heads with completion realized by this
+ * derivation. The structural sampler treats the BAPredicate alternatives as
+ * ordered licensing fallbacks rather than a new product probability dimension:
+ * the reviewed route is sampled first, and productive routes are consulted only
+ * when that route is unavailable. Corpus non-attestation is never negative
+ * grammatical evidence.
  */
 export const BA_PREDICATE_PRODUCTION_RULES: readonly ProductionRule[] = [
   production("ba-predicate.attested", [
-    constituent("predicate", "Predicate", {
-      requiredFunctions: ["predicate"],
+    ...predicateInteriorPrefix(),
+    lexical("head", ["VERB"], {
       requiredOccurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY],
     }),
+    optionalComplements(),
+    optionalAspect(),
   ]),
   production("ba-predicate.completed.complement", [
-    ...optionalPrefix(),
+    ...predicateInteriorPrefix(),
     patientTakingHead(),
     constituent("complement", "Complement", {
       minimum: 1,
       maximum: 2,
       cardinalityBound: "complements-per-predicate",
     }),
-    lexical("aspect", ["AUX", "PART"], {
-      minimum: 0,
-      maximum: 1,
-      requiredFeatures: { aspect: "marked" },
-    }),
+    optionalAspect(),
   ]),
   production("ba-predicate.completed.aspect", [
-    ...optionalPrefix(),
+    ...predicateInteriorPrefix(),
     patientTakingHead(),
     lexical("aspect", ["AUX", "PART"], { requiredFeatures: { aspect: "marked" } }),
   ]),
