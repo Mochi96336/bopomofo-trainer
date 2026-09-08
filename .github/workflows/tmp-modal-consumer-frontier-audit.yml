@@ -11,10 +11,14 @@ permissions:
 
 jobs:
   audit:
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      MODAL_AUDIT_SAMPLES: "32"
+      MODAL_AUDIT_SAMPLES: "256"
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -26,15 +30,144 @@ jobs:
         run: npm ci --include=dev --ignore-scripts
       - name: Build generated app catalog
         run: npm run app:catalog
+      - name: Set shard seed namespace
+        shell: bash
+        run: |
+          sed -i "s/modal-consumer-frontier:/modal-consumer-frontier-${{ matrix.shard }}:/g" scripts/audit-modal-consumer-frontier.ts
       - name: Audit modal consumer frontier
         shell: bash
         run: |
           set -o pipefail
-          npx tsx scripts/audit-modal-consumer-frontier.ts | tee modal-consumer-frontier.json
-      - name: Upload audit
+          npx tsx scripts/audit-modal-consumer-frontier.ts | tee modal-consumer-frontier-${{ matrix.shard }}.json
+      - name: Upload shard audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: modal-consumer-frontier-audit
-          path: modal-consumer-frontier.json
+          name: modal-consumer-frontier-shard-${{ matrix.shard }}
+          path: modal-consumer-frontier-${{ matrix.shard }}.json
+          if-no-files-found: error
+
+  aggregate:
+    needs: audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: modal-consumer-frontier-shard-*
+          path: modal-shards
+          merge-multiple: true
+      - name: Aggregate 2048-seed audit
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const directory = 'modal-shards';
+          const files = fs.readdirSync(directory)
+            .filter((name) => name.endsWith('.json'))
+            .sort();
+          if (files.length !== 8) throw new Error(`expected 8 shard artifacts, got ${files.length}`);
+          const shards = files.map((name) => JSON.parse(fs.readFileSync(path.join(directory, name), 'utf8')));
+          if (shards.some((shard) => shard.sampleCount !== 256)) {
+            throw new Error('every shard must contain exactly 256 samples');
+          }
+          if (shards.some((shard) => shard.drift.parityMismatches !== 0)) {
+            throw new Error('one or more shards diverged from the official product composer');
+          }
+          const frontier = shards[0].frontier;
+          if (shards.some((shard) => JSON.stringify(shard.frontier) !== JSON.stringify(frontier))) {
+            throw new Error('static modal frontier changed between shards');
+          }
+          const numericStrategyFields = [
+            'success',
+            'clauseModalPath',
+            'predicateExpandedPath',
+            'predicateModalOutput',
+            'clauseModalOutput',
+            'predicateModalSlots',
+            'clauseModalSlots',
+            'predicateModalReviewed',
+            'predicateModalLegacyOnly',
+            'predicateModalPredicateOnly',
+            'clauseModalReviewed',
+            'clauseModalLegacyOnly',
+          ];
+          const recordFields = [
+            'rootCounts',
+            'fallbackCounts',
+            'predicateModalForms',
+            'clauseModalForms',
+          ];
+          function sumRecord(values) {
+            const result = {};
+            for (const value of values) {
+              for (const [key, count] of Object.entries(value)) {
+                result[key] = (result[key] ?? 0) + count;
+              }
+            }
+            return Object.fromEntries(Object.entries(result).sort(([left], [right]) => left.localeCompare(right, 'zh-Hant')));
+          }
+          function aggregateStrategy(key) {
+            const result = {};
+            for (const field of numericStrategyFields) {
+              result[field] = shards.reduce((sum, shard) => sum + shard[key][field], 0);
+            }
+            for (const field of recordFields) {
+              result[field] = sumRecord(shards.map((shard) => shard[key][field]));
+            }
+            return result;
+          }
+          function totalVariationCount(left, right) {
+            const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+            let absolute = 0;
+            for (const key of keys) absolute += Math.abs((left[key] ?? 0) - (right[key] ?? 0));
+            return absolute / 2;
+          }
+          const current = aggregateStrategy('current');
+          const narrowPredicateShadow = aggregateStrategy('narrowPredicateShadow');
+          const narrowAndRetireClauseShadow = aggregateStrategy('narrowAndRetireClauseShadow');
+          const drift = {
+            parityMismatches: 0,
+            currentVsNarrowSuccessMismatch: shards.reduce((sum, shard) => sum + shard.drift.currentVsNarrowSuccessMismatch, 0),
+            currentVsRetiredSuccessMismatch: shards.reduce((sum, shard) => sum + shard.drift.currentVsRetiredSuccessMismatch, 0),
+            currentVsNarrowTextMismatch: shards.reduce((sum, shard) => sum + shard.drift.currentVsNarrowTextMismatch, 0),
+            currentVsRetiredTextMismatch: shards.reduce((sum, shard) => sum + shard.drift.currentVsRetiredTextMismatch, 0),
+            narrowVsRetiredTextMismatch: shards.reduce((sum, shard) => sum + shard.drift.narrowVsRetiredTextMismatch, 0),
+            currentVsNarrowRootTvCount: totalVariationCount(current.rootCounts, narrowPredicateShadow.rootCounts),
+            currentVsRetiredRootTvCount: totalVariationCount(current.rootCounts, narrowAndRetireClauseShadow.rootCounts),
+          };
+          const sampleCount = shards.reduce((sum, shard) => sum + shard.sampleCount, 0);
+          const ratio = (value, denominator = sampleCount) => denominator === 0 ? 0 : value / denominator;
+          const summary = {
+            sampleCount,
+            shardCount: shards.length,
+            exactOfficialParitySampleCount: sampleCount,
+            frontier,
+            current,
+            narrowPredicateShadow,
+            narrowAndRetireClauseShadow,
+            drift,
+            rates: {
+              currentPredicateModalOutput: ratio(current.predicateModalOutput),
+              currentClauseModalOutput: ratio(current.clauseModalOutput),
+              currentPredicateModalReviewedShare: ratio(current.predicateModalReviewed, current.predicateModalSlots),
+              currentPredicateModalLegacyOnlyShare: ratio(current.predicateModalLegacyOnly, current.predicateModalSlots),
+              currentPredicateModalPredicateOnlyShare: ratio(current.predicateModalPredicateOnly, current.predicateModalSlots),
+              currentClauseModalReviewedShare: ratio(current.clauseModalReviewed, current.clauseModalSlots),
+              currentClauseModalLegacyOnlyShare: ratio(current.clauseModalLegacyOnly, current.clauseModalSlots),
+              currentVsNarrowTextMismatch: ratio(drift.currentVsNarrowTextMismatch),
+              currentVsRetiredTextMismatch: ratio(drift.currentVsRetiredTextMismatch),
+              currentVsNarrowRootTv: ratio(drift.currentVsNarrowRootTvCount),
+              currentVsRetiredRootTv: ratio(drift.currentVsRetiredRootTvCount),
+            },
+          };
+          fs.writeFileSync('modal-consumer-frontier-2048.json', `${JSON.stringify(summary, null, 2)}\n`);
+          console.log(JSON.stringify(summary, null, 2));
+          NODE
+      - name: Upload aggregate audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: modal-consumer-frontier-2048
+          path: modal-consumer-frontier-2048.json
           if-no-files-found: error
