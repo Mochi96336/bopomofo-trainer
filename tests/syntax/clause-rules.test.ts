@@ -27,7 +27,6 @@ const REQUIRED_CONSTRUCTIONS = [
   "clause.existential",
   "clause.locative",
   "clause.modal",
-  "clause.aspect",
   "clause.ba",
   "clause.bei",
   "clause.serial-verb",
@@ -54,6 +53,7 @@ describe("formal clause and question production inventory", () => {
     expect(REQUIRED_CONSTRUCTIONS.filter((id) => !ids.has(id))).toEqual([]);
     expect(ids.has("clause.pivotal")).toBe(false);
     expect(ids.has("clause.causative")).toBe(false);
+    expect(ids.has("clause.aspect")).toBe(false);
   });
 
   it("represents BA patient as a construction role with preverbal predicate marking", () => {
