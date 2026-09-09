@@ -250,7 +250,7 @@ export function composeFormalSyntaxUtterances(
         planSample.predicateMarkingTicketUnit,
         samplingPolicy,
       );
-      const availabilityFallbackReserved = predicateMarkingPracticeIntent === "negation"
+      const availabilityFallbackReserved = predicateMarkingPracticeIntent !== "ordinary"
         && remainingAttempts >= plan.length * 2;
       const primaryAttempts = remainingAttempts
         - (availabilityFallbackReserved ? plan.length : 0);
@@ -315,8 +315,20 @@ export function composeFormalSyntaxUtterances(
       break;
     }
     const rootFamily = rootFamilySelection?.family ?? null;
-    const requiresNegationPractice =
-      rootFamilySelection?.predicateMarkingPracticeIntent === "negation";
+    const predicateMarkingPracticeIntent =
+      rootFamilySelection?.predicateMarkingPracticeIntent ?? "ordinary";
+    const requiredPredicateMarkingSlot = predicateMarkingPracticeIntent === "negation"
+      ? {
+          requiredFeatures: { polarity: "negative" as const },
+          enclosingRequiredFunctions: ["predicate" as const],
+        }
+      : predicateMarkingPracticeIntent === "aspect"
+        ? {
+            requiredFeatures: { aspect: "marked" as const },
+            enclosingRequiredFunctions: ["predicate" as const],
+          }
+        : null;
+    const requiresPredicateMarkingPractice = requiredPredicateMarkingSlot !== null;
     if (rootFamilySelection?.availabilityFallbackActive === true) {
       fallbackReasons.add("formal-syntax-predicate-marking-availability-fallback");
     }
@@ -327,15 +339,10 @@ export function composeFormalSyntaxUtterances(
       rootCategory: "Sentence",
       rules,
       random: input.random,
-      maximumAttempts: requiresNegationPractice ? 8 : 1,
-      ...(requiresNegationPractice
-        ? {
-            requiredLexicalSlot: {
-              requiredFeatures: { polarity: "negative" },
-              enclosingRequiredFunctions: ["predicate"],
-            },
-          }
-        : {}),
+      maximumAttempts: requiresPredicateMarkingPractice ? 8 : 1,
+      ...(requiredPredicateMarkingSlot === null
+        ? {}
+        : { requiredLexicalSlot: requiredPredicateMarkingSlot }),
       isLexicalSlotReachable: (slot) => {
         if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") return true;
         return compatibleProfilesForSlot(slot, index).length > 0;
@@ -347,7 +354,7 @@ export function composeFormalSyntaxUtterances(
         : { nestedProductionTargets: input.structuralTarget.nestedProductionTargets }),
     });
     if (shape === null) {
-      fallbackReasons.add(requiresNegationPractice
+      fallbackReasons.add(requiresPredicateMarkingPractice
         ? "formal-syntax-predicate-marking-search-exhausted"
         : "formal-syntax-structural-sampling-exhausted");
       recordRootFamilyFailure();
