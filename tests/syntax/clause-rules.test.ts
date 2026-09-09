@@ -134,7 +134,9 @@ describe("formal clause and question production inventory", () => {
       rootCategory: "Clause",
       rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
     })];
-    expect(shapes).toHaveLength(1);
+    // The attested BA head may carry an optional postverbal aspect marker, so
+    // this deliberately has bare and aspect-marked structural shapes.
+    expect(shapes).toHaveLength(2);
     expect(shapes[0]!.productionRulePath).toContain("argument.disposal-patient.noun");
     expect(shapes[0]!.productionRulePath).toContain("ba-predicate.attested");
 
