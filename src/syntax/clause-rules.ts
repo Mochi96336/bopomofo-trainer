@@ -214,12 +214,6 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     ]),
     object({ minimum: 0, maximum: 1 }),
   ]),
-  production("clause.aspect", "Clause", [
-    subject({ minimum: 0, maximum: 1 }),
-    constituent("predicate", "Predicate", { requiredFunctions: ["predicate"] }),
-    lexical("aspect", ["AUX", "PART"], { requiredFeatures: { aspect: "marked" } }),
-    object({ minimum: 0, maximum: 1 }),
-  ]),
   production("clause.ba", "Clause", [
     subject(),
     constituent("negation", "PredicateNegationMarking", {

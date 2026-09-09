@@ -35,29 +35,37 @@ class SequenceRandom {
 }
 
 describe("predicate marking practice ticket", () => {
-  it("supports explicit ordinary and negation practice tickets", () => {
+  it("supports explicit ordinary, aspect, and negation practice tickets", () => {
     expect(predicateMarkingPracticeIntentForTicketUnit(0.5, {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       version: "predicate-marking-ticket-test-always-ordinary",
-      predicateMarkingPracticeWeights: { ordinary: 1, negation: 0 },
+      predicateMarkingPracticeWeights: { ordinary: 1, aspect: 0, negation: 0 },
     })).toBe("ordinary");
     expect(predicateMarkingPracticeIntentForTicketUnit(0.5, {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+      version: "predicate-marking-ticket-test-always-aspect",
+      predicateMarkingPracticeWeights: { ordinary: 0, aspect: 1, negation: 0 },
+    })).toBe("aspect");
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.5, {
+      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       version: "predicate-marking-ticket-test-always-negation",
-      predicateMarkingPracticeWeights: { ordinary: 0, negation: 1 },
+      predicateMarkingPracticeWeights: { ordinary: 0, aspect: 0, negation: 1 },
     })).toBe("negation");
   });
 
-  it("uses the measured product marking prior", () => {
-    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v5");
+  it("uses the measured product marking prior with the historical negation interval preserved", () => {
+    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v6");
     expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.predicateMarkingPracticeWeights).toEqual({
-      ordinary: 0.943,
+      ordinary: 0.886,
+      aspect: 0.057,
       negation: 0.057,
     });
   });
 
-  it("maps the terminal unit directly through the configured weights", () => {
-    expect(predicateMarkingPracticeIntentForTicketUnit(0.9429)).toBe("ordinary");
+  it("maps the terminal unit directly while keeping 0.943 as the negation boundary", () => {
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.8859)).toBe("ordinary");
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.886)).toBe("aspect");
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.9429)).toBe("aspect");
     expect(predicateMarkingPracticeIntentForTicketUnit(0.943)).toBe("negation");
     expect(() => predicateMarkingPracticeIntentForTicketUnit(1)).toThrow(/ticket unit/u);
   });
@@ -81,18 +89,20 @@ describe("predicate marking practice ticket", () => {
     expect(wrappedRandom.next()).toBe(values[sampled.plan.length]);
   });
 
-  it("keeps terminal-ticket incidence close to the configured weight", () => {
+  it("keeps terminal-ticket incidence close to both configured marking weights", () => {
     const sampleCount = 8192;
+    let aspectCount = 0;
     let negationCount = 0;
     for (let round = 0; round < sampleCount; round += 1) {
       const sampled = createSentenceConstructionFamilyPlanSample(
         FORMAL_SYNTAX_RULES.filter((rule) => rule.output === "Sentence"),
         createSeededRandom(`predicate-marking-terminal-ticket:${round}`),
       );
-      if (predicateMarkingPracticeIntentForTicketUnit(sampled.predicateMarkingTicketUnit) === "negation") {
-        negationCount += 1;
-      }
+      const intent = predicateMarkingPracticeIntentForTicketUnit(sampled.predicateMarkingTicketUnit);
+      if (intent === "aspect") aspectCount += 1;
+      if (intent === "negation") negationCount += 1;
     }
+    expect(Math.abs(aspectCount / sampleCount - 0.057)).toBeLessThan(0.008);
     expect(Math.abs(negationCount / sampleCount - 0.057)).toBeLessThan(0.008);
   });
 
@@ -100,21 +110,21 @@ describe("predicate marking practice ticket", () => {
     expect(() => predicateMarkingPracticeIntentForTicketUnit(0.5, {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       version: "predicate-marking-ticket-test-zero",
-      predicateMarkingPracticeWeights: { ordinary: 0, negation: 0 },
+      predicateMarkingPracticeWeights: { ordinary: 0, aspect: 0, negation: 0 },
     })).toThrow(/require positive mass/u);
   });
 
   it("accepts only overt negative surfaces when the product ticket always requires negation", () => {
     const policy = {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
-      version: "predicate-marking-ticket-test-product",
-      predicateMarkingPracticeWeights: { ordinary: 0, negation: 1 },
+      version: "predicate-marking-ticket-test-product-negation",
+      predicateMarkingPracticeWeights: { ordinary: 0, aspect: 0, negation: 1 },
     } as const;
     for (let round = 0; round < 16; round += 1) {
       const composition = composeFormalSyntaxUtterances({
         eligibleEntries: PRACTICE_CATALOG,
         profiles: SYNTAX_PROFILES,
-        random: createSeededRandom(`predicate-marking-ticket:${round}`),
+        random: createSeededRandom(`predicate-marking-ticket-negation:${round}`),
         samplingMode: "product-family",
         samplingPolicy: policy,
         minimumLexicalEntries: 2,
@@ -124,6 +134,29 @@ describe("predicate marking practice ticket", () => {
       });
       expect(composition.candidates, JSON.stringify(composition.fallbackReasons)).toHaveLength(1);
       expect(composition.candidates[0]!.text).toMatch(/[不未別沒非無]/u);
+    }
+  }, 30_000);
+
+  it("accepts only overt aspect surfaces when the product ticket always requires aspect", () => {
+    const policy = {
+      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+      version: "predicate-marking-ticket-test-product-aspect",
+      predicateMarkingPracticeWeights: { ordinary: 0, aspect: 1, negation: 0 },
+    } as const;
+    for (let round = 0; round < 16; round += 1) {
+      const composition = composeFormalSyntaxUtterances({
+        eligibleEntries: PRACTICE_CATALOG,
+        profiles: SYNTAX_PROFILES,
+        random: createSeededRandom(`predicate-marking-ticket-aspect:${round}`),
+        samplingMode: "product-family",
+        samplingPolicy: policy,
+        minimumLexicalEntries: 2,
+        maximumCandidates: 1,
+        maximumAttempts: 64,
+        bounds: PRODUCT_BOUNDS,
+      });
+      expect(composition.candidates, JSON.stringify(composition.fallbackReasons)).toHaveLength(1);
+      expect(composition.candidates[0]!.text).toMatch(/[了過著着]/u);
     }
   }, 30_000);
 });
