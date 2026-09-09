@@ -270,10 +270,11 @@ export function predicateMarkingPracticeIntentForTicketUnit(
   }
   const weights = policy.predicateMarkingPracticeWeights;
   const total = weights.ordinary + weights.aspect + weights.negation;
-  const target = ticketUnit * total;
-  if (target < weights.ordinary) return "ordinary";
-  if (target < weights.ordinary + weights.aspect) return "aspect";
-  return "negation";
+  const negationBoundary = 1 - weights.negation / total;
+  if (weights.negation > 0 && ticketUnit >= negationBoundary) return "negation";
+  const aspectBoundary = weights.ordinary / total;
+  if (weights.aspect > 0 && ticketUnit >= aspectBoundary) return "aspect";
+  return "ordinary";
 }
 
 /**
