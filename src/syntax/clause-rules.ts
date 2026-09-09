@@ -143,6 +143,16 @@ const aNotALexeme = (
 
 export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   ...ARGUMENT_PRODUCTION_RULES,
+  production("predicate-marking.negation", "PredicateNegationMarking", [
+    lexical("negation", ["ADV", "AUX", "PART", "VERB"], {
+      requiredFeatures: { polarity: "negative" },
+    }),
+  ]),
+  production("predicate-marking.modal", "PredicateModalMarking", [
+    lexical("modal", ["AUX"], {
+      requiredOccurrenceCapabilities: [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY],
+    }),
+  ]),
   production("phrase.passive.short", "PassivePhrase", [
     lexical("marker", ["AUX"], { requiredFeatures: { voice: "passive" } }),
   ]),
@@ -212,6 +222,16 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   ]),
   production("clause.ba", "Clause", [
     subject(),
+    constituent("negation", "PredicateNegationMarking", {
+      minimum: 0,
+      maximum: 1,
+      requiredFunctions: ["predicate"],
+    }),
+    constituent("modal", "PredicateModalMarking", {
+      minimum: 0,
+      maximum: 2,
+      requiredFunctions: ["predicate"],
+    }),
     lexical("marker", ["ADP"], { requiredFeatures: { voice: "disposal" } }),
     constituent("patient", "DisposalPatient"),
     constituent("predicate", "BAPredicate", { requiredFunctions: ["predicate"] }),
