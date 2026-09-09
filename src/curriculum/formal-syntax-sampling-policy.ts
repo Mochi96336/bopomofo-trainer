@@ -7,10 +7,11 @@ import {
   type SentenceKind,
 } from "./formal-syntax-taxonomy.js";
 
-export type PredicateMarkingPracticeIntent = "ordinary" | "negation";
+export type PredicateMarkingPracticeIntent = "ordinary" | "aspect" | "negation";
 
 export interface PredicateMarkingPracticeWeights {
   readonly ordinary: number;
+  readonly aspect: number;
   readonly negation: number;
 }
 
@@ -58,7 +59,7 @@ export const SENTENCE_CONSTRUCTION_FAMILIES: readonly SentenceConstructionFamily
  * activate yet.
  */
 export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy = {
-  version: "formal-syntax-family-sampling-v5",
+  version: "formal-syntax-family-sampling-v6",
   sentenceKindWeights: {
     statement: 0.64,
     question: 0.26,
@@ -75,13 +76,12 @@ export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy =
     request: 1,
     exclamative: 1,
   },
-  // Product-practice prior measured after Clause-level negation retirement.
-  // Structural-slot calibration counts realized `polarity: negative` requirements
-  // directly, excluding A-not-A and profile-compatible non-negation occurrences.
-  // A 5.70% terminal-draw marking ticket produced 200/2048 negative derivations,
-  // matching the same-meter pre-retirement baseline without restoring a negation
-  // root family or coupling ticket assignment to family-plan identity.
-  predicateMarkingPracticeWeights: { ordinary: 0.943, negation: 0.057 },
+  // Product-practice prior for orthogonal predicate marking. Negation keeps its
+  // historical final 5.70% terminal-unit interval exactly: ticketUnit >= 0.943.
+  // Aspect initially receives the immediately preceding 5.70% interval as a
+  // calibration starting point; exact product exposure is measured before the
+  // legacy Clause-level aspect family may be retired.
+  predicateMarkingPracticeWeights: { ordinary: 0.886, aspect: 0.057, negation: 0.057 },
 };
 
 function nextUnit(random: RandomSource): number {
@@ -165,10 +165,11 @@ export function validateFormalSyntaxSamplingPolicy(policy: FormalSyntaxSamplingP
     }
   }
   const marking = policy.predicateMarkingPracticeWeights;
-  if ([marking.ordinary, marking.negation].some((weight) => !Number.isFinite(weight) || weight < 0)) {
+  if ([marking.ordinary, marking.aspect, marking.negation]
+    .some((weight) => !Number.isFinite(weight) || weight < 0)) {
     throw new Error("predicate marking practice weights must be finite and non-negative");
   }
-  if (!(marking.ordinary > 0 || marking.negation > 0)) {
+  if (!(marking.ordinary > 0 || marking.aspect > 0 || marking.negation > 0)) {
     throw new Error("predicate marking practice weights require positive mass");
   }
 }
@@ -268,11 +269,11 @@ export function predicateMarkingPracticeIntentForTicketUnit(
     throw new Error("predicate marking practice ticket unit must be in [0, 1)");
   }
   const weights = policy.predicateMarkingPracticeWeights;
-  if (weights.negation === 0) return "ordinary";
-  if (weights.ordinary === 0) return "negation";
-  return ticketUnit * (weights.ordinary + weights.negation) < weights.ordinary
-    ? "ordinary"
-    : "negation";
+  const total = weights.ordinary + weights.aspect + weights.negation;
+  const target = ticketUnit * total;
+  if (target < weights.ordinary) return "ordinary";
+  if (target < weights.ordinary + weights.aspect) return "aspect";
+  return "negation";
 }
 
 /**
