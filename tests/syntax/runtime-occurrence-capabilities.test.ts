@@ -125,8 +125,8 @@ describe("packaged same-occurrence capabilities", () => {
       minimum: 0,
       maximum: 2,
       requiredFunctions: ["predicate"],
-      requiredOccurrenceCapabilities: [],
     });
+    expect(baModal?.requiredOccurrenceCapabilities ?? []).toEqual([]);
 
     const clauseModal = FORMAL_SYNTAX_RULES
       .find((rule) => rule.id === "clause.modal")
