@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { enumerateStructuralDerivations } from "../../src/syntax/derive.js";
+import { sampleStructuralDerivation } from "../../src/syntax/sample.js";
 import {
   CLAUSE_PRODUCTION_RULES,
   FORMAL_SYNTAX_FIXTURES,
@@ -13,6 +14,8 @@ const REQUIRED_CONSTRUCTIONS = [
   "argument.indirect-object.noun",
   "argument.disposal-patient.noun",
   "argument.passive-agent.noun",
+  "predicate-marking.negation",
+  "predicate-marking.modal",
   "phrase.passive.short",
   "phrase.passive.long",
   "clause.nominal-predicate",
@@ -53,17 +56,68 @@ describe("formal clause and question production inventory", () => {
     expect(ids.has("clause.causative")).toBe(false);
   });
 
-  it("represents BA patient as a construction role and delegates predicate structure", () => {
+  it("represents BA patient as a construction role with preverbal predicate marking", () => {
     const ba = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "clause.ba");
     expect(ba?.constituents.map((item) => [item.key, item.category])).toEqual([
       ["subject", "Subject"],
+      ["negation", "PredicateNegationMarking"],
+      ["modal", "PredicateModalMarking"],
       ["marker", "Lexeme"],
       ["patient", "DisposalPatient"],
       ["predicate", "BAPredicate"],
     ]);
+    expect(ba?.constituents.find((item) => item.key === "negation")).toMatchObject({
+      minimum: 0,
+      maximum: 1,
+      requiredFunctions: ["predicate"],
+    });
+    expect(ba?.constituents.find((item) => item.key === "modal")).toMatchObject({
+      minimum: 0,
+      maximum: 2,
+      requiredFunctions: ["predicate"],
+    });
     expect(ba?.constituents.find((item) => item.key === "marker")).toMatchObject({
       allowedUpos: ["ADP"],
       requiredFeatures: { voice: "disposal" },
+    });
+  });
+
+  it("keeps BA negation in predicate-marking context without lexical predicate-role gating", () => {
+    const keep = new Set([
+      "clause.ba",
+      "predicate-marking.negation",
+      "argument.subject.noun",
+      "argument.disposal-patient.noun",
+      "phrase.noun.bare",
+      "phrase.nominal-head.noun",
+      "ba-predicate.attested",
+    ]);
+    const shape = sampleStructuralDerivation({
+      rootCategory: "Clause",
+      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
+      random: { next: () => 0 },
+      maximumAttempts: 1,
+      rootProductionRuleId: "clause.ba",
+      nestedProductionTargets: [
+        { parentRuleId: "clause.ba", constituentKey: "negation", exactCount: 1 },
+        { parentRuleId: "clause.ba", constituentKey: "modal", exactCount: 0 },
+        {
+          parentRuleId: "clause.ba",
+          constituentKey: "predicate",
+          childRuleId: "ba-predicate.attested",
+        },
+      ],
+      requiredLexicalSlot: {
+        requiredFeatures: { polarity: "negative" },
+        enclosingRequiredFunctions: ["predicate"],
+      },
+    });
+
+    expect(shape).not.toBeNull();
+    const negation = shape?.lexicalSlots.find((slot) => slot.constituentKey === "negation");
+    expect(negation).toMatchObject({
+      requiredFunctions: [],
+      requiredFeatures: { polarity: "negative" },
     });
   });
 
@@ -73,7 +127,6 @@ describe("formal clause and question production inventory", () => {
       "ba-predicate.attested",
       "argument.subject.noun",
       "argument.disposal-patient.noun",
-      "predicate.verb.lexical",
       "phrase.noun.bare",
       "phrase.nominal-head.noun",
     ]);
@@ -88,6 +141,10 @@ describe("formal clause and question production inventory", () => {
     const slots = shapes[0]!.lexicalSlots;
     expect(slots.some((slot) => slot.allowedUpos.includes("ADP")
       && slot.requiredFeatures.voice === "disposal")).toBe(true);
+    expect(slots.some((slot) => slot.allowedUpos.includes("VERB")
+      && (slot.requiredOccurrenceCapabilities ?? []).includes(
+        "ba-obl-patient-case-same-occurrence",
+      ))).toBe(true);
     const nominalSlots = slots.filter((slot) => slot.allowedUpos.includes("NOUN"));
     expect(nominalSlots).toHaveLength(2);
     expect(nominalSlots.every((slot) => slot.requiredFunctions.length === 0)).toBe(true);
@@ -174,10 +231,10 @@ describe("formal clause and question production inventory", () => {
 
   it("uses formal markers and valency rather than lexical text", () => {
     const serialized = JSON.stringify(CLAUSE_PRODUCTION_RULES);
-    expect(serialized).not.toContain('"text"');
-    expect(serialized).not.toContain('"meaning"');
-    expect(serialized).toContain('"requiredValencyFrames"');
-    expect(serialized).toContain('"questionType"');
+    expect(serialized).not.toContain('\"text\"');
+    expect(serialized).not.toContain('\"meaning\"');
+    expect(serialized).toContain('\"requiredValencyFrames\"');
+    expect(serialized).toContain('\"questionType\"');
   });
 
   it("keeps optional subject, object, particle, and punctuation cardinalities finite", () => {
