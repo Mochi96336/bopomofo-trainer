@@ -1,0 +1,288 @@
+name: predicate modal final immutable A-B
+
+on:
+  push:
+    branches:
+      - agent/predicate-modal-axis-migration
+    paths:
+      - .github/workflows/predicate-modal-final-ab.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout production baseline
+        uses: actions/checkout@v6
+        with:
+          ref: 6edd4dd88e724515748af64e94a24fe0c91e45ee
+          path: base
+
+      - name: Checkout calibrated behavior head
+        uses: actions/checkout@v6
+        with:
+          ref: 568bce38614b594139d2a0e48964fa73ec797a1d
+          path: current
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install baseline dependencies
+        working-directory: base
+        run: npm ci
+
+      - name: Install current dependencies
+        working-directory: current
+        run: npm ci
+
+      - name: Generate baseline packaged catalog
+        working-directory: base
+        run: npm run app:catalog
+
+      - name: Generate current packaged catalog
+        working-directory: current
+        run: npm run app:catalog
+
+      - name: Write shared 8192-seed probe
+        shell: bash
+        run: |
+          cat > /tmp/predicate-modal-final-ab-probe.ts <<'TS'
+          import { writeFileSync } from "node:fs";
+          import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+          import { PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY } from "../src/curriculum/formal-syntax-sampling-policy.js";
+          import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
+          import { createSeededRandom } from "../src/curriculum/random.js";
+          import { sentenceConstructionClassification } from "../src/curriculum/formal-syntax-taxonomy.js";
+          import type { StructuralLexicalSlot } from "../src/syntax/derive.js";
+          import { buildLexicalProfileIndex, compatibleProfilesForSlot } from "../src/syntax/realize.js";
+          import { PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY } from "../src/syntax/runtime-occurrence-capabilities.js";
+
+          const SAMPLE_COUNT = 8192;
+          const SEED_NAMESPACE = "predicate-modal-final-ab-v1";
+          const LABEL = process.env.AB_LABEL ?? "unknown";
+          const HEAD = process.env.AB_HEAD ?? "unknown";
+          const OUTPUT = process.env.AB_OUTPUT;
+          if (!OUTPUT) throw new Error("AB_OUTPUT missing");
+
+          const PRODUCT_BOUNDS = {
+            maximumPhraseDepth: 3,
+            maximumClauseNesting: 1,
+            maximumClausesPerSentence: 2,
+            maximumCoordinationItems: 2,
+            maximumConsecutiveModifiers: 2,
+            maximumComplementsPerPredicate: 1,
+            maximumLexicalEntriesPerUtterance: 6,
+          } as const;
+
+          const modalSlot: StructuralLexicalSlot = {
+            kind: "lexical-slot",
+            id: "predicate-modal-final-ab:modal",
+            constituentKey: "modal",
+            occurrenceIndex: 0,
+            allowedUpos: ["AUX"],
+            requiredFunctions: ["auxiliary"],
+            requiredValencyFrames: [],
+            requiredOccurrenceCapabilities: [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY],
+            requiredFeatures: {},
+          };
+          const profileIndex = buildLexicalProfileIndex(PRACTICE_CATALOG, SYNTAX_PROFILES);
+          const reviewedModalProfileIds = new Set(
+            compatibleProfilesForSlot(modalSlot, profileIndex).map((profile) => profile.id),
+          );
+          if (reviewedModalProfileIds.size !== 22) {
+            throw new Error(`${LABEL}: reviewed modal frontier drifted: ${reviewedModalProfileIds.size}`);
+          }
+
+          const rows = [];
+          for (let round = 0; round < SAMPLE_COUNT; round += 1) {
+            const composition = composeFormalSyntaxUtterances({
+              eligibleEntries: PRACTICE_CATALOG,
+              profiles: SYNTAX_PROFILES,
+              random: createSeededRandom(`${SEED_NAMESPACE}:${round}`),
+              samplingMode: "product-family",
+              samplingPolicy: PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+              minimumLexicalEntries: 2,
+              maximumCandidates: 1,
+              maximumAttempts: 64,
+              bounds: PRODUCT_BOUNDS,
+            });
+            const candidate = composition.candidates[0] ?? null;
+            const root = candidate?.syntaxRootRuleId ?? null;
+            rows.push({
+              success: candidate !== null,
+              modal: (candidate?.syntaxProfileIds ?? []).some((id) => reviewedModalProfileIds.has(id)),
+              root,
+              family: root === null ? null : sentenceConstructionClassification(root)?.family ?? null,
+              fallback: composition.fallbackReasons.join("\u0000"),
+              derivation: candidate?.syntaxDerivationId ?? null,
+              text: candidate?.text ?? null,
+              profiles: (candidate?.syntaxProfileIds ?? []).join("\u0000"),
+            });
+          }
+
+          writeFileSync(OUTPUT, `${JSON.stringify({
+            label: LABEL,
+            head: HEAD,
+            sampleCount: SAMPLE_COUNT,
+            seedNamespace: SEED_NAMESPACE,
+            reviewedModalProfileCount: reviewedModalProfileIds.size,
+            policyVersion: PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version,
+            policyWeights: PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.predicateMarkingPracticeWeights,
+            rows,
+          })}\n`);
+          TS
+          cp /tmp/predicate-modal-final-ab-probe.ts base/scripts/.tmp-predicate-modal-final-ab-probe.ts
+          cp /tmp/predicate-modal-final-ab-probe.ts current/scripts/.tmp-predicate-modal-final-ab-probe.ts
+
+      - name: Run production baseline 8192 seeds
+        working-directory: base
+        env:
+          AB_LABEL: production-main
+          AB_HEAD: 6edd4dd88e724515748af64e94a24fe0c91e45ee
+          AB_OUTPUT: ../predicate-modal-final-ab-base.json
+        run: npx tsx scripts/.tmp-predicate-modal-final-ab-probe.ts
+
+      - name: Run calibrated current 8192 seeds
+        working-directory: current
+        env:
+          AB_LABEL: calibrated-predicate-axis
+          AB_HEAD: 568bce38614b594139d2a0e48964fa73ec797a1d
+          AB_OUTPUT: ../predicate-modal-final-ab-current.json
+        run: npx tsx scripts/.tmp-predicate-modal-final-ab-probe.ts
+
+      - name: Compare immutable outputs
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          base = json.loads(Path("predicate-modal-final-ab-base.json").read_text())
+          current = json.loads(Path("predicate-modal-final-ab-current.json").read_text())
+          if base["sampleCount"] != 8192 or current["sampleCount"] != 8192:
+              raise SystemExit("sample count drift")
+          if base["seedNamespace"] != current["seedNamespace"]:
+              raise SystemExit("seed namespace mismatch")
+          if base["reviewedModalProfileCount"] != 22 or current["reviewedModalProfileCount"] != 22:
+              raise SystemExit("reviewed modal frontier drift")
+
+          def summarize(rows):
+              roots = Counter()
+              families = Counter()
+              fallbacks = Counter()
+              success = modal = 0
+              for row in rows:
+                  success += int(row["success"])
+                  modal += int(row["modal"])
+                  if row["root"] is not None:
+                      roots[row["root"]] += 1
+                  if row["family"] is not None:
+                      families[row["family"]] += 1
+                  if row["fallback"]:
+                      for reason in row["fallback"].split("\0"):
+                          fallbacks[reason] += 1
+              return {
+                  "sampleCount": len(rows),
+                  "success": success,
+                  "modalExposure": modal,
+                  "modalShare": modal / len(rows),
+                  "roots": dict(sorted(roots.items())),
+                  "families": dict(sorted(families.items())),
+                  "fallbacks": dict(sorted(fallbacks.items())),
+              }
+
+          def tv(left, right, n):
+              keys = set(left) | set(right)
+              return sum(abs(left.get(k, 0) - right.get(k, 0)) for k in keys) / (2 * n)
+
+          baseline = summarize(base["rows"])
+          calibrated = summarize(current["rows"])
+          n = base["sampleCount"]
+          counters = Counter()
+          for before, after in zip(base["rows"], current["rows"]):
+              counters["successMismatch"] += before["success"] != after["success"]
+              if before["modal"] != after["modal"]:
+                  counters["modalChanged"] += 1
+                  counters["modalToNonModal" if before["modal"] else "nonModalToModal"] += 1
+              counters["rootChanged"] += before["root"] != after["root"]
+              counters["familyChanged"] += before["family"] != after["family"]
+              counters["fallbackChanged"] += before["fallback"] != after["fallback"]
+              counters["derivationChanged"] += before["derivation"] != after["derivation"]
+              counters["textChanged"] += before["text"] != after["text"]
+              counters["profilesChanged"] += before["profiles"] != after["profiles"]
+
+          report = {
+              "schemaVersion": "predicate-modal-final-ab-v1",
+              "sampleCount": n,
+              "seedNamespace": base["seedNamespace"],
+              "baselineHead": base["head"],
+              "currentBehaviorHead": current["head"],
+              "reviewedModalProfileCount": 22,
+              "baselinePolicyVersion": base["policyVersion"],
+              "baselinePolicyWeights": base["policyWeights"],
+              "currentPolicyVersion": current["policyVersion"],
+              "currentPolicyWeights": current["policyWeights"],
+              "baseline": baseline,
+              "calibrated": calibrated,
+              "drift": {
+                  "successDelta": calibrated["success"] - baseline["success"],
+                  "modalExposureDelta": calibrated["modalExposure"] - baseline["modalExposure"],
+                  "modalShareDelta": calibrated["modalShare"] - baseline["modalShare"],
+                  "rootTv": tv(baseline["roots"], calibrated["roots"], n),
+                  "familyTv": tv(baseline["families"], calibrated["families"], n),
+                  **dict(counters),
+              },
+          }
+
+          pct = lambda x: f"{100*x:.3f}%"
+          d = report["drift"]
+          md = "\n".join([
+              "# Predicate modal final immutable A/B",
+              "",
+              f"- Production baseline: `{report['baselineHead']}` ({report['baselinePolicyVersion']})",
+              f"- Calibrated behavior: `{report['currentBehaviorHead']}` ({report['currentPolicyVersion']})",
+              f"- Seeds: **{n}** (`{report['seedNamespace']}`)",
+              f"- Reviewed modal frontier: **22 profiles**",
+              f"- Baseline modal exposure: **{baseline['modalExposure']}/{n} ({pct(baseline['modalShare'])})**",
+              f"- Calibrated modal exposure: **{calibrated['modalExposure']}/{n} ({pct(calibrated['modalShare'])})**",
+              f"- Exposure delta: **{d['modalExposureDelta']} ({pct(d['modalShareDelta'])})**",
+              f"- Success: **{baseline['success']} -> {calibrated['success']}**, mismatch **{d.get('successMismatch', 0)}/{n}**",
+              f"- Root TV: **{pct(d['rootTv'])}**; family TV: **{pct(d['familyTv'])}**",
+              f"- Modal classification changed: **{d.get('modalChanged', 0)}** ({d.get('modalToNonModal', 0)} modal->non, {d.get('nonModalToModal', 0)} non->modal)",
+              f"- Root changed: **{d.get('rootChanged', 0)}**; family changed: **{d.get('familyChanged', 0)}**",
+              f"- Fallback changed: **{d.get('fallbackChanged', 0)}**",
+              f"- Derivation changed: **{d.get('derivationChanged', 0)}**; text changed: **{d.get('textChanged', 0)}**; profiles changed: **{d.get('profilesChanged', 0)}**",
+              "",
+              "This compares two immutable checkouts with their own production composer, grammar, taxonomy, and sampling policy. The reviewed-modal meter is syntax-only product exposure, not a semantic modality-frequency claim.",
+          ]) + "\n"
+
+          Path("predicate-modal-final-ab.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n")
+          Path("predicate-modal-final-ab.md").write_text(md)
+          print(md)
+
+          if baseline["success"] != calibrated["success"] or d.get("successMismatch", 0) != 0:
+              raise SystemExit("success regression in immutable A/B")
+          PY
+
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f predicate-modal-final-ab.md ]; then
+            cat predicate-modal-final-ab.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload A-B artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: predicate-modal-final-ab
+          path: |
+            predicate-modal-final-ab.json
+            predicate-modal-final-ab.md
+          if-no-files-found: error
