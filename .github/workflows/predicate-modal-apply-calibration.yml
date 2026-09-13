@@ -1,0 +1,77 @@
+name: predicate modal apply calibration
+
+on:
+  push:
+    branches:
+      - agent/predicate-modal-axis-migration
+    paths:
+      - .github/workflows/predicate-modal-apply-calibration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/predicate-modal-axis-migration
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply calibrated 5.7 percent modal ticket
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          policy = Path("src/curriculum/formal-syntax-sampling-policy.ts")
+          text = policy.read_text()
+          old = '''  // Product-practice prior for orthogonal predicate marking. Aspect keeps the\n  // calibrated [0.888, 0.943) interval and negation keeps the historical final\n  // [0.943, 1) interval exactly. Modal is provisionally seeded at 5.00% for\n  // calibration against #264 and takes mass only from the ordinary interval.\n  predicateMarkingPracticeWeights: { ordinary: 0.838, modal: 0.050, aspect: 0.055, negation: 0.057 },'''
+          new = '''  // Product-practice prior for orthogonal predicate marking. Aspect keeps the\n  // calibrated [0.888, 0.943) interval and negation keeps the historical final\n  // [0.943, 1) interval exactly. Modal calibration against #264 selected 5.70%\n  // and takes mass only from the ordinary interval.\n  predicateMarkingPracticeWeights: { ordinary: 0.831, modal: 0.057, aspect: 0.055, negation: 0.057 },'''
+          if text.count(old) != 1:
+              raise SystemExit(f"policy calibration seam mismatch count={text.count(old)}")
+          policy.write_text(text.replace(old, new))
+
+          ticket = Path("tests/curriculum/predicate-marking-practice-ticket.test.ts")
+          text = ticket.read_text()
+          replacements = {
+              '''      ordinary: 0.838,\n      modal: 0.050,''': '''      ordinary: 0.831,\n      modal: 0.057,''',
+              'predicateMarkingPracticeIntentForTicketUnit(0.8379)': 'predicateMarkingPracticeIntentForTicketUnit(0.8309)',
+              'predicateMarkingPracticeIntentForTicketUnit(0.838)': 'predicateMarkingPracticeIntentForTicketUnit(0.831)',
+              'modalCount / sampleCount - 0.050': 'modalCount / sampleCount - 0.057',
+          }
+          for old, new in replacements.items():
+              if text.count(old) != 1:
+                  raise SystemExit(f"ticket calibration seam mismatch: {old!r} count={text.count(old)}")
+              text = text.replace(old, new)
+          ticket.write_text(text)
+          PY
+      - run: npm run app:catalog
+      - run: npm run typecheck
+      - name: Run predicate-marking regressions
+        run: npx vitest run tests/curriculum/predicate-marking-practice-ticket.test.ts tests/syntax/predicate-modal-axis-migration.test.ts tests/syntax/predicate-negation-axis-migration.test.ts tests/syntax/predicate-aspect-axis-migration.test.ts
+      - name: Commit calibrated policy only
+        shell: bash
+        run: |
+          git status --short
+          git diff --exit-code -- data || {
+            echo "unexpected data change" >&2
+            exit 1
+          }
+          changed="$(git diff --name-only | sort)"
+          expected="$(printf '%s\n' src/curriculum/formal-syntax-sampling-policy.ts tests/curriculum/predicate-marking-practice-ticket.test.ts | sort)"
+          if [ "$changed" != "$expected" ]; then
+            echo "unexpected calibration diff:" >&2
+            printf '%s\n' "$changed" >&2
+            exit 1
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/curriculum/formal-syntax-sampling-policy.ts tests/curriculum/predicate-marking-practice-ticket.test.ts
+          git commit -m "calibrate(syntax): set modal practice ticket to 5.7%"
+          git push origin HEAD:agent/predicate-modal-axis-migration
