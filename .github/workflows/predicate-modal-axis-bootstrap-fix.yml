@@ -1,0 +1,40 @@
+name: fix predicate modal bootstrap matcher
+
+on:
+  push:
+    branches:
+      - agent/predicate-modal-axis-migration
+    paths:
+      - .github/workflows/predicate-modal-axis-bootstrap-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Fix stale version assertion matcher
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/workflows/predicate-modal-axis-bootstrap.yml')
+          text = path.read_text()
+          old = "              'version: \"formal-syntax-family-sampling-v6\"': 'version: \"formal-syntax-family-sampling-v7\"',"
+          new = "              'expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe(\"formal-syntax-family-sampling-v6\");': 'expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe(\"formal-syntax-family-sampling-v7\");',"
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one stale matcher, found {text.count(old)}')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Commit bootstrap fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/predicate-modal-axis-bootstrap.yml
+          git commit -m "chore: fix predicate modal bootstrap matcher"
+          git push origin HEAD:agent/predicate-modal-axis-migration
