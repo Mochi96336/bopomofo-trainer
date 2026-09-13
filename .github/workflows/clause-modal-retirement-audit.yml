@@ -1,0 +1,290 @@
+name: clause modal retirement audit
+
+on:
+  push:
+    branches:
+      - agent/clause-modal-retirement-audit
+    paths:
+      - .github/workflows/clause-modal-retirement-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate packaged app catalog
+        run: npm run app:catalog
+
+      - name: Write audit probe
+        shell: bash
+        run: |
+          cat > scripts/.tmp-clause-modal-retirement-audit.ts <<'EOF'
+          import { writeFileSync } from "node:fs";
+          import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+          import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
+          import { createSeededRandom } from "../src/curriculum/random.js";
+          import { sentenceConstructionClassification } from "../src/curriculum/formal-syntax-taxonomy.js";
+          import type { StructuralLexicalSlot } from "../src/syntax/derive.js";
+          import { FORMAL_SYNTAX_RULES } from "../src/syntax/grammar.js";
+          import { buildLexicalProfileIndex, compatibleProfilesForSlot } from "../src/syntax/realize.js";
+          import type { ProductionRule } from "../src/syntax/types.js";
+
+          const SAMPLE_COUNT = 2048;
+          const SEED_NAMESPACE = "clause-modal-retirement-audit-v1";
+          const BASE_HEAD = "6edd4dd88e724515748af64e94a24fe0c91e45ee";
+          const PRODUCT_BOUNDS = {
+            maximumPhraseDepth: 3,
+            maximumClauseNesting: 1,
+            maximumClausesPerSentence: 2,
+            maximumCoordinationItems: 2,
+            maximumConsecutiveModifiers: 2,
+            maximumComplementsPerPredicate: 1,
+            maximumLexicalEntriesPerUtterance: 6,
+          } as const;
+
+          interface Row {
+            success: boolean;
+            modal: boolean;
+            root: string | null;
+            family: string | null;
+            fallback: string;
+            derivation: string | null;
+            text: string | null;
+            profiles: string;
+          }
+
+          interface Summary {
+            sampleCount: number;
+            success: number;
+            modalExposure: number;
+            modalShare: number;
+            roots: Record<string, number>;
+            families: Record<string, number>;
+            fallbacks: Record<string, number>;
+          }
+
+          function increment(map: Map<string, number>, key: string): void {
+            map.set(key, (map.get(key) ?? 0) + 1);
+          }
+
+          function sorted(map: Map<string, number>): Record<string, number> {
+            return Object.fromEntries([...map.entries()].sort(([a], [b]) => a.localeCompare(b)));
+          }
+
+          const mutableRules = FORMAL_SYNTAX_RULES as ProductionRule[];
+          const modalRuleIndex = mutableRules.findIndex((rule) => rule.id === "clause.modal");
+          if (modalRuleIndex < 0) throw new Error("clause.modal missing from current main");
+          const modalRule = mutableRules[modalRuleIndex]!;
+          const modalConstituent = modalRule.constituents.find((item) => item.key === "modal");
+          if (modalConstituent === undefined || modalConstituent.category !== "Lexeme") {
+            throw new Error("clause.modal modal lexical constituent missing");
+          }
+
+          const modalSlot: StructuralLexicalSlot = {
+            kind: "lexical-slot",
+            id: "clause-modal-retirement-audit:modal",
+            constituentKey: modalConstituent.key,
+            occurrenceIndex: 0,
+            allowedUpos: modalConstituent.allowedUpos,
+            requiredFunctions: modalConstituent.requiredFunctions,
+            requiredValencyFrames: modalConstituent.requiredValencyFrames,
+            ...(modalConstituent.requiredOccurrenceCapabilities === undefined
+              ? {}
+              : { requiredOccurrenceCapabilities: modalConstituent.requiredOccurrenceCapabilities }),
+            requiredFeatures: modalConstituent.requiredFeatures,
+          };
+          const profileIndex = buildLexicalProfileIndex(PRACTICE_CATALOG, SYNTAX_PROFILES);
+          const reviewedModalProfileIds = new Set(
+            compatibleProfilesForSlot(modalSlot, profileIndex).map((profile) => profile.id),
+          );
+          if (reviewedModalProfileIds.size !== 22) {
+            throw new Error(`reviewed modal frontier drifted: ${reviewedModalProfileIds.size}`);
+          }
+
+          function measure(): Row[] {
+            const rows: Row[] = [];
+            for (let round = 0; round < SAMPLE_COUNT; round += 1) {
+              const composition = composeFormalSyntaxUtterances({
+                eligibleEntries: PRACTICE_CATALOG,
+                profiles: SYNTAX_PROFILES,
+                random: createSeededRandom(`${SEED_NAMESPACE}:${round}`),
+                samplingMode: "product-family",
+                minimumLexicalEntries: 2,
+                maximumCandidates: 1,
+                maximumAttempts: 64,
+                bounds: PRODUCT_BOUNDS,
+              });
+              const candidate = composition.candidates[0] ?? null;
+              const root = candidate?.syntaxRootRuleId ?? null;
+              rows.push({
+                success: candidate !== null,
+                modal: (candidate?.syntaxProfileIds ?? []).some((id) => reviewedModalProfileIds.has(id)),
+                root,
+                family: root === null ? null : sentenceConstructionClassification(root)?.family ?? null,
+                fallback: composition.fallbackReasons.join("\u0000"),
+                derivation: candidate?.syntaxDerivationId ?? null,
+                text: candidate?.text ?? null,
+                profiles: (candidate?.syntaxProfileIds ?? []).join("\u0000"),
+              });
+            }
+            return rows;
+          }
+
+          function summarize(rows: readonly Row[]): Summary {
+            let success = 0;
+            let modalExposure = 0;
+            const roots = new Map<string, number>();
+            const families = new Map<string, number>();
+            const fallbacks = new Map<string, number>();
+            for (const row of rows) {
+              if (row.success) success += 1;
+              if (row.modal) modalExposure += 1;
+              if (row.root !== null) increment(roots, row.root);
+              if (row.family !== null) increment(families, row.family);
+              if (row.fallback !== "") {
+                for (const reason of row.fallback.split("\u0000")) increment(fallbacks, reason);
+              }
+            }
+            return {
+              sampleCount: rows.length,
+              success,
+              modalExposure,
+              modalShare: modalExposure / rows.length,
+              roots: sorted(roots),
+              families: sorted(families),
+              fallbacks: sorted(fallbacks),
+            };
+          }
+
+          function tv(left: Record<string, number>, right: Record<string, number>): number {
+            const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+            let total = 0;
+            for (const key of keys) total += Math.abs((left[key] ?? 0) - (right[key] ?? 0));
+            return total / (2 * SAMPLE_COUNT);
+          }
+
+          const currentRows = measure();
+          const [removed] = mutableRules.splice(modalRuleIndex, 1);
+          if (removed?.id !== "clause.modal") throw new Error("wrong shadow rule removed");
+          let shadowRows: Row[];
+          try {
+            shadowRows = measure();
+          } finally {
+            mutableRules.splice(modalRuleIndex, 0, removed);
+          }
+
+          const current = summarize(currentRows);
+          const shadow = summarize(shadowRows);
+          let successMismatch = 0;
+          let modalChanged = 0;
+          let modalToNonModal = 0;
+          let nonModalToModal = 0;
+          let rootChanged = 0;
+          let familyChanged = 0;
+          let fallbackChanged = 0;
+          let derivationChanged = 0;
+          let textChanged = 0;
+          let profilesChanged = 0;
+          for (let index = 0; index < SAMPLE_COUNT; index += 1) {
+            const before = currentRows[index]!;
+            const after = shadowRows[index]!;
+            if (before.success !== after.success) successMismatch += 1;
+            if (before.modal !== after.modal) {
+              modalChanged += 1;
+              if (before.modal) modalToNonModal += 1;
+              else nonModalToModal += 1;
+            }
+            if (before.root !== after.root) rootChanged += 1;
+            if (before.family !== after.family) familyChanged += 1;
+            if (before.fallback !== after.fallback) fallbackChanged += 1;
+            if (before.derivation !== after.derivation) derivationChanged += 1;
+            if (before.text !== after.text) textChanged += 1;
+            if (before.profiles !== after.profiles) profilesChanged += 1;
+          }
+
+          const report = {
+            schemaVersion: "clause-modal-retirement-audit-v1",
+            baseHead: BASE_HEAD,
+            sampleCount: SAMPLE_COUNT,
+            seedNamespace: SEED_NAMESPACE,
+            reviewedModalProfileCount: reviewedModalProfileIds.size,
+            current,
+            shadowWithoutClauseModal: shadow,
+            drift: {
+              successDelta: shadow.success - current.success,
+              modalExposureDelta: shadow.modalExposure - current.modalExposure,
+              modalShareDelta: shadow.modalShare - current.modalShare,
+              rootTv: tv(current.roots, shadow.roots),
+              familyTv: tv(current.families, shadow.families),
+              successMismatch,
+              modalChanged,
+              modalToNonModal,
+              nonModalToModal,
+              rootChanged,
+              familyChanged,
+              fallbackChanged,
+              derivationChanged,
+              textChanged,
+              profilesChanged,
+            },
+          };
+
+          const pct = (value: number) => `${(value * 100).toFixed(3)}%`;
+          const markdown = [
+            "# Clause modal retirement audit",
+            "",
+            `- Base main: \`${BASE_HEAD}\``,
+            `- Reviewed modal profile frontier: **${reviewedModalProfileIds.size}**`,
+            `- Current modal exposure: **${current.modalExposure}/${SAMPLE_COUNT} (${pct(current.modalShare)})**`,
+            `- Shadow without clause.modal: **${shadow.modalExposure}/${SAMPLE_COUNT} (${pct(shadow.modalShare)})**`,
+            `- Modal exposure delta: **${report.drift.modalExposureDelta} (${pct(report.drift.modalShareDelta)})**`,
+            `- Success: **${current.success} -> ${shadow.success}**, mismatch **${successMismatch}/${SAMPLE_COUNT}**`,
+            `- Root TV: **${pct(report.drift.rootTv)}**; family TV: **${pct(report.drift.familyTv)}**`,
+            `- Modal classification changed: **${modalChanged}** (${modalToNonModal} modal->non, ${nonModalToModal} non->modal)`,
+            `- Root changed: **${rootChanged}**; family changed: **${familyChanged}**`,
+            `- Fallback changed: **${fallbackChanged}**`,
+            `- Derivation changed: **${derivationChanged}**; text changed: **${textChanged}**; profiles changed: **${profilesChanged}**`,
+            "",
+            "This is a shadow-retirement measurement only. It does not define semantic modality and does not authorize deleting clause.modal.",
+          ].join("\n");
+
+          writeFileSync("clause-modal-retirement-audit.json", `${JSON.stringify(report, null, 2)}\n`);
+          writeFileSync("clause-modal-retirement-audit.md", `${markdown}\n`);
+          console.log(markdown);
+          EOF
+
+      - name: Run 2048-seed current-vs-shadow audit
+        run: npx tsx scripts/.tmp-clause-modal-retirement-audit.ts
+
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f clause-modal-retirement-audit.md ]; then
+            cat clause-modal-retirement-audit.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clause-modal-retirement-audit
+          path: |
+            clause-modal-retirement-audit.json
+            clause-modal-retirement-audit.md
+          if-no-files-found: error
