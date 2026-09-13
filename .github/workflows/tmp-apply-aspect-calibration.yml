@@ -1,0 +1,64 @@
+name: tmp apply aspect calibration
+
+on:
+  push:
+    branches:
+      - agent/aspect-predicate-marking-axis
+    paths:
+      - .github/workflows/tmp-apply-aspect-calibration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v6
+        with:
+          ref: agent/aspect-predicate-marking-axis
+          fetch-depth: 0
+
+      - name: Apply calibrated 5.5 percent aspect ticket
+        shell: python
+        run: |
+          from pathlib import Path
+
+          policy_path = Path("src/curriculum/formal-syntax-sampling-policy.ts")
+          policy = policy_path.read_text()
+          replacements = {
+              "// Aspect initially receives the immediately preceding 5.70% interval as a\n  // calibration starting point; exact product exposure is measured before the\n  // legacy Clause-level aspect family may be retired.\n  predicateMarkingPracticeWeights: { ordinary: 0.886, aspect: 0.057, negation: 0.057 },":
+              "// Product calibration against the reconstructed #259 baseline selected a\n  // 5.50% aspect interval; ordinary absorbs the 0.20-point difference while\n  // the historical negation interval remains unchanged.\n  predicateMarkingPracticeWeights: { ordinary: 0.888, aspect: 0.055, negation: 0.057 },",
+          }
+          for old, new in replacements.items():
+              if policy.count(old) != 1:
+                  raise SystemExit(f"policy replacement seam count={policy.count(old)}")
+              policy = policy.replace(old, new)
+          policy_path.write_text(policy)
+
+          test_path = Path("tests/curriculum/predicate-marking-practice-ticket.test.ts")
+          test = test_path.read_text()
+          exact = {
+              "      ordinary: 0.886,\n      aspect: 0.057,\n      negation: 0.057,":
+              "      ordinary: 0.888,\n      aspect: 0.055,\n      negation: 0.057,",
+              "    expect(predicateMarkingPracticeIntentForTicketUnit(0.8859)).toBe(\"ordinary\");\n    expect(predicateMarkingPracticeIntentForTicketUnit(0.886)).toBe(\"aspect\");":
+              "    expect(predicateMarkingPracticeIntentForTicketUnit(0.8879)).toBe(\"ordinary\");\n    expect(predicateMarkingPracticeIntentForTicketUnit(0.888)).toBe(\"aspect\");",
+              "    expect(Math.abs(aspectCount / sampleCount - 0.057)).toBeLessThan(0.008);":
+              "    expect(Math.abs(aspectCount / sampleCount - 0.055)).toBeLessThan(0.008);",
+          }
+          for old, new in exact.items():
+              if test.count(old) != 1:
+                  raise SystemExit(f"test replacement seam count={test.count(old)} for {old!r}")
+              test = test.replace(old, new)
+          test_path.write_text(test)
+
+      - name: Commit calibrated policy
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/curriculum/formal-syntax-sampling-policy.ts tests/curriculum/predicate-marking-practice-ticket.test.ts
+          git diff --cached --check
+          git diff --cached --exit-code && exit 1 || true
+          git commit -m "calibrate(syntax): set aspect practice ticket to 5.5%"
+          git push origin HEAD:agent/aspect-predicate-marking-axis
