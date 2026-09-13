@@ -1,10 +1,12 @@
 import { FORMAL_GRAMMAR_VERSION } from "./features.js";
+import { PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY } from "./runtime-occurrence-capabilities.js";
 import type {
   ConstituentCardinalityBound,
   ProductionConstituent,
   ProductionFixture,
   ProductionRule,
   ProductionRuleClass,
+  RuntimeOccurrenceCapability,
   SyntacticFunction,
   SyntaxCategory,
   SyntaxFeatureSet,
@@ -36,6 +38,7 @@ interface ConstituentOptions {
   readonly allowedUpos?: readonly Upos[];
   readonly requiredFunctions?: readonly SyntacticFunction[];
   readonly requiredValencyFrames?: readonly ValencyFrame[];
+  readonly requiredOccurrenceCapabilities?: readonly RuntimeOccurrenceCapability[];
   readonly requiredFeatures?: SyntaxFeatureSet;
   readonly inheritFunctions?: boolean;
   readonly inheritValencyFrames?: boolean;
@@ -57,6 +60,9 @@ function constituent(
     allowedUpos: options.allowedUpos ?? [],
     requiredFunctions: options.requiredFunctions ?? [],
     requiredValencyFrames: options.requiredValencyFrames ?? [],
+    ...(options.requiredOccurrenceCapabilities === undefined
+      ? {}
+      : { requiredOccurrenceCapabilities: options.requiredOccurrenceCapabilities }),
     requiredFeatures: options.requiredFeatures ?? {},
     ...(options.inheritFunctions ? { inheritFunctions: true } : {}),
     ...(options.inheritValencyFrames ? { inheritValencyFrames: true } : {}),
@@ -256,7 +262,11 @@ export const PHRASE_PRODUCTION_RULES: readonly ProductionRule[] = [
       maximum: 1,
       requiredFeatures: { polarity: "negative" },
     }),
-    lexical("modal", ["AUX"], { minimum: 0, maximum: 2 }),
+    lexical("modal", ["AUX"], {
+      minimum: 0,
+      maximum: 2,
+      requiredOccurrenceCapabilities: [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY],
+    }),
     constituent("adverbial", "AdverbPhrase", {
       minimum: 0,
       maximum: 3,

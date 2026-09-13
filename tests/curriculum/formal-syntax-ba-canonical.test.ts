@@ -3,7 +3,11 @@ import { catalogEntryId } from "../../src/core/catalog-entry-id.js";
 import type { CatalogEntry } from "../../src/core/model.js";
 import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
 import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
-import { BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY } from "../../src/syntax/runtime-occurrence-capabilities.js";
+import {
+  BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY,
+  PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY,
+} from "../../src/syntax/runtime-occurrence-capabilities.js";
+import type { NestedProductionTarget } from "../../src/syntax/sample.js";
 import type { ProductionRule, RuntimeSyntaxProfile, ValencyFrame } from "../../src/syntax/types.js";
 
 const STABLE_RANDOM = { next: () => 0 };
@@ -46,18 +50,21 @@ function profile(
     readonly functions?: RuntimeSyntaxProfile["functions"];
     readonly valencyFrames?: RuntimeSyntaxProfile["valencyFrames"];
     readonly baCapability?: boolean;
+    readonly preverbalAuxCapability?: boolean;
     readonly dependencyRelationCounts?: RuntimeSyntaxProfile["dependencyEvidence"]["dependencyRelationCounts"];
   } = {},
 ): RuntimeSyntaxProfile {
+  const occurrenceCapabilities = [
+    ...(options.baCapability ? [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY] : []),
+    ...(options.preverbalAuxCapability ? [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY] : []),
+  ];
   return {
     id,
     entryId,
     upos,
     functions: options.functions ?? [],
     valencyFrames: options.valencyFrames ?? [],
-    ...(options.baCapability
-      ? { occurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY] }
-      : {}),
+    ...(occurrenceCapabilities.length === 0 ? {} : { occurrenceCapabilities }),
     provenanceIds: ["test"],
     dependencyEvidence: {
       dependencyRelationCounts: options.dependencyRelationCounts ?? {},
@@ -76,11 +83,12 @@ function canonicalRule(ruleId: string): ProductionRule {
 const BA_RULES: readonly ProductionRule[] = [
   canonicalRule("sentence.declarative"),
   canonicalRule("clause.ba"),
+  canonicalRule("predicate-marking.negation"),
+  canonicalRule("predicate-marking.modal"),
   canonicalRule("argument.subject.noun"),
   canonicalRule("argument.disposal-patient.noun"),
   canonicalRule("phrase.noun.bare"),
   canonicalRule("phrase.nominal-head.noun"),
-  canonicalRule("predicate.verb.lexical"),
   canonicalRule("ba-predicate.attested"),
   canonicalRule("ba-predicate.completed.complement"),
   canonicalRule("ba-predicate.completed.aspect"),
@@ -93,6 +101,8 @@ function composeBa(options: {
   readonly baCapability?: boolean;
   readonly completion?: CompletionKind;
   readonly baPredicateRuleId?: BaPredicateRuleId;
+  readonly withNegation?: boolean;
+  readonly withModal?: boolean;
 }) {
   const he = entry("entry:he", "他");
   const ba = entry(catalogEntryId("把", "ㄅㄚ3"), "把");
@@ -115,6 +125,22 @@ function composeBa(options: {
     }),
   ];
 
+  if (options.withNegation) {
+    const negation = entry(catalogEntryId("沒", "ㄇㄟ2"), "沒");
+    entries.push(negation);
+    profiles.push(profile("profile:negation", negation.id, "ADV", {
+      dependencyRelationCounts: { advmod: 1 },
+    }));
+  }
+  if (options.withModal) {
+    const modal = entry("entry:can", "能");
+    entries.push(modal);
+    profiles.push(profile("profile:can", modal.id, "AUX", {
+      functions: ["auxiliary"],
+      preverbalAuxCapability: true,
+      dependencyRelationCounts: { aux: 1 },
+    }));
+  }
   if (completion === "directional") {
     const direction = entry("entry:direction", "來");
     entries.push(direction);
@@ -130,23 +156,30 @@ function composeBa(options: {
     }));
   }
 
-  const nestedProductionTargets = [{
+  const nestedProductionTargets: NestedProductionTarget[] = [{
     parentRuleId: "sentence.declarative",
     constituentKey: "clause",
     childRuleId: "clause.ba",
   }];
+  if (options.withNegation) {
+    nestedProductionTargets.push({
+      parentRuleId: "clause.ba",
+      constituentKey: "negation",
+      exactCount: 1,
+    });
+  }
+  if (options.withModal) {
+    nestedProductionTargets.push({
+      parentRuleId: "clause.ba",
+      constituentKey: "modal",
+      exactCount: 1,
+    });
+  }
   if (options.baPredicateRuleId !== undefined) {
     nestedProductionTargets.push({
       parentRuleId: "clause.ba",
       constituentKey: "predicate",
       childRuleId: options.baPredicateRuleId,
-    });
-  }
-  if (options.baPredicateRuleId === "ba-predicate.attested") {
-    nestedProductionTargets.push({
-      parentRuleId: "ba-predicate.attested",
-      constituentKey: "predicate",
-      childRuleId: "predicate.verb.lexical",
     });
   }
   if (options.baPredicateRuleId === "ba-predicate.completed.complement") {
@@ -182,18 +215,36 @@ function expectOneOf(result: ReturnType<typeof composeBa>, texts: readonly strin
 }
 
 describe("canonical BA composition", () => {
-  it("routes BA predicate legality through the dedicated predicate-structure category", () => {
+  it("routes BA marking before the disposal phrase and keeps BAPredicate post-patient", () => {
     const clause = canonicalRule("clause.ba");
-    const predicate = clause.constituents.find((item) => item.key === "predicate");
-    expect(predicate?.category).toBe("BAPredicate");
-    expect(predicate?.requiredOccurrenceCapabilities ?? []).toEqual([]);
+    expect(clause.constituents.map((item) => [item.key, item.category])).toEqual([
+      ["subject", "Subject"],
+      ["negation", "PredicateNegationMarking"],
+      ["modal", "PredicateModalMarking"],
+      ["marker", "Lexeme"],
+      ["patient", "DisposalPatient"],
+      ["predicate", "BAPredicate"],
+    ]);
+    expect(clause.constituents.find((item) => item.key === "predicate")
+      ?.requiredOccurrenceCapabilities ?? []).toEqual([]);
 
     const attested = canonicalRule("ba-predicate.attested");
-    expect(attested.constituents[0]).toMatchObject({
-      category: "Predicate",
-      requiredFunctions: ["predicate"],
+    expect(attested.constituents.find((item) => item.key === "head")).toMatchObject({
+      category: "Lexeme",
+      allowedUpos: ["VERB"],
       requiredOccurrenceCapabilities: [BA_PATIENT_CASE_SAME_OCCURRENCE_CAPABILITY],
     });
+    expect(attested.constituents.some((item) => item.key === "negation" || item.key === "modal"))
+      .toBe(false);
+
+    for (const ruleId of [
+      "ba-predicate.completed.complement",
+      "ba-predicate.completed.aspect",
+    ]) {
+      const completed = canonicalRule(ruleId);
+      expect(completed.constituents.some((item) => item.key === "negation" || item.key === "modal"))
+        .toBe(false);
+    }
 
     const completed = canonicalRule("ba-predicate.completed.complement");
     const head = completed.constituents.find((item) => item.key === "head");
@@ -205,7 +256,7 @@ describe("canonical BA composition", () => {
     expect(completed.constituents.find((item) => item.key === "complement")?.minimum).toBe(1);
   });
 
-  it("keeps same-occurrence BA evidence as the reviewed Predicate compatibility route", () => {
+  it("keeps same-occurrence BA evidence as the reviewed lexical-head compatibility route", () => {
     const result = composeBa({
       predicateText: "丟掉",
       baCapability: true,
@@ -224,6 +275,21 @@ describe("canonical BA composition", () => {
     });
 
     expectOneOf(result, ["他把書拿來", "書把他拿來"]);
+  });
+
+  it("places negation and modality before the BA marker while preserving productive completion", () => {
+    const result = composeBa({
+      predicateText: "拿",
+      valencyFrames: ["transitive"],
+      completion: "directional",
+      baPredicateRuleId: "ba-predicate.completed.complement",
+      withNegation: true,
+      withModal: true,
+    });
+
+    expectOneOf(result, ["他沒能把書拿來", "書沒能把他拿來"]);
+    expect(result.candidates[0]!.text).not.toMatch(/把[^把]*沒/u);
+    expect(result.candidates[0]!.text).not.toMatch(/把[^把]*能/u);
   });
 
   it("generalizes an unseen patient-taking head when this derivation realizes overt aspect", () => {

@@ -38,6 +38,19 @@ const baOnly: RuntimeSyntaxProfile = {
     morphologicalFeatureCounts: {},
   },
 };
+const auxiliary: RuntimeSyntaxProfile = {
+  ...supported,
+  id: "auxiliary",
+  entryId: "entry:auxiliary",
+  upos: "AUX",
+  functions: ["auxiliary"],
+  valencyFrames: [],
+  dependencyEvidence: {
+    dependencyRelationCounts: { aux: 1 },
+    surfacePositionCounts: {},
+    morphologicalFeatureCounts: {},
+  },
+};
 
 function causativeArtifact(profileIds: readonly string[]): RuntimeOccurrenceCapabilityProjectionArtifact {
   const core = {
@@ -73,6 +86,25 @@ function baArtifact(profileIds: readonly string[]): RuntimeOccurrenceCapabilityP
   return { ...core, determinismDigest: sha256Canonical(core) };
 }
 
+function preverbalAuxArtifact(
+  profileIds: readonly string[],
+): RuntimeOccurrenceCapabilityProjectionArtifact {
+  const core = {
+    schemaVersion: "runtime-occurrence-capability-projection-v1" as const,
+    sourceProfileArtifactDigest: sourceDigest,
+    sourceProvenanceId: "ud:chinese-gsd-r2.18",
+    sourceVersion: "r2.18",
+    sourceCommit: "e0d85a020182e264d6384be2a59c0f4879a1cc35",
+    reviewedCapability: "preverbal-auxiliary-same-occurrence" as const,
+    evidenceContract: "same-token-exact-aux-preverbal-v1" as const,
+    identityPolicy: "unique-active-entry-per-form-upos-v1" as const,
+    profileCount: profileIds.length,
+    entryCount: profileIds.length,
+    profileIds,
+  };
+  return { ...core, determinismDigest: sha256Canonical(core) };
+}
+
 describe("runtime occurrence capability sidecar", () => {
   it("adds the reviewed capability only to explicitly targeted profiles", () => {
     const projected = applyRuntimeOccurrenceCapabilityProjection(
@@ -93,6 +125,25 @@ describe("runtime occurrence capability sidecar", () => {
     expect(projected[0]?.occurrenceCapabilities).toEqual(["ba-obl-patient-case-same-occurrence"]);
   });
 
+  it("accepts the syntax-only preverbal auxiliary sidecar on AUX auxiliary profiles", () => {
+    const projected = applyRuntimeOccurrenceCapabilityProjection(
+      [auxiliary],
+      sourceDigest,
+      preverbalAuxArtifact([auxiliary.id]),
+    );
+    expect(projected[0]?.occurrenceCapabilities).toEqual([
+      "preverbal-auxiliary-same-occurrence",
+    ]);
+  });
+
+  it("rejects preverbal auxiliary projection onto a non-auxiliary aggregate profile", () => {
+    expect(() => applyRuntimeOccurrenceCapabilityProjection(
+      [supported],
+      sourceDigest,
+      preverbalAuxArtifact([supported.id]),
+    )).toThrow(/invalid profile identity/u);
+  });
+
   it("composes different reviewed capabilities without discarding an earlier projection", () => {
     const projected = applyRuntimeOccurrenceCapabilityProjections(
       [supported],
@@ -103,6 +154,17 @@ describe("runtime occurrence capability sidecar", () => {
     expect(projected[0]?.occurrenceCapabilities).toEqual([
       "ba-obl-patient-case-same-occurrence",
       "voice-cau-ccomp-same-occurrence",
+    ]);
+  });
+
+  it("composes the preverbal auxiliary sidecar independently", () => {
+    const projected = applyRuntimeOccurrenceCapabilityProjections(
+      [auxiliary],
+      sourceDigest,
+      [preverbalAuxArtifact([auxiliary.id])],
+    );
+    expect(projected[0]?.occurrenceCapabilities).toEqual([
+      "preverbal-auxiliary-same-occurrence",
     ]);
   });
 

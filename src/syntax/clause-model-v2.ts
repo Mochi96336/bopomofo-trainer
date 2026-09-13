@@ -50,6 +50,11 @@ export const RETIRED_CLAUSE_RULE_V2_DECISIONS = {
     evidenceContract: "predicate.verb.expanded:negation",
     note: "Negation is retained as the polarity marking slot on Predicate and no longer competes with predicate frames as a peer Clause production.",
   },
+  "clause.aspect": {
+    targetAxes: ["predicate-marking"],
+    evidenceContract: "predicate.verb.expanded:aspect",
+    note: "Aspect is retained as a predicate-internal marking slot and practiced through the orthogonal predicate-marking ticket instead of competing with predicate frames as a peer Clause production.",
+  },
 } as const satisfies Readonly<Record<string, RetiredClauseRuleV2Decision>>;
 
 /**
@@ -109,12 +114,6 @@ export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
     targetAxis: "predicate-marking",
     target: "modality",
     note: "Modality combines with predicate frames and must not compete with them as a Clause family.",
-  },
-  "clause.aspect": {
-    group: "move-to-axis",
-    targetAxis: "predicate-marking",
-    target: "aspect",
-    note: "Aspect combines with predicate frames and other markings.",
   },
   "clause.subject-omission": {
     group: "move-to-axis",
