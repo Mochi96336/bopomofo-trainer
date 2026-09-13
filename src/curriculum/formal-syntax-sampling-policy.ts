@@ -78,10 +78,10 @@ export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy =
   },
   // Product-practice prior for orthogonal predicate marking. Negation keeps its
   // historical final 5.70% terminal-unit interval exactly: ticketUnit >= 0.943.
-  // Aspect initially receives the immediately preceding 5.70% interval as a
-  // calibration starting point; exact product exposure is measured before the
-  // legacy Clause-level aspect family may be retired.
-  predicateMarkingPracticeWeights: { ordinary: 0.886, aspect: 0.057, negation: 0.057 },
+  // Product calibration against the reconstructed #259 baseline selected a
+  // 5.50% aspect interval; ordinary absorbs the 0.20-point difference while
+  // the historical negation interval remains unchanged.
+  predicateMarkingPracticeWeights: { ordinary: 0.888, aspect: 0.055, negation: 0.057 },
 };
 
 function nextUnit(random: RandomSource): number {

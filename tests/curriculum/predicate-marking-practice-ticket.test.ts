@@ -56,15 +56,15 @@ describe("predicate marking practice ticket", () => {
   it("uses the measured product marking prior with the historical negation interval preserved", () => {
     expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v6");
     expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.predicateMarkingPracticeWeights).toEqual({
-      ordinary: 0.886,
-      aspect: 0.057,
+      ordinary: 0.888,
+      aspect: 0.055,
       negation: 0.057,
     });
   });
 
   it("maps the terminal unit directly while keeping 0.943 as the negation boundary", () => {
-    expect(predicateMarkingPracticeIntentForTicketUnit(0.8859)).toBe("ordinary");
-    expect(predicateMarkingPracticeIntentForTicketUnit(0.886)).toBe("aspect");
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.8879)).toBe("ordinary");
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.888)).toBe("aspect");
     expect(predicateMarkingPracticeIntentForTicketUnit(0.9429)).toBe("aspect");
     expect(predicateMarkingPracticeIntentForTicketUnit(0.943)).toBe("negation");
     expect(() => predicateMarkingPracticeIntentForTicketUnit(1)).toThrow(/ticket unit/u);
@@ -102,7 +102,7 @@ describe("predicate marking practice ticket", () => {
       if (intent === "aspect") aspectCount += 1;
       if (intent === "negation") negationCount += 1;
     }
-    expect(Math.abs(aspectCount / sampleCount - 0.057)).toBeLessThan(0.008);
+    expect(Math.abs(aspectCount / sampleCount - 0.055)).toBeLessThan(0.008);
     expect(Math.abs(negationCount / sampleCount - 0.057)).toBeLessThan(0.008);
   });
 
