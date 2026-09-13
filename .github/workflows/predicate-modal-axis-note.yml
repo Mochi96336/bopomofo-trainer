@@ -1,0 +1,9 @@
+# Temporary calibration-era marker. Remove before clean-head validation.
+name: predicate modal axis note
+on:
+  workflow_dispatch:
+jobs:
+  noop:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo provisional-modal-axis
