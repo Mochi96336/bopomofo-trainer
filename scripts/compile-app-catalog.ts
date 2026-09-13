@@ -41,6 +41,7 @@ const [
   syntaxProfilesSource,
   occurrenceCapabilitiesSource,
   baOccurrenceCapabilitiesSource,
+  preverbalAuxOccurrenceCapabilitiesSource,
   syntaxRuntimeLockSource,
 ] = await Promise.all([
   loadResolvedCatalogSource(),
@@ -50,6 +51,7 @@ const [
   readFile(new URL("../data/grammar/formal-syntax-active-catalog-profiles.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-runtime-occurrence-capabilities.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-runtime-ba-occurrence-capabilities.json", import.meta.url), "utf8"),
+  readFile(new URL("../data/grammar/formal-syntax-runtime-preverbal-aux-occurrence-capabilities.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-runtime-lock.json", import.meta.url), "utf8"),
 ]);
 
@@ -88,10 +90,17 @@ const occurrenceCapabilitiesArtifact = JSON.parse(
 const baOccurrenceCapabilitiesArtifact = JSON.parse(
   baOccurrenceCapabilitiesSource,
 ) as RuntimeOccurrenceCapabilityProjectionArtifact;
+const preverbalAuxOccurrenceCapabilitiesArtifact = JSON.parse(
+  preverbalAuxOccurrenceCapabilitiesSource,
+) as RuntimeOccurrenceCapabilityProjectionArtifact;
 const sourceSyntaxProfiles = applyRuntimeOccurrenceCapabilityProjections(
   baseSyntaxProfiles,
   syntaxProfilesArtifact.determinismDigest,
-  [occurrenceCapabilitiesArtifact, baOccurrenceCapabilitiesArtifact],
+  [
+    occurrenceCapabilitiesArtifact,
+    baOccurrenceCapabilitiesArtifact,
+    preverbalAuxOccurrenceCapabilitiesArtifact,
+  ],
 );
 if (syntaxProfilesArtifact.sourceRuleIndexDigest !== sourceSyntaxArtifact.sourceRuleIndexDigest) {
   throw new Error("syntax profile and legality artifacts disagree about their source rule index");
@@ -181,6 +190,7 @@ const moduleSource = [
   `export const SYNTAX_RUNTIME_PROFILES_DIGEST = ${JSON.stringify(syntaxProfilesArtifact.determinismDigest)};`,
   `export const SYNTAX_RUNTIME_OCCURRENCE_CAPABILITIES_DIGEST = ${JSON.stringify(occurrenceCapabilitiesArtifact.determinismDigest)};`,
   `export const SYNTAX_RUNTIME_BA_OCCURRENCE_CAPABILITIES_DIGEST = ${JSON.stringify(baOccurrenceCapabilitiesArtifact.determinismDigest)};`,
+  `export const SYNTAX_RUNTIME_PREVERBAL_AUX_OCCURRENCE_CAPABILITIES_DIGEST = ${JSON.stringify(preverbalAuxOccurrenceCapabilitiesArtifact.determinismDigest)};`,
   "",
   `const ENCODED_PRACTICE: readonly EncodedCatalogEntry[] = ${JSON.stringify(encodeCatalogEntries(syntaxLegalEntries))};`,
   "const ENCODED_EVALUATION: readonly EncodedCatalogEntry[] = [];",
