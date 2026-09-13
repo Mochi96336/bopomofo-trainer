@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "scripts/audit-aspect-predicate-marking-calibration.ts"
+      - "scripts/audit-aspect-predicate-marking-calibration-fast.ts"
       - ".github/workflows/aspect-predicate-marking-calibration.yml"
       - "src/curriculum/formal-syntax-sampling-policy.ts"
       - "src/curriculum/formal-syntax-utterance.ts"
@@ -19,7 +20,7 @@ permissions:
 jobs:
   calibrate:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -37,7 +38,7 @@ jobs:
         run: npm run app:catalog
 
       - name: Measure aspect predicate-marking calibration
-        run: npx tsx scripts/audit-aspect-predicate-marking-calibration.ts
+        run: npx tsx scripts/audit-aspect-predicate-marking-calibration-fast.ts
 
       - name: Publish calibration summary
         if: always()
