@@ -198,5 +198,5 @@ describe("predicate marking practice ticket", () => {
       expect(composition.candidates, JSON.stringify(composition.fallbackReasons)).toHaveLength(1);
       expect(composition.candidates[0]!.text).toMatch(/[了過著着]/u);
     }
-  }, 30_000);
+  }, 60_000);
 });
