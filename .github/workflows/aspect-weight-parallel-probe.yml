@@ -1,0 +1,61 @@
+name: aspect weight parallel probe
+
+on:
+  pull_request:
+    paths:
+      - "scripts/probe-aspect-predicate-marking-weight.ts"
+      - ".github/workflows/aspect-weight-parallel-probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: baseline-259
+            baseline: "1"
+            aspect: "0"
+          - label: aspect-035
+            baseline: "0"
+            aspect: "0.035"
+          - label: aspect-050
+            baseline: "0"
+            aspect: "0.050"
+          - label: aspect-065
+            baseline: "0"
+            aspect: "0.065"
+          - label: aspect-080
+            baseline: "0"
+            aspect: "0.080"
+          - label: aspect-095
+            baseline: "0"
+            aspect: "0.095"
+    name: probe-${{ matrix.label }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate packaged app catalog
+        run: npm run app:catalog
+
+      - name: Probe aspect weight
+        env:
+          BASELINE: ${{ matrix.baseline }}
+          ASPECT_WEIGHT: ${{ matrix.aspect }}
+          SAMPLE_COUNT: "1024"
+        run: npx tsx scripts/probe-aspect-predicate-marking-weight.ts
