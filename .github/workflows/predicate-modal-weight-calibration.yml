@@ -1,0 +1,150 @@
+name: predicate modal weight calibration
+
+on:
+  push:
+    branches:
+      - agent/predicate-modal-calibration
+    paths:
+      - .github/workflows/predicate-modal-weight-calibration.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        modal_weight: ["0.035", "0.045", "0.050", "0.055", "0.065"]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run app:catalog
+      - name: Write calibration probe
+        shell: bash
+        run: |
+          cat > /tmp/probe-modal-weight.ts <<'TS'
+          import { createHash } from "node:crypto";
+          import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "${GITHUB_WORKSPACE}/src/app/generated-catalog.js";
+          import { composeFormalSyntaxUtterances } from "${GITHUB_WORKSPACE}/src/curriculum/formal-syntax-utterance.js";
+          import { PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY } from "${GITHUB_WORKSPACE}/src/curriculum/formal-syntax-sampling-policy.js";
+          import { PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY } from "${GITHUB_WORKSPACE}/src/syntax/runtime-occurrence-capabilities.js";
+          import type { RandomSource } from "${GITHUB_WORKSPACE}/src/core/model.js";
+
+          const SAMPLE_COUNT = Number(process.env.SAMPLE_COUNT ?? "1024");
+          const modalWeight = Number(process.env.MODAL_WEIGHT);
+          if (!Number.isFinite(modalWeight) || modalWeight < 0 || modalWeight > 0.888) {
+            throw new Error(`invalid MODAL_WEIGHT=${process.env.MODAL_WEIGHT}`);
+          }
+
+          class SeededRandom implements RandomSource {
+            private state: number;
+            constructor(seed: string) {
+              const digest = createHash("sha256").update(seed).digest();
+              this.state = digest.readUInt32BE(0) || 0x6d2b79f5;
+            }
+            next(): number {
+              let x = this.state >>> 0;
+              x ^= x << 13;
+              x ^= x >>> 17;
+              x ^= x << 5;
+              this.state = x >>> 0;
+              return this.state / 0x100000000;
+            }
+          }
+
+          const policy = {
+            ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+            version: `modal-calibration-${modalWeight.toFixed(3)}`,
+            predicateMarkingPracticeWeights: {
+              ordinary: 0.888 - modalWeight,
+              modal: modalWeight,
+              aspect: 0.055,
+              negation: 0.057,
+            },
+          } as const;
+
+          const reviewedProfileIds = new Set(
+            SYNTAX_PROFILES
+              .filter((profile) => profile.occurrenceCapabilities?.includes(
+                PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY,
+              ))
+              .map((profile) => profile.id),
+          );
+          if (reviewedProfileIds.size !== 22) {
+            throw new Error(`expected 22 reviewed preverbal-AUX profiles, got ${reviewedProfileIds.size}`);
+          }
+
+          const bounds = {
+            maximumPhraseDepth: 3,
+            maximumClauseDepth: 2,
+            maximumClausesPerSentence: 3,
+            maximumConstituentRepetitions: 2,
+            maximumLexicalSlots: 12,
+          } as const;
+
+          let success = 0;
+          let modalExposure = 0;
+          const roots: Record<string, number> = {};
+          const fallbacks: Record<string, number> = {};
+          for (let seed = 0; seed < SAMPLE_COUNT; seed += 1) {
+            const result = composeFormalSyntaxUtterances({
+              eligibleEntries: PRACTICE_CATALOG,
+              profiles: SYNTAX_PROFILES,
+              random: new SeededRandom(`predicate-modal-calibration:${seed}`),
+              samplingMode: "product-family",
+              samplingPolicy: policy,
+              minimumLexicalEntries: 2,
+              maximumCandidates: 1,
+              maximumAttempts: 64,
+              bounds,
+            });
+            for (const reason of result.fallbackReasons) fallbacks[reason] = (fallbacks[reason] ?? 0) + 1;
+            const candidate = result.candidates[0];
+            if (candidate === undefined) continue;
+            success += 1;
+            const root = candidate.syntaxRootRuleId ?? "<none>";
+            roots[root] = (roots[root] ?? 0) + 1;
+            if ((candidate.syntaxProfileIds ?? []).some((id) => reviewedProfileIds.has(id))) {
+              modalExposure += 1;
+            }
+          }
+
+          const output = {
+            sampleCount: SAMPLE_COUNT,
+            modalWeight,
+            ordinaryWeight: 0.888 - modalWeight,
+            aspectWeight: 0.055,
+            negationWeight: 0.057,
+            reviewedProfileCount: reviewedProfileIds.size,
+            success,
+            modalExposure,
+            modalExposureRate: modalExposure / SAMPLE_COUNT,
+            targetRateFrom264: 265 / 2048,
+            deltaFromTarget: modalExposure / SAMPLE_COUNT - 265 / 2048,
+            roots,
+            fallbacks,
+          };
+          console.log(JSON.stringify(output, null, 2));
+          if (process.env.GITHUB_STEP_SUMMARY) {
+            const fs = await import("node:fs");
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+              `## modal weight ${modalWeight.toFixed(3)}\n\n` +
+              `- exposure: **${modalExposure}/${SAMPLE_COUNT} = ${(100 * modalExposure / SAMPLE_COUNT).toFixed(3)}%**\n` +
+              `- #264 target: **265/2048 = ${(100 * 265 / 2048).toFixed(3)}%**\n` +
+              `- delta: **${(100 * (modalExposure / SAMPLE_COUNT - 265 / 2048)).toFixed(3)} pp**\n` +
+              `- success: **${success}/${SAMPLE_COUNT}**\n`);
+          }
+          TS
+      - name: Probe weight
+        env:
+          MODAL_WEIGHT: ${{ matrix.modal_weight }}
+          SAMPLE_COUNT: "1024"
+        shell: bash
+        run: npx tsx /tmp/probe-modal-weight.ts
