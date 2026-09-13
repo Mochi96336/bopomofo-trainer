@@ -12,6 +12,7 @@ import {
 import { createSeededRandom } from "../../src/curriculum/random.js";
 import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
 import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
+import { PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY } from "../../src/syntax/runtime-occurrence-capabilities.js";
 
 const PRODUCT_BOUNDS = {
   maximumPhraseDepth: 3,
@@ -35,35 +36,43 @@ class SequenceRandom {
 }
 
 describe("predicate marking practice ticket", () => {
-  it("supports explicit ordinary, aspect, and negation practice tickets", () => {
+  it("supports explicit ordinary, modal, aspect, and negation practice tickets", () => {
     expect(predicateMarkingPracticeIntentForTicketUnit(0.5, {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       version: "predicate-marking-ticket-test-always-ordinary",
-      predicateMarkingPracticeWeights: { ordinary: 1, aspect: 0, negation: 0 },
+      predicateMarkingPracticeWeights: { ordinary: 1, modal: 0, aspect: 0, negation: 0 },
     })).toBe("ordinary");
     expect(predicateMarkingPracticeIntentForTicketUnit(0.5, {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+      version: "predicate-marking-ticket-test-always-modal",
+      predicateMarkingPracticeWeights: { ordinary: 0, modal: 1, aspect: 0, negation: 0 },
+    })).toBe("modal");
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.5, {
+      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       version: "predicate-marking-ticket-test-always-aspect",
-      predicateMarkingPracticeWeights: { ordinary: 0, aspect: 1, negation: 0 },
+      predicateMarkingPracticeWeights: { ordinary: 0, modal: 0, aspect: 1, negation: 0 },
     })).toBe("aspect");
     expect(predicateMarkingPracticeIntentForTicketUnit(0.5, {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       version: "predicate-marking-ticket-test-always-negation",
-      predicateMarkingPracticeWeights: { ordinary: 0, aspect: 0, negation: 1 },
+      predicateMarkingPracticeWeights: { ordinary: 0, modal: 0, aspect: 0, negation: 1 },
     })).toBe("negation");
   });
 
   it("uses the measured product marking prior with the historical negation interval preserved", () => {
-    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v6");
+    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v7");
     expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.predicateMarkingPracticeWeights).toEqual({
-      ordinary: 0.888,
+      ordinary: 0.838,
+      modal: 0.050,
       aspect: 0.055,
       negation: 0.057,
     });
   });
 
   it("maps the terminal unit directly while keeping 0.943 as the negation boundary", () => {
-    expect(predicateMarkingPracticeIntentForTicketUnit(0.8879)).toBe("ordinary");
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.8379)).toBe("ordinary");
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.838)).toBe("modal");
+    expect(predicateMarkingPracticeIntentForTicketUnit(0.8879)).toBe("modal");
     expect(predicateMarkingPracticeIntentForTicketUnit(0.888)).toBe("aspect");
     expect(predicateMarkingPracticeIntentForTicketUnit(0.9429)).toBe("aspect");
     expect(predicateMarkingPracticeIntentForTicketUnit(0.943)).toBe("negation");
@@ -91,6 +100,7 @@ describe("predicate marking practice ticket", () => {
 
   it("keeps terminal-ticket incidence close to both configured marking weights", () => {
     const sampleCount = 8192;
+    let modalCount = 0;
     let aspectCount = 0;
     let negationCount = 0;
     for (let round = 0; round < sampleCount; round += 1) {
@@ -99,9 +109,11 @@ describe("predicate marking practice ticket", () => {
         createSeededRandom(`predicate-marking-terminal-ticket:${round}`),
       );
       const intent = predicateMarkingPracticeIntentForTicketUnit(sampled.predicateMarkingTicketUnit);
+      if (intent === "modal") modalCount += 1;
       if (intent === "aspect") aspectCount += 1;
       if (intent === "negation") negationCount += 1;
     }
+    expect(Math.abs(modalCount / sampleCount - 0.050)).toBeLessThan(0.008);
     expect(Math.abs(aspectCount / sampleCount - 0.055)).toBeLessThan(0.008);
     expect(Math.abs(negationCount / sampleCount - 0.057)).toBeLessThan(0.008);
   });
@@ -110,7 +122,7 @@ describe("predicate marking practice ticket", () => {
     expect(() => predicateMarkingPracticeIntentForTicketUnit(0.5, {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       version: "predicate-marking-ticket-test-zero",
-      predicateMarkingPracticeWeights: { ordinary: 0, aspect: 0, negation: 0 },
+      predicateMarkingPracticeWeights: { ordinary: 0, modal: 0, aspect: 0, negation: 0 },
     })).toThrow(/require positive mass/u);
   });
 
@@ -118,7 +130,7 @@ describe("predicate marking practice ticket", () => {
     const policy = {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       version: "predicate-marking-ticket-test-product-negation",
-      predicateMarkingPracticeWeights: { ordinary: 0, aspect: 0, negation: 1 },
+      predicateMarkingPracticeWeights: { ordinary: 0, modal: 0, aspect: 0, negation: 1 },
     } as const;
     for (let round = 0; round < 16; round += 1) {
       const composition = composeFormalSyntaxUtterances({
@@ -137,11 +149,39 @@ describe("predicate marking practice ticket", () => {
     }
   }, 30_000);
 
+  it("accepts only reviewed preverbal AUX profiles when the product ticket always requires modal", () => {
+    const policy = {
+      ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+      version: "predicate-marking-ticket-test-product-modal",
+      predicateMarkingPracticeWeights: { ordinary: 0, modal: 1, aspect: 0, negation: 0 },
+    } as const;
+    const profileById = new Map(SYNTAX_PROFILES.map((profile) => [profile.id, profile]));
+    for (let round = 0; round < 16; round += 1) {
+      const composition = composeFormalSyntaxUtterances({
+        eligibleEntries: PRACTICE_CATALOG,
+        profiles: SYNTAX_PROFILES,
+        random: createSeededRandom(`predicate-marking-ticket-modal:${round}`),
+        samplingMode: "product-family",
+        samplingPolicy: policy,
+        minimumLexicalEntries: 2,
+        maximumCandidates: 1,
+        maximumAttempts: 64,
+        bounds: PRODUCT_BOUNDS,
+      });
+      expect(composition.candidates, JSON.stringify(composition.fallbackReasons)).toHaveLength(1);
+      expect((composition.candidates[0]!.syntaxProfileIds ?? []).some((id) =>
+        profileById.get(id)?.occurrenceCapabilities?.includes(
+          PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY,
+        ) ?? false,
+      )).toBe(true);
+    }
+  }, 30_000);
+
   it("accepts only overt aspect surfaces when the product ticket always requires aspect", () => {
     const policy = {
       ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
       version: "predicate-marking-ticket-test-product-aspect",
-      predicateMarkingPracticeWeights: { ordinary: 0, aspect: 1, negation: 0 },
+      predicateMarkingPracticeWeights: { ordinary: 0, modal: 0, aspect: 1, negation: 0 },
     } as const;
     for (let round = 0; round < 16; round += 1) {
       const composition = composeFormalSyntaxUtterances({

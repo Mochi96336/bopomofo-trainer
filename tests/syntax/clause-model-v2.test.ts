@@ -30,9 +30,9 @@ describe("Clause model v2 migration inventory", () => {
   });
 
   it("moves marking, omission, and topic structure out of predicate-frame identity", () => {
-    expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.modal"]).toMatchObject({
-      targetAxis: "predicate-marking",
-      target: "modality",
+    expect(RETIRED_CLAUSE_RULE_V2_DECISIONS["clause.modal"]).toMatchObject({
+      targetAxes: ["predicate-marking"],
+      evidenceContract: "preverbal-auxiliary-same-occurrence",
     });
     expect(RETIRED_CLAUSE_RULE_V2_DECISIONS["clause.negative"]).toMatchObject({
       targetAxes: ["predicate-marking"],
@@ -59,7 +59,7 @@ describe("Clause model v2 migration inventory", () => {
 
     expect(counts).toEqual({
       "preserve-core": 7,
-      "move-to-axis": 4,
+      "move-to-axis": 3,
       "rebuild-construction": 3,
       "rebuild-embedding-control": 5,
       "hold-for-corpus-rebuild": 2,
@@ -78,6 +78,7 @@ describe("Clause model v2 migration inventory", () => {
     expect(FORMAL_SYNTAX_RULES.some((rule) => rule.id === "clause.causative")).toBe(false);
     expect(FORMAL_SYNTAX_RULES.some((rule) => rule.id === "clause.negative")).toBe(false);
     expect(FORMAL_SYNTAX_RULES.some((rule) => rule.id === "clause.aspect")).toBe(false);
+    expect(FORMAL_SYNTAX_RULES.some((rule) => rule.id === "clause.modal")).toBe(false);
 
     expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.bei"]).toMatchObject({
       group: "rebuild-construction",

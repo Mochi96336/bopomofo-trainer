@@ -67,7 +67,7 @@ describe("packaged same-occurrence capabilities", () => {
     expect(texts).not.toContain("著");
   });
 
-  it("uses preverbal auxiliary evidence only on the four reviewed modal consumers", () => {
+  it("uses preverbal auxiliary evidence only on the three reviewed live modal consumers", () => {
     const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
       rule.constituents.filter((constituent) =>
         constituent.requiredOccurrenceCapabilities?.includes(
@@ -80,7 +80,6 @@ describe("packaged same-occurrence capabilities", () => {
       "phrase.verb.expanded:modal",
       "predicate.verb.expanded:modal",
       "predicate-marking.modal:modal",
-      "clause.modal:modal",
     ]);
 
     const legacyModal = FORMAL_SYNTAX_RULES
@@ -127,18 +126,6 @@ describe("packaged same-occurrence capabilities", () => {
       requiredFunctions: ["predicate"],
     });
     expect(baModal?.requiredOccurrenceCapabilities ?? []).toEqual([]);
-
-    const clauseModal = FORMAL_SYNTAX_RULES
-      .find((rule) => rule.id === "clause.modal")
-      ?.constituents.find((constituent) => constituent.key === "modal");
-    expect(clauseModal).toMatchObject({
-      category: "Lexeme",
-      allowedUpos: ["AUX"],
-      minimum: 1,
-      maximum: 1,
-      requiredFunctions: ["auxiliary"],
-      requiredOccurrenceCapabilities: [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY],
-    });
 
     const postDisposalModals = FORMAL_SYNTAX_RULES
       .filter((rule) => rule.id.startsWith("ba-predicate."))

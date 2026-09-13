@@ -55,6 +55,11 @@ export const RETIRED_CLAUSE_RULE_V2_DECISIONS = {
     evidenceContract: "predicate.verb.expanded:aspect",
     note: "Aspect is retained as a predicate-internal marking slot and practiced through the orthogonal predicate-marking ticket instead of competing with predicate frames as a peer Clause production.",
   },
+  "clause.modal": {
+    targetAxes: ["predicate-marking"],
+    evidenceContract: "preverbal-auxiliary-same-occurrence",
+    note: "Clause-level modality ownership is retired; reviewed preverbal-AUX evidence remains on predicate-internal modal slots and product practice is controlled by the orthogonal predicate-marking ticket.",
+  },
 } as const satisfies Readonly<Record<string, RetiredClauseRuleV2Decision>>;
 
 /**
@@ -109,12 +114,6 @@ export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
     note: "Keep provisionally as a core frame; separate existential from possessive uses by evidence.",
   },
 
-  "clause.modal": {
-    group: "move-to-axis",
-    targetAxis: "predicate-marking",
-    target: "modality",
-    note: "Modality combines with predicate frames and must not compete with them as a Clause family.",
-  },
   "clause.subject-omission": {
     group: "move-to-axis",
     targetAxis: "argument-realization",

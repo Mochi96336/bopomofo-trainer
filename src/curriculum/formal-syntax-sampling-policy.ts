@@ -7,10 +7,11 @@ import {
   type SentenceKind,
 } from "./formal-syntax-taxonomy.js";
 
-export type PredicateMarkingPracticeIntent = "ordinary" | "aspect" | "negation";
+export type PredicateMarkingPracticeIntent = "ordinary" | "modal" | "aspect" | "negation";
 
 export interface PredicateMarkingPracticeWeights {
   readonly ordinary: number;
+  readonly modal: number;
   readonly aspect: number;
   readonly negation: number;
 }
@@ -59,7 +60,7 @@ export const SENTENCE_CONSTRUCTION_FAMILIES: readonly SentenceConstructionFamily
  * activate yet.
  */
 export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy = {
-  version: "formal-syntax-family-sampling-v6",
+  version: "formal-syntax-family-sampling-v7",
   sentenceKindWeights: {
     statement: 0.64,
     question: 0.26,
@@ -76,12 +77,11 @@ export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy =
     request: 1,
     exclamative: 1,
   },
-  // Product-practice prior for orthogonal predicate marking. Negation keeps its
-  // historical final 5.70% terminal-unit interval exactly: ticketUnit >= 0.943.
-  // Product calibration against the reconstructed #259 baseline selected a
-  // 5.50% aspect interval; ordinary absorbs the 0.20-point difference while
-  // the historical negation interval remains unchanged.
-  predicateMarkingPracticeWeights: { ordinary: 0.888, aspect: 0.055, negation: 0.057 },
+  // Product-practice prior for orthogonal predicate marking. Aspect keeps the
+  // calibrated [0.888, 0.943) interval and negation keeps the historical final
+  // [0.943, 1) interval exactly. Modal is provisionally seeded at 5.00% for
+  // calibration against #264 and takes mass only from the ordinary interval.
+  predicateMarkingPracticeWeights: { ordinary: 0.838, modal: 0.050, aspect: 0.055, negation: 0.057 },
 };
 
 function nextUnit(random: RandomSource): number {
@@ -165,11 +165,11 @@ export function validateFormalSyntaxSamplingPolicy(policy: FormalSyntaxSamplingP
     }
   }
   const marking = policy.predicateMarkingPracticeWeights;
-  if ([marking.ordinary, marking.aspect, marking.negation]
+  if ([marking.ordinary, marking.modal, marking.aspect, marking.negation]
     .some((weight) => !Number.isFinite(weight) || weight < 0)) {
     throw new Error("predicate marking practice weights must be finite and non-negative");
   }
-  if (!(marking.ordinary > 0 || marking.aspect > 0 || marking.negation > 0)) {
+  if (!(marking.ordinary > 0 || marking.modal > 0 || marking.aspect > 0 || marking.negation > 0)) {
     throw new Error("predicate marking practice weights require positive mass");
   }
 }
@@ -269,11 +269,13 @@ export function predicateMarkingPracticeIntentForTicketUnit(
     throw new Error("predicate marking practice ticket unit must be in [0, 1)");
   }
   const weights = policy.predicateMarkingPracticeWeights;
-  const total = weights.ordinary + weights.aspect + weights.negation;
+  const total = weights.ordinary + weights.modal + weights.aspect + weights.negation;
   const negationBoundary = 1 - weights.negation / total;
   if (weights.negation > 0 && ticketUnit >= negationBoundary) return "negation";
-  const aspectBoundary = weights.ordinary / total;
+  const aspectBoundary = negationBoundary - weights.aspect / total;
   if (weights.aspect > 0 && ticketUnit >= aspectBoundary) return "aspect";
+  const modalBoundary = aspectBoundary - weights.modal / total;
+  if (weights.modal > 0 && ticketUnit >= modalBoundary) return "modal";
   return "ordinary";
 }
 
