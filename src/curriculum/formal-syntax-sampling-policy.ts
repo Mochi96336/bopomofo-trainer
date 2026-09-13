@@ -79,9 +79,9 @@ export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy =
   },
   // Product-practice prior for orthogonal predicate marking. Aspect keeps the
   // calibrated [0.888, 0.943) interval and negation keeps the historical final
-  // [0.943, 1) interval exactly. Modal is provisionally seeded at 5.00% for
-  // calibration against #264 and takes mass only from the ordinary interval.
-  predicateMarkingPracticeWeights: { ordinary: 0.838, modal: 0.050, aspect: 0.055, negation: 0.057 },
+  // [0.943, 1) interval exactly. Modal calibration against #264 selected 5.70%
+  // and takes mass only from the ordinary interval.
+  predicateMarkingPracticeWeights: { ordinary: 0.831, modal: 0.057, aspect: 0.055, negation: 0.057 },
 };
 
 function nextUnit(random: RandomSource): number {
