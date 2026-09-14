@@ -19,45 +19,21 @@ jobs:
         with:
           ref: agent/argument-realization-axis-migration
           fetch-depth: 0
-      - name: Correct bootstrap source generation and cleanup
+      - name: Correct domain-separated ticket projection
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
           path = Path('.github/workflows/argument-realization-axis-bootstrap.yml')
           text = path.read_text()
-          replacements = {
-              'digest.slice(0, 13), 16) / 0x1_0000_0000_0000':
-                  'digest.slice(0, 12), 16) / 281_474_976_710_656',
-              'if (unique.length != requested.length)':
-                  'if (unique.length !== requested.length)',
-              'from "./src/reference/importers/canonical-json.js";':
-                  'from "../src/reference/importers/canonical-json.js";',
-              'from "./src/syntax/grammar.js";':
-                  'from "../src/syntax/grammar.js";',
-              'rm .github/workflows/argument-realization-axis-bootstrap.yml':
-                  'rm .github/workflows/argument-realization-axis-bootstrap.yml .github/workflows/argument-realization-axis-bootstrap-fix.yml\n          rm -f scripts/src/reference/importers/canonical-json.ts scripts/src/syntax/grammar.ts',
-          }
-          for old, new in replacements.items():
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f'expected one bootstrap match for {old!r}, got {count}')
-              text = text.replace(old, new)
-          marker = '''          git add src/syntax/sample.ts src/syntax/clause-rules.ts src/syntax/clause-model-v2.ts \\
-            src/curriculum/formal-syntax-taxonomy.ts src/curriculum/formal-syntax-sampling-policy.ts \\
-            src/curriculum/formal-syntax-utterance.ts src/curriculum/argument-realization-practice.ts \\
-            tests/syntax/argument-realization-axis-migration.test.ts \\
-            tests/curriculum/argument-realization-practice-ticket.test.ts \\
-            data/grammar/formal-syntax-runtime-lock.json .github/workflows/argument-realization-axis-bootstrap.yml
-'''
-          if text.count(marker) != 1:
-              raise SystemExit('expected one bootstrap git-add block')
-          text = text.replace(marker, '          git add -A\n')
-          path.write_text(text, newline='\n')
+          old = 'digest.slice(0, 13), 16) / 0x1_0000_0000_0000'
+          new = 'digest.slice(0, 12), 16) / 281_474_976_710_656'
+          if text.count(old) != 1:
+              raise SystemExit(f'expected one projection match, got {text.count(old)}')
+          path.write_text(text.replace(old, new), newline='\n')
           PY
-          rm -f scripts/src/reference/importers/canonical-json.ts scripts/src/syntax/grammar.ts
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "ci: fix argument realization bootstrap projection"
+          git add .github/workflows/argument-realization-axis-bootstrap.yml
+          git commit -m "ci: fix argument realization ticket projection"
           git push origin HEAD:agent/argument-realization-axis-migration
