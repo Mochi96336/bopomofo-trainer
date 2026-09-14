@@ -1,0 +1,330 @@
+name: argument realization retirement audit
+
+on:
+  push:
+    branches:
+      - agent/argument-realization-retirement-audit
+    paths:
+      - .github/workflows/argument-realization-retirement-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate packaged app catalog
+        run: npm run app:catalog
+
+      - name: Add audit-only production path trace
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/curriculum/formal-syntax-utterance.ts')
+          text = path.read_text()
+          needle = '      syntaxProfileIds: realization.syntaxProfileIds,\n'
+          if text.count(needle) != 1:
+              raise SystemExit('unexpected formal-syntax candidate shape')
+          path.write_text(text.replace(
+              needle,
+              needle + '      __auditProductionRulePath: shape.productionRulePath,\n',
+          ))
+          PY
+
+      - name: Write audit probe
+        shell: bash
+        run: |
+          cat > scripts/.tmp-argument-realization-retirement-audit.ts <<'EOF'
+          import { writeFileSync } from "node:fs";
+          import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+          import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
+          import { createSeededRandom } from "../src/curriculum/random.js";
+          import { sentenceConstructionClassification } from "../src/curriculum/formal-syntax-taxonomy.js";
+          import { FORMAL_SYNTAX_RULES } from "../src/syntax/grammar.js";
+          import type { ProductionRule } from "../src/syntax/types.js";
+
+          const SAMPLE_COUNT = 2048;
+          const SEED_NAMESPACE = "argument-realization-retirement-audit-v1";
+          const BASE_HEAD = "4b4645012ed41715a18c5bdab554223b160d5d14";
+          const SUBJECT_RULE = "clause.subject-omission";
+          const OBJECT_RULE = "clause.object-omission";
+          const PRODUCT_BOUNDS = {
+            maximumPhraseDepth: 3,
+            maximumClauseNesting: 1,
+            maximumClausesPerSentence: 2,
+            maximumCoordinationItems: 2,
+            maximumConsecutiveModifiers: 2,
+            maximumComplementsPerPredicate: 1,
+            maximumLexicalEntriesPerUtterance: 6,
+          } as const;
+
+          interface AuditedCandidate {
+            syntaxRootRuleId?: string;
+            syntaxDerivationId?: string;
+            syntaxProfileIds?: readonly string[];
+            text: string;
+            __auditProductionRulePath?: readonly string[];
+          }
+
+          interface Row {
+            success: boolean;
+            subjectRule: boolean;
+            objectRule: boolean;
+            anyLegacyOmissionRule: boolean;
+            root: string | null;
+            family: string | null;
+            fallback: string;
+            derivation: string | null;
+            text: string | null;
+            profiles: string;
+          }
+
+          interface Summary {
+            sampleCount: number;
+            success: number;
+            subjectRuleExposure: number;
+            objectRuleExposure: number;
+            anyLegacyOmissionRuleExposure: number;
+            subjectRuleShare: number;
+            objectRuleShare: number;
+            anyLegacyOmissionRuleShare: number;
+            roots: Record<string, number>;
+            families: Record<string, number>;
+            fallbacks: Record<string, number>;
+          }
+
+          function increment(map: Map<string, number>, key: string): void {
+            map.set(key, (map.get(key) ?? 0) + 1);
+          }
+
+          function sorted(map: Map<string, number>): Record<string, number> {
+            return Object.fromEntries([...map.entries()].sort(([a], [b]) => a.localeCompare(b)));
+          }
+
+          const mutableRules = FORMAL_SYNTAX_RULES as ProductionRule[];
+          for (const id of [SUBJECT_RULE, OBJECT_RULE]) {
+            if (!mutableRules.some((rule) => rule.id === id)) throw new Error(`${id} missing from production main`);
+          }
+
+          function measure(): Row[] {
+            const rows: Row[] = [];
+            for (let round = 0; round < SAMPLE_COUNT; round += 1) {
+              const composition = composeFormalSyntaxUtterances({
+                eligibleEntries: PRACTICE_CATALOG,
+                profiles: SYNTAX_PROFILES,
+                random: createSeededRandom(`${SEED_NAMESPACE}:${round}`),
+                samplingMode: "product-family",
+                minimumLexicalEntries: 2,
+                maximumCandidates: 1,
+                maximumAttempts: 64,
+                bounds: PRODUCT_BOUNDS,
+              });
+              const candidate = (composition.candidates[0] ?? null) as AuditedCandidate | null;
+              const path = candidate?.__auditProductionRulePath ?? [];
+              const subjectRule = path.includes(SUBJECT_RULE);
+              const objectRule = path.includes(OBJECT_RULE);
+              const root = candidate?.syntaxRootRuleId ?? null;
+              rows.push({
+                success: candidate !== null,
+                subjectRule,
+                objectRule,
+                anyLegacyOmissionRule: subjectRule || objectRule,
+                root,
+                family: root === null ? null : sentenceConstructionClassification(root)?.family ?? null,
+                fallback: composition.fallbackReasons.join("\u0000"),
+                derivation: candidate?.syntaxDerivationId ?? null,
+                text: candidate?.text ?? null,
+                profiles: (candidate?.syntaxProfileIds ?? []).join("\u0000"),
+              });
+            }
+            return rows;
+          }
+
+          function summarize(rows: readonly Row[]): Summary {
+            let success = 0;
+            let subjectRuleExposure = 0;
+            let objectRuleExposure = 0;
+            let anyLegacyOmissionRuleExposure = 0;
+            const roots = new Map<string, number>();
+            const families = new Map<string, number>();
+            const fallbacks = new Map<string, number>();
+            for (const row of rows) {
+              if (row.success) success += 1;
+              if (row.subjectRule) subjectRuleExposure += 1;
+              if (row.objectRule) objectRuleExposure += 1;
+              if (row.anyLegacyOmissionRule) anyLegacyOmissionRuleExposure += 1;
+              if (row.root !== null) increment(roots, row.root);
+              if (row.family !== null) increment(families, row.family);
+              if (row.fallback !== "") {
+                for (const reason of row.fallback.split("\u0000")) increment(fallbacks, reason);
+              }
+            }
+            return {
+              sampleCount: rows.length,
+              success,
+              subjectRuleExposure,
+              objectRuleExposure,
+              anyLegacyOmissionRuleExposure,
+              subjectRuleShare: subjectRuleExposure / rows.length,
+              objectRuleShare: objectRuleExposure / rows.length,
+              anyLegacyOmissionRuleShare: anyLegacyOmissionRuleExposure / rows.length,
+              roots: sorted(roots),
+              families: sorted(families),
+              fallbacks: sorted(fallbacks),
+            };
+          }
+
+          function tv(left: Record<string, number>, right: Record<string, number>): number {
+            const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+            let total = 0;
+            for (const key of keys) total += Math.abs((left[key] ?? 0) - (right[key] ?? 0));
+            return total / (2 * SAMPLE_COUNT);
+          }
+
+          function withRemoved(ids: readonly string[], fn: () => Row[]): Row[] {
+            const removed: { index: number; rule: ProductionRule }[] = [];
+            try {
+              for (const id of ids) {
+                const index = mutableRules.findIndex((rule) => rule.id === id);
+                if (index < 0) throw new Error(`cannot shadow-remove ${id}`);
+                const [rule] = mutableRules.splice(index, 1);
+                if (rule === undefined) throw new Error(`failed to remove ${id}`);
+                removed.push({ index, rule });
+              }
+              return fn();
+            } finally {
+              for (const item of [...removed].reverse()) mutableRules.splice(item.index, 0, item.rule);
+            }
+          }
+
+          function drift(beforeRows: readonly Row[], afterRows: readonly Row[]) {
+            const before = summarize(beforeRows);
+            const after = summarize(afterRows);
+            let successMismatch = 0;
+            let subjectRuleChanged = 0;
+            let objectRuleChanged = 0;
+            let anyLegacyOmissionRuleChanged = 0;
+            let rootChanged = 0;
+            let familyChanged = 0;
+            let fallbackChanged = 0;
+            let derivationChanged = 0;
+            let textChanged = 0;
+            let profilesChanged = 0;
+            for (let index = 0; index < SAMPLE_COUNT; index += 1) {
+              const left = beforeRows[index]!;
+              const right = afterRows[index]!;
+              if (left.success !== right.success) successMismatch += 1;
+              if (left.subjectRule !== right.subjectRule) subjectRuleChanged += 1;
+              if (left.objectRule !== right.objectRule) objectRuleChanged += 1;
+              if (left.anyLegacyOmissionRule !== right.anyLegacyOmissionRule) anyLegacyOmissionRuleChanged += 1;
+              if (left.root !== right.root) rootChanged += 1;
+              if (left.family !== right.family) familyChanged += 1;
+              if (left.fallback !== right.fallback) fallbackChanged += 1;
+              if (left.derivation !== right.derivation) derivationChanged += 1;
+              if (left.text !== right.text) textChanged += 1;
+              if (left.profiles !== right.profiles) profilesChanged += 1;
+            }
+            return {
+              summary: after,
+              successDelta: after.success - before.success,
+              subjectRuleExposureDelta: after.subjectRuleExposure - before.subjectRuleExposure,
+              objectRuleExposureDelta: after.objectRuleExposure - before.objectRuleExposure,
+              anyLegacyOmissionRuleExposureDelta: after.anyLegacyOmissionRuleExposure - before.anyLegacyOmissionRuleExposure,
+              rootTv: tv(before.roots, after.roots),
+              familyTv: tv(before.families, after.families),
+              successMismatch,
+              subjectRuleChanged,
+              objectRuleChanged,
+              anyLegacyOmissionRuleChanged,
+              rootChanged,
+              familyChanged,
+              fallbackChanged,
+              derivationChanged,
+              textChanged,
+              profilesChanged,
+            };
+          }
+
+          const currentRows = measure();
+          const withoutSubjectRows = withRemoved([SUBJECT_RULE], measure);
+          const withoutObjectRows = withRemoved([OBJECT_RULE], measure);
+          const withoutBothRows = withRemoved([SUBJECT_RULE, OBJECT_RULE], measure);
+
+          const current = summarize(currentRows);
+          const withoutSubject = drift(currentRows, withoutSubjectRows);
+          const withoutObject = drift(currentRows, withoutObjectRows);
+          const withoutBoth = drift(currentRows, withoutBothRows);
+
+          const report = {
+            schemaVersion: "argument-realization-retirement-audit-v1",
+            baseHead: BASE_HEAD,
+            sampleCount: SAMPLE_COUNT,
+            seedNamespace: SEED_NAMESPACE,
+            metricCaveat: "legacy omission-rule exposure counts explicit use of clause.subject-omission/clause.object-omission; it is not a linguistic ellipsis-frequency estimate",
+            current,
+            shadowWithoutSubjectOmission: withoutSubject,
+            shadowWithoutObjectOmission: withoutObject,
+            shadowWithoutBothOmissionRules: withoutBoth,
+          };
+
+          const pct = (value: number) => `${(value * 100).toFixed(3)}%`;
+          const line = (name: string, value: ReturnType<typeof drift>) =>
+            `- ${name}: success **${current.success} -> ${value.summary.success}** (mismatch ${value.successMismatch}/${SAMPLE_COUNT}); root TV **${pct(value.rootTv)}**; family TV **${pct(value.familyTv)}**; text changed **${value.textChanged}**; fallback changed **${value.fallbackChanged}**`;
+          const markdown = [
+            "# Argument-realization omission retirement audit",
+            "",
+            `- Base main: \`${BASE_HEAD}\``,
+            `- Seeds: **${SAMPLE_COUNT}** (\`${SEED_NAMESPACE}\`)`,
+            `- Current explicit subject-omission rule exposure: **${current.subjectRuleExposure}/${SAMPLE_COUNT} (${pct(current.subjectRuleShare)})**`,
+            `- Current explicit object-omission rule exposure: **${current.objectRuleExposure}/${SAMPLE_COUNT} (${pct(current.objectRuleShare)})**`,
+            `- Current any legacy omission-rule exposure: **${current.anyLegacyOmissionRuleExposure}/${SAMPLE_COUNT} (${pct(current.anyLegacyOmissionRuleShare)})**`,
+            "",
+            line("Without clause.subject-omission", withoutSubject),
+            line("Without clause.object-omission", withoutObject),
+            line("Without both omission rules", withoutBoth),
+            "",
+            `- Both removed: derivation changed **${withoutBoth.derivationChanged}**; profiles changed **${withoutBoth.profilesChanged}**; root changed **${withoutBoth.rootChanged}**; family changed **${withoutBoth.familyChanged}**`,
+            "",
+            "The omission exposure meter is an explicit legacy-rule-usage meter, not a corpus or linguistic ellipsis-frequency claim. This PR is audit-only and does not authorize retirement.",
+          ].join("\n");
+
+          writeFileSync("argument-realization-retirement-audit.json", `${JSON.stringify(report, null, 2)}\n`);
+          writeFileSync("argument-realization-retirement-audit.md", `${markdown}\n`);
+          console.log(markdown);
+          EOF
+
+      - name: Run 2048-seed current-vs-shadow audit
+        run: npx tsx scripts/.tmp-argument-realization-retirement-audit.ts
+
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f argument-realization-retirement-audit.md ]; then
+            cat argument-realization-retirement-audit.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: argument-realization-retirement-audit
+          path: |
+            argument-realization-retirement-audit.json
+            argument-realization-retirement-audit.md
+          if-no-files-found: error
