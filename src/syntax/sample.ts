@@ -80,6 +80,11 @@ export interface StructuralSamplingOptions {
    */
   readonly nestedProductionTargets?: readonly NestedProductionTarget[];
   /**
+   * Require the sampled production path to contain at least one named rule.
+   * This is useful when several alternative parents share one orthogonal practice axis.
+   */
+  readonly requiredProductionRuleIdsAnyOf?: readonly string[];
+  /**
    * Require at least one realized lexical slot matching both lexical requirements
    * and requirements on its immediately enclosing syntax category. Enclosing
    * requirements are sampler-only metadata and do not alter derivation identity.
@@ -528,6 +533,26 @@ function validatedNestedProductionTargets(
   return targets;
 }
 
+function validatedRequiredProductionRuleIdsAnyOf(
+  options: StructuralSamplingOptions,
+): readonly string[] | undefined {
+  const requested = options.requiredProductionRuleIdsAnyOf;
+  if (requested === undefined) return undefined;
+  if (requested.length === 0) {
+    throw new Error("requiredProductionRuleIdsAnyOf requires at least one production rule");
+  }
+  const unique = [...new Set(requested)];
+  if (unique.length != requested.length) {
+    throw new Error("requiredProductionRuleIdsAnyOf contains duplicate production rules");
+  }
+  const known = new Set(options.rules.map((rule) => rule.id));
+  const missing = unique.filter((ruleId) => !known.has(ruleId));
+  if (missing.length > 0) {
+    throw new Error(`requiredProductionRuleIdsAnyOf references missing productions: ${missing.join(", ")}`);
+  }
+  return unique;
+}
+
 function lexicalSlotMatchesConstraint(
   context: SampledLexicalSlotContext,
   required: RequiredLexicalSlotConstraint,
@@ -559,6 +584,7 @@ export function sampleStructuralDerivation(
   assertValidGrammar(options.rules, bounds);
   const requestedRootRuleId = validatedRootRuleId(options);
   const nestedProductionTargets = validatedNestedProductionTargets(options, bounds);
+  const requiredProductionRuleIdsAnyOf = validatedRequiredProductionRuleIdsAnyOf(options);
   const rulesByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();
   for (const rule of options.rules) {
     rulesByOutput.set(rule.output, [...(rulesByOutput.get(rule.output) ?? []), rule]);
@@ -589,6 +615,8 @@ export function sampleStructuralDerivation(
       && !sampled.slotContexts.some((context) =>
         lexicalSlotMatchesConstraint(context, requiredLexicalSlot),
       )) continue;
+    if (requiredProductionRuleIdsAnyOf !== undefined
+      && !requiredProductionRuleIdsAnyOf.some((ruleId) => sampled.rulePath.includes(ruleId))) continue;
     const identity = {
       grammarVersion: FORMAL_GRAMMAR_VERSION,
       root: sampled.element,

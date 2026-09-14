@@ -60,6 +60,16 @@ export const RETIRED_CLAUSE_RULE_V2_DECISIONS = {
     evidenceContract: "preverbal-auxiliary-same-occurrence",
     note: "Clause-level modality ownership is retired; reviewed preverbal-AUX evidence remains on predicate-internal modal slots and product practice is controlled by the orthogonal predicate-marking ticket.",
   },
+  "clause.subject-omission": {
+    targetAxes: ["argument-realization"],
+    evidenceContract: "pinned-gsd-argument-realization-alternation-v1",
+    note: "Subject non-realization is licensed on preserved core predicate frames and practiced through the orthogonal argument-realization ticket; it no longer competes as a peer Clause production.",
+  },
+  "clause.object-omission": {
+    targetAxes: ["argument-realization"],
+    evidenceContract: "pinned-gsd-argument-realization-alternation-v1",
+    note: "Direct-object non-realization preserves transitive/ditransitive predicate-frame identity and is practiced through the orthogonal argument-realization ticket.",
+  },
 } as const satisfies Readonly<Record<string, RetiredClauseRuleV2Decision>>;
 
 /**
@@ -114,18 +124,6 @@ export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
     note: "Keep provisionally as a core frame; separate existential from possessive uses by evidence.",
   },
 
-  "clause.subject-omission": {
-    group: "move-to-axis",
-    targetAxis: "argument-realization",
-    target: "subject.omitted",
-    note: "Omission changes surface realization, not lexical valency or core Clause identity.",
-  },
-  "clause.object-omission": {
-    group: "move-to-axis",
-    targetAxis: "argument-realization",
-    target: "object.omitted",
-    note: "Omission changes surface realization while preserving an object-capable predicate frame.",
-  },
   "clause.topic-comment": {
     group: "move-to-axis",
     targetAxis: "information-structure",

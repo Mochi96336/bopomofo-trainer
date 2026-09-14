@@ -42,10 +42,14 @@ describe("Clause model v2 migration inventory", () => {
       targetAxes: ["predicate-marking"],
       evidenceContract: "predicate.verb.expanded:aspect",
     });
-    expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.subject-omission"].targetAxis)
-      .toBe("argument-realization");
-    expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.object-omission"].targetAxis)
-      .toBe("argument-realization");
+    expect(RETIRED_CLAUSE_RULE_V2_DECISIONS["clause.subject-omission"]).toMatchObject({
+      targetAxes: ["argument-realization"],
+      evidenceContract: "pinned-gsd-argument-realization-alternation-v1",
+    });
+    expect(RETIRED_CLAUSE_RULE_V2_DECISIONS["clause.object-omission"]).toMatchObject({
+      targetAxes: ["argument-realization"],
+      evidenceContract: "pinned-gsd-argument-realization-alternation-v1",
+    });
     expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.topic-comment"].targetAxis)
       .toBe("information-structure");
   });
@@ -59,7 +63,7 @@ describe("Clause model v2 migration inventory", () => {
 
     expect(counts).toEqual({
       "preserve-core": 7,
-      "move-to-axis": 3,
+      "move-to-axis": 1,
       "rebuild-construction": 3,
       "rebuild-embedding-control": 5,
       "hold-for-corpus-rebuild": 2,
