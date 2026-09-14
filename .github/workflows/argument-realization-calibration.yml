@@ -1,0 +1,221 @@
+name: argument realization calibration
+
+on:
+  push:
+    branches:
+      - agent/argument-realization-axis-migration
+    paths:
+      - .github/workflows/argument-realization-calibration.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: argument-realization-calibration
+  cancel-in-progress: true
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: e99122eb81aeb0995a12a9eef63fcfd3573e4848
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run app:catalog
+      - name: Expose audit-only structural root
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/curriculum/formal-syntax-utterance.ts')
+          text = path.read_text()
+          needle = '      syntaxProfileIds: realization.syntaxProfileIds,\n'
+          if text.count(needle) != 1:
+              raise SystemExit('unexpected formal-syntax candidate shape')
+          path.write_text(text.replace(needle, needle + '      __auditStructuralRoot: shape.root,\n'))
+          PY
+      - name: Measure immutable legacy baseline
+        shell: bash
+        run: |
+          cat > scripts/.tmp-argument-realization-baseline.ts <<'EOF'
+          import { writeFileSync } from "node:fs";
+          import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+          import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
+          import { createSeededRandom } from "../src/curriculum/random.js";
+          import type { StructuralSyntaxNode } from "../src/syntax/derive.js";
+
+          const SAMPLE_COUNT = 2048;
+          const SEED_NAMESPACE = "argument-realization-retirement-audit-v1";
+          const PRODUCT_BOUNDS = {
+            maximumPhraseDepth: 3,
+            maximumClauseNesting: 1,
+            maximumClausesPerSentence: 2,
+            maximumCoordinationItems: 2,
+            maximumConsecutiveModifiers: 2,
+            maximumComplementsPerPredicate: 1,
+            maximumLexicalEntriesPerUtterance: 6,
+          } as const;
+          interface Candidate { readonly __auditStructuralRoot?: StructuralSyntaxNode }
+          function visit(node: StructuralSyntaxNode, out: StructuralSyntaxNode[]): void {
+            out.push(node);
+            for (const child of node.children) if (child.kind === "syntax-node") visit(child, out);
+          }
+          let success = 0, subject = 0, object = 0, any = 0, both = 0;
+          const rows: unknown[] = [];
+          for (let round = 0; round < SAMPLE_COUNT; round += 1) {
+            const composition = composeFormalSyntaxUtterances({
+              eligibleEntries: PRACTICE_CATALOG,
+              profiles: SYNTAX_PROFILES,
+              random: createSeededRandom(`${SEED_NAMESPACE}:${round}`),
+              samplingMode: "product-family",
+              minimumLexicalEntries: 2,
+              maximumCandidates: 1,
+              maximumAttempts: 64,
+              bounds: PRODUCT_BOUNDS,
+            });
+            const candidate = (composition.candidates[0] ?? null) as Candidate | null;
+            const nodes: StructuralSyntaxNode[] = [];
+            if (candidate?.__auditStructuralRoot) visit(candidate.__auditStructuralRoot, nodes);
+            const s = nodes.some((node) => node.productionRuleId === "clause.subject-omission");
+            const o = nodes.some((node) => node.productionRuleId === "clause.object-omission");
+            success += Number(candidate !== null); subject += Number(s); object += Number(o);
+            any += Number(s || o); both += Number(s && o);
+            rows.push({ round, success: candidate !== null, subject: s, object: o });
+          }
+          const summary = { kind: "baseline", head: "e99122eb81aeb0995a12a9eef63fcfd3573e4848", sampleCount: SAMPLE_COUNT, seedNamespace: SEED_NAMESPACE, success, subject, object, any, both, subjectShare: subject / SAMPLE_COUNT, objectShare: object / SAMPLE_COUNT };
+          writeFileSync('argument-realization-baseline.json', JSON.stringify({ summary, rows }, null, 2) + '\n');
+          console.log(JSON.stringify(summary));
+          EOF
+          npx tsx scripts/.tmp-argument-realization-baseline.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: argument-realization-calibration-baseline
+          path: argument-realization-baseline.json
+          if-no-files-found: error
+
+  candidate:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { subject: 0.090, object: 0.075, label: s090-o075 }
+          - { subject: 0.090, object: 0.090, label: s090-o090 }
+          - { subject: 0.090, object: 0.105, label: s090-o105 }
+          - { subject: 0.105, object: 0.075, label: s105-o075 }
+          - { subject: 0.105, object: 0.090, label: s105-o090 }
+          - { subject: 0.105, object: 0.105, label: s105-o105 }
+          - { subject: 0.120, object: 0.075, label: s120-o075 }
+          - { subject: 0.120, object: 0.090, label: s120-o090 }
+          - { subject: 0.120, object: 0.105, label: s120-o105 }
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: f2070435c283ab54d10e4eefc3be508d0aff1fda
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run app:catalog
+      - name: Expose audit-only structural root
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/curriculum/formal-syntax-utterance.ts')
+          text = path.read_text()
+          needle = '      syntaxProfileIds: realization.syntaxProfileIds,\n'
+          if text.count(needle) != 1:
+              raise SystemExit('unexpected formal-syntax candidate shape')
+          path.write_text(text.replace(needle, needle + '      __auditStructuralRoot: shape.root,\n'))
+          PY
+      - name: Measure candidate surface
+        env:
+          SUBJECT_WEIGHT: ${{ matrix.subject }}
+          OBJECT_WEIGHT: ${{ matrix.object }}
+          LABEL: ${{ matrix.label }}
+        shell: bash
+        run: |
+          cat > scripts/.tmp-argument-realization-candidate.ts <<'EOF'
+          import { writeFileSync } from "node:fs";
+          import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+          import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
+          import { PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY } from "../src/curriculum/formal-syntax-sampling-policy.js";
+          import { createSeededRandom } from "../src/curriculum/random.js";
+          import type { StructuralSyntaxNode } from "../src/syntax/derive.js";
+
+          const SAMPLE_COUNT = 2048;
+          const SEED_NAMESPACE = "argument-realization-retirement-audit-v1";
+          const subjectWeight = Number(process.env.SUBJECT_WEIGHT);
+          const objectWeight = Number(process.env.OBJECT_WEIGHT);
+          const ordinaryWeight = 1 - subjectWeight - objectWeight;
+          const label = process.env.LABEL ?? 'unknown';
+          if (!(subjectWeight >= 0 && objectWeight >= 0 && ordinaryWeight > 0)) throw new Error('invalid calibration weights');
+          const policy = {
+            ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+            version: `argument-realization-calibration-${label}`,
+            argumentRealizationPracticeWeights: { ordinary: ordinaryWeight, subjectOmission: subjectWeight, objectOmission: objectWeight },
+          } as const;
+          const PRODUCT_BOUNDS = {
+            maximumPhraseDepth: 3,
+            maximumClauseNesting: 1,
+            maximumClausesPerSentence: 2,
+            maximumCoordinationItems: 2,
+            maximumConsecutiveModifiers: 2,
+            maximumComplementsPerPredicate: 1,
+            maximumLexicalEntriesPerUtterance: 6,
+          } as const;
+          interface Candidate { readonly __auditStructuralRoot?: StructuralSyntaxNode }
+          function children(node: StructuralSyntaxNode): StructuralSyntaxNode[] {
+            return node.children.filter((child): child is StructuralSyntaxNode => child.kind === 'syntax-node');
+          }
+          function visit(node: StructuralSyntaxNode, out: StructuralSyntaxNode[]): void {
+            out.push(node); for (const child of children(node)) visit(child, out);
+          }
+          function hasDirect(node: StructuralSyntaxNode, category: string): boolean {
+            return children(node).some((child) => child.category === category);
+          }
+          const core = new Set(['clause.intransitive', 'clause.transitive', 'clause.ditransitive']);
+          const objectFrames = new Set(['clause.transitive', 'clause.ditransitive']);
+          let success = 0, subject = 0, object = 0, any = 0, both = 0;
+          const rows: unknown[] = [];
+          for (let round = 0; round < SAMPLE_COUNT; round += 1) {
+            const composition = composeFormalSyntaxUtterances({
+              eligibleEntries: PRACTICE_CATALOG,
+              profiles: SYNTAX_PROFILES,
+              random: createSeededRandom(`${SEED_NAMESPACE}:${round}`),
+              samplingMode: 'product-family',
+              samplingPolicy: policy,
+              minimumLexicalEntries: 2,
+              maximumCandidates: 1,
+              maximumAttempts: 64,
+              bounds: PRODUCT_BOUNDS,
+            });
+            const candidate = (composition.candidates[0] ?? null) as Candidate | null;
+            const nodes: StructuralSyntaxNode[] = [];
+            if (candidate?.__auditStructuralRoot) visit(candidate.__auditStructuralRoot, nodes);
+            const s = nodes.some((node) => core.has(node.productionRuleId) && !hasDirect(node, 'Subject'));
+            const o = nodes.some((node) => objectFrames.has(node.productionRuleId) && hasDirect(node, 'Subject') && !hasDirect(node, 'Object'));
+            success += Number(candidate !== null); subject += Number(s); object += Number(o);
+            any += Number(s || o); both += Number(s && o);
+            rows.push({ round, success: candidate !== null, subject: s, object: o, fallback: composition.fallbackReasons });
+          }
+          const summary = { kind: 'candidate', head: 'f2070435c283ab54d10e4eefc3be508d0aff1fda', label, weights: policy.argumentRealizationPracticeWeights, sampleCount: SAMPLE_COUNT, seedNamespace: SEED_NAMESPACE, success, subject, object, any, both, subjectShare: subject / SAMPLE_COUNT, objectShare: object / SAMPLE_COUNT };
+          writeFileSync(`argument-realization-${label}.json`, JSON.stringify({ summary, rows }, null, 2) + '\n');
+          console.log(JSON.stringify(summary));
+          EOF
+          npx tsx scripts/.tmp-argument-realization-candidate.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: argument-realization-calibration-${{ matrix.label }}
+          path: argument-realization-${{ matrix.label }}.json
+          if-no-files-found: error
