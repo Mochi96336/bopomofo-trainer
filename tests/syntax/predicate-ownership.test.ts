@@ -60,14 +60,12 @@ describe("Clause-model v2 predicate argument ownership", () => {
     }
   });
 
-  it("routes ordinary argument-owning Clause paths through Predicate", () => {
+  it("routes live ordinary argument-owning Clause paths through Predicate", () => {
     const migrated = [
       "clause.intransitive",
       "clause.transitive",
       "clause.ditransitive",
       "clause.bei",
-      "clause.subject-omission",
-      "clause.object-omission",
       "clause.object-content",
       "clause.quoted-content",
       "clause.xcomp-subject-control",
@@ -80,6 +78,8 @@ describe("Clause-model v2 predicate argument ownership", () => {
       expect(predicate?.category, ruleId).toBe("Predicate");
     }
     expect(FORMAL_SYNTAX_RULES.some((item) => item.id === "clause.aspect")).toBe(false);
+    expect(FORMAL_SYNTAX_RULES.some((item) => item.id === "clause.subject-omission")).toBe(false);
+    expect(FORMAL_SYNTAX_RULES.some((item) => item.id === "clause.object-omission")).toBe(false);
   });
 
   it("lets BA own patient structure at Clause and completion alternatives at BAPredicate", () => {

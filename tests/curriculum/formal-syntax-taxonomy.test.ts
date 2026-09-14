@@ -49,6 +49,8 @@ describe("formal syntax sampling taxonomy", () => {
     expect(clauseConstructionClassification("clause.causative")).toBeNull();
     expect(clauseConstructionClassification("clause.negative")).toBeNull();
     expect(clauseConstructionClassification("clause.aspect")).toBeNull();
+    expect(clauseConstructionClassification("clause.subject-omission")).toBeNull();
+    expect(clauseConstructionClassification("clause.object-omission")).toBeNull();
   });
 
   it("makes the current equal-rule ticket bias explicit instead of treating it as policy", () => {
@@ -94,15 +96,15 @@ describe("formal syntax sampling taxonomy", () => {
       .toMatchObject({ ticketCount: 2, rawShare: 0.2 });
 
     expect(audit.clauseKinds).toEqual([
-      expect.objectContaining({ family: "complex-predicate", ticketCount: 1, rawShare: 1 / 20 }),
-      expect.objectContaining({ family: "core-predication", ticketCount: 8, rawShare: 8 / 20 }),
-      expect.objectContaining({ family: "embedded-content", ticketCount: 5, rawShare: 5 / 20 }),
-      expect.objectContaining({ family: "information-structure", ticketCount: 3, rawShare: 3 / 20 }),
-      expect.objectContaining({ family: "marked", ticketCount: 3, rawShare: 3 / 20 }),
+      expect.objectContaining({ family: "complex-predicate", ticketCount: 1, rawShare: 1 / 18 }),
+      expect.objectContaining({ family: "core-predication", ticketCount: 8, rawShare: 8 / 18 }),
+      expect.objectContaining({ family: "embedded-content", ticketCount: 5, rawShare: 5 / 18 }),
+      expect.objectContaining({ family: "information-structure", ticketCount: 1, rawShare: 1 / 18 }),
+      expect.objectContaining({ family: "marked", ticketCount: 3, rawShare: 3 / 18 }),
     ]);
-    expect(audit.clauseFamilies).toHaveLength(19);
+    expect(audit.clauseFamilies).toHaveLength(17);
     expect(audit.clauseFamilies.find((row) => row.family === "embedded.xcomp-control"))
-      .toMatchObject({ ticketCount: 2, rawShare: 2 / 20 });
+      .toMatchObject({ ticketCount: 2, rawShare: 2 / 18 });
     expect(audit.clauseFamilies
       .filter((row) => row.family !== "embedded.xcomp-control")
       .every((row) => row.ticketCount === 1)).toBe(true);
