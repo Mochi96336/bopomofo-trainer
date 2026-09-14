@@ -13,8 +13,15 @@ permissions:
 
 jobs:
   audit:
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario:
+          - without-subject
+          - without-object
+          - without-both
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -64,6 +71,15 @@ jobs:
           const BASE_HEAD = "4b4645012ed41715a18c5bdab554223b160d5d14";
           const SUBJECT_RULE = "clause.subject-omission";
           const OBJECT_RULE = "clause.object-omission";
+          const SCENARIO = process.env.SCENARIO;
+          if (SCENARIO !== "without-subject" && SCENARIO !== "without-object" && SCENARIO !== "without-both") {
+            throw new Error(`unknown audit scenario ${SCENARIO}`);
+          }
+          const REMOVE_IDS = SCENARIO === "without-subject"
+            ? [SUBJECT_RULE]
+            : SCENARIO === "without-object"
+              ? [OBJECT_RULE]
+              : [SUBJECT_RULE, OBJECT_RULE];
           const PRODUCT_BOUNDS = {
             maximumPhraseDepth: 3,
             maximumClauseNesting: 1,
@@ -213,118 +229,110 @@ jobs:
             }
           }
 
-          function drift(beforeRows: readonly Row[], afterRows: readonly Row[]) {
-            const before = summarize(beforeRows);
-            const after = summarize(afterRows);
-            let successMismatch = 0;
-            let subjectRuleChanged = 0;
-            let objectRuleChanged = 0;
-            let anyLegacyOmissionRuleChanged = 0;
-            let rootChanged = 0;
-            let familyChanged = 0;
-            let fallbackChanged = 0;
-            let derivationChanged = 0;
-            let textChanged = 0;
-            let profilesChanged = 0;
-            for (let index = 0; index < SAMPLE_COUNT; index += 1) {
-              const left = beforeRows[index]!;
-              const right = afterRows[index]!;
-              if (left.success !== right.success) successMismatch += 1;
-              if (left.subjectRule !== right.subjectRule) subjectRuleChanged += 1;
-              if (left.objectRule !== right.objectRule) objectRuleChanged += 1;
-              if (left.anyLegacyOmissionRule !== right.anyLegacyOmissionRule) anyLegacyOmissionRuleChanged += 1;
-              if (left.root !== right.root) rootChanged += 1;
-              if (left.family !== right.family) familyChanged += 1;
-              if (left.fallback !== right.fallback) fallbackChanged += 1;
-              if (left.derivation !== right.derivation) derivationChanged += 1;
-              if (left.text !== right.text) textChanged += 1;
-              if (left.profiles !== right.profiles) profilesChanged += 1;
-            }
-            return {
-              summary: after,
-              successDelta: after.success - before.success,
-              subjectRuleExposureDelta: after.subjectRuleExposure - before.subjectRuleExposure,
-              objectRuleExposureDelta: after.objectRuleExposure - before.objectRuleExposure,
-              anyLegacyOmissionRuleExposureDelta: after.anyLegacyOmissionRuleExposure - before.anyLegacyOmissionRuleExposure,
-              rootTv: tv(before.roots, after.roots),
-              familyTv: tv(before.families, after.families),
-              successMismatch,
-              subjectRuleChanged,
-              objectRuleChanged,
-              anyLegacyOmissionRuleChanged,
-              rootChanged,
-              familyChanged,
-              fallbackChanged,
-              derivationChanged,
-              textChanged,
-              profilesChanged,
-            };
-          }
-
           const currentRows = measure();
-          const withoutSubjectRows = withRemoved([SUBJECT_RULE], measure);
-          const withoutObjectRows = withRemoved([OBJECT_RULE], measure);
-          const withoutBothRows = withRemoved([SUBJECT_RULE, OBJECT_RULE], measure);
-
+          const shadowRows = withRemoved(REMOVE_IDS, measure);
           const current = summarize(currentRows);
-          const withoutSubject = drift(currentRows, withoutSubjectRows);
-          const withoutObject = drift(currentRows, withoutObjectRows);
-          const withoutBoth = drift(currentRows, withoutBothRows);
+          const shadow = summarize(shadowRows);
+          let successMismatch = 0;
+          let subjectRuleChanged = 0;
+          let objectRuleChanged = 0;
+          let anyLegacyOmissionRuleChanged = 0;
+          let rootChanged = 0;
+          let familyChanged = 0;
+          let fallbackChanged = 0;
+          let derivationChanged = 0;
+          let textChanged = 0;
+          let profilesChanged = 0;
+          for (let index = 0; index < SAMPLE_COUNT; index += 1) {
+            const left = currentRows[index]!;
+            const right = shadowRows[index]!;
+            if (left.success !== right.success) successMismatch += 1;
+            if (left.subjectRule !== right.subjectRule) subjectRuleChanged += 1;
+            if (left.objectRule !== right.objectRule) objectRuleChanged += 1;
+            if (left.anyLegacyOmissionRule !== right.anyLegacyOmissionRule) anyLegacyOmissionRuleChanged += 1;
+            if (left.root !== right.root) rootChanged += 1;
+            if (left.family !== right.family) familyChanged += 1;
+            if (left.fallback !== right.fallback) fallbackChanged += 1;
+            if (left.derivation !== right.derivation) derivationChanged += 1;
+            if (left.text !== right.text) textChanged += 1;
+            if (left.profiles !== right.profiles) profilesChanged += 1;
+          }
+          const result = {
+            summary: shadow,
+            successDelta: shadow.success - current.success,
+            subjectRuleExposureDelta: shadow.subjectRuleExposure - current.subjectRuleExposure,
+            objectRuleExposureDelta: shadow.objectRuleExposure - current.objectRuleExposure,
+            anyLegacyOmissionRuleExposureDelta: shadow.anyLegacyOmissionRuleExposure - current.anyLegacyOmissionRuleExposure,
+            rootTv: tv(current.roots, shadow.roots),
+            familyTv: tv(current.families, shadow.families),
+            successMismatch,
+            subjectRuleChanged,
+            objectRuleChanged,
+            anyLegacyOmissionRuleChanged,
+            rootChanged,
+            familyChanged,
+            fallbackChanged,
+            derivationChanged,
+            textChanged,
+            profilesChanged,
+          };
 
           const report = {
-            schemaVersion: "argument-realization-retirement-audit-v1",
+            schemaVersion: "argument-realization-retirement-audit-v2",
             baseHead: BASE_HEAD,
+            scenario: SCENARIO,
+            removedRuleIds: REMOVE_IDS,
             sampleCount: SAMPLE_COUNT,
             seedNamespace: SEED_NAMESPACE,
             metricCaveat: "legacy omission-rule exposure counts explicit use of clause.subject-omission/clause.object-omission; it is not a linguistic ellipsis-frequency estimate",
             current,
-            shadowWithoutSubjectOmission: withoutSubject,
-            shadowWithoutObjectOmission: withoutObject,
-            shadowWithoutBothOmissionRules: withoutBoth,
+            shadow: result,
           };
 
           const pct = (value: number) => `${(value * 100).toFixed(3)}%`;
-          const line = (name: string, value: ReturnType<typeof drift>) =>
-            `- ${name}: success **${current.success} -> ${value.summary.success}** (mismatch ${value.successMismatch}/${SAMPLE_COUNT}); root TV **${pct(value.rootTv)}**; family TV **${pct(value.familyTv)}**; text changed **${value.textChanged}**; fallback changed **${value.fallbackChanged}**`;
           const markdown = [
-            "# Argument-realization omission retirement audit",
+            `# Argument-realization retirement audit: ${SCENARIO}`,
             "",
             `- Base main: \`${BASE_HEAD}\``,
             `- Seeds: **${SAMPLE_COUNT}** (\`${SEED_NAMESPACE}\`)`,
-            `- Current explicit subject-omission rule exposure: **${current.subjectRuleExposure}/${SAMPLE_COUNT} (${pct(current.subjectRuleShare)})**`,
-            `- Current explicit object-omission rule exposure: **${current.objectRuleExposure}/${SAMPLE_COUNT} (${pct(current.objectRuleShare)})**`,
-            `- Current any legacy omission-rule exposure: **${current.anyLegacyOmissionRuleExposure}/${SAMPLE_COUNT} (${pct(current.anyLegacyOmissionRuleShare)})**`,
+            `- Current subject-omission exposure: **${current.subjectRuleExposure}/${SAMPLE_COUNT} (${pct(current.subjectRuleShare)})**`,
+            `- Current object-omission exposure: **${current.objectRuleExposure}/${SAMPLE_COUNT} (${pct(current.objectRuleShare)})**`,
+            `- Current any legacy omission exposure: **${current.anyLegacyOmissionRuleExposure}/${SAMPLE_COUNT} (${pct(current.anyLegacyOmissionRuleShare)})**`,
+            `- Success: **${current.success} -> ${shadow.success}** (mismatch ${successMismatch}/${SAMPLE_COUNT})`,
+            `- Root TV: **${pct(result.rootTv)}**; family TV: **${pct(result.familyTv)}**`,
+            `- Changed seeds: root **${rootChanged}**, family **${familyChanged}**, fallback **${fallbackChanged}**, derivation **${derivationChanged}**, text **${textChanged}**, profiles **${profilesChanged}**`,
+            `- Shadow legacy exposure: subject **${shadow.subjectRuleExposure}**, object **${shadow.objectRuleExposure}**, any **${shadow.anyLegacyOmissionRuleExposure}**`,
             "",
-            line("Without clause.subject-omission", withoutSubject),
-            line("Without clause.object-omission", withoutObject),
-            line("Without both omission rules", withoutBoth),
-            "",
-            `- Both removed: derivation changed **${withoutBoth.derivationChanged}**; profiles changed **${withoutBoth.profilesChanged}**; root changed **${withoutBoth.rootChanged}**; family changed **${withoutBoth.familyChanged}**`,
-            "",
-            "The omission exposure meter is an explicit legacy-rule-usage meter, not a corpus or linguistic ellipsis-frequency claim. This PR is audit-only and does not authorize retirement.",
+            "This is an explicit legacy-rule-usage audit only. It is not a corpus or linguistic ellipsis-frequency claim.",
           ].join("\n");
 
-          writeFileSync("argument-realization-retirement-audit.json", `${JSON.stringify(report, null, 2)}\n`);
-          writeFileSync("argument-realization-retirement-audit.md", `${markdown}\n`);
+          const baseName = `argument-realization-retirement-${SCENARIO}`;
+          writeFileSync(`${baseName}.json`, `${JSON.stringify(report, null, 2)}\n`);
+          writeFileSync(`${baseName}.md`, `${markdown}\n`);
           console.log(markdown);
           EOF
 
       - name: Run 2048-seed current-vs-shadow audit
+        env:
+          SCENARIO: ${{ matrix.scenario }}
         run: npx tsx scripts/.tmp-argument-realization-retirement-audit.ts
 
       - name: Publish summary
         if: always()
+        env:
+          SCENARIO: ${{ matrix.scenario }}
         run: |
-          if [ -f argument-realization-retirement-audit.md ]; then
-            cat argument-realization-retirement-audit.md >> "$GITHUB_STEP_SUMMARY"
+          FILE="argument-realization-retirement-${SCENARIO}.md"
+          if [ -f "$FILE" ]; then
+            cat "$FILE" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Upload audit artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: argument-realization-retirement-audit
+          name: argument-realization-retirement-${{ matrix.scenario }}
           path: |
-            argument-realization-retirement-audit.json
-            argument-realization-retirement-audit.md
+            argument-realization-retirement-${{ matrix.scenario }}.json
+            argument-realization-retirement-${{ matrix.scenario }}.md
           if-no-files-found: error
