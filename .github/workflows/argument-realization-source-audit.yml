@@ -1,0 +1,235 @@
+name: argument realization source audit
+
+on:
+  push:
+    branches:
+      - agent/argument-realization-source-audit
+    paths:
+      - .github/workflows/argument-realization-source-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate packaged app catalog
+        run: npm run app:catalog
+
+      - name: Write source audit probe
+        shell: bash
+        run: |
+          cat > scripts/.tmp-argument-realization-source-audit.ts <<'EOF'
+          import { writeFileSync } from "node:fs";
+          import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+          import { classifyRuntimeSourceIdentityMatches } from "./runtime-source-identity.js";
+          import {
+            UD_GSD_PROVENANCE_ID,
+            UD_GSD_SOURCE_COMMIT,
+            UD_GSD_SOURCE_VERSION,
+            indexUdOccurrenceChildren,
+            lexemeUposKey,
+            loadPinnedUdGsdOccurrenceSources,
+            parseUdOccurrenceSentences,
+          } from "./ud-occurrence-source.js";
+
+          const MIN_COUNT = 2;
+          const MIN_SHARE = 0.10;
+          const CONTRACT = "pinned-gsd-argument-realization-alternation-audit-v1";
+
+          interface MutableForm {
+            total: number;
+            subjectOvert: number;
+            subjectAbsent: number;
+            directObjectOvert: number;
+            directObjectAbsent: number;
+            indirectObjectOvert: number;
+          }
+
+          interface FormSummary extends MutableForm {
+            form: string;
+            subjectAlternationAny: boolean;
+            subjectAlternationThresholded: boolean;
+            directObjectAlternationAny: boolean;
+            directObjectAlternationThresholded: boolean;
+          }
+
+          function base(relation: string): string {
+            return relation.split(":", 1)[0] ?? relation;
+          }
+
+          function qualifies(overt: number, absent: number, total: number): boolean {
+            if (total <= 0) return false;
+            return overt >= MIN_COUNT
+              && absent >= MIN_COUNT
+              && overt / total >= MIN_SHARE
+              && absent / total >= MIN_SHARE;
+          }
+
+          const forms = new Map<string, MutableForm>();
+          let verbTokenCount = 0;
+          const sources = await loadPinnedUdGsdOccurrenceSources();
+          for (const source of sources) {
+            for (const sentence of parseUdOccurrenceSentences(source)) {
+              const childrenByHead = indexUdOccurrenceChildren(sentence);
+              for (const token of sentence) {
+                if (token.upos !== "VERB") continue;
+                verbTokenCount += 1;
+                const children = childrenByHead.get(token.id) ?? [];
+                const subjectOvert = children.some((child) => {
+                  const relation = base(child.relation);
+                  return relation === "nsubj" || relation === "csubj";
+                });
+                const directObjectOvert = children.some((child) => base(child.relation) === "obj");
+                const indirectObjectOvert = children.some((child) => base(child.relation) === "iobj");
+                const summary = forms.get(token.form) ?? {
+                  total: 0,
+                  subjectOvert: 0,
+                  subjectAbsent: 0,
+                  directObjectOvert: 0,
+                  directObjectAbsent: 0,
+                  indirectObjectOvert: 0,
+                };
+                summary.total += 1;
+                summary.subjectOvert += Number(subjectOvert);
+                summary.subjectAbsent += Number(!subjectOvert);
+                summary.directObjectOvert += Number(directObjectOvert);
+                summary.directObjectAbsent += Number(!directObjectOvert);
+                summary.indirectObjectOvert += Number(indirectObjectOvert);
+                forms.set(token.form, summary);
+              }
+            }
+          }
+
+          const rows: FormSummary[] = [...forms.entries()]
+            .map(([form, summary]) => ({
+              form,
+              ...summary,
+              subjectAlternationAny: summary.subjectOvert > 0 && summary.subjectAbsent > 0,
+              subjectAlternationThresholded: qualifies(summary.subjectOvert, summary.subjectAbsent, summary.total),
+              directObjectAlternationAny:
+                summary.directObjectOvert > 0 && summary.directObjectAbsent > 0,
+              directObjectAlternationThresholded:
+                qualifies(summary.directObjectOvert, summary.directObjectAbsent, summary.total),
+            }))
+            .sort((left, right) => left.form.localeCompare(right.form, "zh-Hant"));
+
+          const subjectAny = rows.filter((row) => row.subjectAlternationAny);
+          const subjectThresholded = rows.filter((row) => row.subjectAlternationThresholded);
+          const objectAny = rows.filter((row) => row.directObjectAlternationAny);
+          const objectThresholded = rows.filter((row) => row.directObjectAlternationThresholded);
+          const bothThresholded = rows.filter((row) =>
+            row.subjectAlternationThresholded && row.directObjectAlternationThresholded,
+          );
+
+          const textByEntryId = new Map(PRACTICE_CATALOG.map((entry) => [entry.id, entry.prompt.text]));
+          const identityCandidates = SYNTAX_PROFILES.map((profile) => {
+            const text = textByEntryId.get(profile.entryId);
+            if (text === undefined) throw new Error(`profile references unknown entry ${profile.entryId}`);
+            return { sourceKey: lexemeUposKey(text, profile.upos), entryId: profile.entryId };
+          });
+
+          function identitySummary(selected: readonly FormSummary[]) {
+            const sourceKeys = new Set(selected.map((row) => lexemeUposKey(row.form, "VERB")));
+            const identity = classifyRuntimeSourceIdentityMatches(identityCandidates, sourceKeys);
+            return {
+              sourceFormCount: selected.length,
+              matchedSourceKeyCount: identity.matchedSourceKeys.size,
+              ambiguousSourceKeyCount: identity.ambiguousSourceKeys.size,
+              activatableSourceKeyCount: identity.activatableSourceKeys.size,
+              unmatchedSourceKeyCount:
+                [...sourceKeys].filter((key) => !identity.matchedSourceKeys.has(key)).length,
+              ambiguousSourceKeys: [...identity.ambiguousSourceKeys].sort(),
+              activatableSourceKeys: [...identity.activatableSourceKeys].sort(),
+            };
+          }
+
+          function mass(selected: readonly FormSummary[], field: keyof MutableForm): number {
+            return selected.reduce((sum, row) => sum + row[field], 0);
+          }
+
+          const report = {
+            schemaVersion: "argument-realization-source-audit-v1",
+            contract: CONTRACT,
+            sourceProvenanceId: UD_GSD_PROVENANCE_ID,
+            sourceVersion: UD_GSD_SOURCE_VERSION,
+            sourceCommit: UD_GSD_SOURCE_COMMIT,
+            threshold: { minimumCountEachState: MIN_COUNT, minimumShareEachState: MIN_SHARE },
+            caveat: "Form+VERB overt/absent alternation is occurrence-level argument-realization evidence, not lexical valency, semantic omission licensing by sense, or natural-language frequency.",
+            source: {
+              verbTokenCount,
+              verbFormCount: rows.length,
+              subjectAlternationAnyFormCount: subjectAny.length,
+              subjectAlternationThresholdedFormCount: subjectThresholded.length,
+              directObjectAlternationAnyFormCount: objectAny.length,
+              directObjectAlternationThresholdedFormCount: objectThresholded.length,
+              bothThresholdedFormCount: bothThresholded.length,
+              subjectThresholdedOvertTokenCount: mass(subjectThresholded, "subjectOvert"),
+              subjectThresholdedAbsentTokenCount: mass(subjectThresholded, "subjectAbsent"),
+              objectThresholdedOvertTokenCount: mass(objectThresholded, "directObjectOvert"),
+              objectThresholdedAbsentTokenCount: mass(objectThresholded, "directObjectAbsent"),
+            },
+            runtimeIdentity: {
+              subjectThresholded: identitySummary(subjectThresholded),
+              directObjectThresholded: identitySummary(objectThresholded),
+              bothThresholded: identitySummary(bothThresholded),
+            },
+            forms: rows,
+          };
+
+          const s = report.source;
+          const markdown = [
+            "# Argument-realization pinned-source audit",
+            "",
+            `- Source: \`${UD_GSD_PROVENANCE_ID}\` / \`${UD_GSD_SOURCE_VERSION}\` / \`${UD_GSD_SOURCE_COMMIT}\``,
+            `- VERB occurrences/forms: **${s.verbTokenCount} / ${s.verbFormCount}**`,
+            `- Subject overt↔absent alternation: **${s.subjectAlternationAnyFormCount}** forms (any), **${s.subjectAlternationThresholdedFormCount}** forms (>=${MIN_COUNT} each and >=${Math.round(MIN_SHARE * 100)}% each)`,
+            `- Direct-object overt↔absent alternation: **${s.directObjectAlternationAnyFormCount}** forms (any), **${s.directObjectAlternationThresholdedFormCount}** forms (thresholded)`,
+            `- Both thresholded alternations: **${s.bothThresholdedFormCount}** forms`,
+            `- Subject thresholded token mass: overt **${s.subjectThresholdedOvertTokenCount}**, absent **${s.subjectThresholdedAbsentTokenCount}**`,
+            `- Direct-object thresholded token mass: overt **${s.objectThresholdedOvertTokenCount}**, absent **${s.objectThresholdedAbsentTokenCount}**`,
+            `- Active runtime identity-safe subject frontier: **${report.runtimeIdentity.subjectThresholded.activatableSourceKeyCount}** source keys`,
+            `- Active runtime identity-safe direct-object frontier: **${report.runtimeIdentity.directObjectThresholded.activatableSourceKeyCount}** source keys`,
+            "",
+            "This is occurrence-level realization evidence only. It must not be promoted into lexical intransitivity/ambitransitivity or interpreted as semantic omission frequency.",
+          ].join("\n");
+
+          writeFileSync("argument-realization-source-audit.json", `${JSON.stringify(report, null, 2)}\n`);
+          writeFileSync("argument-realization-source-audit.md", `${markdown}\n`);
+          console.log(markdown);
+          EOF
+
+      - name: Run pinned-source audit
+        run: npx tsx scripts/.tmp-argument-realization-source-audit.ts
+
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f argument-realization-source-audit.md ]; then
+            cat argument-realization-source-audit.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: argument-realization-source-audit
+          path: |
+            argument-realization-source-audit.json
+            argument-realization-source-audit.md
+          if-no-files-found: error
