@@ -26,6 +26,7 @@ import type {
   ProductionConstituent,
   ProductionRule,
   ProductionRuleClass,
+  RuntimeOccurrenceCapability,
   SyntacticFunction,
   SyntaxCategory,
   SyntaxFeatureName,
@@ -45,8 +46,10 @@ export interface NestedProductionTarget {
 }
 
 export interface RequiredLexicalSlotConstraint {
-  /** Requirements carried by the lexical slot itself. */
+  /** Feature requirements carried by the lexical slot itself. */
   readonly requiredFeatures?: SyntaxFeatureSet;
+  /** Reviewed occurrence-capability requirements carried by the lexical slot itself. */
+  readonly requiredOccurrenceCapabilities?: readonly RuntimeOccurrenceCapability[];
   /** Requirements carried by the syntax category that directly contains the slot. */
   readonly enclosingRequiredFunctions?: readonly SyntacticFunction[];
 }
@@ -534,6 +537,11 @@ function lexicalSlotMatchesConstraint(
     context.slot.requiredFeatures[feature] === requiredFeatures[feature],
   );
   if (!featuresMatch) return false;
+  const requiredOccurrenceCapabilities = required.requiredOccurrenceCapabilities ?? [];
+  const slotOccurrenceCapabilities = context.slot.requiredOccurrenceCapabilities ?? [];
+  if (!requiredOccurrenceCapabilities.every((capability) =>
+    slotOccurrenceCapabilities.includes(capability),
+  )) return false;
   const requiredFunctions = required.enclosingRequiredFunctions ?? [];
   return requiredFunctions.every((requiredFunction) =>
     context.enclosingRequiredFunctions.includes(requiredFunction),

@@ -11,6 +11,7 @@ import type {
 } from "../grammar/types.js";
 import type { StructuralLexicalSlot } from "../syntax/derive.js";
 import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";
+import { PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY } from "../syntax/runtime-occurrence-capabilities.js";
 import {
   buildLexicalProfileIndex,
   compatibleProfilesForSlot,
@@ -327,7 +328,12 @@ export function composeFormalSyntaxUtterances(
             requiredFeatures: { aspect: "marked" as const },
             enclosingRequiredFunctions: ["predicate" as const],
           }
-        : null;
+        : predicateMarkingPracticeIntent === "modal"
+          ? {
+              requiredOccurrenceCapabilities: [PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY],
+              enclosingRequiredFunctions: ["predicate" as const],
+            }
+          : null;
     const requiresPredicateMarkingPractice = requiredPredicateMarkingSlot !== null;
     if (rootFamilySelection?.availabilityFallbackActive === true) {
       fallbackReasons.add("formal-syntax-predicate-marking-availability-fallback");

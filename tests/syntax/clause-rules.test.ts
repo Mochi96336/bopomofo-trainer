@@ -26,7 +26,6 @@ const REQUIRED_CONSTRUCTIONS = [
   "clause.copular",
   "clause.existential",
   "clause.locative",
-  "clause.modal",
   "clause.ba",
   "clause.bei",
   "clause.serial-verb",

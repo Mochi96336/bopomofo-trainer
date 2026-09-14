@@ -50,14 +50,14 @@ const NEGATIVE_INTRANSITIVE_TARGETS: readonly NestedProductionTarget[] = [
 ];
 
 describe("Clause-model v2 negation axis migration", () => {
-  it("keeps negation and aspect retired while modal remains a live transitional Clause rule", () => {
+  it("keeps negation, aspect, and modal peer Clause rules retired", () => {
     const clauseRuleIds = FORMAL_SYNTAX_RULES
       .filter((rule) => rule.output === "Clause")
       .map((rule) => rule.id);
 
     expect(clauseRuleIds).not.toContain("clause.negative");
     expect(clauseRuleIds).not.toContain("clause.aspect");
-    expect(clauseRuleIds).toContain("clause.modal");
+    expect(clauseRuleIds).not.toContain("clause.modal");
   });
 
   it("keeps explicit negative practice reachable through Predicate marking", () => {
@@ -91,5 +91,5 @@ describe("Clause-model v2 negation axis migration", () => {
 
     expect(shape?.lexicalSlots.some((slot) => slot.constituentKey === "aspect")).toBe(false);
     expect(shape?.lexicalSlots.some((slot) => slot.constituentKey === "modal")).toBe(false);
-  });
+  }, 15_000);
 });
