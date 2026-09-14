@@ -91,6 +91,8 @@ jobs:
           '''    expect(questionShare, diagnostic).toBeLessThan(0.40);\n  }, 30_000);\n''',
           '''    expect(questionShare, diagnostic).toBeLessThan(0.40);\n  }, 60_000);\n''')
           PY
+      - name: Generate app catalog
+        run: npm run app:catalog
       - name: Run focused regression suite
         run: >-
           npx vitest run
