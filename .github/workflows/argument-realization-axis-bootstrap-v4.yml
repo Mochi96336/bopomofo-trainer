@@ -60,15 +60,26 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
+          import re
           from pathlib import Path
 
           path = Path('tests/syntax/argument-realization-axis-migration.test.ts')
           text = path.read_text()
-          old = '                requiredProductionRuleIdsAnyOf: practice.requiredProductionRuleIdsAnyOf,\n'
-          new = '                ...(practice.requiredProductionRuleIdsAnyOf === undefined\n                  ? {}\n                  : { requiredProductionRuleIdsAnyOf: practice.requiredProductionRuleIdsAnyOf }),\n'
-          if text.count(old) != 3:
-              raise SystemExit(f'expected three optional target test fields, got {text.count(old)}')
-          path.write_text(text.replace(old, new), newline='\n')
+          pattern = re.compile(
+              r'^(?P<indent>\s*)requiredProductionRuleIdsAnyOf: practice\.requiredProductionRuleIdsAnyOf,$',
+              re.MULTILINE,
+          )
+          def replace_optional(match: re.Match[str]) -> str:
+              indent = match.group('indent')
+              return (
+                  f'{indent}...(practice.requiredProductionRuleIdsAnyOf === undefined\n'
+                  f'{indent}  ? {{}}\n'
+                  f'{indent}  : {{ requiredProductionRuleIdsAnyOf: practice.requiredProductionRuleIdsAnyOf }}),'
+              )
+          text, count = pattern.subn(replace_optional, text)
+          if count != 3:
+              raise SystemExit(f'expected three optional target test fields, got {count}')
+          path.write_text(text, newline='\n')
 
           path = Path('tests/syntax/clause-model-v2.test.ts')
           text = path.read_text()
