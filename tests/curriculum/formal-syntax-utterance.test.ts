@@ -353,6 +353,13 @@ describe("frequency-first formal syntax compatibility composer", () => {
       maximumCandidates: 1,
       maximumAttempts: 1,
       rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
+      samplingMode: "raw",
+      structuralTarget: {
+        nestedProductionTargets: [
+          { parentRuleId: "clause.transitive", constituentKey: "subject", exactCount: 1 },
+          { parentRuleId: "clause.transitive", constituentKey: "object", exactCount: 1 },
+        ],
+      },
     });
     const candidateIds = result.candidates[0]?.entries.map((item) => item.id);
     expect(candidateIds).toBeDefined();

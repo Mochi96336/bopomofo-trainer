@@ -151,6 +151,10 @@ describe("random structural sampling", () => {
       rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
       random: new SequenceRandom([0]),
       maximumAttempts: 1,
+      nestedProductionTargets: [
+        { parentRuleId: "clause.transitive", constituentKey: "subject", exactCount: 1 },
+        { parentRuleId: "clause.transitive", constituentKey: "object", exactCount: 1 },
+      ],
     });
     expect(shape?.lexicalSlots).toHaveLength(3);
     expect(shape?.lexicalSlots[0]).toMatchObject({
