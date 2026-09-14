@@ -1,0 +1,113 @@
+name: argument realization axis repair
+
+on:
+  push:
+    branches:
+      - agent/argument-realization-axis-migration
+    paths:
+      - .github/workflows/argument-realization-axis-repair.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/argument-realization-axis-migration
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Apply fail-closed repair
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path_s: str, old: str, new: str) -> None:
+              path = Path(path_s)
+              text = path.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path_s}: expected one replacement target, got {count}")
+              path.write_text(text.replace(old, new, 1))
+
+          path = 'src/curriculum/formal-syntax-utterance.ts'
+          replace_once(path,
+          '''    readonly availabilityFallbackReserved: boolean;\n    availabilityFallbackActive: boolean;\n''',
+          '''    readonly availabilityFallbackReserved: boolean;\n    readonly argumentRelaxationFallbackReserved: boolean;\n    availabilityFallbackActive: boolean;\n    argumentRelaxationFallbackActive: boolean;\n''')
+
+          replace_once(path,
+          '''      const availabilityFallbackReserved = (predicateMarkingPracticeIntent !== "ordinary"\n        || argumentRealizationPracticeIntent !== "ordinary")\n        && remainingAttempts >= plan.length * 2;\n      const primaryAttempts = remainingAttempts\n        - (availabilityFallbackReserved ? plan.length : 0);\n      rootFamilySearch = {\n        plan,\n        predicateMarkingPracticeIntent,\n        argumentRealizationPracticeIntent,\n        availabilityFallbackReserved,\n        availabilityFallbackActive: false,\n      };\n''',
+          '''      const availabilityFallbackReserved = (predicateMarkingPracticeIntent !== "ordinary"\n        || argumentRealizationPracticeIntent !== "ordinary")\n        && remainingAttempts >= plan.length * 2;\n      // The new argument-realization axis may relax first, but must not erase an\n      // already-selected Predicate-marking ticket. With enough budget, keep one\n      // intermediate pass that preserves marking and relaxes only realization.\n      const argumentRelaxationFallbackReserved = predicateMarkingPracticeIntent !== "ordinary"\n        && argumentRealizationPracticeIntent !== "ordinary"\n        && remainingAttempts >= plan.length * 3;\n      const fallbackPlanCount = Number(availabilityFallbackReserved)\n        + Number(argumentRelaxationFallbackReserved);\n      const primaryAttempts = remainingAttempts - plan.length * fallbackPlanCount;\n      rootFamilySearch = {\n        plan,\n        predicateMarkingPracticeIntent,\n        argumentRealizationPracticeIntent,\n        availabilityFallbackReserved,\n        argumentRelaxationFallbackReserved,\n        availabilityFallbackActive: false,\n        argumentRelaxationFallbackActive: false,\n      };\n''')
+
+          replace_once(path,
+          '''    let family = rootFamilySearch.plan[rootFamilyIndex];\n    if (family === undefined\n      && rootFamilySearch.availabilityFallbackReserved\n      && !rootFamilySearch.availabilityFallbackActive) {\n      rootFamilySearch.availabilityFallbackActive = true;\n      rootFamilyIndex = 0;\n      attemptsInRootFamily = 0;\n      attemptsPerRootFamily = 1;\n      family = rootFamilySearch.plan[rootFamilyIndex];\n    }\n''',
+          '''    let family = rootFamilySearch.plan[rootFamilyIndex];\n    if (family === undefined\n      && rootFamilySearch.argumentRelaxationFallbackReserved\n      && !rootFamilySearch.argumentRelaxationFallbackActive\n      && !rootFamilySearch.availabilityFallbackActive) {\n      rootFamilySearch.argumentRelaxationFallbackActive = true;\n      rootFamilyIndex = 0;\n      attemptsInRootFamily = 0;\n      attemptsPerRootFamily = 1;\n      family = rootFamilySearch.plan[rootFamilyIndex];\n    }\n    if (family === undefined\n      && rootFamilySearch.availabilityFallbackReserved\n      && !rootFamilySearch.availabilityFallbackActive) {\n      rootFamilySearch.availabilityFallbackActive = true;\n      rootFamilyIndex = 0;\n      attemptsInRootFamily = 0;\n      attemptsPerRootFamily = 1;\n      family = rootFamilySearch.plan[rootFamilyIndex];\n    }\n''')
+
+          replace_once(path,
+          '''      argumentRealizationPracticeIntent: rootFamilySearch.availabilityFallbackActive\n        ? "ordinary"\n        : rootFamilySearch.argumentRealizationPracticeIntent,\n      predicateMarkingAvailabilityFallbackActive: rootFamilySearch.availabilityFallbackActive\n        && rootFamilySearch.predicateMarkingPracticeIntent !== "ordinary",\n      argumentRealizationAvailabilityFallbackActive: rootFamilySearch.availabilityFallbackActive\n        && rootFamilySearch.argumentRealizationPracticeIntent !== "ordinary",\n''',
+          '''      argumentRealizationPracticeIntent: (rootFamilySearch.argumentRelaxationFallbackActive\n        || rootFamilySearch.availabilityFallbackActive)\n        ? "ordinary"\n        : rootFamilySearch.argumentRealizationPracticeIntent,\n      predicateMarkingAvailabilityFallbackActive: rootFamilySearch.availabilityFallbackActive\n        && rootFamilySearch.predicateMarkingPracticeIntent !== "ordinary",\n      argumentRealizationAvailabilityFallbackActive: (rootFamilySearch.argumentRelaxationFallbackActive\n        || rootFamilySearch.availabilityFallbackActive)\n        && rootFamilySearch.argumentRealizationPracticeIntent !== "ordinary",\n''')
+
+          replace_once('tests/curriculum/predicate-marking-practice-ticket.test.ts',
+          'expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v7");',
+          'expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v8");')
+
+          for test_path in [
+              'tests/syntax/argument-roles.test.ts',
+              'tests/syntax/predicate-ownership.test.ts',
+          ]:
+              replace_once(test_path,
+              '''  expect(shapes).toHaveLength(1);\n  return shapes[0]!.lexicalSlots;\n''',
+              '''  expect(shapes).toHaveLength(4);\n  const overt = shapes.find((shape) =>\n    shape.productionRulePath.includes("argument.subject.noun")\n      && shape.productionRulePath.includes("argument.object.noun")\n  );\n  expect(overt).toBeDefined();\n  return overt!.lexicalSlots;\n''')
+
+          replace_once('tests/syntax/sample.test.ts',
+          '''      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),\n      random: new SequenceRandom([0]),\n      maximumAttempts: 1,\n    });\n    expect(shape?.lexicalSlots).toHaveLength(3);\n''',
+          '''      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),\n      random: new SequenceRandom([0]),\n      maximumAttempts: 1,\n      nestedProductionTargets: [\n        { parentRuleId: "clause.transitive", constituentKey: "subject", exactCount: 1 },\n        { parentRuleId: "clause.transitive", constituentKey: "object", exactCount: 1 },\n      ],\n    });\n    expect(shape?.lexicalSlots).toHaveLength(3);\n''')
+
+          replace_once('tests/curriculum/formal-syntax-utterance.test.ts',
+          '''      maximumAttempts: 1,\n      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),\n    });\n    const candidateIds = result.candidates[0]?.entries.map((item) => item.id);\n''',
+          '''      maximumAttempts: 1,\n      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),\n      samplingMode: "raw",\n      structuralTarget: {\n        nestedProductionTargets: [\n          { parentRuleId: "clause.transitive", constituentKey: "subject", exactCount: 1 },\n          { parentRuleId: "clause.transitive", constituentKey: "object", exactCount: 1 },\n        ],\n      },\n    });\n    const candidateIds = result.candidates[0]?.entries.map((item) => item.id);\n''')
+
+          replace_once('tests/curriculum/formal-syntax-construction-practice.test.ts',
+          '''    const result = composeFormalSyntaxUtterances({\n      ...plan,\n      eligibleEntries: [letEntry, heEntry, walkEntry],\n''',
+          '''    const result = composeFormalSyntaxUtterances({\n      ...plan,\n      structuralTarget: {\n        ...plan.structuralTarget,\n        nestedProductionTargets: [\n          ...(plan.structuralTarget?.nestedProductionTargets ?? []),\n          { parentRuleId: "clause.intransitive", constituentKey: "subject", exactCount: 1 },\n        ],\n      },\n      eligibleEntries: [letEntry, heEntry, walkEntry],\n''')
+
+          replace_once('tests/curriculum/formal-syntax-construction-selection.test.ts',
+          '''function causativePlan() {\n  return createSentenceConstructionPracticePlan(\n    CAUSATIVE_FINITE_CCOMP_VIEW,\n    { sentenceRuleId: "sentence.declarative", constituentKey: "clause" },\n    CAUSATIVE_RULES,\n  );\n}\n''',
+          '''function causativePlan() {\n  return createSentenceConstructionPracticePlan(\n    CAUSATIVE_FINITE_CCOMP_VIEW,\n    { sentenceRuleId: "sentence.declarative", constituentKey: "clause" },\n    CAUSATIVE_RULES,\n  );\n}\n\nfunction causativeOvertSubjectPlan() {\n  const plan = causativePlan();\n  return {\n    ...plan,\n    structuralTarget: {\n      ...plan.structuralTarget,\n      nestedProductionTargets: [\n        ...(plan.structuralTarget?.nestedProductionTargets ?? []),\n        { parentRuleId: "clause.intransitive", constituentKey: "subject", exactCount: 1 },\n      ],\n    },\n  };\n}\n''')
+          replace_once('tests/curriculum/formal-syntax-construction-selection.test.ts',
+          '''    const selection = selectWith(\n      [LET_ENTRY, HE_ENTRY, WALK_ENTRY],\n      causativeProfiles(),\n    );\n''',
+          '''    const selection = selectWith(\n      [LET_ENTRY, HE_ENTRY, WALK_ENTRY],\n      causativeProfiles(),\n      causativeOvertSubjectPlan(),\n    );\n''')
+
+          replace_once('tests/curriculum/formal-syntax-effective-distribution.test.ts',
+          '''    expect(questionShare, diagnostic).toBeLessThan(0.40);\n  }, 30_000);\n''',
+          '''    expect(questionShare, diagnostic).toBeLessThan(0.40);\n  }, 60_000);\n''')
+          PY
+      - name: Run focused regression suite
+        run: >-
+          npx vitest run
+          tests/curriculum/formal-syntax-construction-practice.test.ts
+          tests/curriculum/formal-syntax-construction-selection.test.ts
+          tests/curriculum/formal-syntax-effective-distribution.test.ts
+          tests/curriculum/formal-syntax-utterance.test.ts
+          tests/curriculum/predicate-marking-practice-ticket.test.ts
+          tests/syntax/argument-roles.test.ts
+          tests/syntax/predicate-ownership.test.ts
+          tests/syntax/sample.test.ts
+      - name: Commit repair
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/curriculum/formal-syntax-utterance.ts tests
+          git diff --cached --check
+          git commit -m "fix(syntax): decouple argument realization fallback"
+          git push origin HEAD:agent/argument-realization-axis-migration
