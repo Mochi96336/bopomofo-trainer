@@ -1,0 +1,29 @@
+name: argument realization evidence contract
+
+on:
+  push:
+    branches:
+      - agent/argument-realization-evidence-contract
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Verify pinned source boundary
+        run: npx tsx scripts/audit-argument-realization-source-evidence.ts --verify
+      - name: Verify synthetic occurrence semantics
+        run: npx vitest run tests/scripts/argument-realization-source-evidence.test.ts --reporter=verbose
+      - name: Typecheck
+        run: npm run typecheck
