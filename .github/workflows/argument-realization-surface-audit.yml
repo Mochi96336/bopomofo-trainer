@@ -1,0 +1,195 @@
+name: argument realization surface audit
+
+on:
+  push:
+    branches:
+      - agent/argument-realization-retirement-audit
+    paths:
+      - .github/workflows/argument-realization-surface-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Generate packaged app catalog
+        run: npm run app:catalog
+      - name: Expose audit-only derivation root
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/curriculum/formal-syntax-utterance.ts')
+          text = path.read_text()
+          needle = '      syntaxProfileIds: realization.syntaxProfileIds,\n'
+          if text.count(needle) != 1:
+              raise SystemExit('unexpected formal-syntax candidate shape')
+          path.write_text(text.replace(needle, needle + '      __auditStructuralRoot: shape.root,\n'))
+          PY
+      - name: Write surface probe
+        shell: bash
+        run: |
+          cat > scripts/.tmp-argument-realization-surface-audit.ts <<'EOF'
+          import { writeFileSync } from "node:fs";
+          import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+          import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
+          import { createSeededRandom } from "../src/curriculum/random.js";
+          import type { StructuralElement, StructuralSyntaxNode } from "../src/syntax/derive.js";
+
+          const SAMPLE_COUNT = 2048;
+          const SEED_NAMESPACE = "argument-realization-retirement-audit-v1";
+          const SUBJECT_RULE = "clause.subject-omission";
+          const OBJECT_RULE = "clause.object-omission";
+          const PRODUCT_BOUNDS = {
+            maximumPhraseDepth: 3,
+            maximumClauseNesting: 1,
+            maximumClausesPerSentence: 2,
+            maximumCoordinationItems: 2,
+            maximumConsecutiveModifiers: 2,
+            maximumComplementsPerPredicate: 1,
+            maximumLexicalEntriesPerUtterance: 6,
+          } as const;
+
+          interface CandidateWithRoot {
+            readonly __auditStructuralRoot?: StructuralSyntaxNode;
+          }
+
+          function syntaxChildren(node: StructuralSyntaxNode): readonly StructuralSyntaxNode[] {
+            return node.children.filter(
+              (child): child is StructuralSyntaxNode => child.kind === "syntax-node",
+            );
+          }
+
+          function visit(node: StructuralSyntaxNode, output: StructuralSyntaxNode[]): void {
+            output.push(node);
+            for (const child of syntaxChildren(node)) visit(child, output);
+          }
+
+          function hasDirectCategory(node: StructuralSyntaxNode, category: string): boolean {
+            return syntaxChildren(node).some((child) => child.category === category);
+          }
+
+          let success = 0;
+          let candidateSubjectRule = 0;
+          let candidateObjectRule = 0;
+          let candidateAnyLegacy = 0;
+          let candidateBothLegacy = 0;
+          let subjectRuleNodeCount = 0;
+          let subjectRuleWithObjectNodeCount = 0;
+          let subjectRuleWithoutObjectNodeCount = 0;
+          let subjectRuleWithIndirectObjectNodeCount = 0;
+          let objectRuleNodeCount = 0;
+          let objectRuleWithSubjectNodeCount = 0;
+          let objectRuleWithDirectObjectNodeCount = 0;
+          let objectRuleWithIndirectObjectNodeCount = 0;
+
+          for (let round = 0; round < SAMPLE_COUNT; round += 1) {
+            const composition = composeFormalSyntaxUtterances({
+              eligibleEntries: PRACTICE_CATALOG,
+              profiles: SYNTAX_PROFILES,
+              random: createSeededRandom(`${SEED_NAMESPACE}:${round}`),
+              samplingMode: "product-family",
+              minimumLexicalEntries: 2,
+              maximumCandidates: 1,
+              maximumAttempts: 64,
+              bounds: PRODUCT_BOUNDS,
+            });
+            const candidate = (composition.candidates[0] ?? null) as CandidateWithRoot | null;
+            if (candidate === null || candidate.__auditStructuralRoot === undefined) continue;
+            success += 1;
+            const nodes: StructuralSyntaxNode[] = [];
+            visit(candidate.__auditStructuralRoot, nodes);
+            const subjectNodes = nodes.filter((node) => node.productionRuleId === SUBJECT_RULE);
+            const objectNodes = nodes.filter((node) => node.productionRuleId === OBJECT_RULE);
+            if (subjectNodes.length > 0) candidateSubjectRule += 1;
+            if (objectNodes.length > 0) candidateObjectRule += 1;
+            if (subjectNodes.length > 0 || objectNodes.length > 0) candidateAnyLegacy += 1;
+            if (subjectNodes.length > 0 && objectNodes.length > 0) candidateBothLegacy += 1;
+
+            for (const node of subjectNodes) {
+              subjectRuleNodeCount += 1;
+              const hasObject = hasDirectCategory(node, "Object");
+              subjectRuleWithObjectNodeCount += Number(hasObject);
+              subjectRuleWithoutObjectNodeCount += Number(!hasObject);
+              subjectRuleWithIndirectObjectNodeCount += Number(hasDirectCategory(node, "IndirectObject"));
+            }
+            for (const node of objectNodes) {
+              objectRuleNodeCount += 1;
+              objectRuleWithSubjectNodeCount += Number(hasDirectCategory(node, "Subject"));
+              objectRuleWithDirectObjectNodeCount += Number(hasDirectCategory(node, "Object"));
+              objectRuleWithIndirectObjectNodeCount += Number(hasDirectCategory(node, "IndirectObject"));
+            }
+          }
+
+          const report = {
+            schemaVersion: "argument-realization-surface-audit-v1",
+            baseHead: "4b4645012ed41715a18c5bdab554223b160d5d14",
+            sampleCount: SAMPLE_COUNT,
+            seedNamespace: SEED_NAMESPACE,
+            caveat: "Counts describe executable legacy production shapes, not linguistic omission frequency or semantic licensing.",
+            success,
+            candidateExposure: {
+              subjectRule: candidateSubjectRule,
+              objectRule: candidateObjectRule,
+              anyLegacy: candidateAnyLegacy,
+              bothLegacy: candidateBothLegacy,
+            },
+            subjectRuleNodes: {
+              total: subjectRuleNodeCount,
+              withObjectNode: subjectRuleWithObjectNodeCount,
+              withoutObjectNode: subjectRuleWithoutObjectNodeCount,
+              withIndirectObjectNode: subjectRuleWithIndirectObjectNodeCount,
+            },
+            objectRuleNodes: {
+              total: objectRuleNodeCount,
+              withSubjectNode: objectRuleWithSubjectNodeCount,
+              withDirectObjectNode: objectRuleWithDirectObjectNodeCount,
+              withIndirectObjectNode: objectRuleWithIndirectObjectNodeCount,
+            },
+          };
+          const pct = (count: number) => `${(count / SAMPLE_COUNT * 100).toFixed(3)}%`;
+          const markdown = [
+            "# Argument-realization legacy surface-shape audit",
+            "",
+            `- Success: **${success}/${SAMPLE_COUNT}**`,
+            `- Candidate subject-omission exposure: **${candidateSubjectRule}/${SAMPLE_COUNT} (${pct(candidateSubjectRule)})**`,
+            `- Candidate object-omission exposure: **${candidateObjectRule}/${SAMPLE_COUNT} (${pct(candidateObjectRule)})**`,
+            `- Candidate any legacy omission exposure: **${candidateAnyLegacy}/${SAMPLE_COUNT} (${pct(candidateAnyLegacy)})**`,
+            `- Candidate containing both legacy rules: **${candidateBothLegacy}**`,
+            `- subject-omission nodes: total **${subjectRuleNodeCount}**, object node present **${subjectRuleWithObjectNodeCount}**, object node absent **${subjectRuleWithoutObjectNodeCount}**, indirect-object node present **${subjectRuleWithIndirectObjectNodeCount}**`,
+            `- object-omission nodes: total **${objectRuleNodeCount}**, subject node present **${objectRuleWithSubjectNodeCount}**, direct-object node present **${objectRuleWithDirectObjectNodeCount}**, indirect-object node present **${objectRuleWithIndirectObjectNodeCount}**`,
+            "",
+            "These are executable legacy-rule shapes only. In particular, an absent Object node under clause.subject-omission must not be called semantic object omission without a reviewed frame/realization contract.",
+          ].join("\n");
+          writeFileSync("argument-realization-surface-audit.json", `${JSON.stringify(report, null, 2)}\n`);
+          writeFileSync("argument-realization-surface-audit.md", `${markdown}\n`);
+          console.log(markdown);
+          EOF
+      - name: Run 2048-seed surface audit
+        run: npx tsx scripts/.tmp-argument-realization-surface-audit.ts
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f argument-realization-surface-audit.md ]; then
+            cat argument-realization-surface-audit.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: argument-realization-surface-audit
+          path: |
+            argument-realization-surface-audit.json
+            argument-realization-surface-audit.md
+          if-no-files-found: error
