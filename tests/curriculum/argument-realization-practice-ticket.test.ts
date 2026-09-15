@@ -41,7 +41,7 @@ describe("argument realization practice ticket", () => {
     expect(predicateMarkingPracticeIntentForTicketUnit(0.943)).toBe("negation");
   });
 
-  it("keeps the provisional ticket incidence close to the legacy exposure seed", () => {
+  it("keeps ticket incidence aligned with the calibrated product-practice prior", () => {
     const sampleCount = 8192;
     let subject = 0;
     let object = 0;
@@ -55,7 +55,9 @@ describe("argument realization practice ticket", () => {
       if (intent === "subject-omission") subject += 1;
       if (intent === "object-omission") object += 1;
     }
-    expect(Math.abs(subject / sampleCount - 0.1025)).toBeLessThan(0.01);
-    expect(Math.abs(object / sampleCount - 0.0879)).toBeLessThan(0.01);
+    const weights = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.argumentRealizationPracticeWeights;
+    const total = weights.ordinary + weights.subjectOmission + weights.objectOmission;
+    expect(Math.abs(subject / sampleCount - weights.subjectOmission / total)).toBeLessThan(0.01);
+    expect(Math.abs(object / sampleCount - weights.objectOmission / total)).toBeLessThan(0.01);
   });
 });
