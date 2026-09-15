@@ -82,6 +82,7 @@ describe("valency reachability audit", () => {
     expect(audit.profileCount).toBe(SYNTAX_PROFILES.length);
     expect(audit.entryCount).toBeGreaterThan(0);
     expect(audit.zeroSupportFrames).toEqual([
+      "ambitransitive",
       "serial-verb",
       "causative",
       "resultative",
@@ -94,6 +95,26 @@ describe("valency reachability audit", () => {
       ["clause.xcomp-object-control", "predicate"],
       ["clause.xcomp-subject-control", "predicate"],
     ]);
-    expect(audit.mixedSupportSlots).toEqual([]);
+    expect(audit.mixedSupportSlots.map((slot) => [slot.ruleId, slot.constituentKey])).toEqual([
+      ["ba-predicate.completed.aspect", "head"],
+      ["ba-predicate.completed.complement", "head"],
+      ["clause.bei", "predicate"],
+      ["clause.existential", "predicate"],
+      ["clause.intransitive", "predicate"],
+      ["clause.transitive", "predicate"],
+      ["open-clause.intransitive", "predicate"],
+      ["open-clause.transitive", "predicate"],
+      ["sentence.a-not-a-question", "negativePredicate"],
+      ["sentence.a-not-a-question", "positivePredicate"],
+      ["sentence.a-not-a-transitive-question", "negativePredicate"],
+      ["sentence.a-not-a-transitive-question", "positivePredicate"],
+      ["sentence.constituent-question", "predicate"],
+    ]);
+    expect(audit.mixedSupportSlots.every((slot) => (
+      slot.unsupportedFrames.length === 1
+      && slot.unsupportedFrames[0] === "ambitransitive"
+      && slot.supportedFrames.length > 0
+      && slot.supportEntryCount > 0
+    ))).toBe(true);
   });
 });

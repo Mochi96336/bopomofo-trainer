@@ -1,0 +1,235 @@
+name: formal-syntax-regeneration-lab
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/formal-syntax-regeneration-lab.yml"
+  push:
+    branches:
+      - agent/formal-syntax-regeneration-lab
+    paths:
+      - ".github/workflows/formal-syntax-regeneration-lab.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact workflow head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 1
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Preserve production artifact baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp data/grammar/formal-syntax-active-catalog-legality.json "$RUNNER_TEMP/old-legality.json"
+          cp data/grammar/formal-syntax-active-catalog-profiles.json "$RUNNER_TEMP/old-profiles.json"
+
+      - name: Download pinned syntax source inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/external/naer/1141208 data/external/ud/chinese-gsd/r2.18
+          curl --fail --location --retry 3 --retry-all-errors \
+            --user-agent 'bopomofo-trainer-formal-syntax-regeneration/1.0' \
+            'https://coct.naer.edu.tw/file/files/%E9%80%9A%E7%94%A8%E8%A9%9E%E9%A0%BB%E8%A1%A8%20-%20%E5%AE%9A%E7%A8%BF1141208.xlsx' \
+            -o 'data/external/naer/1141208/通用詞頻表.xlsx'
+          echo 'bfd3b73938e115ae39a44c5e11c97135c09939cf598157cb2fe0b33c4302de75  data/external/naer/1141208/通用詞頻表.xlsx' | sha256sum -c -
+
+          commit='e0d85a020182e264d6384be2a59c0f4879a1cc35'
+          for file in zh_gsd-ud-train.conllu zh_gsd-ud-dev.conllu zh_gsd-ud-test.conllu; do
+            curl --fail --location --retry 3 --retry-all-errors \
+              "https://raw.githubusercontent.com/UniversalDependencies/UD_Chinese-GSD/${commit}/${file}" \
+              -o "data/external/ud/chinese-gsd/r2.18/${file}"
+          done
+
+      - name: Rebuild full top-160000 source syntax workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          out='data/generated/lexicon/naer-1141208-top-160000'
+          mkdir -p "$out"
+          python scripts/project-naer-lexicon-candidates.py \
+            --workbook 'data/external/naer/1141208/通用詞頻表.xlsx' \
+            --limit 160000 \
+            --invalid-row-policy report \
+            --output "$out/candidates.csv" \
+            --manifest-output "$out/manifest.json" \
+            --report-output "$out/eligibility-report.json"
+          python scripts/project-ud-grammar-evidence-generation.py \
+            --candidates "$out/candidates.csv" \
+            --candidate-manifest "$out/manifest.json" \
+            --source-dir data/external/ud/chinese-gsd/r2.18 \
+            --evidence-output "$out/ud-evidence.json" \
+            --coverage-output "$out/ud-coverage.json"
+          npm run grammar:lexicon-syntax-generation -- \
+            --candidates "$out/candidates.csv" \
+            --candidate-manifest "$out/manifest.json" \
+            --evidence "$out/ud-evidence.json" \
+            --profiles-output "$out/syntax-profiles.json" \
+            --rule-index-output "$out/syntax-rule-index.json"
+
+      - name: Reproject frozen source-runtime frontier
+        shell: bash
+        run: |
+          set -euo pipefail
+          out='data/generated/lexicon/naer-1141208-top-160000'
+          npx tsx scripts/lab-reproject-active-runtime-profiles.ts \
+            --rule-index "$out/syntax-rule-index.json" \
+            --profiles "$out/syntax-profiles.json"
+
+      - name: Rebuild reviewed runtime sidecars
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run grammar:runtime-morphology -- --write
+          npm run grammar:runtime-occurrence-capabilities -- --write
+          npm run grammar:runtime-ba-occurrence-capabilities -- --write
+          npm run grammar:runtime-short-passive-occurrence-capabilities -- --write
+          npm run grammar:runtime-preverbal-aux-occurrence-capabilities -- --write
+
+      - name: Report committed-artifact boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const beforeLegality = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/old-legality.json', 'utf8'));
+          const afterLegality = JSON.parse(fs.readFileSync('data/grammar/formal-syntax-active-catalog-legality.json', 'utf8'));
+          const beforeProfiles = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/old-profiles.json', 'utf8'));
+          const afterProfiles = JSON.parse(fs.readFileSync('data/grammar/formal-syntax-active-catalog-profiles.json', 'utf8'));
+          console.log(JSON.stringify({
+            before: {
+              catalogEntryCount: beforeLegality.catalogEntryCount,
+              legalEntryCount: beforeLegality.legalEntryCount,
+              exclusionCount: beforeLegality.exclusionCount,
+              profileCount: beforeProfiles.profileCount,
+              sourceSelectionDigest: beforeProfiles.sourceSelectionDigest,
+              sourceEvidenceDigest: beforeProfiles.sourceEvidenceDigest,
+              sourceProfileProjectionDigest: beforeProfiles.sourceProfileProjectionDigest,
+              sourceRuleIndexDigest: beforeProfiles.sourceRuleIndexDigest,
+              profilesDigest: beforeProfiles.determinismDigest,
+            },
+            after: {
+              catalogEntryCount: afterLegality.catalogEntryCount,
+              legalEntryCount: afterLegality.legalEntryCount,
+              exclusionCount: afterLegality.exclusionCount,
+              profileCount: afterProfiles.profileCount,
+              sourceSelectionDigest: afterProfiles.sourceSelectionDigest,
+              sourceEvidenceDigest: afterProfiles.sourceEvidenceDigest,
+              sourceProfileProjectionDigest: afterProfiles.sourceProfileProjectionDigest,
+              sourceRuleIndexDigest: afterProfiles.sourceRuleIndexDigest,
+              profilesDigest: afterProfiles.determinismDigest,
+            },
+          }));
+          NODE
+
+      - name: Validate app catalog
+        shell: bash
+        run: |
+          mkdir -p .lab-validation
+          npm run app:catalog > .lab-validation/00-app-catalog.log 2>&1
+
+      - name: Validate runtime morphology
+        shell: bash
+        run: npm run grammar:runtime-morphology > .lab-validation/01-runtime-morphology.log 2>&1
+
+      - name: Validate runtime occurrence capabilities
+        shell: bash
+        run: npm run grammar:runtime-occurrence-capabilities > .lab-validation/02-runtime-occurrence.log 2>&1
+
+      - name: Validate runtime BA occurrence capabilities
+        shell: bash
+        run: npm run grammar:runtime-ba-occurrence-capabilities > .lab-validation/03-runtime-ba.log 2>&1
+
+      - name: Validate runtime short-passive occurrence capabilities
+        shell: bash
+        run: npm run grammar:runtime-short-passive-occurrence-capabilities > .lab-validation/04-runtime-short-passive.log 2>&1
+
+      - name: Validate runtime preverbal AUX occurrence capabilities
+        shell: bash
+        run: npm run grammar:runtime-preverbal-aux-occurrence-capabilities > .lab-validation/05-runtime-preverbal-aux.log 2>&1
+
+      - name: Validate typecheck
+        shell: bash
+        run: npm run typecheck > .lab-validation/06-typecheck.log 2>&1
+
+      - name: Validate fast tests
+        shell: bash
+        run: npm run test:fast > .lab-validation/07-test-fast.log 2>&1
+
+      - name: Validate simulation tests
+        shell: bash
+        run: npm run test:simulation > .lab-validation/08-test-simulation.log 2>&1
+
+      - name: Validate source adapters
+        shell: bash
+        run: npm run test:source-adapters > .lab-validation/09-test-source-adapters.log 2>&1
+
+      - name: Validate catalog
+        shell: bash
+        run: npm run catalog:validate > .lab-validation/10-catalog-validate.log 2>&1
+
+      - name: Validate build
+        shell: bash
+        run: npm run build > .lab-validation/11-build.log 2>&1
+
+      - name: Validate bundle size
+        shell: bash
+        run: npm run size:check > .lab-validation/12-size-check.log 2>&1
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Validate browser tests
+        shell: bash
+        run: |
+          set +e
+          npm run test:browser > .lab-validation/13-test-browser.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo '--- browser failure tail ---'
+            tail -n 240 .lab-validation/13-test-browser.log
+          fi
+          exit "$status"
+
+      - name: Upload compact validation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: formal-syntax-validation-diagnostics
+          path: .lab-validation
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
+
+      - name: Commit regenerated runtime artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git status --short
+          if git diff --quiet -- data/grammar; then
+            echo 'No committed runtime artifact changes.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/grammar
+          git commit -m 'chore: regenerate formal syntax runtime artifacts'
+          target_branch='${{ github.event.pull_request.head.ref || github.ref_name }}'
+          git push origin "HEAD:${target_branch}"
