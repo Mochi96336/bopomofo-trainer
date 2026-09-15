@@ -1,0 +1,147 @@
+name: argument realization final immutable A-B sharded
+
+on:
+  push:
+    branches:
+      - agent/argument-realization-axis-migration
+    paths:
+      - .github/workflows/argument-realization-final-ab-sharded.yml
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        side:
+          - { name: baseline, mode: baseline, ref: e99122eb81aeb0995a12a9eef63fcfd3573e4848 }
+          - { name: candidate, mode: candidate, ref: b3190fc46e6a8af661c4148c270d10eeedf5047e }
+        shard: [0, 1, 2, 3]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ matrix.side.ref }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run app:catalog
+      - name: Expose audit-only structural root
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/curriculum/formal-syntax-utterance.ts')
+          text=p.read_text()
+          needle='      syntaxProfileIds: realization.syntaxProfileIds,\n'
+          if text.count(needle)!=1: raise SystemExit('unexpected formal-syntax candidate shape')
+          p.write_text(text.replace(needle,needle+'      __auditStructuralRoot: shape.root,\n'))
+          PY
+      - name: Write shard probe
+        run: |
+          cat > scripts/.tmp-argument-realization-final-ab-shard.ts <<'TS'
+          import { writeFileSync } from "node:fs";
+          import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+          import { PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY } from "../src/curriculum/formal-syntax-sampling-policy.js";
+          import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
+          import { createSeededRandom } from "../src/curriculum/random.js";
+          import { sentenceConstructionClassification } from "../src/curriculum/formal-syntax-taxonomy.js";
+          import type { StructuralSyntaxNode } from "../src/syntax/derive.js";
+
+          const shard=Number(process.env.AB_SHARD); const size=2048; const start=shard*size; const end=start+size;
+          const namespace="argument-realization-final-ab-v1";
+          const mode=process.env.AB_MODE as "baseline"|"candidate";
+          const head=process.env.AB_HEAD??"unknown"; const output=process.env.AB_OUTPUT!;
+          const bounds={maximumPhraseDepth:3,maximumClauseNesting:1,maximumClausesPerSentence:2,maximumCoordinationItems:2,maximumConsecutiveModifiers:2,maximumComplementsPerPredicate:1,maximumLexicalEntriesPerUtterance:6} as const;
+          interface C { readonly __auditStructuralRoot?: StructuralSyntaxNode; readonly syntaxRootRuleId:string; readonly syntaxDerivationId:string; readonly syntaxProfileIds:readonly string[]; readonly text:string }
+          function children(n:StructuralSyntaxNode){return n.children.filter((x):x is StructuralSyntaxNode=>x.kind==="syntax-node")}
+          function visit(n:StructuralSyntaxNode,out:StructuralSyntaxNode[]){out.push(n);for(const c of children(n))visit(c,out)}
+          function direct(n:StructuralSyntaxNode,c:string){return children(n).some(x=>x.category===c)}
+          const core=new Set(["clause.intransitive","clause.transitive","clause.ditransitive"]); const obj=new Set(["clause.transitive","clause.ditransitive"]);
+          const rows=[];
+          for(let round=start;round<end;round++){
+            const composition=composeFormalSyntaxUtterances({eligibleEntries:PRACTICE_CATALOG,profiles:SYNTAX_PROFILES,random:createSeededRandom(`${namespace}:${round}`),samplingMode:"product-family",samplingPolicy:PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,minimumLexicalEntries:2,maximumCandidates:1,maximumAttempts:64,bounds});
+            const candidate=(composition.candidates[0]??null) as C|null; const nodes:StructuralSyntaxNode[]=[]; if(candidate?.__auditStructuralRoot)visit(candidate.__auditStructuralRoot,nodes);
+            const subject=mode==="baseline"?nodes.some(n=>n.productionRuleId==="clause.subject-omission"):nodes.some(n=>core.has(n.productionRuleId)&&!direct(n,"Subject"));
+            const object=mode==="baseline"?nodes.some(n=>n.productionRuleId==="clause.object-omission"):nodes.some(n=>obj.has(n.productionRuleId)&&direct(n,"Subject")&&!direct(n,"Object"));
+            const root=candidate?.syntaxRootRuleId??null;
+            rows.push({round,success:candidate!==null,subject,object,any:subject||object,both:subject&&object,root,family:root===null?null:sentenceConstructionClassification(root)?.family??null,fallback:composition.fallbackReasons.join("\u0000"),derivation:candidate?.syntaxDerivationId??null,text:candidate?.text??null,profiles:(candidate?.syntaxProfileIds??[]).join("\u0000")});
+          }
+          const policy=PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY as unknown as {version:string;argumentRealizationPracticeWeights?:unknown};
+          writeFileSync(output,JSON.stringify({mode,head,shard,start,end,seedNamespace:namespace,bounds,policyVersion:policy.version,argumentRealizationPracticeWeights:policy.argumentRealizationPracticeWeights??null,rows})+'\n');
+          TS
+      - name: Run shard
+        env:
+          AB_MODE: ${{ matrix.side.mode }}
+          AB_HEAD: ${{ matrix.side.ref }}
+          AB_SHARD: ${{ matrix.shard }}
+          AB_OUTPUT: argument-realization-final-ab-${{ matrix.side.name }}-${{ matrix.shard }}.json
+        run: npx tsx scripts/.tmp-argument-realization-final-ab-shard.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: argument-realization-final-ab-shard-${{ matrix.side.name }}-${{ matrix.shard }}
+          path: argument-realization-final-ab-${{ matrix.side.name }}-${{ matrix.shard }}.json
+          if-no-files-found: error
+
+  compare:
+    needs: probe
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          pattern: argument-realization-final-ab-shard-*
+          path: artifacts
+          merge-multiple: true
+      - name: Aggregate immutable 8192 A-B
+        run: |
+          python - <<'PY'
+          import json
+          from collections import Counter
+          from pathlib import Path
+          def load(mode):
+              files=sorted(Path('artifacts').glob(f'argument-realization-final-ab-{mode}-*.json'))
+              if len(files)!=4: raise SystemExit(f'{mode}: expected 4 shards, got {len(files)}')
+              docs=sorted((json.loads(p.read_text()) for p in files),key=lambda d:d['shard'])
+              if [d['shard'] for d in docs]!=[0,1,2,3]: raise SystemExit(f'{mode}: shard identity mismatch')
+              rows=[r for d in docs for r in d['rows']]; rows.sort(key=lambda r:r['round'])
+              if len(rows)!=8192 or [r['round'] for r in rows]!=list(range(8192)): raise SystemExit(f'{mode}: seed coverage mismatch')
+              return docs[0],rows
+          bm,b=load('baseline'); cm,c=load('candidate')
+          if bm['seedNamespace']!=cm['seedNamespace'] or bm['bounds']!=cm['bounds']: raise SystemExit('comparison contract mismatch')
+          def summarize(rows):
+              roots,families,fallbacks,result=Counter(),Counter(),Counter(),Counter()
+              for r in rows:
+                  for k in ('success','subject','object','any','both'): result[k]+=int(r[k])
+                  if r['root'] is not None: roots[r['root']]+=1
+                  if r['family'] is not None: families[r['family']]+=1
+                  if r['fallback']:
+                      for reason in r['fallback'].split('\0'): fallbacks[reason]+=1
+              n=len(rows)
+              return {**dict(result),'subjectShare':result['subject']/n,'objectShare':result['object']/n,'anyShare':result['any']/n,'bothShare':result['both']/n,'roots':dict(sorted(roots.items())),'families':dict(sorted(families.items())),'fallbacks':dict(sorted(fallbacks.items()))}
+          def tv(left,right,n):
+              keys=set(left)|set(right); return sum(abs(left.get(k,0)-right.get(k,0)) for k in keys)/(2*n)
+          base,cur=summarize(b),summarize(c); n=len(b); changed=Counter()
+          for before,after in zip(b,c):
+              if before['round']!=after['round']: raise SystemExit('row alignment mismatch')
+              changed['successMismatch']+=before['success']!=after['success']
+              for k in ('subject','object','any','both'): changed[f'{k}Changed']+=before[k]!=after[k]
+              for k in ('root','family','fallback','derivation','text','profiles'): changed[f'{k}Changed']+=before[k]!=after[k]
+          drift={'subjectDelta':cur['subject']-base['subject'],'subjectShareDelta':cur['subjectShare']-base['subjectShare'],'objectDelta':cur['object']-base['object'],'objectShareDelta':cur['objectShare']-base['objectShare'],'anyDelta':cur['any']-base['any'],'bothDelta':cur['both']-base['both'],'rootTv':tv(base['roots'],cur['roots'],n),'familyTv':tv(base['families'],cur['families'],n),**dict(changed)}
+          report={'schemaVersion':'argument-realization-final-ab-v1-sharded','baselineHead':bm['head'],'candidateHead':cm['head'],'seedNamespace':bm['seedNamespace'],'bounds':bm['bounds'],'baselinePolicyVersion':bm['policyVersion'],'candidatePolicyVersion':cm['policyVersion'],'currentArgumentRealizationWeights':cm['argumentRealizationPracticeWeights'],'baseline':base,'candidate':cur,'drift':drift}
+          Path('argument-realization-final-ab.json').write_text(json.dumps(report,indent=2)+'\n')
+          pct=lambda x:f'{x*100:.3f}%'
+          Path('argument-realization-final-ab.md').write_text('\n'.join([
+              '# Argument realization final immutable A/B','',f"- Baseline: `{bm['head']}`",f"- Candidate: `{cm['head']}`",f"- Seeds: **{n}** (`{bm['seedNamespace']}`)",f"- Candidate weights: **{cm['argumentRealizationPracticeWeights']}**",f"- Subject surface: **{base['subject']}/{n} ({pct(base['subjectShare'])}) -> {cur['subject']}/{n} ({pct(cur['subjectShare'])})**, delta **{drift['subjectDelta']} ({pct(drift['subjectShareDelta'])})**",f"- Object surface: **{base['object']}/{n} ({pct(base['objectShare'])}) -> {cur['object']}/{n} ({pct(cur['objectShare'])})**, delta **{drift['objectDelta']} ({pct(drift['objectShareDelta'])})**",f"- Any omission: **{base['any']} -> {cur['any']}**, delta **{drift['anyDelta']}**; both: **{base['both']} -> {cur['both']}**, delta **{drift['bothDelta']}**",f"- Success: **{base['success']} -> {cur['success']}**, mismatch **{drift.get('successMismatch',0)}/{n}**",f"- Root TV: **{pct(drift['rootTv'])}**; family TV: **{pct(drift['familyTv'])}**",f"- Subject changed: **{drift.get('subjectChanged',0)}**; object changed: **{drift.get('objectChanged',0)}**",f"- Root changed: **{drift.get('rootChanged',0)}**; family changed: **{drift.get('familyChanged',0)}**; fallback changed: **{drift.get('fallbackChanged',0)}**",f"- Derivation/text/profiles changed: **{drift.get('derivationChanged',0)} / {drift.get('textChanged',0)} / {drift.get('profilesChanged',0)}**",'', 'This compares immutable checkouts and measures structural product surface, not corpus frequency or grammar legality.'])+'\n')
+          if base['success']!=8192 or cur['success']!=8192 or drift.get('successMismatch',0)!=0: raise SystemExit('generation regression')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: argument-realization-final-ab
+          path: |
+            argument-realization-final-ab.json
+            argument-realization-final-ab.md
+          if-no-files-found: error
