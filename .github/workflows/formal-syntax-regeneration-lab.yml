@@ -57,11 +57,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          out='data/generated/lexicon/naer-1141208-top-10000'
+          out='data/generated/lexicon/naer-1141208-top-160000'
           mkdir -p "$out"
           python scripts/project-naer-lexicon-candidates.py \
             --workbook 'data/external/naer/1141208/通用詞頻表.xlsx' \
-            --limit 10000 \
+            --limit 160000 \
             --invalid-row-policy report \
             --output "$out/candidates.csv" \
             --manifest-output "$out/manifest.json" \
@@ -79,14 +79,42 @@ jobs:
             --profiles-output "$out/syntax-profiles.json" \
             --rule-index-output "$out/syntax-rule-index.json"
 
-      - name: Rebuild committed runtime syntax artifacts
+      - name: Rebuild committed syntax projection
         shell: bash
         run: |
           set -euo pipefail
-          out='data/generated/lexicon/naer-1141208-top-10000'
+          out='data/generated/lexicon/naer-1141208-top-160000'
           npm run app:syntax-legality -- \
             --rule-index "$out/syntax-rule-index.json" \
             --profiles "$out/syntax-profiles.json"
+
+      - name: Verify source selection lineage
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const before = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/old-legality.json', 'utf8'));
+          const after = JSON.parse(fs.readFileSync('data/grammar/formal-syntax-active-catalog-legality.json', 'utf8'));
+          console.log(JSON.stringify({
+            beforeSelectionDigest: before.sourceSelectionDigest,
+            afterSelectionDigest: after.sourceSelectionDigest,
+            beforeEvidenceDigest: before.sourceEvidenceDigest,
+            afterEvidenceDigest: after.sourceEvidenceDigest,
+            beforeProjectionDigest: before.sourceProfileProjectionDigest,
+            afterProjectionDigest: after.sourceProfileProjectionDigest,
+          }));
+          if (after.sourceSelectionDigest !== before.sourceSelectionDigest) {
+            throw new Error(
+              `regenerated source selection does not reproduce production lineage: ${after.sourceSelectionDigest} != ${before.sourceSelectionDigest}`,
+            );
+          }
+          NODE
+
+      - name: Rebuild reviewed runtime sidecars
+        shell: bash
+        run: |
+          set -euo pipefail
           npm run grammar:runtime-morphology -- --write
           npm run grammar:runtime-occurrence-capabilities -- --write
           npm run grammar:runtime-ba-occurrence-capabilities -- --write
