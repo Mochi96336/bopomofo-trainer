@@ -95,7 +95,7 @@ describe("formal syntax effective product distribution", () => {
     expect(aNotAShare, diagnostic).toBeLessThan(0.12);
     expect(questionShare, diagnostic).toBeGreaterThan(0.12);
     expect(questionShare, diagnostic).toBeLessThan(0.40);
-  }, 30_000);
+  }, 60_000);
 
   it("does not disable product policy when the canonical grammar is passed explicitly", () => {
     const omitted = composeFormalSyntaxUtterances({

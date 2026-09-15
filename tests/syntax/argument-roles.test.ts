@@ -33,8 +33,13 @@ function canonicalTransitiveSlots() {
     rootCategory: "Clause",
     rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
   })];
-  expect(shapes).toHaveLength(1);
-  return shapes[0]!.lexicalSlots;
+  expect(shapes).toHaveLength(4);
+  const overt = shapes.find((shape) =>
+    shape.productionRulePath.includes("argument.subject.noun")
+      && shape.productionRulePath.includes("argument.object.noun")
+  );
+  expect(overt).toBeDefined();
+  return overt!.lexicalSlots;
 }
 
 describe("Clause-model v2 structural nominal argument roles", () => {

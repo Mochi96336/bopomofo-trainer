@@ -31,8 +31,6 @@ const REQUIRED_CONSTRUCTIONS = [
   "clause.serial-verb",
   "clause.comparative",
   "clause.topic-comment",
-  "clause.subject-omission",
-  "clause.object-omission",
   "sentence.request",
   "sentence.exclamative",
   "sentence.polar-question",
@@ -47,12 +45,14 @@ describe("formal clause and question production inventory", () => {
       .toEqual([]);
   });
 
-  it("contains every required executable basic, special, omitted, and question construction", () => {
+  it("contains every required executable basic, special, and question construction", () => {
     const ids = new Set(CLAUSE_PRODUCTION_RULES.map((rule) => rule.id));
     expect(REQUIRED_CONSTRUCTIONS.filter((id) => !ids.has(id))).toEqual([]);
     expect(ids.has("clause.pivotal")).toBe(false);
     expect(ids.has("clause.causative")).toBe(false);
     expect(ids.has("clause.aspect")).toBe(false);
+    expect(ids.has("clause.subject-omission")).toBe(false);
+    expect(ids.has("clause.object-omission")).toBe(false);
   });
 
   it("represents BA patient as a construction role with preverbal predicate marking", () => {
@@ -198,7 +198,6 @@ describe("formal clause and question production inventory", () => {
       rootCategory: "Clause",
       rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
     })];
-
     expect(shapes).toHaveLength(2);
     const byVariant = new Map(shapes.map((shape) => [
       shape.productionRulePath.includes("phrase.passive.short") ? "short" : "long",

@@ -106,6 +106,20 @@ function causativePlan() {
   );
 }
 
+function causativeOvertSubjectPlan() {
+  const plan = causativePlan();
+  return {
+    ...plan,
+    structuralTarget: {
+      ...plan.structuralTarget,
+      nestedProductionTargets: [
+        ...(plan.structuralTarget?.nestedProductionTargets ?? []),
+        { parentRuleId: "clause.intransitive", constituentKey: "subject", exactCount: 1 },
+      ],
+    },
+  };
+}
+
 function selectWith(
   entries: readonly CatalogEntry[],
   profiles: readonly RuntimeSyntaxProfile[],
@@ -158,6 +172,7 @@ describe("formal syntax construction selection", () => {
     const selection = selectWith(
       [LET_ENTRY, HE_ENTRY, WALK_ENTRY],
       causativeProfiles(),
+      causativeOvertSubjectPlan(),
     );
 
     expect(selection.utterance).toMatchObject({

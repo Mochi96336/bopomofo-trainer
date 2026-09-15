@@ -169,19 +169,19 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     constituent("predicate", "AdjectivePhrase", { requiredFunctions: ["predicate"] }),
   ]),
   production("clause.intransitive", "Clause", [
-    subject(),
+    subject({ minimum: 0, maximum: 1 }),
     corePredicate(["intransitive", "ambitransitive"]),
   ]),
   production("clause.transitive", "Clause", [
-    subject(),
+    subject({ minimum: 0, maximum: 1 }),
     corePredicate(["transitive", "ambitransitive"]),
-    object(),
+    object({ minimum: 0, maximum: 1 }),
   ]),
   production("clause.ditransitive", "Clause", [
-    subject(),
+    subject({ minimum: 0, maximum: 1 }),
     corePredicate(["ditransitive"]),
     indirectObject(),
-    object(),
+    object({ minimum: 0, maximum: 1 }),
   ]),
   production("clause.copular", "Clause", [
     subject(),
@@ -244,17 +244,6 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   production("clause.topic-comment", "Clause", [
     constituent("topicPhrase", "NounPhrase", { requiredFunctions: ["modifier"] }),
     constituent("comment", "VerbPhrase", { requiredFunctions: ["predicate"] }),
-  ]),
-  production("clause.subject-omission", "Clause", [
-    corePredicate([
-      "intransitive", "transitive", "ditransitive", "ambitransitive",
-      "clausal-complement", "open-clausal-complement", "adpositional-complement",
-    ]),
-    object({ minimum: 0, maximum: 1 }),
-  ]),
-  production("clause.object-omission", "Clause", [
-    subject(),
-    corePredicate(["transitive", "ditransitive", "ambitransitive"]),
   ]),
   production("sentence.declarative", "Sentence", [
     constituent("clause", "Clause"),

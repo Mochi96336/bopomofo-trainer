@@ -41,8 +41,6 @@ export type ClauseConstructionFamily =
   | "marked.comparative"
   | "complex.serial-verb"
   | "information.topic-comment"
-  | "information.subject-omission"
-  | "information.object-omission"
   | "embedded.subject-content"
   | "embedded.object-content"
   | "embedded.xcomp-control"
@@ -88,14 +86,6 @@ const CLAUSE_CLASSIFICATION_BY_RULE_ID: Readonly<Record<string, ClauseConstructi
   "clause.serial-verb": { kind: "complex-predicate", family: "complex.serial-verb" },
 
   "clause.topic-comment": { kind: "information-structure", family: "information.topic-comment" },
-  "clause.subject-omission": {
-    kind: "information-structure",
-    family: "information.subject-omission",
-  },
-  "clause.object-omission": {
-    kind: "information-structure",
-    family: "information.object-omission",
-  },
 
   "clause.subject-content": { kind: "embedded-content", family: "embedded.subject-content" },
   "clause.object-content": { kind: "embedded-content", family: "embedded.object-content" },

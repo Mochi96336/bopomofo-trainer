@@ -167,6 +167,13 @@ describe("formal syntax construction practice", () => {
 
     const result = composeFormalSyntaxUtterances({
       ...plan,
+      structuralTarget: {
+        ...plan.structuralTarget,
+        nestedProductionTargets: [
+          ...(plan.structuralTarget?.nestedProductionTargets ?? []),
+          { parentRuleId: "clause.intransitive", constituentKey: "subject", exactCount: 1 },
+        ],
+      },
       eligibleEntries: [letEntry, heEntry, walkEntry],
       profiles: [
         profile(

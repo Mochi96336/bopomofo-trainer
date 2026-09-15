@@ -26,13 +26,16 @@ import type {
   ProductionRule,
   RuntimeSyntaxProfile,
 } from "../syntax/types.js";
+import { argumentRealizationStructuralPractice } from "./argument-realization-practice.js";
 import {
+  argumentRealizationPracticeIntentForTicketUnit,
   chooseSentenceConstructionVariant,
   createSentenceConstructionFamilyPlanSample,
   PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
   predicateMarkingPracticeIntentForTicketUnit,
   rootFamilyAttemptBudget,
   validateFormalSyntaxSamplingPolicy,
+  type ArgumentRealizationPracticeIntent,
   type FormalSyntaxSamplingPolicy,
   type PredicateMarkingPracticeIntent,
   type SentenceConstructionFamilyPlan,
@@ -226,8 +229,11 @@ export function composeFormalSyntaxUtterances(
   let rootFamilySearch: {
     readonly plan: readonly SentenceConstructionFamilyPlan[];
     readonly predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent;
+    readonly argumentRealizationPracticeIntent: ArgumentRealizationPracticeIntent;
     readonly availabilityFallbackReserved: boolean;
+    readonly argumentRelaxationFallbackReserved: boolean;
     availabilityFallbackActive: boolean;
+    argumentRelaxationFallbackActive: boolean;
   } | null = null;
   let rootFamilyIndex = 0;
   let attemptsInRootFamily = 0;
@@ -237,7 +243,9 @@ export function composeFormalSyntaxUtterances(
   const currentRootFamily = (remainingAttempts: number): {
     readonly family: SentenceConstructionFamilyPlan;
     readonly predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent;
-    readonly availabilityFallbackActive: boolean;
+    readonly argumentRealizationPracticeIntent: ArgumentRealizationPracticeIntent;
+    readonly predicateMarkingAvailabilityFallbackActive: boolean;
+    readonly argumentRealizationAvailabilityFallbackActive: boolean;
   } | null => {
     if (!useProductFamilyPolicy || samplingPolicy === null) return null;
     if (rootFamilySearch === null) {
@@ -251,15 +259,30 @@ export function composeFormalSyntaxUtterances(
         planSample.predicateMarkingTicketUnit,
         samplingPolicy,
       );
-      const availabilityFallbackReserved = predicateMarkingPracticeIntent !== "ordinary"
+      const argumentRealizationPracticeIntent = argumentRealizationPracticeIntentForTicketUnit(
+        planSample.argumentRealizationTicketUnit,
+        samplingPolicy,
+      );
+      const availabilityFallbackReserved = (predicateMarkingPracticeIntent !== "ordinary"
+        || argumentRealizationPracticeIntent !== "ordinary")
         && remainingAttempts >= plan.length * 2;
-      const primaryAttempts = remainingAttempts
-        - (availabilityFallbackReserved ? plan.length : 0);
+      // The new argument-realization axis may relax first, but must not erase an
+      // already-selected Predicate-marking ticket. With enough budget, keep one
+      // intermediate pass that preserves marking and relaxes only realization.
+      const argumentRelaxationFallbackReserved = predicateMarkingPracticeIntent !== "ordinary"
+        && argumentRealizationPracticeIntent !== "ordinary"
+        && remainingAttempts >= plan.length * 3;
+      const fallbackPlanCount = Number(availabilityFallbackReserved)
+        + Number(argumentRelaxationFallbackReserved);
+      const primaryAttempts = remainingAttempts - plan.length * fallbackPlanCount;
       rootFamilySearch = {
         plan,
         predicateMarkingPracticeIntent,
+        argumentRealizationPracticeIntent,
         availabilityFallbackReserved,
+        argumentRelaxationFallbackReserved,
         availabilityFallbackActive: false,
+        argumentRelaxationFallbackActive: false,
       };
       rootFamilyIndex = 0;
       attemptsInRootFamily = 0;
@@ -268,6 +291,16 @@ export function composeFormalSyntaxUtterances(
       attemptsPerRootFamily = rootFamilyAttemptBudget(primaryAttempts, plan.length);
     }
     let family = rootFamilySearch.plan[rootFamilyIndex];
+    if (family === undefined
+      && rootFamilySearch.argumentRelaxationFallbackReserved
+      && !rootFamilySearch.argumentRelaxationFallbackActive
+      && !rootFamilySearch.availabilityFallbackActive) {
+      rootFamilySearch.argumentRelaxationFallbackActive = true;
+      rootFamilyIndex = 0;
+      attemptsInRootFamily = 0;
+      attemptsPerRootFamily = 1;
+      family = rootFamilySearch.plan[rootFamilyIndex];
+    }
     if (family === undefined
       && rootFamilySearch.availabilityFallbackReserved
       && !rootFamilySearch.availabilityFallbackActive) {
@@ -283,7 +316,15 @@ export function composeFormalSyntaxUtterances(
       predicateMarkingPracticeIntent: rootFamilySearch.availabilityFallbackActive
         ? "ordinary"
         : rootFamilySearch.predicateMarkingPracticeIntent,
-      availabilityFallbackActive: rootFamilySearch.availabilityFallbackActive,
+      argumentRealizationPracticeIntent: (rootFamilySearch.argumentRelaxationFallbackActive
+        || rootFamilySearch.availabilityFallbackActive)
+        ? "ordinary"
+        : rootFamilySearch.argumentRealizationPracticeIntent,
+      predicateMarkingAvailabilityFallbackActive: rootFamilySearch.availabilityFallbackActive
+        && rootFamilySearch.predicateMarkingPracticeIntent !== "ordinary",
+      argumentRealizationAvailabilityFallbackActive: (rootFamilySearch.argumentRelaxationFallbackActive
+        || rootFamilySearch.availabilityFallbackActive)
+        && rootFamilySearch.argumentRealizationPracticeIntent !== "ordinary",
     };
   };
   const recordRootFamilyFailure = (): void => {
@@ -318,6 +359,8 @@ export function composeFormalSyntaxUtterances(
     const rootFamily = rootFamilySelection?.family ?? null;
     const predicateMarkingPracticeIntent =
       rootFamilySelection?.predicateMarkingPracticeIntent ?? "ordinary";
+    const argumentRealizationPracticeIntent =
+      rootFamilySelection?.argumentRealizationPracticeIntent ?? "ordinary";
     const requiredPredicateMarkingSlot = predicateMarkingPracticeIntent === "negation"
       ? {
           requiredFeatures: { polarity: "negative" as const },
@@ -335,8 +378,15 @@ export function composeFormalSyntaxUtterances(
             }
           : null;
     const requiresPredicateMarkingPractice = requiredPredicateMarkingSlot !== null;
-    if (rootFamilySelection?.availabilityFallbackActive === true) {
+    const argumentRealizationPractice = useProductFamilyPolicy
+      ? argumentRealizationStructuralPractice(argumentRealizationPracticeIntent)
+      : null;
+    const requiresArgumentRealizationPractice = argumentRealizationPracticeIntent !== "ordinary";
+    if (rootFamilySelection?.predicateMarkingAvailabilityFallbackActive === true) {
       fallbackReasons.add("formal-syntax-predicate-marking-availability-fallback");
+    }
+    if (rootFamilySelection?.argumentRealizationAvailabilityFallbackActive === true) {
+      fallbackReasons.add("formal-syntax-argument-realization-availability-fallback");
     }
     const rootProductionRuleId = rootFamily === null
       ? input.structuralTarget?.rootProductionRuleId
@@ -345,24 +395,37 @@ export function composeFormalSyntaxUtterances(
       rootCategory: "Sentence",
       rules,
       random: input.random,
-      maximumAttempts: requiresPredicateMarkingPractice ? 8 : 1,
+      maximumAttempts: requiresPredicateMarkingPractice || requiresArgumentRealizationPractice ? 8 : 1,
       ...(requiredPredicateMarkingSlot === null
         ? {}
         : { requiredLexicalSlot: requiredPredicateMarkingSlot }),
+      ...(argumentRealizationPractice?.requiredProductionRuleIdsAnyOf === undefined
+        ? {}
+        : { requiredProductionRuleIdsAnyOf: argumentRealizationPractice.requiredProductionRuleIdsAnyOf }),
       isLexicalSlotReachable: (slot) => {
         if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") return true;
         return compatibleProfilesForSlot(slot, index).length > 0;
       },
       ...(input.bounds === undefined ? {} : { bounds: input.bounds }),
       ...(rootProductionRuleId === undefined ? {} : { rootProductionRuleId }),
-      ...(input.structuralTarget?.nestedProductionTargets === undefined
-        ? {}
-        : { nestedProductionTargets: input.structuralTarget.nestedProductionTargets }),
+      ...(useProductFamilyPolicy
+        ? (argumentRealizationPractice === null
+            ? {}
+            : { nestedProductionTargets: argumentRealizationPractice.nestedProductionTargets })
+        : (input.structuralTarget?.nestedProductionTargets === undefined
+            ? {}
+            : { nestedProductionTargets: input.structuralTarget.nestedProductionTargets })),
     });
     if (shape === null) {
-      fallbackReasons.add(requiresPredicateMarkingPractice
-        ? "formal-syntax-predicate-marking-search-exhausted"
-        : "formal-syntax-structural-sampling-exhausted");
+      if (requiresPredicateMarkingPractice) {
+        fallbackReasons.add("formal-syntax-predicate-marking-search-exhausted");
+      }
+      if (requiresArgumentRealizationPractice) {
+        fallbackReasons.add("formal-syntax-argument-realization-search-exhausted");
+      }
+      if (!requiresPredicateMarkingPractice && !requiresArgumentRealizationPractice) {
+        fallbackReasons.add("formal-syntax-structural-sampling-exhausted");
+      }
       recordRootFamilyFailure();
       continue;
     }

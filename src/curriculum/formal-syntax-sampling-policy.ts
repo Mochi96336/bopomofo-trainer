@@ -1,4 +1,5 @@
 import type { RandomSource } from "../core/model.js";
+import { stableRuntimeDigest } from "../core/stable-id.js";
 import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";
 import type { ProductionRule } from "../syntax/types.js";
 import {
@@ -16,6 +17,17 @@ export interface PredicateMarkingPracticeWeights {
   readonly negation: number;
 }
 
+export type ArgumentRealizationPracticeIntent =
+  | "ordinary"
+  | "subject-omission"
+  | "object-omission";
+
+export interface ArgumentRealizationPracticeWeights {
+  readonly ordinary: number;
+  readonly subjectOmission: number;
+  readonly objectOmission: number;
+}
+
 export interface FormalSyntaxSamplingPolicy {
   readonly version: string;
   readonly sentenceKindWeights: Readonly<Record<SentenceKind, number>>;
@@ -23,6 +35,8 @@ export interface FormalSyntaxSamplingPolicy {
   readonly sentenceFamilyWeights: Readonly<Partial<Record<SentenceConstructionFamily, number>>>;
   /** Product practice intent for predicate-internal marking, separate from grammar legality. */
   readonly predicateMarkingPracticeWeights: PredicateMarkingPracticeWeights;
+  /** Product practice intent for overt/absent core arguments, separate from predicate-frame identity. */
+  readonly argumentRealizationPracticeWeights: ArgumentRealizationPracticeWeights;
 }
 
 export const SENTENCE_KINDS: readonly SentenceKind[] = [
@@ -60,7 +74,7 @@ export const SENTENCE_CONSTRUCTION_FAMILIES: readonly SentenceConstructionFamily
  * activate yet.
  */
 export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy = {
-  version: "formal-syntax-family-sampling-v7",
+  version: "formal-syntax-family-sampling-v8",
   sentenceKindWeights: {
     statement: 0.64,
     question: 0.26,
@@ -82,6 +96,9 @@ export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy =
   // [0.943, 1) interval exactly. Modal calibration against #264 selected 5.70%
   // and takes mass only from the ordinary interval.
   predicateMarkingPracticeWeights: { ordinary: 0.831, modal: 0.057, aspect: 0.055, negation: 0.057 },
+  // Calibrated against the immutable #269 final-namespace 8192-seed structural-surface meter.
+  // This is a product-practice prior, not a corpus/linguistic omission probability.
+  argumentRealizationPracticeWeights: { ordinary: 0.8015, subjectOmission: 0.112, objectOmission: 0.0865 },
 };
 
 function nextUnit(random: RandomSource): number {
@@ -171,6 +188,14 @@ export function validateFormalSyntaxSamplingPolicy(policy: FormalSyntaxSamplingP
   }
   if (!(marking.ordinary > 0 || marking.modal > 0 || marking.aspect > 0 || marking.negation > 0)) {
     throw new Error("predicate marking practice weights require positive mass");
+  }
+  const realization = policy.argumentRealizationPracticeWeights;
+  if ([realization.ordinary, realization.subjectOmission, realization.objectOmission]
+    .some((weight) => !Number.isFinite(weight) || weight < 0)) {
+    throw new Error("argument realization practice weights must be finite and non-negative");
+  }
+  if (!(realization.ordinary > 0 || realization.subjectOmission > 0 || realization.objectOmission > 0)) {
+    throw new Error("argument realization practice weights require positive mass");
   }
 }
 
@@ -279,6 +304,39 @@ export function predicateMarkingPracticeIntentForTicketUnit(
   return "ordinary";
 }
 
+export const ARGUMENT_REALIZATION_PRACTICE_TICKET_VERSION =
+  "argument-realization-practice-ticket-v1" as const;
+
+/**
+ * Domain-separate a second product-practice ticket from the already-consumed,
+ * behaviorally inert terminal Sentence-family draw. This consumes no parent RNG
+ * and leaves Predicate marking's historical ticket intervals unchanged.
+ */
+export function argumentRealizationPracticeTicketUnitForTerminalUnit(ticketUnit: number): number {
+  if (!Number.isFinite(ticketUnit) || ticketUnit < 0 || ticketUnit >= 1) {
+    throw new Error("argument realization terminal ticket unit must be in [0, 1)");
+  }
+  const digest = stableRuntimeDigest({
+    version: ARGUMENT_REALIZATION_PRACTICE_TICKET_VERSION,
+    ticketUnit,
+  });
+  return Number.parseInt(digest.slice(0, 12), 16) / 281_474_976_710_656;
+}
+
+export function argumentRealizationPracticeIntentForTicketUnit(
+  terminalTicketUnit: number,
+  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+): ArgumentRealizationPracticeIntent {
+  validateFormalSyntaxSamplingPolicy(policy);
+  const ticketUnit = argumentRealizationPracticeTicketUnitForTerminalUnit(terminalTicketUnit);
+  const weights = policy.argumentRealizationPracticeWeights;
+  const total = weights.ordinary + weights.subjectOmission + weights.objectOmission;
+  const ordinaryBoundary = weights.ordinary / total;
+  if (ticketUnit < ordinaryBoundary) return "ordinary";
+  const subjectBoundary = ordinaryBoundary + weights.subjectOmission / total;
+  return ticketUnit < subjectBoundary ? "subject-omission" : "object-omission";
+}
+
 /**
  * Build one weighted permutation over active Sentence construction families using
  * the joint family prior P(kind) × P(family | kind). Legal but inactive families
@@ -288,6 +346,8 @@ export interface SentenceConstructionFamilyPlanSample {
   readonly plan: readonly SentenceConstructionFamilyPlan[];
   /** Terminal permutation draw already consumed by the historical sampler. */
   readonly predicateMarkingTicketUnit: number;
+  /** Same inert draw; argument realization domain-separates it without consuming RNG. */
+  readonly argumentRealizationTicketUnit: number;
 }
 
 export function createSentenceConstructionFamilyPlanSample(
@@ -333,6 +393,7 @@ export function createSentenceConstructionFamilyPlanSample(
   return {
     plan: sampled.values,
     predicateMarkingTicketUnit: sampled.terminalUnit,
+    argumentRealizationTicketUnit: sampled.terminalUnit,
   };
 }
 

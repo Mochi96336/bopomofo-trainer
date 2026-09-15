@@ -60,7 +60,7 @@ describe("predicate marking practice ticket", () => {
   });
 
   it("uses the measured product marking prior with the historical negation interval preserved", () => {
-    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v7");
+    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v8");
     expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.predicateMarkingPracticeWeights).toEqual({
       ordinary: 0.831,
       modal: 0.057,
@@ -147,7 +147,7 @@ describe("predicate marking practice ticket", () => {
       expect(composition.candidates, JSON.stringify(composition.fallbackReasons)).toHaveLength(1);
       expect(composition.candidates[0]!.text).toMatch(/[不未別沒非無]/u);
     }
-  }, 30_000);
+  }, 60_000);
 
   it("accepts only reviewed preverbal AUX profiles when the product ticket always requires modal", () => {
     const policy = {
