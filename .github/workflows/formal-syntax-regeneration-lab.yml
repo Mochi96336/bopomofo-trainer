@@ -1,0 +1,189 @@
+name: formal-syntax-regeneration-lab
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/formal-syntax-regeneration-lab.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Checkout exact PR head
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Preserve production artifact baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp data/grammar/formal-syntax-active-catalog-legality.json "$RUNNER_TEMP/old-legality.json"
+          cp data/grammar/formal-syntax-active-catalog-profiles.json "$RUNNER_TEMP/old-profiles.json"
+
+      - name: Download pinned syntax source inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/external/naer/1141208 data/external/ud/chinese-gsd/r2.18
+          curl --fail --location --retry 3 --retry-all-errors \
+            --user-agent 'bopomofo-trainer-formal-syntax-regeneration/1.0' \
+            'https://coct.naer.edu.tw/file/files/%E9%80%9A%E7%94%A8%E8%A9%9E%E9%A0%BB%E8%A1%A8%20-%20%E5%AE%9A%E7%A8%BF1141208.xlsx' \
+            -o 'data/external/naer/1141208/通用詞頻表.xlsx'
+          echo 'bfd3b73938e115ae39a44c5e11c97135c09939cf598157cb2fe0b33c4302de75  data/external/naer/1141208/通用詞頻表.xlsx' | sha256sum -c -
+
+          commit='e0d85a020182e264d6384be2a59c0f4879a1cc35'
+          for file in zh_gsd-ud-train.conllu zh_gsd-ud-dev.conllu zh_gsd-ud-test.conllu; do
+            curl --fail --location --retry 3 --retry-all-errors \
+              "https://raw.githubusercontent.com/UniversalDependencies/UD_Chinese-GSD/${commit}/${file}" \
+              -o "data/external/ud/chinese-gsd/r2.18/${file}"
+          done
+
+      - name: Rebuild source syntax workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          out='data/generated/lexicon/naer-1141208-top-10000'
+          mkdir -p "$out"
+          python scripts/project-naer-lexicon-candidates.py \
+            --workbook 'data/external/naer/1141208/通用詞頻表.xlsx' \
+            --limit 10000 \
+            --invalid-row-policy report \
+            --output "$out/candidates.csv" \
+            --manifest-output "$out/manifest.json" \
+            --report-output "$out/eligibility-report.json"
+          python scripts/project-ud-grammar-evidence-generation.py \
+            --candidates "$out/candidates.csv" \
+            --candidate-manifest "$out/manifest.json" \
+            --source-dir data/external/ud/chinese-gsd/r2.18 \
+            --evidence-output "$out/ud-evidence.json" \
+            --coverage-output "$out/ud-coverage.json"
+          npm run grammar:lexicon-syntax-generation -- \
+            --candidates "$out/candidates.csv" \
+            --candidate-manifest "$out/manifest.json" \
+            --evidence "$out/ud-evidence.json" \
+            --profiles-output "$out/syntax-profiles.json" \
+            --rule-index-output "$out/syntax-rule-index.json"
+
+      - name: Rebuild committed runtime syntax artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          out='data/generated/lexicon/naer-1141208-top-10000'
+          npm run app:syntax-legality -- \
+            --rule-index "$out/syntax-rule-index.json" \
+            --profiles "$out/syntax-profiles.json"
+          npm run grammar:runtime-morphology -- --write
+          npm run grammar:runtime-occurrence-capabilities -- --write
+          npm run grammar:runtime-ba-occurrence-capabilities -- --write
+          npm run grammar:runtime-short-passive-occurrence-capabilities -- --write
+          npm run grammar:runtime-preverbal-aux-occurrence-capabilities -- --write
+
+      - name: Refresh source rule-index lock
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const legalityPath = 'data/grammar/formal-syntax-active-catalog-legality.json';
+          const lockPath = 'data/grammar/formal-syntax-runtime-lock.json';
+          const legality = JSON.parse(fs.readFileSync(legalityPath, 'utf8'));
+          const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+          lock.sourceRuleIndexDigest = legality.sourceRuleIndexDigest;
+          fs.writeFileSync(lockPath, `${JSON.stringify(lock)}\n`);
+          console.log(JSON.stringify({
+            sourceRuleIndexDigest: lock.sourceRuleIndexDigest,
+            grammarRulesDigest: lock.grammarRulesDigest,
+          }));
+          NODE
+
+      - name: Report regeneration delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const oldLegality = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/old-legality.json', 'utf8'));
+          const nextLegality = JSON.parse(fs.readFileSync('data/grammar/formal-syntax-active-catalog-legality.json', 'utf8'));
+          const oldArtifact = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/old-profiles.json', 'utf8'));
+          const nextArtifact = JSON.parse(fs.readFileSync('data/grammar/formal-syntax-active-catalog-profiles.json', 'utf8'));
+          const oldById = new Map(oldArtifact.profiles.map((profile) => [profile.id, profile]));
+          let commonProfileIds = 0;
+          let changedProfiles = 0;
+          let removedAmbitransitive = 0;
+          let removedIntransitive = 0;
+          const changedEntries = new Set();
+          for (const profile of nextArtifact.profiles) {
+            const old = oldById.get(profile.id);
+            if (!old) continue;
+            commonProfileIds += 1;
+            const before = JSON.stringify(old.valencyFrames ?? []);
+            const after = JSON.stringify(profile.valencyFrames ?? []);
+            if (before !== after) {
+              changedProfiles += 1;
+              changedEntries.add(profile.entryId);
+              if ((old.valencyFrames ?? []).includes('ambitransitive') && !(profile.valencyFrames ?? []).includes('ambitransitive')) removedAmbitransitive += 1;
+              if ((old.valencyFrames ?? []).includes('intransitive') && !(profile.valencyFrames ?? []).includes('intransitive')) removedIntransitive += 1;
+            }
+          }
+          console.log(JSON.stringify({
+            before: {
+              catalogEntryCount: oldLegality.catalogEntryCount,
+              legalEntryCount: oldLegality.legalEntryCount,
+              exclusionCount: oldLegality.exclusionCount,
+              profileCount: oldArtifact.profileCount,
+              sourceRuleIndexDigest: oldLegality.sourceRuleIndexDigest,
+              profileDigest: oldArtifact.determinismDigest,
+            },
+            after: {
+              catalogEntryCount: nextLegality.catalogEntryCount,
+              legalEntryCount: nextLegality.legalEntryCount,
+              exclusionCount: nextLegality.exclusionCount,
+              profileCount: nextArtifact.profileCount,
+              sourceRuleIndexDigest: nextLegality.sourceRuleIndexDigest,
+              profileDigest: nextArtifact.determinismDigest,
+            },
+            commonProfileIds,
+            changedProfiles,
+            changedEntries: changedEntries.size,
+            removedAmbitransitive,
+            removedIntransitive,
+          }));
+          NODE
+
+      - name: Validate regenerated product
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run app:catalog
+          npm run check:pr
+          npm run test:browser
+
+      - name: Commit regenerated runtime artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          git status --short
+          if git diff --quiet -- data/grammar src/app/generated/catalog.ts; then
+            echo 'No committed runtime artifact changes.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add data/grammar src/app/generated/catalog.ts
+          git commit -m 'chore: regenerate formal syntax runtime artifacts'
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
