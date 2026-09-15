@@ -4,6 +4,11 @@ on:
   pull_request:
     paths:
       - ".github/workflows/formal-syntax-regeneration-lab.yml"
+  push:
+    branches:
+      - agent/formal-syntax-regeneration-lab
+    paths:
+      - ".github/workflows/formal-syntax-regeneration-lab.yml"
 
 permissions:
   contents: write
@@ -13,10 +18,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - name: Checkout exact PR head
+      - name: Checkout exact workflow head
         uses: actions/checkout@v6
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
 
       - name: Set up Node
