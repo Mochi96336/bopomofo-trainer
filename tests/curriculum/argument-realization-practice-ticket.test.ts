@@ -42,6 +42,11 @@ describe("argument realization practice ticket", () => {
   });
 
   it("keeps ticket incidence aligned with the calibrated product-practice prior", () => {
+    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.argumentRealizationPracticeWeights).toEqual({
+      ordinary: 0.8015,
+      subjectOmission: 0.112,
+      objectOmission: 0.0865,
+    });
     const sampleCount = 8192;
     let subject = 0;
     let object = 0;

@@ -96,9 +96,9 @@ export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy =
   // [0.943, 1) interval exactly. Modal calibration against #264 selected 5.70%
   // and takes mass only from the ordinary interval.
   predicateMarkingPracticeWeights: { ordinary: 0.831, modal: 0.057, aspect: 0.055, negation: 0.057 },
-  // Calibrated against the immutable #266/#269 2048-seed structural-surface meter.
+  // Calibrated against the immutable #269 final-namespace 8192-seed structural-surface meter.
   // This is a product-practice prior, not a corpus/linguistic omission probability.
-  argumentRealizationPracticeWeights: { ordinary: 0.80495, subjectOmission: 0.1002, objectOmission: 0.09485 },
+  argumentRealizationPracticeWeights: { ordinary: 0.8015, subjectOmission: 0.112, objectOmission: 0.0865 },
 };
 
 function nextUnit(random: RandomSource): number {
