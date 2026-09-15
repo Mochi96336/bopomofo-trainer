@@ -190,7 +190,15 @@ jobs:
 
       - name: Validate browser tests
         shell: bash
-        run: npm run test:browser > .lab-validation/13-test-browser.log 2>&1
+        run: |
+          set +e
+          npm run test:browser > .lab-validation/13-test-browser.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo '--- browser failure tail ---'
+            tail -n 240 .lab-validation/13-test-browser.log
+          fi
+          exit "$status"
 
       - name: Upload compact validation diagnostics
         if: always()
@@ -198,7 +206,8 @@ jobs:
         with:
           name: formal-syntax-validation-diagnostics
           path: .lab-validation
-          if-no-files-found: warn
+          include-hidden-files: true
+          if-no-files-found: error
           retention-days: 3
 
       - name: Commit regenerated runtime artifacts
