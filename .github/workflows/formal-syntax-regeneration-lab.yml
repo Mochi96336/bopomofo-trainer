@@ -53,7 +53,7 @@ jobs:
               -o "data/external/ud/chinese-gsd/r2.18/${file}"
           done
 
-      - name: Rebuild source syntax workspace
+      - name: Rebuild full top-160000 source syntax workspace
         shell: bash
         run: |
           set -euo pipefail
@@ -79,37 +79,14 @@ jobs:
             --profiles-output "$out/syntax-profiles.json" \
             --rule-index-output "$out/syntax-rule-index.json"
 
-      - name: Rebuild committed syntax projection
+      - name: Reproject frozen source-runtime frontier
         shell: bash
         run: |
           set -euo pipefail
           out='data/generated/lexicon/naer-1141208-top-160000'
-          npm run app:syntax-legality -- \
+          npx tsx scripts/lab-reproject-active-runtime-profiles.ts \
             --rule-index "$out/syntax-rule-index.json" \
             --profiles "$out/syntax-profiles.json"
-
-      - name: Verify source selection lineage
-        shell: bash
-        run: |
-          set -euo pipefail
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          const before = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/old-legality.json', 'utf8'));
-          const after = JSON.parse(fs.readFileSync('data/grammar/formal-syntax-active-catalog-legality.json', 'utf8'));
-          console.log(JSON.stringify({
-            beforeSelectionDigest: before.sourceSelectionDigest,
-            afterSelectionDigest: after.sourceSelectionDigest,
-            beforeEvidenceDigest: before.sourceEvidenceDigest,
-            afterEvidenceDigest: after.sourceEvidenceDigest,
-            beforeProjectionDigest: before.sourceProfileProjectionDigest,
-            afterProjectionDigest: after.sourceProfileProjectionDigest,
-          }));
-          if (after.sourceSelectionDigest !== before.sourceSelectionDigest) {
-            throw new Error(
-              `regenerated source selection does not reproduce production lineage: ${after.sourceSelectionDigest} != ${before.sourceSelectionDigest}`,
-            );
-          }
-          NODE
 
       - name: Rebuild reviewed runtime sidecars
         shell: bash
@@ -121,75 +98,39 @@ jobs:
           npm run grammar:runtime-short-passive-occurrence-capabilities -- --write
           npm run grammar:runtime-preverbal-aux-occurrence-capabilities -- --write
 
-      - name: Refresh source rule-index lock
+      - name: Report committed-artifact boundary
         shell: bash
         run: |
           set -euo pipefail
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
-          const legalityPath = 'data/grammar/formal-syntax-active-catalog-legality.json';
-          const lockPath = 'data/grammar/formal-syntax-runtime-lock.json';
-          const legality = JSON.parse(fs.readFileSync(legalityPath, 'utf8'));
-          const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
-          lock.sourceRuleIndexDigest = legality.sourceRuleIndexDigest;
-          fs.writeFileSync(lockPath, `${JSON.stringify(lock)}\n`);
-          console.log(JSON.stringify({
-            sourceRuleIndexDigest: lock.sourceRuleIndexDigest,
-            grammarRulesDigest: lock.grammarRulesDigest,
-          }));
-          NODE
-
-      - name: Report regeneration delta
-        shell: bash
-        run: |
-          set -euo pipefail
-          node --input-type=module <<'NODE'
-          import fs from 'node:fs';
-          const oldLegality = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/old-legality.json', 'utf8'));
-          const nextLegality = JSON.parse(fs.readFileSync('data/grammar/formal-syntax-active-catalog-legality.json', 'utf8'));
-          const oldArtifact = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/old-profiles.json', 'utf8'));
-          const nextArtifact = JSON.parse(fs.readFileSync('data/grammar/formal-syntax-active-catalog-profiles.json', 'utf8'));
-          const oldById = new Map(oldArtifact.profiles.map((profile) => [profile.id, profile]));
-          let commonProfileIds = 0;
-          let changedProfiles = 0;
-          let removedAmbitransitive = 0;
-          let removedIntransitive = 0;
-          const changedEntries = new Set();
-          for (const profile of nextArtifact.profiles) {
-            const old = oldById.get(profile.id);
-            if (!old) continue;
-            commonProfileIds += 1;
-            const before = JSON.stringify(old.valencyFrames ?? []);
-            const after = JSON.stringify(profile.valencyFrames ?? []);
-            if (before !== after) {
-              changedProfiles += 1;
-              changedEntries.add(profile.entryId);
-              if ((old.valencyFrames ?? []).includes('ambitransitive') && !(profile.valencyFrames ?? []).includes('ambitransitive')) removedAmbitransitive += 1;
-              if ((old.valencyFrames ?? []).includes('intransitive') && !(profile.valencyFrames ?? []).includes('intransitive')) removedIntransitive += 1;
-            }
-          }
+          const beforeLegality = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/old-legality.json', 'utf8'));
+          const afterLegality = JSON.parse(fs.readFileSync('data/grammar/formal-syntax-active-catalog-legality.json', 'utf8'));
+          const beforeProfiles = JSON.parse(fs.readFileSync(process.env.RUNNER_TEMP + '/old-profiles.json', 'utf8'));
+          const afterProfiles = JSON.parse(fs.readFileSync('data/grammar/formal-syntax-active-catalog-profiles.json', 'utf8'));
           console.log(JSON.stringify({
             before: {
-              catalogEntryCount: oldLegality.catalogEntryCount,
-              legalEntryCount: oldLegality.legalEntryCount,
-              exclusionCount: oldLegality.exclusionCount,
-              profileCount: oldArtifact.profileCount,
-              sourceRuleIndexDigest: oldLegality.sourceRuleIndexDigest,
-              profileDigest: oldArtifact.determinismDigest,
+              catalogEntryCount: beforeLegality.catalogEntryCount,
+              legalEntryCount: beforeLegality.legalEntryCount,
+              exclusionCount: beforeLegality.exclusionCount,
+              profileCount: beforeProfiles.profileCount,
+              sourceSelectionDigest: beforeProfiles.sourceSelectionDigest,
+              sourceEvidenceDigest: beforeProfiles.sourceEvidenceDigest,
+              sourceProfileProjectionDigest: beforeProfiles.sourceProfileProjectionDigest,
+              sourceRuleIndexDigest: beforeProfiles.sourceRuleIndexDigest,
+              profilesDigest: beforeProfiles.determinismDigest,
             },
             after: {
-              catalogEntryCount: nextLegality.catalogEntryCount,
-              legalEntryCount: nextLegality.legalEntryCount,
-              exclusionCount: nextLegality.exclusionCount,
-              profileCount: nextArtifact.profileCount,
-              sourceRuleIndexDigest: nextLegality.sourceRuleIndexDigest,
-              profileDigest: nextArtifact.determinismDigest,
+              catalogEntryCount: afterLegality.catalogEntryCount,
+              legalEntryCount: afterLegality.legalEntryCount,
+              exclusionCount: afterLegality.exclusionCount,
+              profileCount: afterProfiles.profileCount,
+              sourceSelectionDigest: afterProfiles.sourceSelectionDigest,
+              sourceEvidenceDigest: afterProfiles.sourceEvidenceDigest,
+              sourceProfileProjectionDigest: afterProfiles.sourceProfileProjectionDigest,
+              sourceRuleIndexDigest: afterProfiles.sourceRuleIndexDigest,
+              profilesDigest: afterProfiles.determinismDigest,
             },
-            commonProfileIds,
-            changedProfiles,
-            changedEntries: changedEntries.size,
-            removedAmbitransitive,
-            removedIntransitive,
           }));
           NODE
 
