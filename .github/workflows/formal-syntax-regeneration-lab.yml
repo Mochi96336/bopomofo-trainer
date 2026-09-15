@@ -134,13 +134,72 @@ jobs:
           }));
           NODE
 
-      - name: Validate regenerated product
+      - name: Validate app catalog
         shell: bash
         run: |
-          set -euo pipefail
-          npm run app:catalog
-          npm run check:pr
-          npm run test:browser
+          mkdir -p .lab-validation
+          npm run app:catalog > .lab-validation/00-app-catalog.log 2>&1
+
+      - name: Validate runtime morphology
+        shell: bash
+        run: npm run grammar:runtime-morphology > .lab-validation/01-runtime-morphology.log 2>&1
+
+      - name: Validate runtime occurrence capabilities
+        shell: bash
+        run: npm run grammar:runtime-occurrence-capabilities > .lab-validation/02-runtime-occurrence.log 2>&1
+
+      - name: Validate runtime BA occurrence capabilities
+        shell: bash
+        run: npm run grammar:runtime-ba-occurrence-capabilities > .lab-validation/03-runtime-ba.log 2>&1
+
+      - name: Validate runtime short-passive occurrence capabilities
+        shell: bash
+        run: npm run grammar:runtime-short-passive-occurrence-capabilities > .lab-validation/04-runtime-short-passive.log 2>&1
+
+      - name: Validate runtime preverbal AUX occurrence capabilities
+        shell: bash
+        run: npm run grammar:runtime-preverbal-aux-occurrence-capabilities > .lab-validation/05-runtime-preverbal-aux.log 2>&1
+
+      - name: Validate typecheck
+        shell: bash
+        run: npm run typecheck > .lab-validation/06-typecheck.log 2>&1
+
+      - name: Validate fast tests
+        shell: bash
+        run: npm run test:fast > .lab-validation/07-test-fast.log 2>&1
+
+      - name: Validate simulation tests
+        shell: bash
+        run: npm run test:simulation > .lab-validation/08-test-simulation.log 2>&1
+
+      - name: Validate source adapters
+        shell: bash
+        run: npm run test:source-adapters > .lab-validation/09-test-source-adapters.log 2>&1
+
+      - name: Validate catalog
+        shell: bash
+        run: npm run catalog:validate > .lab-validation/10-catalog-validate.log 2>&1
+
+      - name: Validate build
+        shell: bash
+        run: npm run build > .lab-validation/11-build.log 2>&1
+
+      - name: Validate bundle size
+        shell: bash
+        run: npm run size:check > .lab-validation/12-size-check.log 2>&1
+
+      - name: Validate browser tests
+        shell: bash
+        run: npm run test:browser > .lab-validation/13-test-browser.log 2>&1
+
+      - name: Upload compact validation diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: formal-syntax-validation-diagnostics
+          path: .lab-validation
+          if-no-files-found: warn
+          retention-days: 3
 
       - name: Commit regenerated runtime artifacts
         shell: bash
