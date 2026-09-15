@@ -6,6 +6,7 @@ export const RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS = [
   "same-token-voice-cau-direct-ccomp-v1",
   "same-predicate-obl-patient-case-ba-v1",
   "same-token-exact-aux-preverbal-v1",
+  "same-predicate-aux-pass-bei-v1",
 ] as const;
 export type RuntimeOccurrenceEvidenceContract =
   (typeof RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS)[number];
@@ -54,6 +55,14 @@ const REVIEWED_PROJECTION_CONTRACTS = new Map<RuntimeOccurrenceCapability, Revie
     // aggregate profile only backstops the lexical UPOS/function identity.
     acceptTargetProfile: (profile) =>
       profile.upos === "AUX" && profile.functions.includes("auxiliary"),
+  }],
+  ["short-passive-aux-pass-bei-same-occurrence", {
+    evidenceContract: "same-predicate-aux-pass-bei-v1",
+    // Direct aux:pass + 被 on the same predicate occurrence is authoritative.
+    // Generic transitivity is only partial overlap (167/248 identity-safe
+    // profiles) and adpositional-complement is a different relation family
+    // entirely (145/248), so neither is a valid projection prerequisite.
+    acceptTargetProfile: () => true,
   }],
 ]);
 
