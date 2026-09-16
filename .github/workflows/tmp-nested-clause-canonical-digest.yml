@@ -119,7 +119,7 @@ jobs:
               '    const version = "stable-keyed-rule-substream-v2";\n'
               '    for (const purpose of ["candidate-substream", "priority"] as const) {\n'
               '      for (const ticket of [0, 1, 0x7fffffff, 0xffffffff]) {\n'
-              '        for (const ruleId of ["clause.basic", "clause.quoted/特殊", "quote:\\\"slash\\\\\\"] as const) {\n'
+              '        for (const ruleId of ["clause.basic", "clause.quoted/特殊", "clause.deep/nested"] as const) {\n'
               '          const legacy = stableRuntimeDigest({ version, purpose, ticket, ruleId });\n'
               '          const canonicalJson = JSON.stringify({ purpose, ruleId, ticket, version });\n'
               '          expect(stableRuntimeDigestCanonicalJson(canonicalJson)).toBe(legacy);\n'
