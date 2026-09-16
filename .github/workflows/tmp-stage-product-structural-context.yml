@@ -27,7 +27,6 @@ jobs:
           python - <<'PY'
           from pathlib import Path
 
-          # Composer: accept an explicitly prepared structural context.
           p = Path('src/curriculum/formal-syntax-utterance.ts')
           s = p.read_text()
           old = '''export function composeFormalSyntaxUtterances(\n  input: FormalSyntaxUtteranceInput,\n  preparedLexicon?: PreparedFormalSyntaxLexicon,\n): GrammarCompositionResult {\n'''
@@ -39,12 +38,15 @@ jobs:
           if old not in s: raise SystemExit('composer context needle missing')
           p.write_text(s.replace(old, new, 1))
 
-          # Selector: define a lifecycle-owned projection containing exact bounds + prepared sampler context.
           p = Path('src/curriculum/frequency-first-utterance.ts')
           s = p.read_text()
           old = 'import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";\n'
           new = old + '''import {\n  prepareStructuralSamplingContext,\n  type PreparedStructuralSamplingContext,\n} from "../syntax/sample.js";\n'''
           if old not in s: raise SystemExit('selector grammar import needle missing')
+          s = s.replace(old, new, 1)
+          old = 'import type { DerivationBounds, RuntimeSyntaxProfile } from "../syntax/types.js";\n'
+          new = 'import type { DerivationBounds, ProductionRule, RuntimeSyntaxProfile } from "../syntax/types.js";\n'
+          if old not in s: raise SystemExit('selector syntax type import missing')
           s = s.replace(old, new, 1)
 
           marker = '''export interface PreparedFrequencyFirstEntries {\n  readonly entries: readonly CatalogEntry[];\n  readonly entriesById: ReadonlyMap<string, CatalogEntry>;\n  readonly tokenIdsByEntryId: ReadonlyMap<string, readonly TokenId[]>;\n}\n'''
@@ -87,7 +89,6 @@ jobs:
           if old not in s: raise SystemExit('generateOnce invocation missing')
           p.write_text(s.replace(old, new, 1))
 
-          # Product environment owns the prepared execution context for its lifetime.
           p = Path('src/product/types.ts')
           s = p.read_text()
           old = '''  FrequencyFirstUtteranceSelection,\n  PreparedFrequencyFirstEntries,\n} from "../curriculum/frequency-first-utterance.js";\n'''
@@ -114,7 +115,6 @@ jobs:
           if old not in s: raise SystemExit('selectRound prepared input missing')
           p.write_text(s.replace(old, new, 1))
 
-          # Focused ownership/identity regression; the full product tests exercise this context in composition.
           p = Path('tests/product/session.test.ts')
           s = p.read_text()
           marker = '''  it("builds one complete grammar-valid utterance instead of six unrelated entries", () => {\n'''
