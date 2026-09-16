@@ -43,7 +43,7 @@ jobs:
           replace_once(
               formal,
               '''  readonly structuralTarget?: FormalSyntaxStructuralTarget;\n}\n\nfunction nextUnit(random: RandomSource): number {''',
-              '''  readonly structuralTarget?: FormalSyntaxStructuralTarget;\n}\n\n/** Immutable lexical preparation reusable while the entry/profile inputs stay unchanged. */\nexport interface PreparedFormalSyntaxLexicon {\n  readonly eligibleProfiles: readonly RuntimeSyntaxProfile[];\n  readonly index: LexicalProfileIndex;\n}\n\nexport function prepareFormalSyntaxLexicon(\n  eligibleEntries: readonly CatalogEntry[],\n  profiles: readonly RuntimeSyntaxProfile[],\n): PreparedFormalSyntaxLexicon {\n  const eligibleEntryIds = new Set(eligibleEntries.map((entry) => entry.id));\n  const eligibleProfiles = profiles.filter((profile) => eligibleEntryIds.has(profile.entryId));\n  return {\n    eligibleProfiles,\n    index: buildLexicalProfileIndex(eligibleEntries, eligibleProfiles),\n  };\n}\n\nfunction nextUnit(random: RandomSource): number {''',
+              '''  readonly structuralTarget?: FormalSyntaxStructuralTarget;\n}\n\n/** Immutable lexical preparation reusable while the entry/profile inputs stay unchanged. */\nexport interface PreparedFormalSyntaxLexicon {\n  readonly index: LexicalProfileIndex;\n}\n\nexport function prepareFormalSyntaxLexicon(\n  eligibleEntries: readonly CatalogEntry[],\n  profiles: readonly RuntimeSyntaxProfile[],\n): PreparedFormalSyntaxLexicon {\n  const eligibleEntryIds = new Set(eligibleEntries.map((entry) => entry.id));\n  const eligibleProfiles = profiles.filter((profile) => eligibleEntryIds.has(profile.entryId));\n  return {\n    index: buildLexicalProfileIndex(eligibleEntries, eligibleProfiles),\n  };\n}\n\nfunction nextUnit(random: RandomSource): number {''',
           )
           replace_once(
               formal,
@@ -53,7 +53,7 @@ jobs:
           replace_once(
               formal,
               '''  const eligibleEntryIds = new Set(input.eligibleEntries.map((entry) => entry.id));\n  const eligibleProfiles = input.profiles.filter((profile) => eligibleEntryIds.has(profile.entryId));\n  const index = buildLexicalProfileIndex(input.eligibleEntries, eligibleProfiles);\n  const entriesById = new Map(input.eligibleEntries.map((entry) => [entry.id, entry]));''',
-              '''  const lexicon = preparedLexicon\n    ?? prepareFormalSyntaxLexicon(input.eligibleEntries, input.profiles);\n  const { eligibleProfiles, index } = lexicon;\n  const entriesById = index.entriesById;''',
+              '''  const index = (preparedLexicon\n    ?? prepareFormalSyntaxLexicon(input.eligibleEntries, input.profiles)).index;\n  const entriesById = index.entriesById;''',
           )
 
           frequency = "src/curriculum/frequency-first-utterance.ts"
@@ -96,7 +96,7 @@ jobs:
           )
           test_path = Path(test)
           text = test_path.read_text()
-          addition = '''\n\ndescribe("prepared formal syntax lexicon", () => {\n  it("matches raw composition while reusing the prepared lexical frontier", () => {\n    const eligible = entry("entry:prepared-eligible", "甲", 1);\n    const excluded = entry("entry:prepared-excluded", "乙", 1);\n    const entries = [eligible];\n    const profiles = [\n      profile("profile:prepared-eligible", eligible.id),\n      profile("profile:prepared-excluded", excluded.id),\n    ];\n    const prepared = prepareFormalSyntaxLexicon(entries, profiles);\n    const compose = (random: RandomSource) => ({\n      eligibleEntries: entries,\n      profiles,\n      random,\n      maximumCandidates: 1,\n      maximumAttempts: 1,\n      rules,\n    });\n\n    const raw = composeFormalSyntaxUtterances(compose(new SequenceRandom([0])));\n    const reused = composeFormalSyntaxUtterances(\n      compose(new SequenceRandom([0])),\n      prepared,\n    );\n\n    expect(prepared.eligibleProfiles.map((item) => item.id)).toEqual([\n      "profile:prepared-eligible",\n    ]);\n    expect(reused).toEqual(raw);\n  });\n});\n'''
+          addition = '''\n\ndescribe("prepared formal syntax lexicon", () => {\n  it("matches raw composition while reusing the prepared lexical frontier", () => {\n    const eligible = entry("entry:prepared-eligible", "甲", 1);\n    const excluded = entry("entry:prepared-excluded", "乙", 1);\n    const entries = [eligible];\n    const profiles = [\n      profile("profile:prepared-eligible", eligible.id),\n      profile("profile:prepared-excluded", excluded.id),\n    ];\n    const prepared = prepareFormalSyntaxLexicon(entries, profiles);\n    const compose = (random: RandomSource) => ({\n      eligibleEntries: entries,\n      profiles,\n      random,\n      maximumCandidates: 1,\n      maximumAttempts: 1,\n      rules,\n    });\n\n    const raw = composeFormalSyntaxUtterances(compose(new SequenceRandom([0])));\n    const reused = composeFormalSyntaxUtterances(\n      compose(new SequenceRandom([0])),\n      prepared,\n    );\n\n    expect(prepared.index.profilesByUpos.NOUN?.map((item) => item.id)).toEqual([\n      "profile:prepared-eligible",\n    ]);\n    expect(reused).toEqual(raw);\n  });\n});\n'''
           if 'describe("prepared formal syntax lexicon"' in text:
               raise SystemExit("prepared lexicon test already present")
           test_path.write_text(text.rstrip() + addition)
