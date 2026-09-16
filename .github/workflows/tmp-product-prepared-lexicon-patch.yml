@@ -1,0 +1,121 @@
+name: tmp product prepared lexicon patch
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply environment-level prepared lexicon patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one replacement, found {count}: {old[:100]!r}")
+              file.write_text(text.replace(old, new, 1))
+
+          formal = "src/curriculum/formal-syntax-utterance.ts"
+          replace_once(
+              formal,
+              '''export interface PreparedFormalSyntaxLexicon {\n  readonly index: LexicalProfileIndex;\n}''',
+              '''export interface PreparedFormalSyntaxLexicon {\n  readonly eligibleEntries: readonly CatalogEntry[];\n  readonly profiles: readonly RuntimeSyntaxProfile[];\n  readonly index: LexicalProfileIndex;\n}''',
+          )
+          replace_once(
+              formal,
+              '''  return {\n    index: buildLexicalProfileIndex(eligibleEntries, eligibleProfiles),\n  };''',
+              '''  return {\n    eligibleEntries,\n    profiles,\n    index: buildLexicalProfileIndex(eligibleEntries, eligibleProfiles),\n  };''',
+          )
+          replace_once(
+              formal,
+              '''  const index = (preparedLexicon\n    ?? prepareFormalSyntaxLexicon(input.eligibleEntries, input.profiles)).index;''',
+              '''  if (preparedLexicon !== undefined\n    && (preparedLexicon.eligibleEntries !== input.eligibleEntries\n      || preparedLexicon.profiles !== input.profiles)) {\n    throw new Error("prepared formal syntax lexicon input identity mismatch");\n  }\n  const index = (preparedLexicon\n    ?? prepareFormalSyntaxLexicon(input.eligibleEntries, input.profiles)).index;''',
+          )
+
+          frequency = "src/curriculum/frequency-first-utterance.ts"
+          replace_once(
+              frequency,
+              '''  readonly bindingEvidence: readonly LearnerBindingEvidence[];\n  readonly profiles: readonly RuntimeSyntaxProfile[];\n};''',
+              '''  readonly bindingEvidence: readonly LearnerBindingEvidence[];\n  readonly profiles: readonly RuntimeSyntaxProfile[];\n  readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;\n};''',
+          )
+          replace_once(
+              frequency,
+              '''  readonly bindingsByToken: Readonly<Record<string, LearnerBindingEvidence>>;\n  /** Canonical transition evidence exists only on the legacy/research path. */\n  readonly legacyTransitions: MeasurementSummary["transitions"] | null;\n};''',
+              '''  readonly bindingsByToken: Readonly<Record<string, LearnerBindingEvidence>>;\n  /** Canonical transition evidence exists only on the legacy/research path. */\n  readonly legacyTransitions: MeasurementSummary["transitions"] | null;\n  readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;\n};''',
+          )
+          replace_once(
+              frequency,
+              '''  const preparedFormalSyntaxLexicon = input.profiles === undefined\n    ? null\n    : prepareFormalSyntaxLexicon(eligibleEntries, input.profiles);''',
+              '''  const preparedFormalSyntaxLexicon = input.profiles === undefined\n    ? null\n    : input.preparedFormalSyntaxLexicon\n      ?? prepareFormalSyntaxLexicon(eligibleEntries, input.profiles);''',
+          )
+
+          types = "src/product/types.ts"
+          replace_once(
+              types,
+              '''import type {\n  FrequencyFirstSelectionState,\n  FrequencyFirstUtterancePolicy,\n  FrequencyFirstUtteranceSelection,\n} from "../curriculum/frequency-first-utterance.js";''',
+              '''import type {\n  FrequencyFirstSelectionState,\n  FrequencyFirstUtterancePolicy,\n  FrequencyFirstUtteranceSelection,\n} from "../curriculum/frequency-first-utterance.js";\nimport type { PreparedFormalSyntaxLexicon } from "../curriculum/formal-syntax-utterance.js";''',
+          )
+          replace_once(
+              types,
+              '''  readonly utterancePolicy: FrequencyFirstUtterancePolicy;\n}''',
+              '''  readonly utterancePolicy: FrequencyFirstUtterancePolicy;\n  readonly preparedPracticeLexicon: PreparedFormalSyntaxLexicon;\n}''',
+          )
+
+          session = "src/product/session.ts"
+          replace_once(
+              session,
+              '''import { PHASE_4_CURRICULUM_POLICY } from "../curriculum/policy.js";''',
+              '''import { prepareFormalSyntaxLexicon } from "../curriculum/formal-syntax-utterance.js";\nimport { PHASE_4_CURRICULUM_POLICY } from "../curriculum/policy.js";''',
+          )
+          replace_once(
+              session,
+              '''    curriculumPolicy: PHASE_4_CURRICULUM_POLICY,\n    utterancePolicy,\n  };''',
+              '''    curriculumPolicy: PHASE_4_CURRICULUM_POLICY,\n    utterancePolicy,\n    preparedPracticeLexicon: prepareFormalSyntaxLexicon(\n      catalogs.practice,\n      catalogs.syntaxProfiles,\n    ),\n  };''',
+          )
+          replace_once(
+              session,
+              '''    profiles: environment.catalogs.syntaxProfiles,\n    random: createSeededRandom(''',
+              '''    profiles: environment.catalogs.syntaxProfiles,\n    preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,\n    random: createSeededRandom(''',
+          )
+
+          test = "tests/curriculum/formal-syntax-utterance.test.ts"
+          replace_once(
+              test,
+              '''    expect(prepared.index.profilesByUpos.NOUN?.map((item) => item.id)).toEqual([\n      "profile:prepared-eligible",\n    ]);\n    expect(reused).toEqual(raw);''',
+              '''    expect(prepared.eligibleEntries).toBe(entries);\n    expect(prepared.profiles).toBe(profiles);\n    expect(prepared.index.profilesByUpos.NOUN?.map((item) => item.id)).toEqual([\n      "profile:prepared-eligible",\n    ]);\n    expect(reused).toEqual(raw);\n    expect(() => composeFormalSyntaxUtterances(\n      { ...compose(new SequenceRandom([0])), eligibleEntries: [...entries] },\n      prepared,\n    )).toThrow(/prepared formal syntax lexicon input identity mismatch/u);''',
+          )
+          PY
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Targeted tests
+        run: npx vitest run tests/curriculum/formal-syntax-utterance.test.ts tests/product/session.test.ts --testTimeout=15000
+      - name: Commit patch and remove temporary workflow
+        shell: bash
+        run: |
+          rm .github/workflows/tmp-product-prepared-lexicon-patch.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/curriculum/formal-syntax-utterance.ts src/curriculum/frequency-first-utterance.ts src/product/types.ts src/product/session.ts tests/curriculum/formal-syntax-utterance.test.ts .github/workflows/tmp-product-prepared-lexicon-patch.yml
+          git commit -m "perf(product): reuse prepared lexicon across rounds"
+          git push origin HEAD:agent/product-environment-prepared-lexicon
