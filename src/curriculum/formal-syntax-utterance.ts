@@ -19,8 +19,10 @@ import {
   type LexicalProfileIndex,
 } from "../syntax/realize.js";
 import {
+  prepareStructuralSamplingContext,
   sampleStructuralDerivation,
   type NestedProductionTarget,
+  type PreparedStructuralSamplingContext,
 } from "../syntax/sample.js";
 import type {
   DerivationBounds,
@@ -244,6 +246,11 @@ export function composeFormalSyntaxUtterances(
     ? input.samplingPolicy ?? PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY
     : null;
   if (samplingPolicy !== null) validateFormalSyntaxSamplingPolicy(samplingPolicy);
+  let preparedStructuralSamplingContext: PreparedStructuralSamplingContext | null = null;
+  const structuralSamplingContext = (): PreparedStructuralSamplingContext => {
+    preparedStructuralSamplingContext ??= prepareStructuralSamplingContext(rules, input.bounds);
+    return preparedStructuralSamplingContext;
+  };
 
   // #155 deliberately controls Sentence-root family probability only. Nested
   // Clause/Phrase sampling stays on the raw structural sampler until a dedicated
@@ -441,7 +448,7 @@ export function composeFormalSyntaxUtterances(
         : (input.structuralTarget?.nestedProductionTargets === undefined
             ? {}
             : { nestedProductionTargets: input.structuralTarget.nestedProductionTargets })),
-    });
+    }, structuralSamplingContext());
     if (shape === null) {
       if (requiresPredicateMarkingPractice) {
         fallbackReasons.add("formal-syntax-predicate-marking-search-exhausted");
