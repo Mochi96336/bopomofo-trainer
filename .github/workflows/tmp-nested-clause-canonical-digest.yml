@@ -29,112 +29,107 @@ jobs:
 
           stable = Path('src/core/stable-id.ts')
           source = stable.read_text()
-          anchor = '''export function stableRuntimeDigest(value: unknown): string {
-            const source = JSON.stringify(canonicalValue(value));
-            return hashRuntimeSource(source);
-          }
-          '''
-          replacement = '''/** Hash an already-canonical JSON source with the exact stable-runtime digest algorithm. */
-          export function stableRuntimeDigestCanonicalJson(source: string): string {
-            return hashRuntimeSource(source);
-          }
-
-          export function stableRuntimeDigest(value: unknown): string {
-            const source = JSON.stringify(canonicalValue(value));
-            return stableRuntimeDigestCanonicalJson(source);
-          }
-          '''
+          anchor = (
+              'export function stableRuntimeDigest(value: unknown): string {\n'
+              '  const source = JSON.stringify(canonicalValue(value));\n'
+              '  return hashRuntimeSource(source);\n'
+              '}\n'
+          )
+          replacement = (
+              '/** Hash an already-canonical JSON source with the exact stable-runtime digest algorithm. */\n'
+              'export function stableRuntimeDigestCanonicalJson(source: string): string {\n'
+              '  return hashRuntimeSource(source);\n'
+              '}\n\n'
+              'export function stableRuntimeDigest(value: unknown): string {\n'
+              '  const source = JSON.stringify(canonicalValue(value));\n'
+              '  return stableRuntimeDigestCanonicalJson(source);\n'
+              '}\n'
+          )
           if source.count(anchor) != 1:
-            raise SystemExit(f'stable-id anchor count {source.count(anchor)}')
+              raise SystemExit(f'stable-id anchor count {source.count(anchor)}')
           stable.write_text(source.replace(anchor, replacement))
 
           sample = Path('src/syntax/sample.ts')
           source = sample.read_text()
-          source = source.replace(
-            'import { stableRuntimeDigest } from "../core/stable-id.js";',
-            'import { stableRuntimeDigest, stableRuntimeDigestCanonicalJson } from "../core/stable-id.js";',
-          )
-          old_seed = '''function nestedClauseCandidateSeed(ticket: number, ruleId: string): number {
-            const digest = stableRuntimeDigest({
-              version: NESTED_CLAUSE_RULE_ORDER_VERSION,
-              purpose: "candidate-substream",
-              ticket,
-              ruleId,
-            });
-            return Number.parseInt(digest.slice(0, 8), 16) >>> 0;
-          }
-          '''
-          new_seed = '''function nestedClauseKeyedDigest(
-            purpose: "candidate-substream" | "priority",
-            ticket: number,
-            ruleId: string,
-          ): string {
-            // These keys are already in stableRuntimeDigest canonical sort order:
-            // purpose, ruleId, ticket, version. Keep this byte-for-byte equivalent.
-            const canonicalJson = JSON.stringify({
-              purpose,
-              ruleId,
-              ticket,
-              version: NESTED_CLAUSE_RULE_ORDER_VERSION,
-            });
-            return stableRuntimeDigestCanonicalJson(canonicalJson);
-          }
+          old_import = 'import { stableRuntimeDigest } from "../core/stable-id.js";'
+          new_import = 'import { stableRuntimeDigest, stableRuntimeDigestCanonicalJson } from "../core/stable-id.js";'
+          if source.count(old_import) != 1:
+              raise SystemExit(f'import anchor count {source.count(old_import)}')
+          source = source.replace(old_import, new_import)
 
-          function nestedClauseCandidateSeed(ticket: number, ruleId: string): number {
-            const digest = nestedClauseKeyedDigest("candidate-substream", ticket, ruleId);
-            return Number.parseInt(digest.slice(0, 8), 16) >>> 0;
-          }
-          '''
+          old_seed = (
+              'function nestedClauseCandidateSeed(ticket: number, ruleId: string): number {\n'
+              '  const digest = stableRuntimeDigest({\n'
+              '    version: NESTED_CLAUSE_RULE_ORDER_VERSION,\n'
+              '    purpose: "candidate-substream",\n'
+              '    ticket,\n'
+              '    ruleId,\n'
+              '  });\n'
+              '  return Number.parseInt(digest.slice(0, 8), 16) >>> 0;\n'
+              '}\n'
+          )
+          new_seed = (
+              'function nestedClauseKeyedDigest(\n'
+              '  purpose: "candidate-substream" | "priority",\n'
+              '  ticket: number,\n'
+              '  ruleId: string,\n'
+              '): string {\n'
+              '  // These keys are already in stableRuntimeDigest canonical sort order:\n'
+              '  // purpose, ruleId, ticket, version. Keep this byte-for-byte equivalent.\n'
+              '  const canonicalJson = JSON.stringify({\n'
+              '    purpose,\n'
+              '    ruleId,\n'
+              '    ticket,\n'
+              '    version: NESTED_CLAUSE_RULE_ORDER_VERSION,\n'
+              '  });\n'
+              '  return stableRuntimeDigestCanonicalJson(canonicalJson);\n'
+              '}\n\n'
+              'function nestedClauseCandidateSeed(ticket: number, ruleId: string): number {\n'
+              '  const digest = nestedClauseKeyedDigest("candidate-substream", ticket, ruleId);\n'
+              '  return Number.parseInt(digest.slice(0, 8), 16) >>> 0;\n'
+              '}\n'
+          )
           if source.count(old_seed) != 1:
-            raise SystemExit(f'nested seed anchor count {source.count(old_seed)}')
+              raise SystemExit(f'nested seed anchor count {source.count(old_seed)}')
           source = source.replace(old_seed, new_seed)
-          old_priority = '''      priority: stableRuntimeDigest({
-                version: NESTED_CLAUSE_RULE_ORDER_VERSION,
-                purpose: "priority",
-                ticket,
-                ruleId: rule.id,
-              }),
-          '''
-          # The YAML block's indentation is stripped before Python sees the string;
-          # retry with the exact TypeScript indentation if the visual anchor above differs.
+
+          old_priority = (
+              '      priority: stableRuntimeDigest({\n'
+              '        version: NESTED_CLAUSE_RULE_ORDER_VERSION,\n'
+              '        purpose: "priority",\n'
+              '        ticket,\n'
+              '        ruleId: rule.id,\n'
+              '      }),\n'
+          )
+          new_priority = '      priority: nestedClauseKeyedDigest("priority", ticket, rule.id),\n'
           if source.count(old_priority) != 1:
-            old_priority = '''      priority: stableRuntimeDigest({
-        version: NESTED_CLAUSE_RULE_ORDER_VERSION,
-        purpose: "priority",
-        ticket,
-        ruleId: rule.id,
-      }),
-'''
-          new_priority = '''      priority: nestedClauseKeyedDigest("priority", ticket, rule.id),
-'''
-          if source.count(old_priority) != 1:
-            raise SystemExit(f'priority anchor count {source.count(old_priority)}')
+              raise SystemExit(f'priority anchor count {source.count(old_priority)}')
           sample.write_text(source.replace(old_priority, new_priority))
 
           test = Path('tests/core/stable-id.test.ts')
           source = test.read_text()
-          source = source.replace(
-            'import { stableRuntimeDigest } from "../../src/core/stable-id.js";',
-            'import { stableRuntimeDigest, stableRuntimeDigestCanonicalJson } from "../../src/core/stable-id.js";',
-          )
-          anchor = '''  it("matches the legacy eight-pass digest byte-for-byte", () => {
-          '''
-          test_case = '''  it("accepts proven canonical JSON without changing digest bytes", () => {
-            const version = "stable-keyed-rule-substream-v2";
-            for (const purpose of ["candidate-substream", "priority"] as const) {
-              for (const ticket of [0, 1, 0x7fffffff, 0xffffffff]) {
-                for (const ruleId of ["clause.basic", "clause.quoted/特殊", "quote:\\"slash\\\\"] as const) {
-                  const legacy = stableRuntimeDigest({ version, purpose, ticket, ruleId });
-                  const canonicalJson = JSON.stringify({ purpose, ruleId, ticket, version });
-                  expect(stableRuntimeDigestCanonicalJson(canonicalJson)).toBe(legacy);
-                }
-              }
-            }
-          });
-
-          ''' + anchor
+          old_import = 'import { stableRuntimeDigest } from "../../src/core/stable-id.js";'
+          new_import = 'import { stableRuntimeDigest, stableRuntimeDigestCanonicalJson } from "../../src/core/stable-id.js";'
+          if source.count(old_import) != 1:
+              raise SystemExit(f'test import anchor count {source.count(old_import)}')
+          source = source.replace(old_import, new_import)
+          anchor = '  it("matches the legacy eight-pass digest byte-for-byte", () => {\n'
+          test_case = (
+              '  it("accepts proven canonical JSON without changing digest bytes", () => {\n'
+              '    const version = "stable-keyed-rule-substream-v2";\n'
+              '    for (const purpose of ["candidate-substream", "priority"] as const) {\n'
+              '      for (const ticket of [0, 1, 0x7fffffff, 0xffffffff]) {\n'
+              '        for (const ruleId of ["clause.basic", "clause.quoted/特殊", "quote:\\\"slash\\\\\\"] as const) {\n'
+              '          const legacy = stableRuntimeDigest({ version, purpose, ticket, ruleId });\n'
+              '          const canonicalJson = JSON.stringify({ purpose, ruleId, ticket, version });\n'
+              '          expect(stableRuntimeDigestCanonicalJson(canonicalJson)).toBe(legacy);\n'
+              '        }\n'
+              '      }\n'
+              '    }\n'
+              '  });\n\n'
+          ) + anchor
           if source.count(anchor) != 1:
-            raise SystemExit(f'test anchor count {source.count(anchor)}')
+              raise SystemExit(f'test anchor count {source.count(anchor)}')
           test.write_text(source.replace(anchor, test_case))
           PY
       - run: npm ci --include=dev --ignore-scripts
