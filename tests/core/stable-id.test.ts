@@ -64,10 +64,10 @@ describe("browser-safe runtime identities", () => {
           const legacy = stableRuntimeDigest({ version, purpose, ticket, ruleId });
           const canonicalJson = JSON.stringify({ purpose, ruleId, ticket, version });
           const direct = stableRuntimeDigestCanonicalJson(canonicalJson);
-expect(direct).toBe(legacy);
-expect(stableRuntimeDigestCanonicalJsonFirstUint32(canonicalJson)).toBe(
-  Number.parseInt(legacy.slice(0, 8), 16) >>> 0,
-);
+          expect(direct).toBe(legacy);
+          expect(stableRuntimeDigestCanonicalJsonFirstUint32(canonicalJson)).toBe(
+            Number.parseInt(legacy.slice(0, 8), 16) >>> 0,
+          );
         }
       }
     }
