@@ -30,6 +30,24 @@ function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+function compatibilityCacheKey(slot: StructuralLexicalSlot): string {
+  return JSON.stringify([
+    slot.formalLiteral === undefined
+      ? ["undefined"]
+      : ["value", slot.formalLiteral],
+    slot.allowedUpos,
+    slot.requiredFunctions,
+    slot.requiredValencyFrames,
+    slot.requiredOccurrenceCapabilities ?? [],
+    Object.entries(slot.requiredFeatures)
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([feature, value]) => [
+        feature,
+        value === undefined ? ["undefined"] : ["value", value],
+      ]),
+  ]);
+}
+
 export function buildLexicalProfileIndex(
   entries: readonly CatalogEntry[],
   profiles: readonly RuntimeSyntaxProfile[],
@@ -49,17 +67,18 @@ export function compatibleProfilesForSlot(
   slot: StructuralLexicalSlot,
   index: LexicalProfileIndex,
 ): readonly RuntimeSyntaxProfile[] {
-  let bySlotId = compatibleProfilesCache.get(index);
-  if (bySlotId === undefined) {
-    bySlotId = new Map<string, readonly RuntimeSyntaxProfile[]>();
-    compatibleProfilesCache.set(index, bySlotId);
+  let byRequirements = compatibleProfilesCache.get(index);
+  if (byRequirements === undefined) {
+    byRequirements = new Map<string, readonly RuntimeSyntaxProfile[]>();
+    compatibleProfilesCache.set(index, byRequirements);
   }
-  const cached = bySlotId.get(slot.id);
+  const cacheKey = compatibilityCacheKey(slot);
+  const cached = byRequirements.get(cacheKey);
   if (cached !== undefined) return cached;
 
   if (slot.formalLiteral !== undefined) {
     const compatible: readonly RuntimeSyntaxProfile[] = [];
-    bySlotId.set(slot.id, compatible);
+    byRequirements.set(cacheKey, compatible);
     return compatible;
   }
   const candidates = slot.allowedUpos.length === 0
@@ -70,7 +89,7 @@ export function compatibleProfilesForSlot(
     return entry !== undefined
       && syntaxProfileMatchesRequirements(profile, slot, entry.prompt.text);
   });
-  bySlotId.set(slot.id, compatible);
+  byRequirements.set(cacheKey, compatible);
   return compatible;
 }
 
