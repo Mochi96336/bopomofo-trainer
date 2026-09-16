@@ -1,0 +1,123 @@
+name: tmp lazy formal entry weights
+
+on:
+  push:
+    branches:
+      - agent/lazy-formal-entry-weights
+
+permissions:
+  contents: write
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply narrow runtime patch
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          formal = Path('src/curriculum/formal-syntax-utterance.ts')
+          source = formal.read_text()
+          replacements = [
+            (
+              '  readonly entryWeightsById?: Readonly<Record<string, number>>;\n',
+              '  readonly entryWeightsById?: Readonly<Record<string, number>>;\n  /** Lazy equivalent used when scoring only the compatible lexical frontier. */\n  readonly entryWeight?: (entry: CatalogEntry) => number;\n',
+            ),
+            (
+              '  entryWeightsById: Readonly<Record<string, number>> | undefined,\n  previousEntry: CatalogEntry | null,\n',
+              '  entryWeightsById: Readonly<Record<string, number>> | undefined,\n  entryWeight: ((entry: CatalogEntry) => number) | undefined,\n  previousEntry: CatalogEntry | null,\n',
+            ),
+            (
+              '    const baseWeight = entryWeightsById?.[entry.id] ?? defaultEntryWeight(entry);\n',
+              '    const baseWeight = entryWeight?.(entry)\n      ?? entryWeightsById?.[entry.id]\n      ?? defaultEntryWeight(entry);\n',
+            ),
+            (
+              '        input.entryWeightsById,\n        previousEntry,\n',
+              '        input.entryWeightsById,\n        input.entryWeight,\n        previousEntry,\n',
+            ),
+          ]
+          for old, new in replacements:
+            if source.count(old) != 1:
+              raise SystemExit(f'formal patch anchor count {source.count(old)} for {old!r}')
+            source = source.replace(old, new)
+          formal.write_text(source)
+
+          frequency = Path('src/curriculum/frequency-first-utterance.ts')
+          source = frequency.read_text()
+          old = '''      entryWeightsById: Object.fromEntries(
+            eligibleEntries.map((entry) => [entry.id, entryWeight(entry)]),
+          ),
+          '''
+          new = '''      entryWeight,
+          '''
+          if source.count(old) != 1:
+            raise SystemExit(f'frequency patch anchor count {source.count(old)}')
+          frequency.write_text(source.replace(old, new))
+
+          test = Path('tests/curriculum/formal-syntax-utterance.test.ts')
+          source = test.read_text()
+          anchor = '''  it("does not multiply entry weight by compatible profile count", () => {
+          '''
+          inserted = '''  it("resolves entry weights only for the compatible lexical frontier", () => {
+            const first = entry("entry:lazy-first", "甲", 0.9);
+            const second = entry("entry:lazy-second", "乙", 0.9);
+            const incompatible = entry("entry:lazy-incompatible", "跑", 0.9);
+            const resolvedEntryIds: string[] = [];
+            const result = composeFormalSyntaxUtterances({
+              eligibleEntries: [first, second, incompatible],
+              profiles: [
+                profile("profile:lazy-first", first.id),
+                profile("profile:lazy-second", second.id),
+                typedProfile(
+                  "profile:lazy-incompatible",
+                  incompatible.id,
+                  "VERB",
+                  ["predicate"],
+                  ["intransitive"],
+                  { root: 1 },
+                ),
+              ],
+              entryWeight: (candidate) => {
+                resolvedEntryIds.push(candidate.id);
+                return candidate.id === first.id ? 0 : 1;
+              },
+              random: new SequenceRandom([0]),
+              maximumCandidates: 1,
+              maximumAttempts: 1,
+              rules,
+            });
+            expect(result.candidates[0]?.entries.map((item) => item.id)).toEqual([second.id]);
+            expect(resolvedEntryIds).toEqual([first.id, second.id]);
+          });
+
+          it("does not multiply entry weight by compatible profile count", () => {
+          '''
+          if source.count(anchor) != 1:
+            raise SystemExit(f'test patch anchor count {source.count(anchor)}')
+          test.write_text(source.replace(anchor, inserted))
+          PY
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run typecheck
+      - name: Targeted selector tests
+        run: npx vitest run tests/curriculum/formal-syntax-utterance.test.ts tests/curriculum/frequency-first-utterance.test.ts
+      - name: Commit staged runtime patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add src/curriculum/formal-syntax-utterance.ts src/curriculum/frequency-first-utterance.ts tests/curriculum/formal-syntax-utterance.test.ts
+          git commit -m "perf(curriculum): resolve formal entry weights lazily"
+          git rm .github/workflows/tmp-lazy-formal-entry-weights.yml
+          git commit -m "chore: remove lazy-entry staging workflow"
+          git push origin HEAD:agent/lazy-formal-entry-weights
