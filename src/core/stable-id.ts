@@ -23,13 +23,25 @@ const RUNTIME_DIGEST_SEEDS = [
   0xec4e6c89,
 ] as const;
 
-function finalizeHash32(hash: number): string {
+function finalizeHash32Value(hash: number): number {
   hash ^= hash >>> 16;
   hash = Math.imul(hash, 0x85ebca6b) >>> 0;
   hash ^= hash >>> 13;
   hash = Math.imul(hash, 0xc2b2ae35) >>> 0;
   hash ^= hash >>> 16;
-  return (hash >>> 0).toString(16).padStart(8, "0");
+  return hash >>> 0;
+}
+
+function finalizeHash32(hash: number): string {
+  return finalizeHash32Value(hash).toString(16).padStart(8, "0");
+}
+
+function hashRuntimeSourceFirst32(source: string): number {
+  let hash = (0x811c9dc5 ^ RUNTIME_DIGEST_SEEDS[0]) >>> 0;
+  for (let index = 0; index < source.length; index += 1) {
+    hash = Math.imul(hash ^ source.charCodeAt(index), 0x01000193) >>> 0;
+  }
+  return finalizeHash32Value(hash);
 }
 
 function hashRuntimeSource(source: string): string {
@@ -72,6 +84,15 @@ function hashRuntimeSource(source: string): string {
  */
 export function stableRuntimeDigestCanonicalJson(source: string): string {
   return hashRuntimeSource(source);
+}
+
+/**
+ * Return the first 32-bit lane of the stable runtime digest for JSON that
+ * the caller has already proven canonical. This is byte-for-byte equal to
+ * parsing the first eight hex digits of stableRuntimeDigestCanonicalJson().
+ */
+export function stableRuntimeDigestCanonicalJsonFirstUint32(source: string): number {
+  return hashRuntimeSourceFirst32(source);
 }
 
 /**
