@@ -291,23 +291,36 @@ function exactTransitions(
   );
 }
 
-function expectedTokenTrace(
-  entries: readonly CatalogEntry[],
+const expectedTokenTraceCache = new WeakMap<
+  FrequencyFirstScoringInput,
+  Map<TokenId, ExpectedTokenBoostTrace>
+>();
+
+function expectedTokenTraceForToken(
+  tokenId: TokenId,
   input: FrequencyFirstScoringInput,
-): readonly ExpectedTokenBoostTrace[] {
-  return scoringTokens(entries, input).map((tokenId) => {
-    const aggregate = input.bindingsByToken[tokenId];
-    if (aggregate === undefined) {
-      return {
-        tokenId,
-        attempts: 0,
-        errors: 0,
-        timingSamples: 0,
-        errorRate: null,
-        timingRatio: null,
-        boost: 1,
-      };
-    }
+): ExpectedTokenBoostTrace {
+  let byToken = expectedTokenTraceCache.get(input);
+  if (byToken === undefined) {
+    byToken = new Map<TokenId, ExpectedTokenBoostTrace>();
+    expectedTokenTraceCache.set(input, byToken);
+  }
+  const cached = byToken.get(tokenId);
+  if (cached !== undefined) return cached;
+
+  const aggregate = input.bindingsByToken[tokenId];
+  let trace: ExpectedTokenBoostTrace;
+  if (aggregate === undefined) {
+    trace = {
+      tokenId,
+      attempts: 0,
+      errors: 0,
+      timingSamples: 0,
+      errorRate: null,
+      timingRatio: null,
+      boost: 1,
+    };
+  } else {
     const errorRate = aggregate.attempts >= input.policy.minimumBindingAttempts
       ? aggregate.errors / aggregate.attempts
       : null;
@@ -321,7 +334,7 @@ function expectedTokenTrace(
     const timingContribution = timingRatio === null
       ? 0
       : Math.max(0, timingRatio - 1) * input.policy.timingBoostScale;
-    return {
+    trace = {
       tokenId,
       attempts: aggregate.attempts,
       errors: aggregate.errors,
@@ -334,7 +347,18 @@ function expectedTokenTrace(
         input.policy.maximumExpectedTokenBoost,
       ),
     };
-  });
+  }
+  byToken.set(tokenId, trace);
+  return trace;
+}
+
+function expectedTokenTrace(
+  entries: readonly CatalogEntry[],
+  input: FrequencyFirstScoringInput,
+): readonly ExpectedTokenBoostTrace[] {
+  return scoringTokens(entries, input).map((tokenId) =>
+    expectedTokenTraceForToken(tokenId, input)
+  );
 }
 
 function transitionTrace(
