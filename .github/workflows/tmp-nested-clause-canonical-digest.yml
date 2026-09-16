@@ -95,8 +95,18 @@ jobs:
                 ruleId: rule.id,
               }),
           '''
+          # The YAML block's indentation is stripped before Python sees the string;
+          # retry with the exact TypeScript indentation if the visual anchor above differs.
+          if source.count(old_priority) != 1:
+            old_priority = '''      priority: stableRuntimeDigest({
+        version: NESTED_CLAUSE_RULE_ORDER_VERSION,
+        purpose: "priority",
+        ticket,
+        ruleId: rule.id,
+      }),
+'''
           new_priority = '''      priority: nestedClauseKeyedDigest("priority", ticket, rule.id),
-          '''
+'''
           if source.count(old_priority) != 1:
             raise SystemExit(f'priority anchor count {source.count(old_priority)}')
           sample.write_text(source.replace(old_priority, new_priority))
