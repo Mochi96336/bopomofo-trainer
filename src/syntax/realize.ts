@@ -21,8 +21,31 @@ export interface LexicalProfileIndex {
   readonly entriesById: ReadonlyMap<string, CatalogEntry>;
 }
 
+const compatibleProfilesCache = new WeakMap<
+  LexicalProfileIndex,
+  Map<string, readonly RuntimeSyntaxProfile[]>
+>();
+
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function compatibilityCacheKey(slot: StructuralLexicalSlot): string {
+  return JSON.stringify([
+    slot.formalLiteral === undefined
+      ? ["undefined"]
+      : ["value", slot.formalLiteral],
+    slot.allowedUpos,
+    slot.requiredFunctions,
+    slot.requiredValencyFrames,
+    slot.requiredOccurrenceCapabilities ?? [],
+    Object.entries(slot.requiredFeatures)
+      .sort(([left], [right]) => compareText(left, right))
+      .map(([feature, value]) => [
+        feature,
+        value === undefined ? ["undefined"] : ["value", value],
+      ]),
+  ]);
 }
 
 export function buildLexicalProfileIndex(
@@ -44,15 +67,30 @@ export function compatibleProfilesForSlot(
   slot: StructuralLexicalSlot,
   index: LexicalProfileIndex,
 ): readonly RuntimeSyntaxProfile[] {
-  if (slot.formalLiteral !== undefined) return [];
+  let byRequirements = compatibleProfilesCache.get(index);
+  if (byRequirements === undefined) {
+    byRequirements = new Map<string, readonly RuntimeSyntaxProfile[]>();
+    compatibleProfilesCache.set(index, byRequirements);
+  }
+  const cacheKey = compatibilityCacheKey(slot);
+  const cached = byRequirements.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  if (slot.formalLiteral !== undefined) {
+    const compatible: readonly RuntimeSyntaxProfile[] = [];
+    byRequirements.set(cacheKey, compatible);
+    return compatible;
+  }
   const candidates = slot.allowedUpos.length === 0
     ? Object.values(index.profilesByUpos).flat()
     : slot.allowedUpos.flatMap((upos) => index.profilesByUpos[upos] ?? []);
-  return candidates.filter((profile) => {
+  const compatible = candidates.filter((profile) => {
     const entry = index.entriesById.get(profile.entryId);
     return entry !== undefined
       && syntaxProfileMatchesRequirements(profile, slot, entry.prompt.text);
   });
+  byRequirements.set(cacheKey, compatible);
+  return compatible;
 }
 
 function seededOffset(seed: string, slotId: string, size: number): number {

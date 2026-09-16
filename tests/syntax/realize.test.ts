@@ -96,12 +96,23 @@ const shape: StructuralDerivationShape = {
 };
 
 describe("lazy lexical realization", () => {
-  it("keeps every compatible profile individually reachable by slot offset", () => {
+  it("reuses compatibility by requirements without trusting caller slot IDs", () => {
     const entries = [entry("entry:a", "甲"), entry("entry:b", "乙")];
     const profiles = [profile("profile:a", "entry:a"), profile("profile:b", "entry:b")];
     const index = buildLexicalProfileIndex(entries, profiles);
-    expect(compatibleProfilesForSlot(slot, index).map((item) => item.id))
-      .toEqual(["profile:a", "profile:b"]);
+
+    const firstCompatible = compatibleProfilesForSlot(slot, index);
+    const sameRequirements = compatibleProfilesForSlot({ ...slot }, index);
+    expect(sameRequirements).toBe(firstCompatible);
+    expect(firstCompatible.map((item) => item.id)).toEqual(["profile:a", "profile:b"]);
+
+    const sameIdDifferentRequirements = compatibleProfilesForSlot({
+      ...slot,
+      requiredFunctions: ["object"] as const,
+    }, index);
+    expect(sameIdDifferentRequirements).not.toBe(firstCompatible);
+    expect(sameIdDifferentRequirements).toEqual([]);
+
     expect(realizeStructuralDerivation(shape, {
       entries,
       profiles,
