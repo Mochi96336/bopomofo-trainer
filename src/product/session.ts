@@ -16,6 +16,7 @@ import {
   validateFrequencyFirstUtterancePolicy,
   type FrequencyFirstUtterancePolicy,
 } from "../curriculum/frequency-first-utterance.js";
+import { prepareFormalSyntaxLexicon } from "../curriculum/formal-syntax-utterance.js";
 import { PHASE_4_CURRICULUM_POLICY } from "../curriculum/policy.js";
 import { createSeededRandom } from "../curriculum/random.js";
 import { createCatalogSupportIndex, entryTokenSet } from "../curriculum/support.js";
@@ -84,6 +85,10 @@ export function createProductEnvironment(
     evaluationSupport: createCatalogSupportIndex(catalogs.evaluation),
     curriculumPolicy: PHASE_4_CURRICULUM_POLICY,
     utterancePolicy,
+    preparedPracticeLexicon: prepareFormalSyntaxLexicon(
+      catalogs.practice,
+      catalogs.syntaxProfiles,
+    ),
   };
 }
 
@@ -119,6 +124,7 @@ function selectRound(
     },
     policy: environment.utterancePolicy,
     profiles: environment.catalogs.syntaxProfiles,
+    preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     random: createSeededRandom(
       `${progress.seed}:practice:${progress.practiceRoundsCompleted}`,
     ),
