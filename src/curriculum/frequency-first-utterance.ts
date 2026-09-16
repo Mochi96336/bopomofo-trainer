@@ -401,6 +401,29 @@ function learnerTransitionTrace(
   return input.legacyTransitions === null ? [] : transitionTrace(entries, input);
 }
 
+function bindingOnlyFormalEntryTotalWeight(
+  entry: CatalogEntry,
+  input: FrequencyFirstScoringInput,
+): number {
+  const frequencyBase = catalogEntryFrequencyWeight(entry);
+  let expectedTokenBoost = 1;
+  for (const tokenId of scoringTokens([entry], input)) {
+    expectedTokenBoost = Math.max(
+      expectedTokenBoost,
+      expectedTokenTraceForToken(tokenId, input).boost,
+    );
+  }
+  const transitionBoost = 1;
+  const combinedLearnerBoost = Math.min(
+    input.policy.maximumCombinedLearnerBoost,
+    expectedTokenBoost * transitionBoost,
+  );
+  const recentEntryFactor = input.history.recentEntryIds.includes(entry.id)
+    ? input.policy.recentEntryPenalty
+    : 1;
+  return frequencyBase * combinedLearnerBoost * recentEntryFactor;
+}
+
 function scoreEntry(
   entry: CatalogEntry,
   input: FrequencyFirstScoringInput,
@@ -577,13 +600,15 @@ function generateOnce(
   maximumClauseNesting: number,
   preparedFormalSyntaxLexicon: PreparedFormalSyntaxLexicon | null,
 ): SlotWeightedGrammarGeneration {
-  const entryScores = new Map<string, EntrySelectionScore>();
+  const entryWeights = new Map<string, number>();
   const entryWeight = (entry: CatalogEntry): number => {
-    const existing = entryScores.get(entry.id);
-    if (existing !== undefined) return existing.totalWeight;
-    const score = scoreEntry(entry, input);
-    entryScores.set(entry.id, score);
-    return score.totalWeight;
+    const existing = entryWeights.get(entry.id);
+    if (existing !== undefined) return existing;
+    const weight = input.profiles !== undefined && input.legacyTransitions === null
+      ? bindingOnlyFormalEntryTotalWeight(entry, input)
+      : scoreEntry(entry, input).totalWeight;
+    entryWeights.set(entry.id, weight);
+    return weight;
   };
   if (input.profiles !== undefined) {
     if (preparedFormalSyntaxLexicon === null) {
