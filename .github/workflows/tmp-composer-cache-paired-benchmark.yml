@@ -1,4 +1,4 @@
-name: tmp exact structural context benchmark
+name: tmp exact structural canonical benchmark
 
 on:
   push:
@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      PRODUCTION_REF: 2f61bcdcd5fcf6ef2eda9de9993e381bc34878a4
-      CANDIDATE_REF: 5139f9dda691cdb41e3816736a5933599a194d52
+      PRODUCTION_REF: 339624d2f62d24f23207078538c96fbdf41843a0
+      CANDIDATE_REF: ed4cd5d6cfc64da3f2efd61f626fb0cf3a8037a3
       SAMPLE_COUNT: '256'
     steps:
       - uses: actions/checkout@v6
@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          results="$RUNNER_TEMP/exact-291-results.jsonl"
+          results="$RUNNER_TEMP/exact-292-results.jsonl"
           : > "$results"
 
           measure() {
@@ -63,7 +63,7 @@ jobs:
           const environmentMs = Math.round(performance.now() - environmentStartedAt);
           const baseProgress = createFreshProgressForEnvironment(
             environment,
-            "exact-291-paired",
+            "exact-292-paired",
             "guided",
             "standard",
           );
