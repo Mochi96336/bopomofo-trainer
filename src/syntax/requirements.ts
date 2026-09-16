@@ -89,23 +89,14 @@ function localRequirementsForConstituent(
   const cached = preparedLocalRequirements.get(constituent);
   if (cached !== undefined) return cached;
 
-  const localValencyFrames = mergeValencyFrames(constituent.requiredValencyFrames, []);
-  if (localValencyFrames === null) {
-    throw new Error("Local constituent valency requirements cannot conflict without inheritance.");
-  }
-  const localFeatures = mergeFeatures(constituent.requiredFeatures, {});
-  if (localFeatures === null) {
-    throw new Error("Local constituent feature requirements cannot conflict without inheritance.");
-  }
-
   const prepared: SyntaxRequirements = {
     requiredFunctions: mergeFunctions(constituent.requiredFunctions, []),
-    requiredValencyFrames: localValencyFrames,
+    requiredValencyFrames: [...constituent.requiredValencyFrames].sort(compareText),
     requiredOccurrenceCapabilities: mergeOccurrenceCapabilities(
       constituent.requiredOccurrenceCapabilities ?? [],
       [],
     ),
-    requiredFeatures: localFeatures,
+    requiredFeatures: Object.fromEntries(featureEntries(constituent.requiredFeatures)),
   };
   preparedLocalRequirements.set(constituent, prepared);
   return prepared;
