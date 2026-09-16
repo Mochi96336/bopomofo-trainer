@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogEntry, RandomSource } from "../../src/core/model.js";
-import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
+import {
+  composeFormalSyntaxUtterances,
+  prepareFormalSyntaxLexicon,
+} from "../../src/curriculum/formal-syntax-utterance.js";
 import { FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";
 import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
 import type { ProductionRule, SyntaxProfile } from "../../src/syntax/types.js";
@@ -425,5 +428,37 @@ describe("frequency-first formal syntax compatibility composer", () => {
     expect(result.candidates).toEqual([]);
     expect(result.fallbackReasons).toContain("formal-syntax-no-candidate");
     expect(result.fallbackReasons).toContain("formal-syntax-structural-sampling-exhausted");
+  });
+});
+
+describe("prepared formal syntax lexicon", () => {
+  it("matches raw composition while reusing the prepared lexical frontier", () => {
+    const eligible = entry("entry:prepared-eligible", "甲", 1);
+    const excluded = entry("entry:prepared-excluded", "乙", 1);
+    const entries = [eligible];
+    const profiles = [
+      profile("profile:prepared-eligible", eligible.id),
+      profile("profile:prepared-excluded", excluded.id),
+    ];
+    const prepared = prepareFormalSyntaxLexicon(entries, profiles);
+    const compose = (random: RandomSource) => ({
+      eligibleEntries: entries,
+      profiles,
+      random,
+      maximumCandidates: 1,
+      maximumAttempts: 1,
+      rules,
+    });
+
+    const raw = composeFormalSyntaxUtterances(compose(new SequenceRandom([0])));
+    const reused = composeFormalSyntaxUtterances(
+      compose(new SequenceRandom([0])),
+      prepared,
+    );
+
+    expect(prepared.index.profilesByUpos.NOUN?.map((item) => item.id)).toEqual([
+      "profile:prepared-eligible",
+    ]);
+    expect(reused).toEqual(raw);
   });
 });

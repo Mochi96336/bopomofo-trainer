@@ -19,7 +19,9 @@ import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";
 import type { DerivationBounds, RuntimeSyntaxProfile } from "../syntax/types.js";
 import {
   composeFormalSyntaxUtterances,
+  prepareFormalSyntaxLexicon,
   type FormalSyntaxUtteranceInput,
+  type PreparedFormalSyntaxLexicon,
 } from "./formal-syntax-utterance.js";
 import {
   generateSlotWeightedGrammar,
@@ -508,6 +510,7 @@ function generateOnce(
   eligibleEntries: readonly CatalogEntry[],
   input: FrequencyFirstScoringInput,
   maximumClauseNesting: number,
+  preparedFormalSyntaxLexicon: PreparedFormalSyntaxLexicon | null,
 ): SlotWeightedGrammarGeneration {
   const entryScores = new Map<string, EntrySelectionScore>();
   const entryWeight = (entry: CatalogEntry): number => {
@@ -518,6 +521,9 @@ function generateOnce(
     return score.totalWeight;
   };
   if (input.profiles !== undefined) {
+    if (preparedFormalSyntaxLexicon === null) {
+      throw new Error("formal syntax profiles require prepared lexical context");
+    }
     const composition = composeFormalSyntaxUtterances({
       eligibleEntries,
       profiles: input.profiles,
@@ -530,7 +536,7 @@ function generateOnce(
       maximumAttempts: 64,
       ...composerCompositionOverride(input),
       bounds: formalSyntaxExecutionBounds(maximumClauseNesting),
-    });
+    }, preparedFormalSyntaxLexicon);
     return {
       candidate: composition.candidates[0] ?? null,
       templateCandidates: [],
@@ -613,13 +619,21 @@ function selectFrequencyFirstUtteranceFromEvidence(
   const maximumClauseNesting = input.profiles === undefined
     ? 1
     : derivedConstructionClauseNesting(input);
+  const preparedFormalSyntaxLexicon = input.profiles === undefined
+    ? null
+    : prepareFormalSyntaxLexicon(eligibleEntries, input.profiles);
   let generation: SlotWeightedGrammarGeneration | null = null;
   let score: UtteranceCandidateScore | null = null;
   let generationAttempts = 0;
 
   while (generationAttempts < MAXIMUM_RECENT_UTTERANCE_ATTEMPTS) {
     generationAttempts += 1;
-    generation = generateOnce(eligibleEntries, input, maximumClauseNesting);
+    generation = generateOnce(
+      eligibleEntries,
+      input,
+      maximumClauseNesting,
+      preparedFormalSyntaxLexicon,
+    );
     if (generation.candidate === null) {
       throw new Error(`no grammar-valid utterance candidate: ${generation.fallbackReasons.join(",")}`);
     }
