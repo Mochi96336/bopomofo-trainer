@@ -81,26 +81,75 @@ function mergeFeatures(
   return Object.fromEntries([...merged.entries()].sort(([left], [right]) => compareText(left, right)));
 }
 
+const preparedLocalRequirements = new WeakMap<ProductionConstituent, SyntaxRequirements>();
+
+function localRequirementsForConstituent(
+  constituent: ProductionConstituent,
+): SyntaxRequirements {
+  const cached = preparedLocalRequirements.get(constituent);
+  if (cached !== undefined) return cached;
+
+  const prepared: SyntaxRequirements = {
+    requiredFunctions: mergeFunctions(constituent.requiredFunctions, []),
+    requiredValencyFrames: [...constituent.requiredValencyFrames].sort(compareText),
+    requiredOccurrenceCapabilities: mergeOccurrenceCapabilities(
+      constituent.requiredOccurrenceCapabilities ?? [],
+      [],
+    ),
+    requiredFeatures: Object.fromEntries(featureEntries(constituent.requiredFeatures)),
+  };
+  preparedLocalRequirements.set(constituent, prepared);
+  return prepared;
+}
+
+function copyRequirements(requirements: SyntaxRequirements): SyntaxRequirements {
+  return {
+    requiredFunctions: [...requirements.requiredFunctions],
+    requiredValencyFrames: [...requirements.requiredValencyFrames],
+    requiredOccurrenceCapabilities: [...requirements.requiredOccurrenceCapabilities],
+    requiredFeatures: { ...requirements.requiredFeatures },
+  };
+}
+
 export function requirementsForConstituent(
   constituent: ProductionConstituent,
   parent: SyntaxRequirementsInput,
 ): SyntaxRequirements | null {
+  const local = localRequirementsForConstituent(constituent);
+  const inheritFunctions = constituent.inheritFunctions === true && parent.requiredFunctions.length > 0;
+  const inheritValencyFrames = constituent.inheritValencyFrames === true
+    && parent.requiredValencyFrames.length > 0;
+  const inheritedOccurrenceCapabilities = parent.requiredOccurrenceCapabilities ?? [];
+  const inheritOccurrenceCapabilities = constituent.inheritOccurrenceCapabilities === true
+    && inheritedOccurrenceCapabilities.length > 0;
+  const inheritFeatures = constituent.inheritFeatures === true
+    && Object.keys(parent.requiredFeatures).length > 0;
+
+  if (
+    !inheritFunctions
+    && !inheritValencyFrames
+    && !inheritOccurrenceCapabilities
+    && !inheritFeatures
+  ) {
+    return copyRequirements(local);
+  }
+
   const requiredFunctions = mergeFunctions(
-    constituent.requiredFunctions,
-    constituent.inheritFunctions ? parent.requiredFunctions : [],
+    local.requiredFunctions,
+    inheritFunctions ? parent.requiredFunctions : [],
   );
   const requiredValencyFrames = mergeValencyFrames(
-    constituent.requiredValencyFrames,
-    constituent.inheritValencyFrames ? parent.requiredValencyFrames : [],
+    local.requiredValencyFrames,
+    inheritValencyFrames ? parent.requiredValencyFrames : [],
   );
   if (requiredValencyFrames === null) return null;
   const requiredOccurrenceCapabilities = mergeOccurrenceCapabilities(
-    constituent.requiredOccurrenceCapabilities ?? [],
-    constituent.inheritOccurrenceCapabilities ? parent.requiredOccurrenceCapabilities ?? [] : [],
+    local.requiredOccurrenceCapabilities,
+    inheritOccurrenceCapabilities ? inheritedOccurrenceCapabilities : [],
   );
   const requiredFeatures = mergeFeatures(
-    constituent.requiredFeatures,
-    constituent.inheritFeatures ? parent.requiredFeatures : {},
+    local.requiredFeatures,
+    inheritFeatures ? parent.requiredFeatures : {},
   );
   if (requiredFeatures === null) return null;
   return {
