@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      TARGET_REF: 339624d2f62d24f23207078538c96fbdf41843a0
+      TARGET_REF: 72e7548d7b40451da764296a9146f8fe8094d37f
     steps:
       - uses: actions/checkout@v6
         with:
@@ -52,7 +52,7 @@ jobs:
           });
           const baseProgress = createFreshProgressForEnvironment(
             environment,
-            "post-291-cpu-profile",
+            "post-292-cpu-profile",
             "guided",
             "standard",
           );
