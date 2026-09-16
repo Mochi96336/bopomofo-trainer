@@ -569,9 +569,7 @@ function generateOnce(
       eligibleEntries,
       profiles: input.profiles,
       random: input.random,
-      entryWeightsById: Object.fromEntries(
-        eligibleEntries.map((entry) => [entry.id, entryWeight(entry)]),
-      ),
+      entryWeight,
       minimumLexicalEntries: 2,
       maximumCandidates: 1,
       maximumAttempts: 64,

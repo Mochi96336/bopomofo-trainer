@@ -289,6 +289,38 @@ describe("frequency-first formal syntax compatibility composer", () => {
     expect(result.candidates[0]?.entries.map((item) => item.id)).toEqual([second.id]);
   });
 
+  it("resolves entry weights only for the compatible lexical frontier", () => {
+    const first = entry("entry:lazy-first", "甲", 0.9);
+    const second = entry("entry:lazy-second", "乙", 0.9);
+    const incompatible = entry("entry:lazy-incompatible", "跑", 0.9);
+    const resolvedEntryIds: string[] = [];
+    const result = composeFormalSyntaxUtterances({
+      eligibleEntries: [first, second, incompatible],
+      profiles: [
+        profile("profile:lazy-first", first.id),
+        profile("profile:lazy-second", second.id),
+        typedProfile(
+          "profile:lazy-incompatible",
+          incompatible.id,
+          "VERB",
+          ["predicate"],
+          ["intransitive"],
+          { root: 1 },
+        ),
+      ],
+      entryWeight: (candidate) => {
+        resolvedEntryIds.push(candidate.id);
+        return candidate.id === first.id ? 0 : 1;
+      },
+      random: new SequenceRandom([0]),
+      maximumCandidates: 1,
+      maximumAttempts: 1,
+      rules,
+    });
+    expect(result.candidates[0]?.entries.map((item) => item.id)).toEqual([second.id]);
+    expect(resolvedEntryIds).toEqual([first.id, second.id]);
+  });
+
   it("does not multiply entry weight by compatible profile count", () => {
     const first = entry("entry:first", "甲", 0.9);
     const second = entry("entry:second", "乙", 0.9);
