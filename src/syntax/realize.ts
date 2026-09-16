@@ -21,6 +21,13 @@ export interface LexicalProfileIndex {
   readonly entriesById: ReadonlyMap<string, CatalogEntry>;
 }
 
+export interface IndexedLexicalRealizationOptions {
+  readonly index: LexicalProfileIndex;
+  readonly seed?: string;
+  readonly profileOffsetsBySlotId?: Readonly<Record<string, number>>;
+  readonly punctuationToken?: string;
+}
+
 const compatibleProfilesCache = new WeakMap<
   LexicalProfileIndex,
   Map<string, readonly RuntimeSyntaxProfile[]>
@@ -104,11 +111,11 @@ function normalizeOffset(value: number, size: number): number {
   return ((value % size) + size) % size;
 }
 
-export function realizeStructuralDerivation(
+export function realizeStructuralDerivationWithIndex(
   shape: StructuralDerivationShape,
-  options: LexicalRealizationOptions,
+  options: IndexedLexicalRealizationOptions,
 ): SurfaceRealization | null {
-  const index = buildLexicalProfileIndex(options.entries, options.profiles);
+  const { index } = options;
   const seed = options.seed ?? shape.id;
   const tokens: SurfaceToken[] = [];
   const entryIds: string[] = [];
@@ -169,4 +176,21 @@ export function realizeStructuralDerivation(
     syntaxProfileIds,
     tokens,
   };
+}
+
+export function realizeStructuralDerivation(
+  shape: StructuralDerivationShape,
+  options: LexicalRealizationOptions,
+): SurfaceRealization | null {
+  const index = buildLexicalProfileIndex(options.entries, options.profiles);
+  return realizeStructuralDerivationWithIndex(shape, {
+    index,
+    ...(options.seed === undefined ? {} : { seed: options.seed }),
+    ...(options.profileOffsetsBySlotId === undefined
+      ? {}
+      : { profileOffsetsBySlotId: options.profileOffsetsBySlotId }),
+    ...(options.punctuationToken === undefined
+      ? {}
+      : { punctuationToken: options.punctuationToken }),
+  });
 }
