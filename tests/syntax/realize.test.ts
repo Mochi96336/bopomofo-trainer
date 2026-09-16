@@ -100,8 +100,10 @@ describe("lazy lexical realization", () => {
     const entries = [entry("entry:a", "甲"), entry("entry:b", "乙")];
     const profiles = [profile("profile:a", "entry:a"), profile("profile:b", "entry:b")];
     const index = buildLexicalProfileIndex(entries, profiles);
-    expect(compatibleProfilesForSlot(slot, index).map((item) => item.id))
-      .toEqual(["profile:a", "profile:b"]);
+    const firstCompatible = compatibleProfilesForSlot(slot, index);
+    const secondCompatible = compatibleProfilesForSlot(slot, index);
+    expect(secondCompatible).toBe(firstCompatible);
+    expect(firstCompatible.map((item) => item.id)).toEqual(["profile:a", "profile:b"]);
     expect(realizeStructuralDerivation(shape, {
       entries,
       profiles,
