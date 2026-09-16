@@ -21,6 +21,11 @@ export interface LexicalProfileIndex {
   readonly entriesById: ReadonlyMap<string, CatalogEntry>;
 }
 
+const compatibleProfilesCache = new WeakMap<
+  LexicalProfileIndex,
+  Map<string, readonly RuntimeSyntaxProfile[]>
+>();
+
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
@@ -44,15 +49,29 @@ export function compatibleProfilesForSlot(
   slot: StructuralLexicalSlot,
   index: LexicalProfileIndex,
 ): readonly RuntimeSyntaxProfile[] {
-  if (slot.formalLiteral !== undefined) return [];
+  let bySlotId = compatibleProfilesCache.get(index);
+  if (bySlotId === undefined) {
+    bySlotId = new Map<string, readonly RuntimeSyntaxProfile[]>();
+    compatibleProfilesCache.set(index, bySlotId);
+  }
+  const cached = bySlotId.get(slot.id);
+  if (cached !== undefined) return cached;
+
+  if (slot.formalLiteral !== undefined) {
+    const compatible: readonly RuntimeSyntaxProfile[] = [];
+    bySlotId.set(slot.id, compatible);
+    return compatible;
+  }
   const candidates = slot.allowedUpos.length === 0
     ? Object.values(index.profilesByUpos).flat()
     : slot.allowedUpos.flatMap((upos) => index.profilesByUpos[upos] ?? []);
-  return candidates.filter((profile) => {
+  const compatible = candidates.filter((profile) => {
     const entry = index.entriesById.get(profile.entryId);
     return entry !== undefined
       && syntaxProfileMatchesRequirements(profile, slot, entry.prompt.text);
   });
+  bySlotId.set(slot.id, compatible);
+  return compatible;
 }
 
 function seededOffset(seed: string, slotId: string, size: number): number {
