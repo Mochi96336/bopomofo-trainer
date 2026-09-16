@@ -1,0 +1,144 @@
+name: tmp nested clause canonical digest
+
+on:
+  push:
+    branches:
+      - agent/nested-clause-canonical-digest
+
+permissions:
+  contents: write
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: agent/nested-clause-canonical-digest
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply narrow prototype and exact equivalence test
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          stable = Path('src/core/stable-id.ts')
+          source = stable.read_text()
+          anchor = '''export function stableRuntimeDigest(value: unknown): string {
+            const source = JSON.stringify(canonicalValue(value));
+            return hashRuntimeSource(source);
+          }
+          '''
+          replacement = '''/** Hash an already-canonical JSON source with the exact stable-runtime digest algorithm. */
+          export function stableRuntimeDigestCanonicalJson(source: string): string {
+            return hashRuntimeSource(source);
+          }
+
+          export function stableRuntimeDigest(value: unknown): string {
+            const source = JSON.stringify(canonicalValue(value));
+            return stableRuntimeDigestCanonicalJson(source);
+          }
+          '''
+          if source.count(anchor) != 1:
+            raise SystemExit(f'stable-id anchor count {source.count(anchor)}')
+          stable.write_text(source.replace(anchor, replacement))
+
+          sample = Path('src/syntax/sample.ts')
+          source = sample.read_text()
+          source = source.replace(
+            'import { stableRuntimeDigest } from "../core/stable-id.js";',
+            'import { stableRuntimeDigest, stableRuntimeDigestCanonicalJson } from "../core/stable-id.js";',
+          )
+          old_seed = '''function nestedClauseCandidateSeed(ticket: number, ruleId: string): number {
+            const digest = stableRuntimeDigest({
+              version: NESTED_CLAUSE_RULE_ORDER_VERSION,
+              purpose: "candidate-substream",
+              ticket,
+              ruleId,
+            });
+            return Number.parseInt(digest.slice(0, 8), 16) >>> 0;
+          }
+          '''
+          new_seed = '''function nestedClauseKeyedDigest(
+            purpose: "candidate-substream" | "priority",
+            ticket: number,
+            ruleId: string,
+          ): string {
+            // These keys are already in stableRuntimeDigest canonical sort order:
+            // purpose, ruleId, ticket, version. Keep this byte-for-byte equivalent.
+            const canonicalJson = JSON.stringify({
+              purpose,
+              ruleId,
+              ticket,
+              version: NESTED_CLAUSE_RULE_ORDER_VERSION,
+            });
+            return stableRuntimeDigestCanonicalJson(canonicalJson);
+          }
+
+          function nestedClauseCandidateSeed(ticket: number, ruleId: string): number {
+            const digest = nestedClauseKeyedDigest("candidate-substream", ticket, ruleId);
+            return Number.parseInt(digest.slice(0, 8), 16) >>> 0;
+          }
+          '''
+          if source.count(old_seed) != 1:
+            raise SystemExit(f'nested seed anchor count {source.count(old_seed)}')
+          source = source.replace(old_seed, new_seed)
+          old_priority = '''      priority: stableRuntimeDigest({
+                version: NESTED_CLAUSE_RULE_ORDER_VERSION,
+                purpose: "priority",
+                ticket,
+                ruleId: rule.id,
+              }),
+          '''
+          new_priority = '''      priority: nestedClauseKeyedDigest("priority", ticket, rule.id),
+          '''
+          if source.count(old_priority) != 1:
+            raise SystemExit(f'priority anchor count {source.count(old_priority)}')
+          sample.write_text(source.replace(old_priority, new_priority))
+
+          test = Path('tests/core/stable-id.test.ts')
+          source = test.read_text()
+          source = source.replace(
+            'import { stableRuntimeDigest } from "../../src/core/stable-id.js";',
+            'import { stableRuntimeDigest, stableRuntimeDigestCanonicalJson } from "../../src/core/stable-id.js";',
+          )
+          anchor = '''  it("matches the legacy eight-pass digest byte-for-byte", () => {
+          '''
+          test_case = '''  it("accepts proven canonical JSON without changing digest bytes", () => {
+            const version = "stable-keyed-rule-substream-v2";
+            for (const purpose of ["candidate-substream", "priority"] as const) {
+              for (const ticket of [0, 1, 0x7fffffff, 0xffffffff]) {
+                for (const ruleId of ["clause.basic", "clause.quoted/特殊", "quote:\\"slash\\\\"] as const) {
+                  const legacy = stableRuntimeDigest({ version, purpose, ticket, ruleId });
+                  const canonicalJson = JSON.stringify({ purpose, ruleId, ticket, version });
+                  expect(stableRuntimeDigestCanonicalJson(canonicalJson)).toBe(legacy);
+                }
+              }
+            }
+          });
+
+          ''' + anchor
+          if source.count(anchor) != 1:
+            raise SystemExit(f'test anchor count {source.count(anchor)}')
+          test.write_text(source.replace(anchor, test_case))
+          PY
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run typecheck
+      - name: Targeted tests
+        run: npx vitest run tests/core/stable-id.test.ts tests/syntax/sample.test.ts tests/curriculum/formal-syntax-utterance.test.ts tests/curriculum/frequency-first-utterance.test.ts
+      - name: Commit prototype and remove staging workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/core/stable-id.ts src/syntax/sample.ts tests/core/stable-id.test.ts
+          git commit -m "perf(syntax): skip canonicalization for nested keyed digests"
+          git rm .github/workflows/tmp-nested-clause-canonical-digest.yml
+          git commit -m "chore: remove nested digest staging workflow"
+          git push origin HEAD:agent/nested-clause-canonical-digest
