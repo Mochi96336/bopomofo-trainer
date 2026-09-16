@@ -456,9 +456,15 @@ describe("prepared formal syntax lexicon", () => {
       prepared,
     );
 
+    expect(prepared.eligibleEntries).toBe(entries);
+    expect(prepared.profiles).toBe(profiles);
     expect(prepared.index.profilesByUpos.NOUN?.map((item) => item.id)).toEqual([
       "profile:prepared-eligible",
     ]);
     expect(reused).toEqual(raw);
+    expect(() => composeFormalSyntaxUtterances(
+      { ...compose(new SequenceRandom([0])), eligibleEntries: [...entries] },
+      prepared,
+    )).toThrow(/prepared formal syntax lexicon input identity mismatch/u);
   });
 });

@@ -11,6 +11,7 @@ import type {
   FrequencyFirstUtterancePolicy,
   FrequencyFirstUtteranceSelection,
 } from "../curriculum/frequency-first-utterance.js";
+import type { PreparedFormalSyntaxLexicon } from "../curriculum/formal-syntax-utterance.js";
 import type { MeasurementSummaryV2 } from "../measurement-v2/aggregate.js";
 import type { InteractionSessionStateV2 } from "../practice/interaction-session-v2.js";
 import type { RuntimeSyntaxProfile } from "../syntax/types.js";
@@ -68,6 +69,7 @@ export interface ProductEnvironment {
   readonly evaluationSupport: CatalogSupportIndex;
   readonly curriculumPolicy: CurriculumPolicy;
   readonly utterancePolicy: FrequencyFirstUtterancePolicy;
+  readonly preparedPracticeLexicon: PreparedFormalSyntaxLexicon;
 }
 
 export interface ProductState {

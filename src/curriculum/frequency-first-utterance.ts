@@ -186,6 +186,7 @@ export type FormalSyntaxUtteranceSelectionInput = Omit<
   /** Measurement V2 semantic binding aggregates satisfy this contract directly. */
   readonly bindingEvidence: readonly LearnerBindingEvidence[];
   readonly profiles: readonly RuntimeSyntaxProfile[];
+  readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
 };
 
 type FrequencyFirstScoringInput = Omit<
@@ -195,6 +196,7 @@ type FrequencyFirstScoringInput = Omit<
   readonly bindingsByToken: Readonly<Record<string, LearnerBindingEvidence>>;
   /** Canonical transition evidence exists only on the legacy/research path. */
   readonly legacyTransitions: MeasurementSummary["transitions"] | null;
+  readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
 };
 
 function compareText(left: string, right: string): number {
@@ -621,7 +623,8 @@ function selectFrequencyFirstUtteranceFromEvidence(
     : derivedConstructionClauseNesting(input);
   const preparedFormalSyntaxLexicon = input.profiles === undefined
     ? null
-    : prepareFormalSyntaxLexicon(eligibleEntries, input.profiles);
+    : input.preparedFormalSyntaxLexicon
+      ?? prepareFormalSyntaxLexicon(eligibleEntries, input.profiles);
   let generation: SlotWeightedGrammarGeneration | null = null;
   let score: UtteranceCandidateScore | null = null;
   let generationAttempts = 0;

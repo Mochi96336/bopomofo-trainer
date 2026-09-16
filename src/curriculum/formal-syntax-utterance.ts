@@ -82,6 +82,8 @@ export interface FormalSyntaxUtteranceInput {
 
 /** Immutable lexical preparation reusable while the entry/profile inputs stay unchanged. */
 export interface PreparedFormalSyntaxLexicon {
+  readonly eligibleEntries: readonly CatalogEntry[];
+  readonly profiles: readonly RuntimeSyntaxProfile[];
   readonly index: LexicalProfileIndex;
 }
 
@@ -92,6 +94,8 @@ export function prepareFormalSyntaxLexicon(
   const eligibleEntryIds = new Set(eligibleEntries.map((entry) => entry.id));
   const eligibleProfiles = profiles.filter((profile) => eligibleEntryIds.has(profile.entryId));
   return {
+    eligibleEntries,
+    profiles,
     index: buildLexicalProfileIndex(eligibleEntries, eligibleProfiles),
   };
 }
@@ -215,6 +219,11 @@ export function composeFormalSyntaxUtterances(
   const compatibilityMaximumBoost = input.lexicalCompatibilityMaximumBoost ?? 1;
   if (!Number.isFinite(compatibilityMaximumBoost) || compatibilityMaximumBoost < 0) {
     throw new Error("lexicalCompatibilityMaximumBoost must be finite and non-negative");
+  }
+  if (preparedLexicon !== undefined
+    && (preparedLexicon.eligibleEntries !== input.eligibleEntries
+      || preparedLexicon.profiles !== input.profiles)) {
+    throw new Error("prepared formal syntax lexicon input identity mismatch");
   }
   const index = (preparedLexicon
     ?? prepareFormalSyntaxLexicon(input.eligibleEntries, input.profiles)).index;
