@@ -10,6 +10,7 @@ import type {
   FrequencyFirstSelectionState,
   FrequencyFirstUtterancePolicy,
   FrequencyFirstUtteranceSelection,
+  PreparedFormalSyntaxExecution,
   PreparedFrequencyFirstEntries,
 } from "../curriculum/frequency-first-utterance.js";
 import type { PreparedFormalSyntaxLexicon } from "../curriculum/formal-syntax-utterance.js";
@@ -72,6 +73,7 @@ export interface ProductEnvironment {
   readonly utterancePolicy: FrequencyFirstUtterancePolicy;
   readonly preparedPracticeLexicon: PreparedFormalSyntaxLexicon;
   readonly preparedPracticeEntries: PreparedFrequencyFirstEntries;
+  readonly preparedPracticeFormalSyntaxExecution: PreparedFormalSyntaxExecution;
 }
 
 export interface ProductState {

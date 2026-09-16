@@ -78,6 +78,28 @@ describe("frequency-first grammatical product session loop", () => {
     expect(practiceOnly.catalogs.evaluation).toEqual([]);
   });
 
+  it("owns one prepared formal-syntax execution context per product environment", () => {
+    const prepared = environment.preparedPracticeFormalSyntaxExecution;
+    expect(prepared.maximumClauseNesting).toBe(1);
+    expect(prepared.structuralSamplingContext.bounds).toBe(prepared.bounds);
+
+    const firstProgress = createFreshProgressForEnvironment(
+      environment,
+      "prepared-context-first",
+      "guided",
+      "standard",
+    );
+    const secondProgress = createFreshProgressForEnvironment(
+      environment,
+      "prepared-context-second",
+      "guided",
+      "standard",
+    );
+    expect(createProductState(environment, firstProgress, 0).round.selection.utterance.id).toBeTruthy();
+    expect(createProductState(environment, secondProgress, 0).round.selection.utterance.id).toBeTruthy();
+    expect(environment.preparedPracticeFormalSyntaxExecution).toBe(prepared);
+  });
+
   it("builds one complete grammar-valid utterance instead of six unrelated entries", () => {
     const progress = createFreshProgressForEnvironment(
       environment,

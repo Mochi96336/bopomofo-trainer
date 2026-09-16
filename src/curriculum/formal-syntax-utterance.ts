@@ -238,6 +238,7 @@ function inferredSamplingMode(rules: readonly ProductionRule[]): FormalSyntaxSam
 export function composeFormalSyntaxUtterances(
   input: FormalSyntaxUtteranceInput,
   preparedLexicon?: PreparedFormalSyntaxLexicon,
+  preparedStructuralContext?: PreparedStructuralSamplingContext,
 ): GrammarCompositionResult {
   if (!Number.isInteger(input.maximumCandidates) || input.maximumCandidates <= 0) {
     throw new Error("maximumCandidates must be a positive integer");
@@ -277,7 +278,7 @@ export function composeFormalSyntaxUtterances(
     ? input.samplingPolicy ?? PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY
     : null;
   if (samplingPolicy !== null) validateFormalSyntaxSamplingPolicy(samplingPolicy);
-  let preparedStructuralSamplingContext: PreparedStructuralSamplingContext | null = null;
+  let preparedStructuralSamplingContext = preparedStructuralContext ?? null;
   const structuralSamplingContext = (): PreparedStructuralSamplingContext => {
     preparedStructuralSamplingContext ??= prepareStructuralSamplingContext(rules, input.bounds);
     return preparedStructuralSamplingContext;

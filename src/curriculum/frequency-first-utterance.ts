@@ -16,7 +16,11 @@ import type {
 import { countStructuralDerivationShapes } from "../syntax/count.js";
 import { DEFAULT_DERIVATION_BOUNDS } from "../syntax/features.js";
 import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";
-import type { DerivationBounds, RuntimeSyntaxProfile } from "../syntax/types.js";
+import {
+  prepareStructuralSamplingContext,
+  type PreparedStructuralSamplingContext,
+} from "../syntax/sample.js";
+import type { DerivationBounds, ProductionRule, RuntimeSyntaxProfile } from "../syntax/types.js";
 import {
   composeFormalSyntaxUtterances,
   prepareFormalSyntaxLexicon,
@@ -163,6 +167,12 @@ export interface PreparedFrequencyFirstEntries {
   readonly tokenIdsByEntryId: ReadonlyMap<string, readonly TokenId[]>;
 }
 
+export interface PreparedFormalSyntaxExecution {
+  readonly maximumClauseNesting: number;
+  readonly bounds: DerivationBounds;
+  readonly structuralSamplingContext: PreparedStructuralSamplingContext;
+}
+
 export interface FrequencyFirstUtteranceInput {
   readonly entries: readonly CatalogEntry[];
   readonly annotations: Readonly<Record<string, GrammarAnnotation>>;
@@ -195,6 +205,7 @@ export type FormalSyntaxUtteranceSelectionInput = Omit<
   readonly profiles: readonly RuntimeSyntaxProfile[];
   readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
   readonly preparedFrequencyFirstEntries?: PreparedFrequencyFirstEntries;
+  readonly preparedFormalSyntaxExecution?: PreparedFormalSyntaxExecution;
 };
 
 type FrequencyFirstScoringInput = Omit<
@@ -206,6 +217,7 @@ type FrequencyFirstScoringInput = Omit<
   readonly legacyTransitions: MeasurementSummary["transitions"] | null;
   readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
   readonly preparedFrequencyFirstEntries?: PreparedFrequencyFirstEntries;
+  readonly preparedFormalSyntaxExecution?: PreparedFormalSyntaxExecution;
 };
 
 function compareText(left: string, right: string): number {
@@ -528,6 +540,18 @@ function formalSyntaxExecutionBounds(maximumClauseNesting: number): DerivationBo
   };
 }
 
+export function prepareFormalSyntaxExecution(
+  maximumClauseNesting: number,
+  rules: readonly ProductionRule[] = FORMAL_SYNTAX_RULES,
+): PreparedFormalSyntaxExecution {
+  const bounds = formalSyntaxExecutionBounds(maximumClauseNesting);
+  return {
+    maximumClauseNesting,
+    bounds,
+    structuralSamplingContext: prepareStructuralSamplingContext(rules, bounds),
+  };
+}
+
 function derivedConstructionClauseNesting(
   input: FrequencyFirstScoringInput,
 ): number {
@@ -599,6 +623,7 @@ function generateOnce(
   input: FrequencyFirstScoringInput,
   maximumClauseNesting: number,
   preparedFormalSyntaxLexicon: PreparedFormalSyntaxLexicon | null,
+  preparedFormalSyntaxExecution: PreparedFormalSyntaxExecution | null,
 ): SlotWeightedGrammarGeneration {
   const entryWeights = new Map<string, number>();
   const entryWeight = (entry: CatalogEntry): number => {
@@ -614,6 +639,18 @@ function generateOnce(
     if (preparedFormalSyntaxLexicon === null) {
       throw new Error("formal syntax profiles require prepared lexical context");
     }
+    const compositionOverride = composerCompositionOverride(input);
+    const executionRules = compositionOverride.rules ?? FORMAL_SYNTAX_RULES;
+    if (preparedFormalSyntaxExecution !== null) {
+      if (preparedFormalSyntaxExecution.maximumClauseNesting !== maximumClauseNesting) {
+        throw new Error("prepared formal syntax execution clause nesting mismatch");
+      }
+      if (preparedFormalSyntaxExecution.structuralSamplingContext.rules !== executionRules) {
+        throw new Error("prepared formal syntax execution rules identity mismatch");
+      }
+    }
+    const executionBounds = preparedFormalSyntaxExecution?.bounds
+      ?? formalSyntaxExecutionBounds(maximumClauseNesting);
     const composition = composeFormalSyntaxUtterances({
       eligibleEntries,
       profiles: input.profiles,
@@ -622,9 +659,9 @@ function generateOnce(
       minimumLexicalEntries: 2,
       maximumCandidates: 1,
       maximumAttempts: 64,
-      ...composerCompositionOverride(input),
-      bounds: formalSyntaxExecutionBounds(maximumClauseNesting),
-    }, preparedFormalSyntaxLexicon);
+      ...compositionOverride,
+      bounds: executionBounds,
+    }, preparedFormalSyntaxLexicon, preparedFormalSyntaxExecution?.structuralSamplingContext);
     return {
       candidate: composition.candidates[0] ?? null,
       templateCandidates: [],
@@ -716,6 +753,13 @@ function selectFrequencyFirstUtteranceFromEvidence(
     ? null
     : input.preparedFormalSyntaxLexicon
       ?? prepareFormalSyntaxLexicon(eligibleEntries, input.profiles);
+  const preparedFormalSyntaxExecution = input.profiles === undefined
+    ? null
+    : input.preparedFormalSyntaxExecution ?? null;
+  if (preparedFormalSyntaxExecution !== null
+    && preparedFormalSyntaxExecution.maximumClauseNesting !== maximumClauseNesting) {
+    throw new Error("prepared formal syntax execution clause nesting mismatch");
+  }
   let generation: SlotWeightedGrammarGeneration | null = null;
   let score: UtteranceCandidateScore | null = null;
   let generationAttempts = 0;
@@ -727,6 +771,7 @@ function selectFrequencyFirstUtteranceFromEvidence(
       input,
       maximumClauseNesting,
       preparedFormalSyntaxLexicon,
+      preparedFormalSyntaxExecution,
     );
     if (generation.candidate === null) {
       throw new Error(`no grammar-valid utterance candidate: ${generation.fallbackReasons.join(",")}`);
