@@ -339,6 +339,31 @@ describe("frequency-first formal syntax compatibility composer", () => {
     expect(result.candidates[0]?.entries.map((item) => item.id)).toEqual([second.id]);
   });
 
+  it("preserves interleaved profile grouping across prepared cache hits", () => {
+  const first = entry("entry:cache-first", "甲", 0.9);
+  const second = entry("entry:cache-second", "乙", 0.9);
+  const eligibleEntries = [first, second] as const;
+  const profiles = [
+    profile("profile:cache-a-first", first.id),
+    profile("profile:cache-b-second", second.id),
+    profile("profile:cache-c-first", first.id),
+  ] as const;
+  const compose = (prepared?: ReturnType<typeof prepareFormalSyntaxLexicon>) =>
+    composeFormalSyntaxUtterances({
+      eligibleEntries,
+      profiles,
+      entryWeightsById: { [first.id]: 1, [second.id]: 0 },
+      random: new SequenceRandom([0.73, 0.41, 0.89, 0.67, 0.23]),
+      maximumCandidates: 1,
+      maximumAttempts: 1,
+      rules,
+    }, prepared);
+  const expected = compose();
+  const prepared = prepareFormalSyntaxLexicon(eligibleEntries, profiles);
+  expect(compose(prepared)).toEqual(expected);
+  expect(compose(prepared)).toEqual(expected);
+});
+
   it("does not reuse one entry in multiple lexical slots", () => {
     const first = entry("entry:first", "甲", 0.9);
     const second = entry("entry:second", "乙", 0.9);
