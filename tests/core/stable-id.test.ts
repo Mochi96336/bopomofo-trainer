@@ -94,4 +94,35 @@ describe("browser-safe runtime identities", () => {
       expect(stableRuntimeDigest(value)).toBe(legacyStableRuntimeDigest(value));
     }
   });
+
+  it("preserves legacy digest bytes across a broad deterministic corpus", () => {
+    let state = 0x9e3779b9;
+    for (let index = 0; index < 512; index += 1) {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      const value = {
+        index,
+        state,
+        signed: state | 0,
+        text: `case-${index}-${state.toString(36)}-注音`,
+        flags: [
+          (state & 1) !== 0,
+          (state & 2) !== 0,
+          (state & 4) !== 0,
+        ],
+        nested: {
+          high: state >>> 16,
+          low: state & 0xffff,
+          optional: index % 3 === 0 ? undefined : `v${state & 0xff}`,
+        },
+      };
+      const legacy = legacyStableRuntimeDigest(value);
+      expect(stableRuntimeDigest(value)).toBe(legacy);
+      expect(stableRuntimeDigestCanonicalJson(
+        JSON.stringify(legacyCanonicalValue(value)),
+      )).toBe(legacy);
+      expect(stableRuntimeDigestCanonicalJsonFirstUint32(
+        JSON.stringify(legacyCanonicalValue(value)),
+      )).toBe(Number.parseInt(legacy.slice(0, 8), 16) >>> 0);
+    }
+  });
 });
