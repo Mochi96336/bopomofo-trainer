@@ -56,6 +56,8 @@ export interface FormalSyntaxUtteranceInput {
   readonly profiles: readonly RuntimeSyntaxProfile[];
   readonly random: RandomSource;
   readonly entryWeightsById?: Readonly<Record<string, number>>;
+  /** Lazy equivalent used when scoring only the compatible lexical frontier. */
+  readonly entryWeight?: (entry: CatalogEntry) => number;
   readonly lexicalCompatibility?: LexicalCompatibilityIndex;
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
@@ -142,6 +144,7 @@ function selectCompatibleProfile(
   reusableEntryId: string | undefined,
   entriesById: ReadonlyMap<string, CatalogEntry>,
   entryWeightsById: Readonly<Record<string, number>> | undefined,
+  entryWeight: ((entry: CatalogEntry) => number) | undefined,
   previousEntry: CatalogEntry | null,
   lexicalCompatibility: LexicalCompatibilityIndex | undefined,
   lexicalCompatibilityMaximumBoost: number,
@@ -158,7 +161,9 @@ function selectCompatibleProfile(
   const selectedEntryIndex = weightedIndex(entryIds.map((entryId) => {
     const entry = entriesById.get(entryId);
     if (entry === undefined) throw new Error(`formal syntax profile references missing entry ${entryId}`);
-    const baseWeight = entryWeightsById?.[entry.id] ?? defaultEntryWeight(entry);
+    const baseWeight = entryWeight?.(entry)
+      ?? entryWeightsById?.[entry.id]
+      ?? defaultEntryWeight(entry);
     if (previousEntry === null || lexicalCompatibility === undefined) return baseWeight;
     const score = surfaceCompatibilityScore(
       lexicalCompatibility,
@@ -490,6 +495,7 @@ export function composeFormalSyntaxUtterances(
         boundEntryId,
         entriesById,
         input.entryWeightsById,
+        input.entryWeight,
         previousEntry,
         input.lexicalCompatibility,
         compatibilityMaximumBoost,
