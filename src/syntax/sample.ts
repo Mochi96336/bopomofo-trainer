@@ -1,5 +1,9 @@
 import type { RandomSource } from "../core/model.js";
-import { stableRuntimeDigest, stableRuntimeDigestCanonicalJson } from "../core/stable-id.js";
+import {
+  stableRuntimeDigest,
+  stableRuntimeDigestCanonicalJson,
+  stableRuntimeDigestCanonicalJsonFirstUint32,
+} from "../core/stable-id.js";
 import {
   effectiveConstituentMaximum,
   excludedClassesForConstituent,
@@ -171,25 +175,35 @@ function shuffled<T>(values: readonly T[], random: RandomSource): readonly T[] {
   return result;
 }
 
-function nestedClauseKeyedDigest(
+function nestedClauseKeyedCanonicalJson(
   purpose: "candidate-substream" | "priority",
   ticket: number,
   ruleId: string,
 ): string {
   // These keys are already in stableRuntimeDigest canonical sort order:
   // purpose, ruleId, ticket, version. Keep this byte-for-byte equivalent.
-  const canonicalJson = JSON.stringify({
+  return JSON.stringify({
     purpose,
     ruleId,
     ticket,
     version: NESTED_CLAUSE_RULE_ORDER_VERSION,
   });
-  return stableRuntimeDigestCanonicalJson(canonicalJson);
+}
+
+function nestedClauseKeyedDigest(
+  purpose: "candidate-substream" | "priority",
+  ticket: number,
+  ruleId: string,
+): string {
+  return stableRuntimeDigestCanonicalJson(
+    nestedClauseKeyedCanonicalJson(purpose, ticket, ruleId),
+  );
 }
 
 function nestedClauseCandidateSeed(ticket: number, ruleId: string): number {
-  const digest = nestedClauseKeyedDigest("candidate-substream", ticket, ruleId);
-  return Number.parseInt(digest.slice(0, 8), 16) >>> 0;
+  return stableRuntimeDigestCanonicalJsonFirstUint32(
+    nestedClauseKeyedCanonicalJson("candidate-substream", ticket, ruleId),
+  );
 }
 
 function nestedClauseCandidateRandom(ticket: number, ruleId: string): RandomSource {

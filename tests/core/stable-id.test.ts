@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { stableRuntimeDigest, stableRuntimeDigestCanonicalJson } from "../../src/core/stable-id.js";
+import {
+  stableRuntimeDigest,
+  stableRuntimeDigestCanonicalJson,
+  stableRuntimeDigestCanonicalJsonFirstUint32,
+} from "../../src/core/stable-id.js";
 
 function legacyCanonicalValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(legacyCanonicalValue);
@@ -59,7 +63,11 @@ describe("browser-safe runtime identities", () => {
         for (const ruleId of ["clause.basic", "clause.quoted/特殊", "clause.deep/nested"] as const) {
           const legacy = stableRuntimeDigest({ version, purpose, ticket, ruleId });
           const canonicalJson = JSON.stringify({ purpose, ruleId, ticket, version });
-          expect(stableRuntimeDigestCanonicalJson(canonicalJson)).toBe(legacy);
+          const direct = stableRuntimeDigestCanonicalJson(canonicalJson);
+          expect(direct).toBe(legacy);
+          expect(stableRuntimeDigestCanonicalJsonFirstUint32(canonicalJson)).toBe(
+            Number.parseInt(legacy.slice(0, 8), 16) >>> 0,
+          );
         }
       }
     }
