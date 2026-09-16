@@ -138,6 +138,35 @@ function isPracticeLexicalSlot(slot: StructuralLexicalSlot): boolean {
     && !(slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT");
 }
 
+interface CompatibleProfileGroup {
+  readonly entryId: string;
+  readonly profiles: readonly RuntimeSyntaxProfile[];
+}
+
+const compatibleProfileGroupsCache = new WeakMap<
+  readonly RuntimeSyntaxProfile[],
+  readonly CompatibleProfileGroup[]
+>();
+
+function groupedCompatibleProfiles(
+  compatible: readonly RuntimeSyntaxProfile[],
+): readonly CompatibleProfileGroup[] {
+  const cached = compatibleProfileGroupsCache.get(compatible);
+  if (cached !== undefined) return cached;
+  const profilesByEntryId = new Map<string, RuntimeSyntaxProfile[]>();
+  for (const profile of compatible) {
+    const profiles = profilesByEntryId.get(profile.entryId) ?? [];
+    profiles.push(profile);
+    profilesByEntryId.set(profile.entryId, profiles);
+  }
+  const groups = [...profilesByEntryId].map(([entryId, profiles]) => ({
+    entryId,
+    profiles,
+  }));
+  compatibleProfileGroupsCache.set(compatible, groups);
+  return groups;
+}
+
 function selectCompatibleProfile(
   compatible: readonly RuntimeSyntaxProfile[],
   usedEntryIds: ReadonlySet<string>,
@@ -150,17 +179,14 @@ function selectCompatibleProfile(
   lexicalCompatibilityMaximumBoost: number,
   random: RandomSource,
 ): RuntimeSyntaxProfile | null {
-  const profilesByEntryId = new Map<string, RuntimeSyntaxProfile[]>();
-  for (const profile of compatible) {
-    if (usedEntryIds.has(profile.entryId) && profile.entryId !== reusableEntryId) continue;
-    const profiles = profilesByEntryId.get(profile.entryId) ?? [];
-    profiles.push(profile);
-    profilesByEntryId.set(profile.entryId, profiles);
-  }
-  const entryIds = [...profilesByEntryId.keys()];
-  const selectedEntryIndex = weightedIndex(entryIds.map((entryId) => {
-    const entry = entriesById.get(entryId);
-    if (entry === undefined) throw new Error(`formal syntax profile references missing entry ${entryId}`);
+  const eligibleGroups = groupedCompatibleProfiles(compatible).filter((group) =>
+  !usedEntryIds.has(group.entryId) || group.entryId === reusableEntryId
+);
+  const selectedEntryIndex = weightedIndex(eligibleGroups.map((group) => {
+    const entry = entriesById.get(group.entryId);
+    if (entry === undefined) {
+      throw new Error(`formal syntax profile references missing entry ${group.entryId}`);
+    }
     const baseWeight = entryWeight?.(entry)
       ?? entryWeightsById?.[entry.id]
       ?? defaultEntryWeight(entry);
@@ -176,9 +202,9 @@ function selectCompatibleProfile(
     );
   }), random);
   if (selectedEntryIndex === null) return null;
-  const selectedEntryId = entryIds[selectedEntryIndex];
-  if (selectedEntryId === undefined) throw new Error("formal syntax entry selection failed");
-  const entryProfiles = profilesByEntryId.get(selectedEntryId) ?? [];
+  const selectedGroup = eligibleGroups[selectedEntryIndex];
+  if (selectedGroup === undefined) throw new Error("formal syntax entry selection failed");
+  const entryProfiles = selectedGroup.profiles;
   if (entryProfiles.length === 0) throw new Error("formal syntax profile group is empty");
   const selectedProfileIndex = entryProfiles.length === 1
     ? 0
