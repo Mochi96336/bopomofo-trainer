@@ -6,6 +6,7 @@ import {
   buildLexicalProfileIndex,
   compatibleProfilesForSlot,
   realizeStructuralDerivation,
+  realizeStructuralDerivationWithIndex,
 } from "../../src/syntax/realize.js";
 import type { RuntimeSyntaxProfile, SyntaxProfile } from "../../src/syntax/types.js";
 
@@ -123,6 +124,23 @@ describe("lazy lexical realization", () => {
       profiles,
       profileOffsetsBySlotId: { [slot.id]: 1 },
     })?.entryIds).toEqual(["entry:b"]);
+  });
+
+  it("matches raw realization when reusing a prepared lexical index", () => {
+    const entries = [entry("entry:a", "甲"), entry("entry:b", "乙")];
+    const profiles = [profile("profile:a", "entry:a"), profile("profile:b", "entry:b")];
+    const index = buildLexicalProfileIndex(entries, profiles);
+    const offsets = { [slot.id]: 1 };
+    const raw = realizeStructuralDerivation(shape, {
+      entries,
+      profiles,
+      profileOffsetsBySlotId: offsets,
+    });
+    const indexed = realizeStructuralDerivationWithIndex(shape, {
+      index,
+      profileOffsetsBySlotId: offsets,
+    });
+    expect(indexed).toEqual(raw);
   });
 
   it("filters licensed construction features with entry text plus UD evidence", () => {
