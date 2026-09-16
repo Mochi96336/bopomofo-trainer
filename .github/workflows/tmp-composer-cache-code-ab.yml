@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      TARGET_REF: b02213aaf32147753ebcec733e32a31158b50df9
+      TARGET_REF: e6d48a4fcc135ae024d9a38734858f383e99d8ca
     steps:
       - uses: actions/checkout@v6
         with:
