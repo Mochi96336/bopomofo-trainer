@@ -1,0 +1,80 @@
+name: tmp requirements propagation probe
+
+on:
+  push:
+    branches:
+      - agent/tmp-requirements-probe
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run app:catalog
+      - name: Instrument requirements propagation without changing results
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/syntax/requirements.ts')
+          source = path.read_text()
+          anchor = '''export function requirementsForConstituent(\n  constituent: ProductionConstituent,\n  parent: SyntaxRequirementsInput,\n): SyntaxRequirements | null {\n'''
+          replacement = '''const requirementsProbe = {\n  calls: 0,\n  strictNoInheritanceCalls: 0,\n  noDynamicInheritedContributionCalls: 0,\n  parentAllEmptyCalls: 0,\n  exactPairRepeatCalls: 0,\n  constituentIds: new WeakMap<object, number>(),\n  parentIds: new WeakMap<object, number>(),\n  nextConstituentId: 1,\n  nextParentId: 1,\n  exactPairs: new Set<string>(),\n  constituentCallCounts: new Map<number, number>(),\n  parentCallCounts: new Map<number, number>(),\n  inheritanceMasks: new Map<number, number>(),\n  contributionMasks: new Map<number, number>(),\n};\n\nfunction probeObjectId(\n  value: object,\n  ids: WeakMap<object, number>,\n  next: "nextConstituentId" | "nextParentId",\n): number {\n  const existing = ids.get(value);\n  if (existing !== undefined) return existing;\n  const id = requirementsProbe[next];\n  requirementsProbe[next] += 1;\n  ids.set(value, id);\n  return id;\n}\n\nexport function requirementsProbeSnapshot() {\n  const repeatedConstituentCalls = [...requirementsProbe.constituentCallCounts.values()]\n    .reduce((sum, count) => sum + Math.max(0, count - 1), 0);\n  const repeatedParentCalls = [...requirementsProbe.parentCallCounts.values()]\n    .reduce((sum, count) => sum + Math.max(0, count - 1), 0);\n  return {\n    calls: requirementsProbe.calls,\n    strictNoInheritanceCalls: requirementsProbe.strictNoInheritanceCalls,\n    noDynamicInheritedContributionCalls: requirementsProbe.noDynamicInheritedContributionCalls,\n    parentAllEmptyCalls: requirementsProbe.parentAllEmptyCalls,\n    exactPairRepeatCalls: requirementsProbe.exactPairRepeatCalls,\n    uniqueConstituentIdentities: requirementsProbe.constituentCallCounts.size,\n    repeatedConstituentCalls,\n    uniqueParentIdentities: requirementsProbe.parentCallCounts.size,\n    repeatedParentCalls,\n    uniqueExactPairs: requirementsProbe.exactPairs.size,\n    inheritanceMasks: [...requirementsProbe.inheritanceMasks.entries()].sort((a, b) => a[0] - b[0]),\n    contributionMasks: [...requirementsProbe.contributionMasks.entries()].sort((a, b) => a[0] - b[0]),\n    topConstituentCallCounts: [...requirementsProbe.constituentCallCounts.entries()]\n      .sort((a, b) => b[1] - a[1])\n      .slice(0, 20),\n    topParentCallCounts: [...requirementsProbe.parentCallCounts.entries()]\n      .sort((a, b) => b[1] - a[1])\n      .slice(0, 20),\n  };\n}\n\nexport function requirementsForConstituent(\n  constituent: ProductionConstituent,\n  parent: SyntaxRequirementsInput,\n): SyntaxRequirements | null {\n  requirementsProbe.calls += 1;\n  const constituentId = probeObjectId(\n    constituent as object,\n    requirementsProbe.constituentIds,\n    "nextConstituentId",\n  );\n  const parentId = probeObjectId(\n    parent as object,\n    requirementsProbe.parentIds,\n    "nextParentId",\n  );\n  requirementsProbe.constituentCallCounts.set(\n    constituentId,\n    (requirementsProbe.constituentCallCounts.get(constituentId) ?? 0) + 1,\n  );\n  requirementsProbe.parentCallCounts.set(\n    parentId,\n    (requirementsProbe.parentCallCounts.get(parentId) ?? 0) + 1,\n  );\n  const pairKey = `${constituentId}:${parentId}`;\n  if (requirementsProbe.exactPairs.has(pairKey)) requirementsProbe.exactPairRepeatCalls += 1;\n  else requirementsProbe.exactPairs.add(pairKey);\n\n  const inheritanceMask =\n    (constituent.inheritFunctions ? 1 : 0)\n    | (constituent.inheritValencyFrames ? 2 : 0)\n    | (constituent.inheritOccurrenceCapabilities ? 4 : 0)\n    | (constituent.inheritFeatures ? 8 : 0);\n  requirementsProbe.inheritanceMasks.set(\n    inheritanceMask,\n    (requirementsProbe.inheritanceMasks.get(inheritanceMask) ?? 0) + 1,\n  );\n  if (inheritanceMask === 0) requirementsProbe.strictNoInheritanceCalls += 1;\n\n  const parentFunctionsPresent = parent.requiredFunctions.length > 0;\n  const parentValencyPresent = parent.requiredValencyFrames.length > 0;\n  const parentOccurrencePresent = (parent.requiredOccurrenceCapabilities ?? []).length > 0;\n  const parentFeaturesPresent = Object.keys(parent.requiredFeatures).length > 0;\n  if (!parentFunctionsPresent && !parentValencyPresent && !parentOccurrencePresent && !parentFeaturesPresent) {\n    requirementsProbe.parentAllEmptyCalls += 1;\n  }\n  const contributionMask =\n    (constituent.inheritFunctions && parentFunctionsPresent ? 1 : 0)\n    | (constituent.inheritValencyFrames && parentValencyPresent ? 2 : 0)\n    | (constituent.inheritOccurrenceCapabilities && parentOccurrencePresent ? 4 : 0)\n    | (constituent.inheritFeatures && parentFeaturesPresent ? 8 : 0);\n  requirementsProbe.contributionMasks.set(\n    contributionMask,\n    (requirementsProbe.contributionMasks.get(contributionMask) ?? 0) + 1,\n  );\n  if (contributionMask === 0) requirementsProbe.noDynamicInheritedContributionCalls += 1;\n'''
+          if source.count(anchor) != 1:
+              raise SystemExit(f'anchor count {source.count(anchor)}')
+          path.write_text(source.replace(anchor, replacement))
+          PY
+      - name: Run 128 ordinary product rounds
+        shell: bash
+        run: |
+          cat > .tmp-requirements-probe.ts <<'EOF'
+          import {
+            EVALUATION_CATALOG,
+            PRACTICE_CATALOG,
+            SYNTAX_PROFILES,
+          } from "./src/app/generated/catalog.js";
+          import { requirementsProbeSnapshot } from "./src/syntax/requirements.js";
+          import {
+            createFreshProgressForEnvironment,
+            createProductEnvironment,
+            createProductState,
+          } from "./src/product/session.js";
+
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "requirements-probe",
+            "guided",
+            "standard",
+          );
+          let attemptTotal = 0;
+          for (let round = 0; round < 128; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            attemptTotal += state.round.selection.generationAttempts;
+          }
+          console.log(JSON.stringify({
+            rounds: 128,
+            attemptTotal,
+            requirements: requirementsProbeSnapshot(),
+          }, null, 2));
+          EOF
+          node --import tsx .tmp-requirements-probe.ts
