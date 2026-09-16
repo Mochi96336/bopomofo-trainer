@@ -1,0 +1,107 @@
+name: tmp structural canonical source proof
+
+on:
+  push:
+    branches:
+      - agent/tmp-structural-hash-attribution
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run app:catalog
+      - name: Instrument byte-exact structural canonical source proof
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/core/stable-id.ts')
+          s = p.read_text()
+          needle = '''/**\n * Browser-safe deterministic identity digest. This is deliberately not a\n * cryptographic lineage checksum; source artifacts continue to use SHA-256.\n */\nexport function stableRuntimeDigest(value: unknown): string {\n'''
+          repl = '''export function stableRuntimeCanonicalJsonForProbe(value: unknown): string {\n  return JSON.stringify(canonicalValue(value));\n}\n\n/**\n * Browser-safe deterministic identity digest. This is deliberately not a\n * cryptographic lineage checksum; source artifacts continue to use SHA-256.\n */\nexport function stableRuntimeDigest(value: unknown): string {\n'''
+          if needle not in s: raise SystemExit('stable-id insertion needle missing')
+          p.write_text(s.replace(needle, repl, 1))
+
+          p = Path('src/syntax/sample.ts')
+          s = p.read_text()
+          old = '''import {\n  stableRuntimeDigest,\n  stableRuntimeDigestCanonicalJson,\n  stableRuntimeDigestCanonicalJsonFirstUint32,\n} from "../core/stable-id.js";\n'''
+          new = '''import {\n  stableRuntimeCanonicalJsonForProbe,\n  stableRuntimeDigest,\n  stableRuntimeDigestCanonicalJson,\n  stableRuntimeDigestCanonicalJsonFirstUint32,\n} from "../core/stable-id.js";\n'''
+          if old not in s: raise SystemExit('sample stable-id import needle missing')
+          s = s.replace(old, new, 1)
+
+          marker = '''const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };\n'''
+          helpers = marker + '''\ninterface StructuralCanonicalProof {\n  slotIdentities: number;\n  nodeIdentities: number;\n  slotObjects: number;\n  nodeObjects: number;\n  childSourceHits: number;\n  childSourceMisses: number;\n  manualChars: number;\n}\n\nconst structuralCanonicalProof: StructuralCanonicalProof = {\n  slotIdentities: 0,\n  nodeIdentities: 0,\n  slotObjects: 0,\n  nodeObjects: 0,\n  childSourceHits: 0,\n  childSourceMisses: 0,\n  manualChars: 0,\n};\n(globalThis as any).__structuralCanonicalProof = structuralCanonicalProof;\nconst structuralElementCanonicalSource = new WeakMap<object, string>();\n\nfunction canonicalFeatureSetJson(features: SyntaxFeatureSet): string {\n  const fields = Object.keys(features)\n    .filter((key) => features[key as SyntaxFeatureName] !== undefined)\n    .sort()\n    .map((key) => `${JSON.stringify(key)}:${JSON.stringify(features[key as SyntaxFeatureName])}`);\n  return `{${fields.join(",")}}`;\n}\n\nfunction canonicalStringArrayJson(values: readonly string[]): string {\n  return JSON.stringify(values);\n}\n\nfunction assertCanonicalSource(\n  label: string,\n  value: unknown,\n  manual: string,\n): void {\n  const canonical = stableRuntimeCanonicalJsonForProbe(value);\n  if (manual !== canonical) {\n    throw new Error(`${label} canonical source mismatch\\nmanual=${manual}\\ncanonical=${canonical}`);\n  }\n  if (stableRuntimeDigestCanonicalJson(manual) !== stableRuntimeDigest(value)) {\n    throw new Error(`${label} canonical digest mismatch`);\n  }\n  structuralCanonicalProof.manualChars += manual.length;\n}\n\nfunction lexicalSlotIdentityCanonicalJson(\n  constituent: ProductionConstituent,\n  requirements: SyntaxRequirements,\n  occurrenceIndex: number,\n  path: readonly string[],\n  entryBindingId: string | undefined,\n): string {\n  const fields = [\n    `"allowedUpos":${canonicalStringArrayJson(constituent.allowedUpos)}`,\n    ...(entryBindingId === undefined ? [] : [`"entryBindingId":${JSON.stringify(entryBindingId)}`]),\n    ...(constituent.formalLiteral === undefined ? [] : [`"formalLiteral":${JSON.stringify(constituent.formalLiteral)}`]),\n    `"key":${JSON.stringify(constituent.key)}`,\n    `"occurrenceIndex":${occurrenceIndex}`,\n    `"path":${canonicalStringArrayJson(path)}`,\n    `"requiredFeatures":${canonicalFeatureSetJson(requirements.requiredFeatures)}`,\n    `"requiredFunctions":${canonicalStringArrayJson(requirements.requiredFunctions)}`,\n    ...(requirements.requiredOccurrenceCapabilities.length === 0\n      ? []\n      : [`"requiredOccurrenceCapabilities":${canonicalStringArrayJson(requirements.requiredOccurrenceCapabilities)}`]),\n    `"requiredValencyFrames":${canonicalStringArrayJson(requirements.requiredValencyFrames)}`,\n  ];\n  return `{${fields.join(",")}}`;\n}\n\nfunction lexicalSlotCanonicalJson(slot: StructuralLexicalSlot): string {\n  const fields = [\n    `"allowedUpos":${canonicalStringArrayJson(slot.allowedUpos)}`,\n    `"constituentKey":${JSON.stringify(slot.constituentKey)}`,\n    ...(slot.entryBindingId === undefined ? [] : [`"entryBindingId":${JSON.stringify(slot.entryBindingId)}`]),\n    ...(slot.formalLiteral === undefined ? [] : [`"formalLiteral":${JSON.stringify(slot.formalLiteral)}`]),\n    `"id":${JSON.stringify(slot.id)}`,\n    `"kind":"lexical-slot"`,\n    `"occurrenceIndex":${slot.occurrenceIndex}`,\n    `"requiredFeatures":${canonicalFeatureSetJson(slot.requiredFeatures)}`,\n    `"requiredFunctions":${canonicalStringArrayJson(slot.requiredFunctions)}`,\n    ...(slot.requiredOccurrenceCapabilities === undefined\n      ? []\n      : [`"requiredOccurrenceCapabilities":${canonicalStringArrayJson(slot.requiredOccurrenceCapabilities)}`]),\n    `"requiredValencyFrames":${canonicalStringArrayJson(slot.requiredValencyFrames)}`,\n  ];\n  return `{${fields.join(",")}}`;\n}\n\nfunction childrenCanonicalJson(children: readonly StructuralElement[]): string {\n  return `[${children.map((child) => {\n    const cached = structuralElementCanonicalSource.get(child as object);\n    if (cached !== undefined) {\n      structuralCanonicalProof.childSourceHits += 1;\n      return cached;\n    }\n    structuralCanonicalProof.childSourceMisses += 1;\n    return stableRuntimeCanonicalJsonForProbe(child);\n  }).join(",")}]`;\n}\n\nfunction syntaxNodeIdentityCanonicalJson(\n  category: SyntaxCategory,\n  productionRuleId: string,\n  surfaceOrderId: string,\n  children: readonly StructuralElement[],\n): string {\n  return `{"category":${JSON.stringify(category)},"children":${childrenCanonicalJson(children)},"productionRuleId":${JSON.stringify(productionRuleId)},"surfaceOrderId":${JSON.stringify(surfaceOrderId)}}`;\n}\n\nfunction syntaxNodeCanonicalJson(node: StructuralSyntaxNode): string {\n  return `{"category":${JSON.stringify(node.category)},"children":${childrenCanonicalJson(node.children)},"id":${JSON.stringify(node.id)},"kind":"syntax-node","productionRuleId":${JSON.stringify(node.productionRuleId)},"surfaceOrderId":${JSON.stringify(node.surfaceOrderId)}}`;\n}\n'''
+          if marker not in s: raise SystemExit('sample helper marker missing')
+          s = s.replace(marker, helpers, 1)
+
+          old = '''  const identity = {\n    path,\n    key: constituent.key,\n    occurrenceIndex,\n    allowedUpos: constituent.allowedUpos,\n    requiredFunctions: requirements.requiredFunctions,\n    requiredValencyFrames: requirements.requiredValencyFrames,\n    ...occurrenceRequirement,\n    requiredFeatures: requirements.requiredFeatures,\n    entryBindingId,\n    formalLiteral: constituent.formalLiteral,\n  };\n  return {\n    kind: "lexical-slot",\n    id: `syntax-slot:${stableRuntimeDigest(identity)}`,\n'''
+          new = '''  const identity = {\n    path,\n    key: constituent.key,\n    occurrenceIndex,\n    allowedUpos: constituent.allowedUpos,\n    requiredFunctions: requirements.requiredFunctions,\n    requiredValencyFrames: requirements.requiredValencyFrames,\n    ...occurrenceRequirement,\n    requiredFeatures: requirements.requiredFeatures,\n    entryBindingId,\n    formalLiteral: constituent.formalLiteral,\n  };\n  const identitySource = lexicalSlotIdentityCanonicalJson(\n    constituent,\n    requirements,\n    occurrenceIndex,\n    path,\n    entryBindingId,\n  );\n  assertCanonicalSource("lexical-slot identity", identity, identitySource);\n  structuralCanonicalProof.slotIdentities += 1;\n  const slot: StructuralLexicalSlot = {\n    kind: "lexical-slot",\n    id: `syntax-slot:${stableRuntimeDigest(identity)}`,\n'''
+          if old not in s: raise SystemExit('makeSlot start needle missing')
+          s = s.replace(old, new, 1)
+          old = '''    ...(constituent.formalLiteral === undefined ? {} : { formalLiteral: constituent.formalLiteral }),\n  };\n}\n\nfunction nestedTargetKey'''
+          new = '''    ...(constituent.formalLiteral === undefined ? {} : { formalLiteral: constituent.formalLiteral }),\n  };\n  const slotSource = lexicalSlotCanonicalJson(slot);\n  assertCanonicalSource("lexical-slot object", slot, slotSource);\n  structuralElementCanonicalSource.set(slot as object, slotSource);\n  structuralCanonicalProof.slotObjects += 1;\n  return slot;\n}\n\nfunction nestedTargetKey'''
+          if old not in s: raise SystemExit('makeSlot end needle missing')
+          s = s.replace(old, new, 1)
+
+          old = '''    const identity = {\n      category,\n      productionRuleId: rule.id,\n      surfaceOrderId: order.id,\n      children: sampledChildren.children,\n    };\n    const node: StructuralSyntaxNode = {\n      kind: "syntax-node",\n      id: `syntax-node:${stableRuntimeDigest(identity)}`,\n'''
+          new = '''    const identity = {\n      category,\n      productionRuleId: rule.id,\n      surfaceOrderId: order.id,\n      children: sampledChildren.children,\n    };\n    const identitySource = syntaxNodeIdentityCanonicalJson(\n      category,\n      rule.id,\n      order.id,\n      sampledChildren.children,\n    );\n    assertCanonicalSource("syntax-node identity", identity, identitySource);\n    structuralCanonicalProof.nodeIdentities += 1;\n    const node: StructuralSyntaxNode = {\n      kind: "syntax-node",\n      id: `syntax-node:${stableRuntimeDigest(identity)}`,\n'''
+          if old not in s: raise SystemExit('node start needle missing')
+          s = s.replace(old, new, 1)
+          old = '''      children: sampledChildren.children,\n    };\n    return {\n      element: node,\n'''
+          new = '''      children: sampledChildren.children,\n    };\n    const nodeSource = syntaxNodeCanonicalJson(node);\n    assertCanonicalSource("syntax-node object", node, nodeSource);\n    structuralElementCanonicalSource.set(node as object, nodeSource);\n    structuralCanonicalProof.nodeObjects += 1;\n    return {\n      element: node,\n'''
+          if old not in s: raise SystemExit('node end needle missing')
+          p.write_text(s.replace(old, new, 1))
+          PY
+      - name: Run 128-round proof
+        shell: bash
+        run: |
+          cat > .tmp-canonical-proof.ts <<'EOF'
+          import {
+            EVALUATION_CATALOG,
+            PRACTICE_CATALOG,
+            SYNTAX_PROFILES,
+          } from "./src/app/generated/catalog.js";
+          import {
+            createFreshProgressForEnvironment,
+            createProductEnvironment,
+            createProductState,
+          } from "./src/product/session.js";
+
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "structural-canonical-proof",
+            "guided",
+            "standard",
+          );
+          let attemptTotal = 0;
+          for (let round = 0; round < 128; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            attemptTotal += state.round.selection.generationAttempts;
+          }
+          console.log(JSON.stringify({
+            rounds: 128,
+            attemptTotal,
+            proof: (globalThis as any).__structuralCanonicalProof,
+          }, null, 2));
+          EOF
+          node --import tsx .tmp-canonical-proof.ts
