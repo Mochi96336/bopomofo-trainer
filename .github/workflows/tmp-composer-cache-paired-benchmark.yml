@@ -1,4 +1,4 @@
-name: tmp canonical structural context benchmark
+name: tmp exact structural context benchmark
 
 on:
   push:
@@ -14,6 +14,7 @@ jobs:
     timeout-minutes: 30
     env:
       PRODUCTION_REF: 2f61bcdcd5fcf6ef2eda9de9993e381bc34878a4
+      CANDIDATE_REF: 5139f9dda691cdb41e3816736a5933599a194d52
       SAMPLE_COUNT: '256'
     steps:
       - uses: actions/checkout@v6
@@ -23,66 +24,18 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - name: Run paired production versus patched candidate
+      - name: Run exact-head paired benchmark
         shell: bash
         run: |
           set -euo pipefail
-          results="$RUNNER_TEMP/canonical-structural-context-results.jsonl"
+          results="$RUNNER_TEMP/exact-291-results.jsonl"
           : > "$results"
-
-          apply_candidate_patch() {
-            python - <<'PY'
-          from pathlib import Path
-          p = Path('src/curriculum/formal-syntax-utterance.ts')
-          s = p.read_text()
-
-          import_needle = 'import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";\n'
-          import_repl = 'import { DEFAULT_DERIVATION_BOUNDS } from "../syntax/features.js";\n' + import_needle
-          if import_needle not in s:
-              raise SystemExit('grammar import needle missing')
-          s = s.replace(import_needle, import_repl, 1)
-
-          marker = '''export function prepareFormalSyntaxLexicon(\n  eligibleEntries: readonly CatalogEntry[],\n  profiles: readonly RuntimeSyntaxProfile[],\n): PreparedFormalSyntaxLexicon {\n'''
-          insert = '''interface CanonicalStructuralSamplingContextEntry {\n  readonly bounds: DerivationBounds;\n  readonly context: PreparedStructuralSamplingContext;\n}\n\nconst canonicalStructuralSamplingContextCache = new Map<\n  string,\n  CanonicalStructuralSamplingContextEntry\n>();\n\nfunction derivationBoundsCacheKey(bounds: DerivationBounds): string {\n  return [\n    bounds.maximumPhraseDepth,\n    bounds.maximumClauseNesting,\n    bounds.maximumClausesPerSentence,\n    bounds.maximumCoordinationItems,\n    bounds.maximumConsecutiveModifiers,\n    bounds.maximumComplementsPerPredicate,\n    bounds.maximumLexicalEntriesPerUtterance,\n  ].join("|");\n}\n\nfunction canonicalStructuralSamplingContext(\n  bounds: DerivationBounds | undefined,\n): CanonicalStructuralSamplingContextEntry {\n  const sourceBounds = bounds ?? DEFAULT_DERIVATION_BOUNDS;\n  const key = derivationBoundsCacheKey(sourceBounds);\n  const cached = canonicalStructuralSamplingContextCache.get(key);\n  if (cached !== undefined) return cached;\n  const stableBounds: DerivationBounds = { ...sourceBounds };\n  const prepared = {\n    bounds: stableBounds,\n    context: prepareStructuralSamplingContext(FORMAL_SYNTAX_RULES, stableBounds),\n  };\n  canonicalStructuralSamplingContextCache.set(key, prepared);\n  return prepared;\n}\n\n'''
-          if marker not in s:
-              raise SystemExit('lexicon marker missing')
-          s = s.replace(marker, insert + marker, 1)
-
-          old = '''  let preparedStructuralSamplingContext: PreparedStructuralSamplingContext | null = null;\n  const structuralSamplingContext = (): PreparedStructuralSamplingContext => {\n    preparedStructuralSamplingContext ??= prepareStructuralSamplingContext(rules, input.bounds);\n    return preparedStructuralSamplingContext;\n  };\n'''
-          new = '''  let preparedStructuralSamplingContext: PreparedStructuralSamplingContext | null = null;\n  const structuralSamplingContext = (): PreparedStructuralSamplingContext => {\n    if (rules === FORMAL_SYNTAX_RULES) {\n      return canonicalStructuralSamplingContext(input.bounds).context;\n    }\n    preparedStructuralSamplingContext ??= prepareStructuralSamplingContext(rules, input.bounds);\n    return preparedStructuralSamplingContext;\n  };\n'''
-          if old not in s:
-              raise SystemExit('structural context block missing')
-          s = s.replace(old, new, 1)
-
-          old = '''    const shape = sampleStructuralDerivation({\n      rootCategory: "Sentence",\n      rules,\n      random: input.random,\n'''
-          new = '''    const preparedSamplingContext = structuralSamplingContext();\n    const shape = sampleStructuralDerivation({\n      rootCategory: "Sentence",\n      rules,\n      random: input.random,\n'''
-          if old not in s:
-              raise SystemExit('shape start missing')
-          s = s.replace(old, new, 1)
-
-          old = '''      ...(input.bounds === undefined ? {} : { bounds: input.bounds }),\n'''
-          new = '''      bounds: preparedSamplingContext.bounds,\n'''
-          if old not in s:
-              raise SystemExit('bounds option missing')
-          s = s.replace(old, new, 1)
-
-          old = '''    }, structuralSamplingContext());\n'''
-          new = '''    }, preparedSamplingContext);\n'''
-          if old not in s:
-              raise SystemExit('context call missing')
-          s = s.replace(old, new, 1)
-          p.write_text(s)
-          PY
-          }
 
           measure() {
             local label="$1"
-            local candidate="$2"
-            git checkout --force "$PRODUCTION_REF" >/dev/null
+            local ref="$2"
+            git checkout --force "$ref" >/dev/null
             git clean -fdx >/dev/null
-            if [[ "$candidate" == "yes" ]]; then
-              apply_candidate_patch
-            fi
             npm ci --include=dev --ignore-scripts >/dev/null
             npm run app:catalog >/dev/null
             cat > .tmp-product-environment-paired.ts <<'EOF'
@@ -110,7 +63,7 @@ jobs:
           const environmentMs = Math.round(performance.now() - environmentStartedAt);
           const baseProgress = createFreshProgressForEnvironment(
             environment,
-            "canonical-structural-context-paired",
+            "exact-291-paired",
             "guided",
             "standard",
           );
@@ -151,14 +104,14 @@ jobs:
             TARGET_LABEL="$label" RESULTS_PATH="$results" node --import tsx .tmp-product-environment-paired.ts
           }
 
-          measure production-1 no
-          measure candidate-1 yes
-          measure candidate-2 yes
-          measure production-2 no
-          measure production-3 no
-          measure candidate-3 yes
-          measure candidate-4 yes
-          measure production-4 no
+          measure production-1 "$PRODUCTION_REF"
+          measure candidate-1 "$CANDIDATE_REF"
+          measure candidate-2 "$CANDIDATE_REF"
+          measure production-2 "$PRODUCTION_REF"
+          measure production-3 "$PRODUCTION_REF"
+          measure candidate-3 "$CANDIDATE_REF"
+          measure candidate-4 "$CANDIDATE_REF"
+          measure production-4 "$PRODUCTION_REF"
 
           RESULTS_PATH="$results" node <<'EOF'
           const fs = require('node:fs');
