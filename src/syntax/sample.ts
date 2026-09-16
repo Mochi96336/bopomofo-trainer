@@ -1,5 +1,5 @@
 import type { RandomSource } from "../core/model.js";
-import { stableRuntimeDigest } from "../core/stable-id.js";
+import { stableRuntimeDigest, stableRuntimeDigestCanonicalJson } from "../core/stable-id.js";
 import {
   effectiveConstituentMaximum,
   excludedClassesForConstituent,
@@ -171,13 +171,24 @@ function shuffled<T>(values: readonly T[], random: RandomSource): readonly T[] {
   return result;
 }
 
-function nestedClauseCandidateSeed(ticket: number, ruleId: string): number {
-  const digest = stableRuntimeDigest({
-    version: NESTED_CLAUSE_RULE_ORDER_VERSION,
-    purpose: "candidate-substream",
-    ticket,
+function nestedClauseKeyedDigest(
+  purpose: "candidate-substream" | "priority",
+  ticket: number,
+  ruleId: string,
+): string {
+  // These keys are already in stableRuntimeDigest canonical sort order:
+  // purpose, ruleId, ticket, version. Keep this byte-for-byte equivalent.
+  const canonicalJson = JSON.stringify({
+    purpose,
     ruleId,
+    ticket,
+    version: NESTED_CLAUSE_RULE_ORDER_VERSION,
   });
+  return stableRuntimeDigestCanonicalJson(canonicalJson);
+}
+
+function nestedClauseCandidateSeed(ticket: number, ruleId: string): number {
+  const digest = nestedClauseKeyedDigest("candidate-substream", ticket, ruleId);
   return Number.parseInt(digest.slice(0, 8), 16) >>> 0;
 }
 
@@ -211,12 +222,7 @@ function stableNestedClauseCandidates(
     .map((rule) => ({
       rule,
       random: nestedClauseCandidateRandom(ticket, rule.id),
-      priority: stableRuntimeDigest({
-        version: NESTED_CLAUSE_RULE_ORDER_VERSION,
-        purpose: "priority",
-        ticket,
-        ruleId: rule.id,
-      }),
+      priority: nestedClauseKeyedDigest("priority", ticket, rule.id),
     }))
     .sort((left, right) => {
       const priorityOrder = left.priority.localeCompare(right.priority);

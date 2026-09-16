@@ -67,10 +67,18 @@ function hashRuntimeSource(source: string): string {
 }
 
 /**
+ * Hash JSON that the caller has already proven is byte-for-byte equivalent to
+ * JSON.stringify(canonicalValue(value)). This deliberately skips canonicalization.
+ */
+export function stableRuntimeDigestCanonicalJson(source: string): string {
+  return hashRuntimeSource(source);
+}
+
+/**
  * Browser-safe deterministic identity digest. This is deliberately not a
  * cryptographic lineage checksum; source artifacts continue to use SHA-256.
  */
 export function stableRuntimeDigest(value: unknown): string {
   const source = JSON.stringify(canonicalValue(value));
-  return hashRuntimeSource(source);
+  return stableRuntimeDigestCanonicalJson(source);
 }
