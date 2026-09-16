@@ -16,6 +16,7 @@ import {
   buildLexicalProfileIndex,
   compatibleProfilesForSlot,
   realizeStructuralDerivationWithIndex,
+  type LexicalProfileIndex,
 } from "../syntax/realize.js";
 import {
   sampleStructuralDerivation,
@@ -77,6 +78,22 @@ export interface FormalSyntaxUtteranceInput {
    * not be bypassed by caller-selected production targets.
    */
   readonly structuralTarget?: FormalSyntaxStructuralTarget;
+}
+
+/** Immutable lexical preparation reusable while the entry/profile inputs stay unchanged. */
+export interface PreparedFormalSyntaxLexicon {
+  readonly index: LexicalProfileIndex;
+}
+
+export function prepareFormalSyntaxLexicon(
+  eligibleEntries: readonly CatalogEntry[],
+  profiles: readonly RuntimeSyntaxProfile[],
+): PreparedFormalSyntaxLexicon {
+  const eligibleEntryIds = new Set(eligibleEntries.map((entry) => entry.id));
+  const eligibleProfiles = profiles.filter((profile) => eligibleEntryIds.has(profile.entryId));
+  return {
+    index: buildLexicalProfileIndex(eligibleEntries, eligibleProfiles),
+  };
 }
 
 function nextUnit(random: RandomSource): number {
@@ -183,6 +200,7 @@ function inferredSamplingMode(rules: readonly ProductionRule[]): FormalSyntaxSam
 
 export function composeFormalSyntaxUtterances(
   input: FormalSyntaxUtteranceInput,
+  preparedLexicon?: PreparedFormalSyntaxLexicon,
 ): GrammarCompositionResult {
   if (!Number.isInteger(input.maximumCandidates) || input.maximumCandidates <= 0) {
     throw new Error("maximumCandidates must be a positive integer");
@@ -198,10 +216,9 @@ export function composeFormalSyntaxUtterances(
   if (!Number.isFinite(compatibilityMaximumBoost) || compatibilityMaximumBoost < 0) {
     throw new Error("lexicalCompatibilityMaximumBoost must be finite and non-negative");
   }
-  const eligibleEntryIds = new Set(input.eligibleEntries.map((entry) => entry.id));
-  const eligibleProfiles = input.profiles.filter((profile) => eligibleEntryIds.has(profile.entryId));
-  const index = buildLexicalProfileIndex(input.eligibleEntries, eligibleProfiles);
-  const entriesById = new Map(input.eligibleEntries.map((entry) => [entry.id, entry]));
+  const index = (preparedLexicon
+    ?? prepareFormalSyntaxLexicon(input.eligibleEntries, input.profiles)).index;
+  const entriesById = index.entriesById;
   const rules = input.rules ?? FORMAL_SYNTAX_RULES;
   const samplingMode = input.samplingMode ?? inferredSamplingMode(rules);
   const useProductFamilyPolicy = samplingMode === "product-family";
