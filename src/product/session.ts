@@ -11,6 +11,7 @@ import {
 import { deriveMeasurementObservationsV2 } from "../measurement-v2/derive-observations.js";
 import {
   FREQUENCY_FIRST_UTTERANCE_POLICY,
+  prepareFormalSyntaxExecution,
   prepareFrequencyFirstEntries,
   selectFormalSyntaxUtterance,
   updateFrequencyFirstSelectionState,
@@ -91,6 +92,7 @@ export function createProductEnvironment(
       catalogs.syntaxProfiles,
     ),
     preparedPracticeEntries: prepareFrequencyFirstEntries(catalogs.practice),
+    preparedPracticeFormalSyntaxExecution: prepareFormalSyntaxExecution(1),
   };
 }
 
@@ -128,6 +130,7 @@ function selectRound(
     profiles: environment.catalogs.syntaxProfiles,
     preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
+    preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
     random: createSeededRandom(
       `${progress.seed}:practice:${progress.practiceRoundsCompleted}`,
     ),
