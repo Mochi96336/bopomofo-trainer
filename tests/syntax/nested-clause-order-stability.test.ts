@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { RandomSource } from "../../src/core/model.js";
+import {
+  stableRuntimeDigestCanonicalJson,
+  stableRuntimeDigestCanonicalJsonFirstUint32,
+} from "../../src/core/stable-id.js";
 import type { StructuralLexicalSlot } from "../../src/syntax/derive.js";
 import { FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";
 import {
@@ -115,6 +119,35 @@ describe("nested Clause rule-order stability", () => {
     expect(reduced.shape.productionRulePath).toEqual(baseline.shape.productionRulePath);
     expect(reduced.shape.lexicalSlots).toEqual(baseline.shape.lexicalSlots);
     expect(reduced.randomCalls).toBe(baseline.randomCalls);
+  });
+
+  it("preserves full digest ordering when priority first lanes collide", () => {
+    const collisionRuleIds = [
+      "clause.collision.q2ht6isztaqs",
+      "clause.collision.cdy5up25acqx",
+    ] as const;
+    const prioritySource = (ruleId: string) => JSON.stringify({
+      purpose: "priority",
+      ruleId,
+      ticket: 0,
+      version: NESTED_CLAUSE_RULE_ORDER_VERSION,
+    });
+    const firstLanes = collisionRuleIds.map((ruleId) =>
+      stableRuntimeDigestCanonicalJsonFirstUint32(prioritySource(ruleId)),
+    );
+    expect(firstLanes[0]).toBe(firstLanes[1]);
+    expect(firstLanes[0]!.toString(16).padStart(8, "0")).toBe("d80e15a2");
+
+    const expectedRuleId = [...collisionRuleIds].sort((left, right) => {
+      const digestOrder = stableRuntimeDigestCanonicalJson(prioritySource(left))
+        .localeCompare(stableRuntimeDigestCanonicalJson(prioritySource(right)));
+      return digestOrder !== 0 ? digestOrder : left.localeCompare(right);
+    })[0];
+    const collisionRules = collisionRuleIds.map((ruleId) =>
+      production(ruleId, "Clause", [constituent("head", "Lexeme")]),
+    );
+    const sampled = sampleWith([sentenceRule, ...collisionRules], [0]);
+    expect(sampled.shape.productionRulePath[1]).toBe(expectedRuleId);
   });
 
   it("does not let a failed peer candidate consume the parent RNG trajectory", () => {

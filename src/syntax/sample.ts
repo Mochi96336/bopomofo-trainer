@@ -190,14 +190,10 @@ function nestedClauseKeyedCanonicalJson(
   });
 }
 
-function nestedClauseKeyedDigest(
-  purpose: "candidate-substream" | "priority",
-  ticket: number,
-  ruleId: string,
-): string {
-  return stableRuntimeDigestCanonicalJson(
-    nestedClauseKeyedCanonicalJson(purpose, ticket, ruleId),
-  );
+function nestedClausePriorityFirstHex(canonicalJson: string): string {
+  return stableRuntimeDigestCanonicalJsonFirstUint32(canonicalJson)
+    .toString(16)
+    .padStart(8, "0");
 }
 
 function nestedClauseCandidateSeed(ticket: number, ruleId: string): number {
@@ -233,13 +229,20 @@ function stableNestedClauseCandidates(
   if (values.length === 0) return [];
   const ticket = Math.floor(nextUnit(random) * 0x1_0000_0000);
   return values
-    .map((rule) => ({
-      rule,
-      random: nestedClauseCandidateRandom(ticket, rule.id),
-      priority: nestedClauseKeyedDigest("priority", ticket, rule.id),
-    }))
+    .map((rule) => {
+      const priorityCanonicalJson = nestedClauseKeyedCanonicalJson("priority", ticket, rule.id);
+      return {
+        rule,
+        random: nestedClauseCandidateRandom(ticket, rule.id),
+        priorityCanonicalJson,
+        priorityFirstHex: nestedClausePriorityFirstHex(priorityCanonicalJson),
+      };
+    })
     .sort((left, right) => {
-      const priorityOrder = left.priority.localeCompare(right.priority);
+      const firstLaneOrder = left.priorityFirstHex.localeCompare(right.priorityFirstHex);
+      if (firstLaneOrder !== 0) return firstLaneOrder;
+      const priorityOrder = stableRuntimeDigestCanonicalJson(left.priorityCanonicalJson)
+        .localeCompare(stableRuntimeDigestCanonicalJson(right.priorityCanonicalJson));
       return priorityOrder !== 0 ? priorityOrder : left.rule.id.localeCompare(right.rule.id);
     })
     .map(({ rule, random: candidateRandom }) => ({ rule, random: candidateRandom }));
