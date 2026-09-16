@@ -1,89 +1,36 @@
-name: tmp composer cache code A/B
+name: tmp requirements local fast path validation
 
 on:
   push:
     branches:
       - agent/tmp-composer-cache-code-ab
 
+permissions:
+  contents: read
+
 jobs:
-  digest:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - label: production
-            ref: 68c01cc80cc0f954bfdfb223f5d07f2188097556
-          - label: candidate
-            ref: 6a63b87ee53899b7cbff338391172557594adbb6
+  validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TARGET_REF: b02213aaf32147753ebcec733e32a31158b50df9
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ matrix.ref }}
+          fetch-depth: 0
+      - name: Checkout candidate
+        run: git checkout --force "$TARGET_REF"
       - uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
       - run: npm ci --include=dev --ignore-scripts
       - run: npm run app:catalog
-      - name: Digest deterministic product outputs
-        env:
-          TARGET_LABEL: ${{ matrix.label }}
-          TARGET_REF: ${{ matrix.ref }}
-        shell: bash
-        run: |
-          cat > .tmp-composer-cache-code-ab.ts <<'EOF'
-          import { performance } from "node:perf_hooks";
-          import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
-          import { stableRuntimeDigest } from "./src/core/stable-id.js";
-          import { createSeededRandom } from "./src/curriculum/random.js";
-          import { composeFormalSyntaxUtterances } from "./src/curriculum/formal-syntax-utterance.js";
-
-          const SAMPLE_COUNT = 2048;
-          const PRODUCT_BOUNDS = {
-            maximumPhraseDepth: 3,
-            maximumClauseNesting: 1,
-            maximumClausesPerSentence: 2,
-            maximumCoordinationItems: 2,
-            maximumConsecutiveModifiers: 2,
-            maximumComplementsPerPredicate: 1,
-            maximumLexicalEntriesPerUtterance: 6,
-          } as const;
-
-          const outputs: object[] = [];
-          let successCount = 0;
-          const startedAt = performance.now();
-          for (let round = 0; round < SAMPLE_COUNT; round += 1) {
-            const composition = composeFormalSyntaxUtterances({
-              eligibleEntries: PRACTICE_CATALOG,
-              profiles: SYNTAX_PROFILES,
-              minimumLexicalEntries: 2,
-              maximumCandidates: 1,
-              maximumAttempts: 64,
-              bounds: PRODUCT_BOUNDS,
-              samplingMode: "product-family",
-              random: createSeededRandom(`valency-product-drift:${round}`),
-            });
-            const candidate = composition.candidates[0];
-            if (candidate !== undefined) successCount += 1;
-            outputs.push({
-              candidate: candidate === undefined ? null : {
-                id: candidate.id,
-                text: candidate.text,
-                root: candidate.syntaxRootRuleId ?? null,
-                profileIds: candidate.syntaxProfileIds ?? [],
-              },
-              fallbackReasons: composition.fallbackReasons,
-            });
-          }
-          const elapsedMs = performance.now() - startedAt;
-          console.log(JSON.stringify({
-            label: process.env.TARGET_LABEL,
-            ref: process.env.TARGET_REF,
-            sampleCount: SAMPLE_COUNT,
-            successCount,
-            outputDigest: stableRuntimeDigest(outputs),
-            elapsedMs: Math.round(elapsedMs),
-          }, null, 2));
-          EOF
-          npx tsx .tmp-composer-cache-code-ab.ts
+      - run: npm run typecheck
+      - name: Targeted requirements and product composer tests
+        run: >-
+          npx vitest run
+          tests/syntax/requirements.test.ts
+          tests/curriculum/formal-syntax-utterance.test.ts
+          tests/curriculum/frequency-first-utterance.test.ts
+          tests/product/session.test.ts
