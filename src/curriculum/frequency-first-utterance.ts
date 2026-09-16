@@ -156,6 +156,13 @@ export type FormalSyntaxCompositionOverride = Pick<
   "rules" | "samplingMode" | "structuralTarget"
 >;
 
+/** Immutable entry projections reusable while the catalog entry array stays unchanged. */
+export interface PreparedFrequencyFirstEntries {
+  readonly entries: readonly CatalogEntry[];
+  readonly entriesById: ReadonlyMap<string, CatalogEntry>;
+  readonly tokenIdsByEntryId: ReadonlyMap<string, readonly TokenId[]>;
+}
+
 export interface FrequencyFirstUtteranceInput {
   readonly entries: readonly CatalogEntry[];
   readonly annotations: Readonly<Record<string, GrammarAnnotation>>;
@@ -187,6 +194,7 @@ export type FormalSyntaxUtteranceSelectionInput = Omit<
   readonly bindingEvidence: readonly LearnerBindingEvidence[];
   readonly profiles: readonly RuntimeSyntaxProfile[];
   readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
+  readonly preparedFrequencyFirstEntries?: PreparedFrequencyFirstEntries;
 };
 
 type FrequencyFirstScoringInput = Omit<
@@ -197,6 +205,7 @@ type FrequencyFirstScoringInput = Omit<
   /** Canonical transition evidence exists only on the legacy/research path. */
   readonly legacyTransitions: MeasurementSummary["transitions"] | null;
   readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
+  readonly preparedFrequencyFirstEntries?: PreparedFrequencyFirstEntries;
 };
 
 function compareText(left: string, right: string): number {
@@ -218,6 +227,36 @@ function uniqueTokens(entries: readonly CatalogEntry[]): readonly TokenId[] {
       entry.syllables.flatMap((syllable) => syllable.tokens),
     ),
   )].sort(compareText);
+}
+
+export function prepareFrequencyFirstEntries(
+  entries: readonly CatalogEntry[],
+): PreparedFrequencyFirstEntries {
+  return {
+    entries,
+    entriesById: new Map(entries.map((entry) => [entry.id, entry])),
+    tokenIdsByEntryId: new Map(entries.map((entry) => [entry.id, uniqueTokens([entry])])),
+  };
+}
+
+function scoringTokens(
+  entries: readonly CatalogEntry[],
+  input: FrequencyFirstScoringInput,
+): readonly TokenId[] {
+  const prepared = input.preparedFrequencyFirstEntries;
+  if (prepared === undefined) return uniqueTokens(entries);
+  if (entries.length === 1) {
+    const tokens = prepared.tokenIdsByEntryId.get(entries[0]!.id);
+    if (tokens === undefined) throw new Error(`prepared frequency-first entry disappeared: ${entries[0]!.id}`);
+    return tokens;
+  }
+  const tokens = new Set<TokenId>();
+  for (const entry of entries) {
+    const entryTokens = prepared.tokenIdsByEntryId.get(entry.id);
+    if (entryTokens === undefined) throw new Error(`prepared frequency-first entry disappeared: ${entry.id}`);
+    for (const token of entryTokens) tokens.add(token);
+  }
+  return [...tokens].sort(compareText);
 }
 
 function scopedBindingEvidence(
@@ -256,7 +295,7 @@ function expectedTokenTrace(
   entries: readonly CatalogEntry[],
   input: FrequencyFirstScoringInput,
 ): readonly ExpectedTokenBoostTrace[] {
-  return uniqueTokens(entries).map((tokenId) => {
+  return scoringTokens(entries, input).map((tokenId) => {
     const aggregate = input.bindingsByToken[tokenId];
     if (aggregate === undefined) {
       return {
@@ -617,7 +656,12 @@ function selectFrequencyFirstUtteranceFromEvidence(
 ): FrequencyFirstUtteranceSelection {
   validateFrequencyFirstUtterancePolicy(input.policy);
   const eligibleEntries = input.entries;
-  const entriesById = new Map(eligibleEntries.map((entry) => [entry.id, entry]));
+  const preparedEntries = input.preparedFrequencyFirstEntries;
+  if (preparedEntries !== undefined && preparedEntries.entries !== eligibleEntries) {
+    throw new Error("prepared frequency-first entries input identity mismatch");
+  }
+  const entriesById = preparedEntries?.entriesById
+    ?? new Map(eligibleEntries.map((entry) => [entry.id, entry]));
   const maximumClauseNesting = input.profiles === undefined
     ? 1
     : derivedConstructionClauseNesting(input);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FREQUENCY_FIRST_UTTERANCE_POLICY,
+  prepareFrequencyFirstEntries,
   selectFormalSyntaxUtterance,
   selectFrequencyFirstUtterance,
 } from "../../src/curriculum/frequency-first-utterance.js";
@@ -112,5 +113,42 @@ describe("production selection learner-evidence seam", () => {
     expect(native).toEqual(previous);
     expect(native.score.transitionBoost).toBe(1);
     expect(native.score.transitionTrace).toEqual([]);
+  });
+});
+
+describe("prepared frequency-first entries", () => {
+  it("preserves production selection and fails closed on catalog identity mismatch", () => {
+    const { v2 } = evidencePair();
+    const prepared = prepareFrequencyFirstEntries(PRACTICE);
+    const select = (entries: typeof PRACTICE, preparedEntries = prepared) =>
+      selectFormalSyntaxUtterance({
+        entries,
+        bindingEvidence: Object.values(v2.semantic.bindings),
+        mode,
+        layoutId,
+        history,
+        policy: FREQUENCY_FIRST_UTTERANCE_POLICY,
+        random: createSeededRandom("prepared-frequency-first-entries"),
+        profiles: SYNTAX_PROFILES,
+        preparedFrequencyFirstEntries: preparedEntries,
+      });
+
+    const raw = selectFormalSyntaxUtterance({
+      entries: PRACTICE,
+      bindingEvidence: Object.values(v2.semantic.bindings),
+      mode,
+      layoutId,
+      history,
+      policy: FREQUENCY_FIRST_UTTERANCE_POLICY,
+      random: createSeededRandom("prepared-frequency-first-entries"),
+      profiles: SYNTAX_PROFILES,
+    });
+
+    expect(prepared.entries).toBe(PRACTICE);
+    expect(prepared.entriesById.size).toBe(PRACTICE.length);
+    expect(select(PRACTICE)).toEqual(raw);
+    expect(() => select([...PRACTICE] as typeof PRACTICE)).toThrow(
+      /prepared frequency-first entries input identity mismatch/u,
+    );
   });
 });
