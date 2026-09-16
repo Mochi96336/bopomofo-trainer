@@ -24,7 +24,9 @@ jobs:
       - name: Capture production snapshot
         run: node --import tsx .tmp-structural-snapshot.ts | tee /tmp/production-snapshot.txt
       - name: Apply candidate
-        run: python .tmp-stage-structural-canonical-source.py
+        run: |
+          python .tmp-stage-structural-canonical-source.py
+          sed -i '/^  stableRuntimeDigest,$/d' src/syntax/sample.ts
       - name: Typecheck
         run: npm run typecheck
       - name: Targeted tests
