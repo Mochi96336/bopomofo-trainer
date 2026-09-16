@@ -1,6 +1,5 @@
 import type { RandomSource } from "../core/model.js";
 import {
-  stableRuntimeDigest,
   stableRuntimeDigestCanonicalJson,
   stableRuntimeDigestCanonicalJsonFirstUint32,
 } from "../core/stable-id.js";
@@ -110,6 +109,7 @@ interface SampledLexicalSlotContext {
 
 interface Sampled {
   readonly element: StructuralElement;
+  readonly canonicalSource: string;
   readonly state: State;
   readonly rulePath: readonly string[];
   readonly slots: readonly StructuralLexicalSlot[];
@@ -119,6 +119,7 @@ interface Sampled {
 interface SampledRuleChildren {
   readonly state: State;
   readonly children: readonly StructuralElement[];
+  readonly childCanonicalSources: readonly string[];
   readonly rulePath: readonly string[];
   readonly slots: readonly StructuralLexicalSlot[];
   readonly slotContexts: readonly SampledLexicalSlotContext[];
@@ -134,6 +135,89 @@ const CLAUSE_LIKE = new Set<SyntaxCategory>([
 ]);
 
 const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };
+
+
+function canonicalFeatureSetJson(features: SyntaxFeatureSet): string {
+  const fields = Object.keys(features)
+    .filter((key) => features[key as SyntaxFeatureName] !== undefined)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${JSON.stringify(features[key as SyntaxFeatureName])}`);
+  return `{${fields.join(",")}}`;
+}
+
+function canonicalStringArrayJson(values: readonly string[]): string {
+  return JSON.stringify(values);
+}
+
+function lexicalSlotIdentityCanonicalJson(
+  constituent: ProductionConstituent,
+  requirements: SyntaxRequirements,
+  occurrenceIndex: number,
+  path: readonly string[],
+  entryBindingId: string | undefined,
+): string {
+  const fields = [
+    `"allowedUpos":${canonicalStringArrayJson(constituent.allowedUpos)}`,
+    ...(entryBindingId === undefined ? [] : [`"entryBindingId":${JSON.stringify(entryBindingId)}`]),
+    ...(constituent.formalLiteral === undefined ? [] : [`"formalLiteral":${JSON.stringify(constituent.formalLiteral)}`]),
+    `"key":${JSON.stringify(constituent.key)}`,
+    `"occurrenceIndex":${occurrenceIndex}`,
+    `"path":${canonicalStringArrayJson(path)}`,
+    `"requiredFeatures":${canonicalFeatureSetJson(requirements.requiredFeatures)}`,
+    `"requiredFunctions":${canonicalStringArrayJson(requirements.requiredFunctions)}`,
+    ...(requirements.requiredOccurrenceCapabilities.length === 0
+      ? []
+      : [`"requiredOccurrenceCapabilities":${canonicalStringArrayJson(requirements.requiredOccurrenceCapabilities)}`]),
+    `"requiredValencyFrames":${canonicalStringArrayJson(requirements.requiredValencyFrames)}`,
+  ];
+  return `{${fields.join(",")}}`;
+}
+
+function lexicalSlotCanonicalJson(slot: StructuralLexicalSlot): string {
+  const fields = [
+    `"allowedUpos":${canonicalStringArrayJson(slot.allowedUpos)}`,
+    `"constituentKey":${JSON.stringify(slot.constituentKey)}`,
+    ...(slot.entryBindingId === undefined ? [] : [`"entryBindingId":${JSON.stringify(slot.entryBindingId)}`]),
+    ...(slot.formalLiteral === undefined ? [] : [`"formalLiteral":${JSON.stringify(slot.formalLiteral)}`]),
+    `"id":${JSON.stringify(slot.id)}`,
+    `"kind":"lexical-slot"`,
+    `"occurrenceIndex":${slot.occurrenceIndex}`,
+    `"requiredFeatures":${canonicalFeatureSetJson(slot.requiredFeatures)}`,
+    `"requiredFunctions":${canonicalStringArrayJson(slot.requiredFunctions)}`,
+    ...(slot.requiredOccurrenceCapabilities === undefined
+      ? []
+      : [`"requiredOccurrenceCapabilities":${canonicalStringArrayJson(slot.requiredOccurrenceCapabilities)}`]),
+    `"requiredValencyFrames":${canonicalStringArrayJson(slot.requiredValencyFrames)}`,
+  ];
+  return `{${fields.join(",")}}`;
+}
+
+function childrenCanonicalJson(childCanonicalSources: readonly string[]): string {
+  return `[${childCanonicalSources.join(",")}]`;
+}
+
+function syntaxNodeIdentityCanonicalJson(
+  category: SyntaxCategory,
+  productionRuleId: string,
+  surfaceOrderId: string,
+  childCanonicalSources: readonly string[],
+): string {
+  return `{"category":${JSON.stringify(category)},"children":${childrenCanonicalJson(childCanonicalSources)},"productionRuleId":${JSON.stringify(productionRuleId)},"surfaceOrderId":${JSON.stringify(surfaceOrderId)}}`;
+}
+
+function syntaxNodeCanonicalJson(
+  node: StructuralSyntaxNode,
+  childCanonicalSources: readonly string[],
+): string {
+  return `{"category":${JSON.stringify(node.category)},"children":${childrenCanonicalJson(childCanonicalSources)},"id":${JSON.stringify(node.id)},"kind":"syntax-node","productionRuleId":${JSON.stringify(node.productionRuleId)},"surfaceOrderId":${JSON.stringify(node.surfaceOrderId)}}`;
+}
+
+function derivationIdentityCanonicalJson(
+  rootCanonicalSource: string,
+  productionRulePath: readonly string[],
+): string {
+  return `{"grammarVersion":${JSON.stringify(FORMAL_GRAMMAR_VERSION)},"productionRulePath":${canonicalStringArrayJson(productionRulePath)},"root":${rootCanonicalSource}}`;
+}
 
 /** Static grammar preparation reusable while the exact rules and bounds stay unchanged. */
 export interface PreparedStructuralSamplingContext {
@@ -273,21 +357,16 @@ function makeSlot(
   const occurrenceRequirement = requirements.requiredOccurrenceCapabilities.length === 0
     ? {}
     : { requiredOccurrenceCapabilities: requirements.requiredOccurrenceCapabilities };
-  const identity = {
-    path,
-    key: constituent.key,
+  const identitySource = lexicalSlotIdentityCanonicalJson(
+    constituent,
+    requirements,
     occurrenceIndex,
-    allowedUpos: constituent.allowedUpos,
-    requiredFunctions: requirements.requiredFunctions,
-    requiredValencyFrames: requirements.requiredValencyFrames,
-    ...occurrenceRequirement,
-    requiredFeatures: requirements.requiredFeatures,
+    path,
     entryBindingId,
-    formalLiteral: constituent.formalLiteral,
-  };
+  );
   return {
     kind: "lexical-slot",
-    id: `syntax-slot:${stableRuntimeDigest(identity)}`,
+    id: `syntax-slot:${stableRuntimeDigestCanonicalJson(identitySource)}`,
     constituentKey: constituent.key,
     occurrenceIndex,
     allowedUpos: constituent.allowedUpos,
@@ -321,6 +400,7 @@ function sampleRuleChildren(
 ): SampledRuleChildren | null {
   let workingState = inputState;
   const children: StructuralElement[] = [];
+  const childCanonicalSources: string[] = [];
   const slots: StructuralLexicalSlot[] = [];
   const slotContexts: SampledLexicalSlotContext[] = [];
   const rulePath: string[] = [];
@@ -357,6 +437,7 @@ function sampleRuleChildren(
         );
         if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) return null;
         children.push(slot);
+        childCanonicalSources.push(lexicalSlotCanonicalJson(slot));
         slots.push(slot);
         slotContexts.push({
           slot,
@@ -383,6 +464,7 @@ function sampleRuleChildren(
       );
       if (child === null) return null;
       children.push(child.element);
+      childCanonicalSources.push(child.canonicalSource);
       slots.push(...child.slots);
       slotContexts.push(...child.slotContexts);
       rulePath.push(...child.rulePath);
@@ -390,7 +472,14 @@ function sampleRuleChildren(
     }
   }
 
-  return { state: workingState, children, rulePath, slots, slotContexts };
+  return {
+    state: workingState,
+    children,
+    childCanonicalSources,
+    rulePath,
+    slots,
+    slotContexts,
+  };
 }
 
 function sampleCategory(
@@ -478,15 +567,15 @@ function sampleCategory(
     );
     if (sampledChildren === null) continue;
 
-    const identity = {
+    const identitySource = syntaxNodeIdentityCanonicalJson(
       category,
-      productionRuleId: rule.id,
-      surfaceOrderId: order.id,
-      children: sampledChildren.children,
-    };
+      rule.id,
+      order.id,
+      sampledChildren.childCanonicalSources,
+    );
     const node: StructuralSyntaxNode = {
       kind: "syntax-node",
-      id: `syntax-node:${stableRuntimeDigest(identity)}`,
+      id: `syntax-node:${stableRuntimeDigestCanonicalJson(identitySource)}`,
       category,
       productionRuleId: rule.id,
       surfaceOrderId: order.id,
@@ -494,6 +583,7 @@ function sampleCategory(
     };
     return {
       element: node,
+      canonicalSource: syntaxNodeCanonicalJson(node, sampledChildren.childCanonicalSources),
       state: sampledChildren.state,
       rulePath: [rule.id, ...sampledChildren.rulePath],
       slots: sampledChildren.slots,
@@ -660,13 +750,12 @@ export function sampleStructuralDerivation(
       )) continue;
     if (requiredProductionRuleIdsAnyOf !== undefined
       && !requiredProductionRuleIdsAnyOf.some((ruleId) => sampled.rulePath.includes(ruleId))) continue;
-    const identity = {
-      grammarVersion: FORMAL_GRAMMAR_VERSION,
-      root: sampled.element,
-      productionRulePath: sampled.rulePath,
-    };
+    const identitySource = derivationIdentityCanonicalJson(
+      sampled.canonicalSource,
+      sampled.rulePath,
+    );
     return {
-      id: `derivation-shape:${stableRuntimeDigest(identity)}`,
+      id: `derivation-shape:${stableRuntimeDigestCanonicalJson(identitySource)}`,
       grammarVersion: FORMAL_GRAMMAR_VERSION,
       root: sampled.element,
       productionRulePath: sampled.rulePath,
