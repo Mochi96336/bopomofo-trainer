@@ -1,0 +1,89 @@
+name: tmp score entry call-shape probe
+
+on:
+  push:
+    branches:
+      - agent/tmp-score-entry-probe
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TARGET_REF: 5c8f5e4fedf449165af6df3b2f2931b5ec123fcd
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Checkout production target
+        run: git checkout --force "$TARGET_REF"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run app:catalog
+      - name: Instrument scoreEntry without changing behavior
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/curriculum/frequency-first-utterance.ts')
+          source = path.read_text()
+          anchor = '''function scoreEntry(\n  entry: CatalogEntry,\n  input: FrequencyFirstScoringInput,\n): EntrySelectionScore {\n  const frequencyBase = catalogEntryFrequencyWeight(entry);\n  const expectedTrace = expectedTokenTrace([entry], input);\n  const transitions = learnerTransitionTrace([entry], input);\n'''
+          replacement = '''const scoreEntryProbe = {\n  calls: 0,\n  selections: 0,\n  withinSelectionRepeatCalls: 0,\n  tokenVisits: 0,\n  bindingOnlyCalls: 0,\n  formalSyntaxCalls: 0,\n  recentPenaltyCalls: 0,\n  entryCounts: new Map<string, number>(),\n};\nlet scoreEntryProbeInput: FrequencyFirstScoringInput | undefined;\nlet scoreEntryProbeSeen = new Set<string>();\n\nexport function scoreEntryProbeSnapshot() {\n  const counts = [...scoreEntryProbe.entryCounts.entries()]\n    .sort((left, right) => right[1] - left[1] || compareText(left[0], right[0]));\n  return {\n    calls: scoreEntryProbe.calls,\n    selections: scoreEntryProbe.selections,\n    withinSelectionRepeatCalls: scoreEntryProbe.withinSelectionRepeatCalls,\n    tokenVisits: scoreEntryProbe.tokenVisits,\n    bindingOnlyCalls: scoreEntryProbe.bindingOnlyCalls,\n    formalSyntaxCalls: scoreEntryProbe.formalSyntaxCalls,\n    recentPenaltyCalls: scoreEntryProbe.recentPenaltyCalls,\n    globalUniqueEntries: counts.length,\n    repeatedAcrossSelections: counts.reduce((sum, [, count]) => sum + Math.max(0, count - 1), 0),\n    topEntryCounts: counts.slice(0, 20),\n  };\n}\n\nfunction scoreEntry(\n  entry: CatalogEntry,\n  input: FrequencyFirstScoringInput,\n): EntrySelectionScore {\n  if (scoreEntryProbeInput !== input) {\n    scoreEntryProbeInput = input;\n    scoreEntryProbeSeen = new Set<string>();\n    scoreEntryProbe.selections += 1;\n  }\n  scoreEntryProbe.calls += 1;\n  if (scoreEntryProbeSeen.has(entry.id)) scoreEntryProbe.withinSelectionRepeatCalls += 1;\n  else scoreEntryProbeSeen.add(entry.id);\n  scoreEntryProbe.entryCounts.set(entry.id, (scoreEntryProbe.entryCounts.get(entry.id) ?? 0) + 1);\n  if (input.legacyTransitions === null) scoreEntryProbe.bindingOnlyCalls += 1;\n  if (input.profiles !== undefined) scoreEntryProbe.formalSyntaxCalls += 1;\n\n  const frequencyBase = catalogEntryFrequencyWeight(entry);\n  const expectedTrace = expectedTokenTrace([entry], input);\n  scoreEntryProbe.tokenVisits += expectedTrace.length;\n  const transitions = learnerTransitionTrace([entry], input);\n'''
+          if source.count(anchor) != 1:
+              raise SystemExit(f'scoreEntry anchor count {source.count(anchor)}')
+          source = source.replace(anchor, replacement)
+          penalty = '''  const recentEntryFactor = input.history.recentEntryIds.includes(entry.id)\n    ? input.policy.recentEntryPenalty\n    : 1;\n  return {\n'''
+          penalty_replacement = '''  const recentEntryFactor = input.history.recentEntryIds.includes(entry.id)\n    ? input.policy.recentEntryPenalty\n    : 1;\n  if (recentEntryFactor !== 1) scoreEntryProbe.recentPenaltyCalls += 1;\n  return {\n'''
+          if source.count(penalty) != 1:
+              raise SystemExit(f'penalty anchor count {source.count(penalty)}')
+          path.write_text(source.replace(penalty, penalty_replacement))
+          PY
+      - name: Run 128 ordinary product rounds
+        shell: bash
+        run: |
+          cat > .tmp-score-entry-probe.ts <<'EOF'
+          import {
+            EVALUATION_CATALOG,
+            PRACTICE_CATALOG,
+            SYNTAX_PROFILES,
+          } from "./src/app/generated/catalog.js";
+          import { scoreEntryProbeSnapshot } from "./src/curriculum/frequency-first-utterance.js";
+          import {
+            createFreshProgressForEnvironment,
+            createProductEnvironment,
+            createProductState,
+          } from "./src/product/session.js";
+
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "score-entry-probe",
+            "guided",
+            "standard",
+          );
+          let attemptTotal = 0;
+          for (let round = 0; round < 128; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            attemptTotal += state.round.selection.generationAttempts;
+          }
+          console.log(JSON.stringify({
+            rounds: 128,
+            attemptTotal,
+            scoreEntry: scoreEntryProbeSnapshot(),
+          }, null, 2));
+          EOF
+          node --import tsx .tmp-score-entry-probe.ts
