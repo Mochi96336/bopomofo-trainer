@@ -131,6 +131,25 @@ const CLAUSE_LIKE = new Set<SyntaxCategory>([
 
 const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };
 
+/** Static grammar preparation reusable while the exact rules and bounds stay unchanged. */
+export interface PreparedStructuralSamplingContext {
+  readonly rules: readonly ProductionRule[];
+  readonly bounds: DerivationBounds;
+  readonly rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>;
+}
+
+export function prepareStructuralSamplingContext(
+  rules: readonly ProductionRule[],
+  bounds: DerivationBounds = DEFAULT_DERIVATION_BOUNDS,
+): PreparedStructuralSamplingContext {
+  assertValidGrammar(rules, bounds);
+  const rulesByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();
+  for (const rule of rules) {
+    rulesByOutput.set(rule.output, [...(rulesByOutput.get(rule.output) ?? []), rule]);
+  }
+  return { rules, bounds, rulesByOutput };
+}
+
 function nextUnit(random: RandomSource): number {
   const value = random.next();
   if (!Number.isFinite(value) || value < 0 || value >= 1) {
@@ -575,20 +594,21 @@ function lexicalSlotMatchesConstraint(
 
 export function sampleStructuralDerivation(
   options: StructuralSamplingOptions,
+  preparedContext?: PreparedStructuralSamplingContext,
 ): StructuralDerivationShape | null {
   const bounds = options.bounds ?? DEFAULT_DERIVATION_BOUNDS;
   const maximumAttempts = options.maximumAttempts ?? 16;
   if (!Number.isInteger(maximumAttempts) || maximumAttempts <= 0) {
     throw new Error("maximumAttempts must be a positive integer");
   }
-  assertValidGrammar(options.rules, bounds);
+  const context = preparedContext ?? prepareStructuralSamplingContext(options.rules, bounds);
+  if (context.rules !== options.rules || context.bounds !== bounds) {
+    throw new Error("prepared structural sampling context input identity mismatch");
+  }
   const requestedRootRuleId = validatedRootRuleId(options);
   const nestedProductionTargets = validatedNestedProductionTargets(options, bounds);
   const requiredProductionRuleIdsAnyOf = validatedRequiredProductionRuleIdsAnyOf(options);
-  const rulesByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();
-  for (const rule of options.rules) {
-    rulesByOutput.set(rule.output, [...(rulesByOutput.get(rule.output) ?? []), rule]);
-  }
+  const rulesByOutput = context.rulesByOutput;
   for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
     const sampled = sampleCategory(
       options.rootCategory,

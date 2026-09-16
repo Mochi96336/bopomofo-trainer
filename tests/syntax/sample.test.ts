@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { RandomSource } from "../../src/core/model.js";
-import { FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";
+import { DEFAULT_DERIVATION_BOUNDS, FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";
 import { FORMAL_SYNTAX_RULES } from "../../src/syntax/grammar.js";
-import { sampleStructuralDerivation } from "../../src/syntax/sample.js";
+import {
+  prepareStructuralSamplingContext,
+  sampleStructuralDerivation,
+} from "../../src/syntax/sample.js";
 import type {
   ProductionConstituent,
   ProductionRule,
@@ -331,5 +334,34 @@ describe("random structural sampling", () => {
       rules,
       random: { next: () => 1 },
     })).toThrow(/\[0, 1\)/u);
+  });
+});
+
+describe("prepared structural sampling context", () => {
+  it("preserves deterministic sampling and fails closed on static input identity mismatch", () => {
+    const prepared = prepareStructuralSamplingContext(rules);
+    const raw = sampleStructuralDerivation({
+      rootCategory: "Sentence",
+      rules,
+      random: new SequenceRandom([0]),
+    });
+    const reused = sampleStructuralDerivation({
+      rootCategory: "Sentence",
+      rules,
+      random: new SequenceRandom([0]),
+    }, prepared);
+
+    expect(reused).toEqual(raw);
+    expect(() => sampleStructuralDerivation({
+      rootCategory: "Sentence",
+      rules: [...rules],
+      random: new SequenceRandom([0]),
+    }, prepared)).toThrow(/prepared structural sampling context input identity mismatch/u);
+    expect(() => sampleStructuralDerivation({
+      rootCategory: "Sentence",
+      rules,
+      bounds: { ...DEFAULT_DERIVATION_BOUNDS },
+      random: new SequenceRandom([0]),
+    }, prepared)).toThrow(/prepared structural sampling context input identity mismatch/u);
   });
 });
