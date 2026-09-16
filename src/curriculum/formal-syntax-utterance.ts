@@ -15,7 +15,7 @@ import { PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY } from "../syntax/runtim
 import {
   buildLexicalProfileIndex,
   compatibleProfilesForSlot,
-  realizeStructuralDerivation,
+  realizeStructuralDerivationWithIndex,
 } from "../syntax/realize.js";
 import {
   sampleStructuralDerivation,
@@ -489,9 +489,8 @@ export function composeFormalSyntaxUtterances(
       continue;
     }
     const punctuation = punctuationForPath(shape.productionRulePath);
-    const realization = realizeStructuralDerivation(shape, {
-      entries: input.eligibleEntries,
-      profiles: eligibleProfiles,
+    const realization = realizeStructuralDerivationWithIndex(shape, {
+      index,
       profileOffsetsBySlotId: offsets,
       punctuationToken: punctuation,
     });
