@@ -1,0 +1,139 @@
+name: tmp stage product structural context reuse
+
+on:
+  push:
+    branches:
+      - agent/reuse-product-structural-context
+
+permissions:
+  contents: write
+
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - name: Apply candidate
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          # Composer: accept an explicitly prepared structural context.
+          p = Path('src/curriculum/formal-syntax-utterance.ts')
+          s = p.read_text()
+          old = '''export function composeFormalSyntaxUtterances(\n  input: FormalSyntaxUtteranceInput,\n  preparedLexicon?: PreparedFormalSyntaxLexicon,\n): GrammarCompositionResult {\n'''
+          new = '''export function composeFormalSyntaxUtterances(\n  input: FormalSyntaxUtteranceInput,\n  preparedLexicon?: PreparedFormalSyntaxLexicon,\n  preparedStructuralContext?: PreparedStructuralSamplingContext,\n): GrammarCompositionResult {\n'''
+          if old not in s: raise SystemExit('composer signature needle missing')
+          s = s.replace(old, new, 1)
+          old = '''  let preparedStructuralSamplingContext: PreparedStructuralSamplingContext | null = null;\n  const structuralSamplingContext = (): PreparedStructuralSamplingContext => {\n    preparedStructuralSamplingContext ??= prepareStructuralSamplingContext(rules, input.bounds);\n    return preparedStructuralSamplingContext;\n  };\n'''
+          new = '''  let preparedStructuralSamplingContext = preparedStructuralContext ?? null;\n  const structuralSamplingContext = (): PreparedStructuralSamplingContext => {\n    preparedStructuralSamplingContext ??= prepareStructuralSamplingContext(rules, input.bounds);\n    return preparedStructuralSamplingContext;\n  };\n'''
+          if old not in s: raise SystemExit('composer context needle missing')
+          p.write_text(s.replace(old, new, 1))
+
+          # Selector: define a lifecycle-owned projection containing exact bounds + prepared sampler context.
+          p = Path('src/curriculum/frequency-first-utterance.ts')
+          s = p.read_text()
+          old = 'import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";\n'
+          new = old + '''import {\n  prepareStructuralSamplingContext,\n  type PreparedStructuralSamplingContext,\n} from "../syntax/sample.js";\n'''
+          if old not in s: raise SystemExit('selector grammar import needle missing')
+          s = s.replace(old, new, 1)
+
+          marker = '''export interface PreparedFrequencyFirstEntries {\n  readonly entries: readonly CatalogEntry[];\n  readonly entriesById: ReadonlyMap<string, CatalogEntry>;\n  readonly tokenIdsByEntryId: ReadonlyMap<string, readonly TokenId[]>;\n}\n'''
+          insert = marker + '''\nexport interface PreparedFormalSyntaxExecution {\n  readonly maximumClauseNesting: number;\n  readonly bounds: DerivationBounds;\n  readonly structuralSamplingContext: PreparedStructuralSamplingContext;\n}\n'''
+          if marker not in s: raise SystemExit('prepared entries marker missing')
+          s = s.replace(marker, insert, 1)
+
+          old = '''  readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;\n  readonly preparedFrequencyFirstEntries?: PreparedFrequencyFirstEntries;\n};\n\ntype FrequencyFirstScoringInput = Omit<\n'''
+          new = '''  readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;\n  readonly preparedFrequencyFirstEntries?: PreparedFrequencyFirstEntries;\n  readonly preparedFormalSyntaxExecution?: PreparedFormalSyntaxExecution;\n};\n\ntype FrequencyFirstScoringInput = Omit<\n'''
+          if old not in s: raise SystemExit('formal selection input needle missing')
+          s = s.replace(old, new, 1)
+
+          old = '''  readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;\n  readonly preparedFrequencyFirstEntries?: PreparedFrequencyFirstEntries;\n};\n\nfunction compareText'''
+          new = '''  readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;\n  readonly preparedFrequencyFirstEntries?: PreparedFrequencyFirstEntries;\n  readonly preparedFormalSyntaxExecution?: PreparedFormalSyntaxExecution;\n};\n\nfunction compareText'''
+          if old not in s: raise SystemExit('scoring input needle missing')
+          s = s.replace(old, new, 1)
+
+          marker = '''function formalSyntaxExecutionBounds(maximumClauseNesting: number): DerivationBounds {\n  return {\n    maximumPhraseDepth: 3,\n    maximumClauseNesting,\n    maximumClausesPerSentence: 2,\n    maximumCoordinationItems: 2,\n    maximumConsecutiveModifiers: 2,\n    maximumComplementsPerPredicate: 1,\n    maximumLexicalEntriesPerUtterance: 6,\n  };\n}\n'''
+          insert = marker + '''\nexport function prepareFormalSyntaxExecution(\n  maximumClauseNesting: number,\n  rules: readonly ProductionRule[] = FORMAL_SYNTAX_RULES,\n): PreparedFormalSyntaxExecution {\n  const bounds = formalSyntaxExecutionBounds(maximumClauseNesting);\n  return {\n    maximumClauseNesting,\n    bounds,\n    structuralSamplingContext: prepareStructuralSamplingContext(rules, bounds),\n  };\n}\n'''
+          if marker not in s: raise SystemExit('execution bounds marker missing')
+          s = s.replace(marker, insert, 1)
+
+          old = '''function generateOnce(\n  eligibleEntries: readonly CatalogEntry[],\n  input: FrequencyFirstScoringInput,\n  maximumClauseNesting: number,\n  preparedFormalSyntaxLexicon: PreparedFormalSyntaxLexicon | null,\n): SlotWeightedGrammarGeneration {\n'''
+          new = '''function generateOnce(\n  eligibleEntries: readonly CatalogEntry[],\n  input: FrequencyFirstScoringInput,\n  maximumClauseNesting: number,\n  preparedFormalSyntaxLexicon: PreparedFormalSyntaxLexicon | null,\n  preparedFormalSyntaxExecution: PreparedFormalSyntaxExecution | null,\n): SlotWeightedGrammarGeneration {\n'''
+          if old not in s: raise SystemExit('generateOnce signature missing')
+          s = s.replace(old, new, 1)
+
+          old = '''    const composition = composeFormalSyntaxUtterances({\n      eligibleEntries,\n      profiles: input.profiles,\n      random: input.random,\n      entryWeight,\n      minimumLexicalEntries: 2,\n      maximumCandidates: 1,\n      maximumAttempts: 64,\n      ...composerCompositionOverride(input),\n      bounds: formalSyntaxExecutionBounds(maximumClauseNesting),\n    }, preparedFormalSyntaxLexicon);\n'''
+          new = '''    const compositionOverride = composerCompositionOverride(input);\n    const executionRules = compositionOverride.rules ?? FORMAL_SYNTAX_RULES;\n    if (preparedFormalSyntaxExecution !== null) {\n      if (preparedFormalSyntaxExecution.maximumClauseNesting !== maximumClauseNesting) {\n        throw new Error("prepared formal syntax execution clause nesting mismatch");\n      }\n      if (preparedFormalSyntaxExecution.structuralSamplingContext.rules !== executionRules) {\n        throw new Error("prepared formal syntax execution rules identity mismatch");\n      }\n    }\n    const executionBounds = preparedFormalSyntaxExecution?.bounds\n      ?? formalSyntaxExecutionBounds(maximumClauseNesting);\n    const composition = composeFormalSyntaxUtterances({\n      eligibleEntries,\n      profiles: input.profiles,\n      random: input.random,\n      entryWeight,\n      minimumLexicalEntries: 2,\n      maximumCandidates: 1,\n      maximumAttempts: 64,\n      ...compositionOverride,\n      bounds: executionBounds,\n    }, preparedFormalSyntaxLexicon, preparedFormalSyntaxExecution?.structuralSamplingContext);\n'''
+          if old not in s: raise SystemExit('composition block missing')
+          s = s.replace(old, new, 1)
+
+          old = '''  const preparedFormalSyntaxLexicon = input.profiles === undefined\n    ? null\n    : input.preparedFormalSyntaxLexicon\n      ?? prepareFormalSyntaxLexicon(eligibleEntries, input.profiles);\n  let generation: SlotWeightedGrammarGeneration | null = null;\n'''
+          new = '''  const preparedFormalSyntaxLexicon = input.profiles === undefined\n    ? null\n    : input.preparedFormalSyntaxLexicon\n      ?? prepareFormalSyntaxLexicon(eligibleEntries, input.profiles);\n  const preparedFormalSyntaxExecution = input.profiles === undefined\n    ? null\n    : input.preparedFormalSyntaxExecution ?? null;\n  if (preparedFormalSyntaxExecution !== null\n    && preparedFormalSyntaxExecution.maximumClauseNesting !== maximumClauseNesting) {\n    throw new Error("prepared formal syntax execution clause nesting mismatch");\n  }\n  let generation: SlotWeightedGrammarGeneration | null = null;\n'''
+          if old not in s: raise SystemExit('prepared lexicon selection block missing')
+          s = s.replace(old, new, 1)
+
+          old = '''      maximumClauseNesting,\n      preparedFormalSyntaxLexicon,\n    );\n'''
+          new = '''      maximumClauseNesting,\n      preparedFormalSyntaxLexicon,\n      preparedFormalSyntaxExecution,\n    );\n'''
+          if old not in s: raise SystemExit('generateOnce invocation missing')
+          p.write_text(s.replace(old, new, 1))
+
+          # Product environment owns the prepared execution context for its lifetime.
+          p = Path('src/product/types.ts')
+          s = p.read_text()
+          old = '''  FrequencyFirstUtteranceSelection,\n  PreparedFrequencyFirstEntries,\n} from "../curriculum/frequency-first-utterance.js";\n'''
+          new = '''  FrequencyFirstUtteranceSelection,\n  PreparedFormalSyntaxExecution,\n  PreparedFrequencyFirstEntries,\n} from "../curriculum/frequency-first-utterance.js";\n'''
+          if old not in s: raise SystemExit('product types import missing')
+          s = s.replace(old, new, 1)
+          old = '''  readonly preparedPracticeLexicon: PreparedFormalSyntaxLexicon;\n  readonly preparedPracticeEntries: PreparedFrequencyFirstEntries;\n}\n'''
+          new = '''  readonly preparedPracticeLexicon: PreparedFormalSyntaxLexicon;\n  readonly preparedPracticeEntries: PreparedFrequencyFirstEntries;\n  readonly preparedPracticeFormalSyntaxExecution: PreparedFormalSyntaxExecution;\n}\n'''
+          if old not in s: raise SystemExit('product environment fields missing')
+          p.write_text(s.replace(old, new, 1))
+
+          p = Path('src/product/session.ts')
+          s = p.read_text()
+          old = '''  FREQUENCY_FIRST_UTTERANCE_POLICY,\n  prepareFrequencyFirstEntries,\n  selectFormalSyntaxUtterance,\n'''
+          new = '''  FREQUENCY_FIRST_UTTERANCE_POLICY,\n  prepareFormalSyntaxExecution,\n  prepareFrequencyFirstEntries,\n  selectFormalSyntaxUtterance,\n'''
+          if old not in s: raise SystemExit('session import missing')
+          s = s.replace(old, new, 1)
+          old = '''    preparedPracticeEntries: prepareFrequencyFirstEntries(catalogs.practice),\n  };\n}\n'''
+          new = '''    preparedPracticeEntries: prepareFrequencyFirstEntries(catalogs.practice),\n    preparedPracticeFormalSyntaxExecution: prepareFormalSyntaxExecution(1),\n  };\n}\n'''
+          if old not in s: raise SystemExit('environment preparation missing')
+          s = s.replace(old, new, 1)
+          old = '''    preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,\n    preparedFrequencyFirstEntries: environment.preparedPracticeEntries,\n    random: createSeededRandom(\n'''
+          new = '''    preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,\n    preparedFrequencyFirstEntries: environment.preparedPracticeEntries,\n    preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,\n    random: createSeededRandom(\n'''
+          if old not in s: raise SystemExit('selectRound prepared input missing')
+          p.write_text(s.replace(old, new, 1))
+
+          # Focused ownership/identity regression; the full product tests exercise this context in composition.
+          p = Path('tests/product/session.test.ts')
+          s = p.read_text()
+          marker = '''  it("builds one complete grammar-valid utterance instead of six unrelated entries", () => {\n'''
+          test = '''  it("owns one prepared formal-syntax execution context per product environment", () => {\n    const prepared = environment.preparedPracticeFormalSyntaxExecution;\n    expect(prepared.maximumClauseNesting).toBe(1);\n    expect(prepared.structuralSamplingContext.bounds).toBe(prepared.bounds);\n\n    const firstProgress = createFreshProgressForEnvironment(\n      environment,\n      "prepared-context-first",\n      "guided",\n      "standard",\n    );\n    const secondProgress = createFreshProgressForEnvironment(\n      environment,\n      "prepared-context-second",\n      "guided",\n      "standard",\n    );\n    expect(createProductState(environment, firstProgress, 0).round.selection.utterance.id).toBeTruthy();\n    expect(createProductState(environment, secondProgress, 0).round.selection.utterance.id).toBeTruthy();\n    expect(environment.preparedPracticeFormalSyntaxExecution).toBe(prepared);\n  });\n\n'''
+          if marker not in s: raise SystemExit('product test marker missing')
+          p.write_text(s.replace(marker, test + marker, 1))
+          PY
+      - name: Typecheck and targeted tests
+        run: |
+          npm run typecheck
+          npx vitest run tests/syntax/sample.test.ts tests/curriculum/formal-syntax-utterance.test.ts tests/curriculum/frequency-first-utterance.test.ts tests/product/session.test.ts
+      - name: Commit candidate and remove staging workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/curriculum/formal-syntax-utterance.ts src/curriculum/frequency-first-utterance.ts src/product/types.ts src/product/session.ts tests/product/session.test.ts
+          git commit -m "perf(product): reuse prepared structural sampling context"
+          git rm .github/workflows/tmp-stage-product-structural-context.yml
+          git commit -m "chore: remove structural context staging workflow"
+          git push origin HEAD:agent/reuse-product-structural-context
