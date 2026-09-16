@@ -1,0 +1,99 @@
+name: tmp prepared structural sampling patch
+
+on:
+  push:
+    branches:
+      - agent/prepared-structural-sampling-context
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: agent/prepared-structural-sampling-context
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply prepared structural sampling patch
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              file = Path(path)
+              text = file.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected one replacement, found {count}: {old[:120]!r}")
+              file.write_text(text.replace(old, new, 1))
+
+          sample = "src/syntax/sample.ts"
+          replace_once(
+              sample,
+              '''const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };\n\nfunction nextUnit(random: RandomSource): number {''',
+              '''const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };\n\n/** Static grammar preparation reusable while the exact rules and bounds stay unchanged. */\nexport interface PreparedStructuralSamplingContext {\n  readonly rules: readonly ProductionRule[];\n  readonly bounds: DerivationBounds;\n  readonly rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>;\n}\n\nexport function prepareStructuralSamplingContext(\n  rules: readonly ProductionRule[],\n  bounds: DerivationBounds = DEFAULT_DERIVATION_BOUNDS,\n): PreparedStructuralSamplingContext {\n  assertValidGrammar(rules, bounds);\n  const rulesByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();\n  for (const rule of rules) {\n    rulesByOutput.set(rule.output, [...(rulesByOutput.get(rule.output) ?? []), rule]);\n  }\n  return { rules, bounds, rulesByOutput };\n}\n\nfunction nextUnit(random: RandomSource): number {''',
+          )
+          replace_once(
+              sample,
+              '''export function sampleStructuralDerivation(\n  options: StructuralSamplingOptions,\n): StructuralDerivationShape | null {\n  const bounds = options.bounds ?? DEFAULT_DERIVATION_BOUNDS;\n  const maximumAttempts = options.maximumAttempts ?? 16;\n  if (!Number.isInteger(maximumAttempts) || maximumAttempts <= 0) {\n    throw new Error("maximumAttempts must be a positive integer");\n  }\n  assertValidGrammar(options.rules, bounds);\n  const requestedRootRuleId = validatedRootRuleId(options);\n  const nestedProductionTargets = validatedNestedProductionTargets(options, bounds);\n  const requiredProductionRuleIdsAnyOf = validatedRequiredProductionRuleIdsAnyOf(options);\n  const rulesByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();\n  for (const rule of options.rules) {\n    rulesByOutput.set(rule.output, [...(rulesByOutput.get(rule.output) ?? []), rule]);\n  }''',
+              '''export function sampleStructuralDerivation(\n  options: StructuralSamplingOptions,\n  preparedContext?: PreparedStructuralSamplingContext,\n): StructuralDerivationShape | null {\n  const bounds = options.bounds ?? DEFAULT_DERIVATION_BOUNDS;\n  const maximumAttempts = options.maximumAttempts ?? 16;\n  if (!Number.isInteger(maximumAttempts) || maximumAttempts <= 0) {\n    throw new Error("maximumAttempts must be a positive integer");\n  }\n  const context = preparedContext ?? prepareStructuralSamplingContext(options.rules, bounds);\n  if (context.rules !== options.rules || context.bounds !== bounds) {\n    throw new Error("prepared structural sampling context input identity mismatch");\n  }\n  const requestedRootRuleId = validatedRootRuleId(options);\n  const nestedProductionTargets = validatedNestedProductionTargets(options, bounds);\n  const requiredProductionRuleIdsAnyOf = validatedRequiredProductionRuleIdsAnyOf(options);\n  const rulesByOutput = context.rulesByOutput;''',
+          )
+
+          composer = "src/curriculum/formal-syntax-utterance.ts"
+          replace_once(
+              composer,
+              '''import {\n  sampleStructuralDerivation,\n  type NestedProductionTarget,\n} from "../syntax/sample.js";''',
+              '''import {\n  prepareStructuralSamplingContext,\n  sampleStructuralDerivation,\n  type NestedProductionTarget,\n  type PreparedStructuralSamplingContext,\n} from "../syntax/sample.js";''',
+          )
+          replace_once(
+              composer,
+              '''  const samplingPolicy = useProductFamilyPolicy\n    ? input.samplingPolicy ?? PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY\n    : null;\n  if (samplingPolicy !== null) validateFormalSyntaxSamplingPolicy(samplingPolicy);\n\n  // #155 deliberately controls Sentence-root family probability only.''',
+              '''  const samplingPolicy = useProductFamilyPolicy\n    ? input.samplingPolicy ?? PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY\n    : null;\n  if (samplingPolicy !== null) validateFormalSyntaxSamplingPolicy(samplingPolicy);\n  let preparedStructuralSamplingContext: PreparedStructuralSamplingContext | null = null;\n  const structuralSamplingContext = (): PreparedStructuralSamplingContext => {\n    preparedStructuralSamplingContext ??= prepareStructuralSamplingContext(rules, input.bounds);\n    return preparedStructuralSamplingContext;\n  };\n\n  // #155 deliberately controls Sentence-root family probability only.''',
+          )
+          replace_once(
+              composer,
+              '''        : (input.structuralTarget?.nestedProductionTargets === undefined\n            ? {}\n            : { nestedProductionTargets: input.structuralTarget.nestedProductionTargets })),\n    });''',
+              '''        : (input.structuralTarget?.nestedProductionTargets === undefined\n            ? {}\n            : { nestedProductionTargets: input.structuralTarget.nestedProductionTargets })),\n    }, structuralSamplingContext());''',
+          )
+
+          test = "tests/syntax/sample.test.ts"
+          replace_once(
+              test,
+              '''import { FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";''',
+              '''import { DEFAULT_DERIVATION_BOUNDS, FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";''',
+          )
+          replace_once(
+              test,
+              '''import { sampleStructuralDerivation } from "../../src/syntax/sample.js";''',
+              '''import {\n  prepareStructuralSamplingContext,\n  sampleStructuralDerivation,\n} from "../../src/syntax/sample.js";''',
+          )
+          test_path = Path(test)
+          text = test_path.read_text()
+          addition = '''\n\ndescribe("prepared structural sampling context", () => {\n  it("preserves deterministic sampling and fails closed on static input identity mismatch", () => {\n    const prepared = prepareStructuralSamplingContext(rules);\n    const raw = sampleStructuralDerivation({\n      rootCategory: "Sentence",\n      rules,\n      random: new SequenceRandom([0]),\n    });\n    const reused = sampleStructuralDerivation({\n      rootCategory: "Sentence",\n      rules,\n      random: new SequenceRandom([0]),\n    }, prepared);\n\n    expect(reused).toEqual(raw);\n    expect(() => sampleStructuralDerivation({\n      rootCategory: "Sentence",\n      rules: [...rules],\n      random: new SequenceRandom([0]),\n    }, prepared)).toThrow(/prepared structural sampling context input identity mismatch/u);\n    expect(() => sampleStructuralDerivation({\n      rootCategory: "Sentence",\n      rules,\n      bounds: { ...DEFAULT_DERIVATION_BOUNDS },\n      random: new SequenceRandom([0]),\n    }, prepared)).toThrow(/prepared structural sampling context input identity mismatch/u);\n  });\n});\n'''
+          if 'describe("prepared structural sampling context"' in text:
+              raise SystemExit("prepared structural sampling test already exists")
+          test_path.write_text(text.rstrip() + addition)
+          PY
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Targeted tests
+        run: npx vitest run tests/syntax/sample.test.ts tests/curriculum/formal-syntax-sampling-policy.test.ts tests/curriculum/formal-syntax-bindings.test.ts tests/curriculum/formal-syntax-construction-practice.test.ts
+      - name: Commit patch and remove temporary workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm .github/workflows/tmp-prepared-structural-sampling-patch.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/syntax/sample.ts src/curriculum/formal-syntax-utterance.ts tests/syntax/sample.test.ts .github/workflows/tmp-prepared-structural-sampling-patch.yml
+          git commit -m "perf(syntax): reuse prepared structural sampling context"
+          git push origin HEAD:agent/prepared-structural-sampling-context
