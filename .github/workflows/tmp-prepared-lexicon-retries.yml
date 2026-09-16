@@ -1,9 +1,9 @@
 name: tmp prepared lexicon retry patch
 
 on:
-  push:
+  pull_request:
     branches:
-      - agent/formal-syntax-prepared-lexicon-retries
+      - main
 
 permissions:
   contents: write
@@ -15,6 +15,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
       - uses: actions/setup-node@v6
         with:
           node-version: 22
