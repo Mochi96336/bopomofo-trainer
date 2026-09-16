@@ -70,7 +70,12 @@ function hashRuntimeSource(source: string): string {
  * Browser-safe deterministic identity digest. This is deliberately not a
  * cryptographic lineage checksum; source artifacts continue to use SHA-256.
  */
+/** Hash an already-canonical JSON source with the exact stable-runtime digest algorithm. */
+export function stableRuntimeDigestCanonicalJson(source: string): string {
+  return hashRuntimeSource(source);
+}
+
 export function stableRuntimeDigest(value: unknown): string {
   const source = JSON.stringify(canonicalValue(value));
-  return hashRuntimeSource(source);
+  return stableRuntimeDigestCanonicalJson(source);
 }

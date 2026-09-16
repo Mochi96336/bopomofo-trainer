@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stableRuntimeDigest } from "../../src/core/stable-id.js";
+import { stableRuntimeDigest, stableRuntimeDigestCanonicalJson } from "../../src/core/stable-id.js";
 
 function legacyCanonicalValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(legacyCanonicalValue);
@@ -50,6 +50,19 @@ describe("browser-safe runtime identities", () => {
     expect(first).toBe(reordered);
     expect(first).toMatch(/^[0-9a-f]{64}$/u);
     expect(stableRuntimeDigest({ text: "別的句子" })).not.toBe(first);
+  });
+
+  it("accepts proven canonical JSON without changing digest bytes", () => {
+    const version = "stable-keyed-rule-substream-v2";
+    for (const purpose of ["candidate-substream", "priority"] as const) {
+      for (const ticket of [0, 1, 0x7fffffff, 0xffffffff]) {
+        for (const ruleId of ["clause.basic", "clause.quoted/特殊", "clause.deep/nested"] as const) {
+          const legacy = stableRuntimeDigest({ version, purpose, ticket, ruleId });
+          const canonicalJson = JSON.stringify({ purpose, ruleId, ticket, version });
+          expect(stableRuntimeDigestCanonicalJson(canonicalJson)).toBe(legacy);
+        }
+      }
+    }
   });
 
   it("matches the legacy eight-pass digest byte-for-byte", () => {
