@@ -1,0 +1,121 @@
+name: tmp flat compatibility key benchmark
+
+on:
+  push:
+    branches:
+      - agent/tmp-flat-compatibility-key-ab
+
+permissions:
+  contents: read
+
+env:
+  PRODUCTION_REF: 0b4dc2805573173144ea43293f6faa607aa4b619
+  CANDIDATE_REF: agent/tmp-flat-compatibility-key-ab
+  SAMPLE_COUNT: 256
+
+jobs:
+  paired-benchmark:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify and benchmark candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --force "$CANDIDATE_REF"
+          git clean -fdx
+          npm ci --include=dev --ignore-scripts
+          git diff --check "$PRODUCTION_REF"..."$CANDIDATE_REF"
+          npm run typecheck
+          npx vitest run tests/syntax/realize.test.ts tests/curriculum/formal-syntax-utterance.test.ts tests/curriculum/formal-syntax-bindings.test.ts tests/curriculum/frequency-first-utterance.test.ts tests/product/session.test.ts
+
+          results="$RUNNER_TEMP/flat-compatibility-key-results.jsonl"
+          : > "$results"
+          measure() {
+            local label="$1"
+            local ref="$2"
+            git checkout --force "$ref" >/dev/null
+            git clean -fdx >/dev/null
+            npm ci --include=dev --ignore-scripts >/dev/null
+            npm run app:catalog >/dev/null
+            cat > .tmp-product-paired.ts <<'EOF'
+          import { appendFileSync } from "node:fs";
+          import { performance } from "node:perf_hooks";
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import { stableRuntimeDigest } from "./src/core/stable-id.js";
+          import { createFreshProgressForEnvironment, createProductEnvironment, createProductState } from "./src/product/session.js";
+          const sampleCount = Number(process.env.SAMPLE_COUNT);
+          const environmentStartedAt = performance.now();
+          const environment = createProductEnvironment({ practice: PRACTICE_CATALOG, evaluation: EVALUATION_CATALOG, syntaxProfiles: SYNTAX_PROFILES });
+          const environmentMs = Math.round(performance.now() - environmentStartedAt);
+          const baseProgress = createFreshProgressForEnvironment(environment, "flat-compatibility-key-paired", "guided", "standard");
+          const outputs: object[] = [];
+          let attemptTotal = 0;
+          const startedAt = performance.now();
+          for (let round = 0; round < sampleCount; round += 1) {
+            const state = createProductState(environment, { ...baseProgress, practiceRoundsCompleted: round }, 0);
+            const selection = state.round.selection;
+            if (selection.generationAttempts !== 1) throw new Error(`normal product round unexpectedly retried: ${selection.generationAttempts}`);
+            attemptTotal += selection.generationAttempts;
+            outputs.push({ id: selection.utterance.id, text: selection.utterance.text, root: selection.utterance.syntaxRootRuleId ?? null, profileIds: selection.utterance.syntaxProfileIds ?? [], generationAttempts: selection.generationAttempts, fallbackReasons: selection.grammarFallbackReasons });
+          }
+          const row = { label: process.env.TARGET_LABEL, sampleCount, attemptTotal, outputDigest: stableRuntimeDigest(outputs), environmentMs, elapsedMs: Math.round(performance.now() - startedAt) };
+          appendFileSync(process.env.RESULTS_PATH!, `${JSON.stringify(row)}\n`);
+          console.log(JSON.stringify(row));
+          EOF
+            TARGET_LABEL="$label" RESULTS_PATH="$results" node --import tsx .tmp-product-paired.ts
+          }
+
+          measure production-1 "$PRODUCTION_REF"
+          measure candidate-1 "$CANDIDATE_REF"
+          measure candidate-2 "$CANDIDATE_REF"
+          measure production-2 "$PRODUCTION_REF"
+          measure production-3 "$PRODUCTION_REF"
+          measure candidate-3 "$CANDIDATE_REF"
+          measure candidate-4 "$CANDIDATE_REF"
+          measure production-4 "$PRODUCTION_REF"
+
+          RESULTS_PATH="$results" node <<'EOF'
+          const fs = require('node:fs');
+          const rows = fs.readFileSync(process.env.RESULTS_PATH, 'utf8').trim().split('\n').map(JSON.parse);
+          const digests = new Set(rows.map((row) => row.outputDigest));
+          const attempts = new Set(rows.map((row) => row.attemptTotal));
+          const expectedAttempts = Number(process.env.SAMPLE_COUNT);
+          if (digests.size !== 1) throw new Error(`output digest drift: ${JSON.stringify(rows)}`);
+          if (attempts.size !== 1 || !attempts.has(expectedAttempts)) throw new Error(`attempt-count drift: ${JSON.stringify(rows)}`);
+          const production = rows.filter((row) => row.label.startsWith('production'));
+          const candidate = rows.filter((row) => row.label.startsWith('candidate'));
+          const mean = (items, key) => items.reduce((sum, row) => sum + row[key], 0) / items.length;
+          const median = (values) => { const sorted = [...values].sort((a, b) => a - b); return (sorted[1] + sorted[2]) / 2; };
+          const productionTimes = production.map((row) => row.elapsedMs);
+          const candidateTimes = candidate.map((row) => row.elapsedMs);
+          const productionMeanMs = mean(production, 'elapsedMs');
+          const candidateMeanMs = mean(candidate, 'elapsedMs');
+          const productionMedianMs = median(productionTimes);
+          const candidateMedianMs = median(candidateTimes);
+          const pairedDeltas = production.map((row, index) => row.elapsedMs - candidate[index].elapsedMs);
+          console.log(JSON.stringify({
+            rows,
+            outputDigest: rows[0].outputDigest,
+            attemptTotal: rows[0].attemptTotal,
+            productionTimes,
+            candidateTimes,
+            productionMeanMs: Math.round(productionMeanMs),
+            candidateMeanMs: Math.round(candidateMeanMs),
+            meanSpeedupPct: Number(((productionMeanMs - candidateMeanMs) / productionMeanMs * 100).toFixed(2)),
+            productionMedianMs: Math.round(productionMedianMs),
+            candidateMedianMs: Math.round(candidateMedianMs),
+            medianSpeedupPct: Number(((productionMedianMs - candidateMedianMs) / productionMedianMs * 100).toFixed(2)),
+            pairedDeltas,
+            candidateFasterPairs: pairedDeltas.filter((delta) => delta > 0).length,
+            productionEnvironmentMeanMs: Math.round(mean(production, 'environmentMs')),
+            candidateEnvironmentMeanMs: Math.round(mean(candidate, 'environmentMs'))
+          }, null, 2));
+          EOF
