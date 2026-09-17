@@ -1,0 +1,140 @@
+name: apply prepared surface-order optimization
+
+on:
+  push:
+    branches:
+      - agent/prepared-surface-order-constituents
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply, verify, and commit production change
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --include=dev --ignore-scripts
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/syntax/sample.ts')
+          s = p.read_text()
+
+          def once(old, new, label):
+              global s
+              if old not in s:
+                  raise SystemExit(f'{label} anchor missing: {old!r}')
+              s = s.replace(old, new, 1)
+
+          once(
+              '  SyntacticFunction,\n  SyntaxCategory,\n',
+              '  SyntacticFunction,\n  SurfaceOrder,\n  SyntaxCategory,\n',
+              'SurfaceOrder import',
+          )
+
+          once(
+              '  readonly rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>;\n}',
+              '  readonly rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>;\n'
+              '  readonly orderedConstituentsBySurfaceOrder: ReadonlyMap<SurfaceOrder, readonly ProductionConstituent[]>;\n}',
+              'prepared context field',
+          )
+
+          prepared_old = (
+              '  const rulesByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();\n'
+              '  for (const rule of rules) {\n'
+              '    rulesByOutput.set(rule.output, [...(rulesByOutput.get(rule.output) ?? []), rule]);\n'
+              '  }\n'
+              '  return { rules, bounds, rulesByOutput };'
+          )
+          prepared_new = (
+              '  const rulesByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();\n'
+              '  const orderedConstituentsBySurfaceOrder = new Map<SurfaceOrder, readonly ProductionConstituent[]>();\n'
+              '  for (const rule of rules) {\n'
+              '    rulesByOutput.set(rule.output, [...(rulesByOutput.get(rule.output) ?? []), rule]);\n'
+              '    const byKey = new Map(rule.constituents.map((item) => [item.key, item]));\n'
+              '    for (const order of rule.surfaceOrders) {\n'
+              '      const ordered = order.constituentKeys.map((key) => byKey.get(key));\n'
+              '      if (ordered.some((item) => item === undefined)) {\n'
+              '        throw new Error(`surface order references missing constituent after validation: ${rule.id}:${order.id}`);\n'
+              '      }\n'
+              '      orderedConstituentsBySurfaceOrder.set(\n'
+              '        order,\n'
+              '        ordered as readonly ProductionConstituent[],\n'
+              '      );\n'
+              '    }\n'
+              '  }\n'
+              '  return { rules, bounds, rulesByOutput, orderedConstituentsBySurfaceOrder };'
+          )
+          once(prepared_old, prepared_new, 'prepared order construction')
+
+          signature = (
+              '  rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,\n'
+              '  random: RandomSource,'
+          )
+          signature_with_orders = (
+              '  rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,\n'
+              '  orderedConstituentsBySurfaceOrder: ReadonlyMap<SurfaceOrder, readonly ProductionConstituent[]>,\n'
+              '  random: RandomSource,'
+          )
+          once(signature, signature_with_orders, 'sampleRuleChildren signature')
+          once(
+              '        rulesByOutput,\n        random,\n        bounds,',
+              '        rulesByOutput,\n        orderedConstituentsBySurfaceOrder,\n        random,\n        bounds,',
+              'recursive sampleCategory prepared map argument',
+          )
+          once(signature, signature_with_orders, 'sampleCategory signature')
+
+          once(
+              '    const byKey = new Map(rule.constituents.map((item) => [item.key, item]));\n'
+              '    const ordered = order.constituentKeys.map((key) => byKey.get(key));\n'
+              '    if (ordered.some((item) => item === undefined)) continue;\n',
+              '    const ordered = orderedConstituentsBySurfaceOrder.get(order);\n'
+              '    if (ordered === undefined) {\n'
+              '      throw new Error(`missing prepared surface order: ${rule.id}:${order.id}`);\n'
+              '    }\n',
+              'candidate ordered constituents lookup',
+          )
+
+          once(
+              '      rulesByOutput,\n      candidateRandom,\n      bounds,',
+              '      rulesByOutput,\n      orderedConstituentsBySurfaceOrder,\n      candidateRandom,\n      bounds,',
+              'sampleRuleChildren prepared map argument',
+          )
+
+          once(
+              '  const rulesByOutput = context.rulesByOutput;\n'
+              '  for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {',
+              '  const rulesByOutput = context.rulesByOutput;\n'
+              '  const orderedConstituentsBySurfaceOrder = context.orderedConstituentsBySurfaceOrder;\n'
+              '  for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {',
+              'prepared map local',
+          )
+          once(
+              '      rulesByOutput,\n      options.random,\n      bounds,',
+              '      rulesByOutput,\n      orderedConstituentsBySurfaceOrder,\n      options.random,\n      bounds,',
+              'root sampleCategory prepared map argument',
+          )
+
+          p.write_text(s)
+          PY
+
+          npm run typecheck
+          npx vitest run tests/syntax/sample.test.ts tests/syntax/nested-clause-order-stability.test.ts tests/product/session.test.ts
+
+          rm .github/workflows/apply-prepared-surface-order.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git diff --cached --check
+          git commit -m 'perf(syntax): prepare surface-order constituents'
+          git push origin HEAD:agent/prepared-surface-order-constituents
