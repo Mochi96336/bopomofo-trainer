@@ -397,16 +397,38 @@ function decrement(state: State, constituent: ProductionConstituent): State | nu
   return { ...state, remainingPhraseDepth: state.remainingPhraseDepth - 1 };
 }
 
-function bindingId(constituent: ProductionConstituent, path: readonly string[]): string | undefined {
+interface SamplingPathNode {
+  readonly parent: SamplingPathNode | null;
+  readonly segment: string;
+}
+
+function extendSamplingPath(
+  parent: SamplingPathNode | null,
+  segment: string,
+): SamplingPathNode {
+  return { parent, segment };
+}
+
+function materializeSamplingPath(path: SamplingPathNode): readonly string[] {
+  const segments: string[] = [];
+  for (let current: SamplingPathNode | null = path; current !== null; current = current.parent) {
+    segments.push(current.segment);
+  }
+  segments.reverse();
+  return segments;
+}
+
+function bindingId(constituent: ProductionConstituent, path: SamplingPathNode): string | undefined {
   if (constituent.entryBinding === undefined) return undefined;
-  return `${path.slice(0, -1).join("/")}:${constituent.entryBinding}`;
+  const parentPath = path.parent;
+  return `${parentPath === null ? "" : materializeSamplingPath(parentPath).join("/")}:${constituent.entryBinding}`;
 }
 
 function makeSlot(
   constituent: ProductionConstituent,
   requirements: SyntaxRequirements,
   occurrenceIndex: number,
-  path: readonly string[],
+  path: SamplingPathNode,
 ): StructuralLexicalSlot {
   const entryBindingId = bindingId(constituent, path);
   const occurrenceRequirement = requirements.requiredOccurrenceCapabilities.length === 0
@@ -420,7 +442,7 @@ function makeSlot(
         constituent,
         requirements,
         occurrenceIndex,
-        path,
+        materializeSamplingPath(path),
         entryBindingId,
       ))}`;
       return cachedId;
@@ -450,7 +472,7 @@ function sampleRuleChildren(
   random: RandomSource,
   bounds: DerivationBounds,
   inputState: State,
-  path: readonly string[],
+  path: SamplingPathNode,
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   rootProductionRuleId: string | undefined,
   nestedProductionTargets: ReadonlyMap<string, ValidatedNestedProductionTarget>,
@@ -491,7 +513,7 @@ function sampleRuleChildren(
           constituent,
           childRequirements,
           occurrenceIndex,
-          [...path, constituent.key],
+          extendSamplingPath(path, constituent.key),
         );
         if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) return null;
         children.push(slot);
@@ -512,7 +534,7 @@ function sampleRuleChildren(
         random,
         bounds,
         workingState,
-        [...path, `${constituent.key}[${occurrenceIndex}]`],
+        extendSamplingPath(path, `${constituent.key}[${occurrenceIndex}]`),
         isLexicalSlotReachable,
         excludedClassesForConstituent(constituent),
         rootProductionRuleId,
@@ -546,7 +568,7 @@ function sampleCategory(
   random: RandomSource,
   bounds: DerivationBounds,
   inputState: State,
-  path: readonly string[],
+  path: SamplingPathNode,
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
   rootProductionRuleId: string | undefined,
@@ -617,7 +639,7 @@ function sampleCategory(
       candidateRandom,
       bounds,
       state,
-      [...path, rule.id],
+      extendSamplingPath(path, rule.id),
       isLexicalSlotReachable,
       rootProductionRuleId,
       nestedProductionTargets,
@@ -788,7 +810,7 @@ export function sampleStructuralDerivation(
         clauseCount: 0,
         lexicalCount: 0,
       },
-      [options.rootCategory],
+      extendSamplingPath(null, options.rootCategory),
       options.isLexicalSlotReachable,
       new Set(),
       requestedRootRuleId,
