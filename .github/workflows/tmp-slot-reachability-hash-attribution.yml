@@ -1,0 +1,113 @@
+name: tmp slot reachability hash attribution
+
+on:
+  push:
+    branches:
+      - agent/tmp-slot-reachability-hash-attribution
+
+permissions:
+  contents: read
+
+env:
+  PRODUCTION_REF: 7b4535b2c371d296f0a15cd39b405bd579afe9d5
+  SAMPLE_COUNT: 256
+
+jobs:
+  attribution:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Measure slot identity hashes discarded by reachability
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --force "$PRODUCTION_REF"
+          git clean -fdx
+          npm ci --include=dev --ignore-scripts
+
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/syntax/sample.ts')
+          s = p.read_text()
+
+          def once(old, new, label):
+              global s
+              if old not in s:
+                  raise SystemExit(f'{label} anchor missing: {old!r}')
+              s = s.replace(old, new, 1)
+
+          once(
+              'const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };\n\n',
+              '''const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };\n\nconst SLOT_HASH_ATTRIBUTION = {\n  slotHashCount: 0,\n  slotHashSourceChars: 0,\n  reachabilityChecks: 0,\n  reachabilityRejects: 0,\n  rejectedSlotHashSourceChars: 0,\n  lastSlotIdentitySourceChars: 0,\n};\n\nexport function readSlotHashAttribution() {\n  return {\n    slotHashCount: SLOT_HASH_ATTRIBUTION.slotHashCount,\n    slotHashSourceChars: SLOT_HASH_ATTRIBUTION.slotHashSourceChars,\n    reachabilityChecks: SLOT_HASH_ATTRIBUTION.reachabilityChecks,\n    reachabilityRejects: SLOT_HASH_ATTRIBUTION.reachabilityRejects,\n    rejectedSlotHashSourceChars: SLOT_HASH_ATTRIBUTION.rejectedSlotHashSourceChars,\n  };\n}\n\n''',
+              'stats block',
+          )
+          once(
+              '  return {\n    kind: "lexical-slot",\n',
+              '  SLOT_HASH_ATTRIBUTION.slotHashCount += 1;\n  SLOT_HASH_ATTRIBUTION.slotHashSourceChars += identitySource.length;\n  SLOT_HASH_ATTRIBUTION.lastSlotIdentitySourceChars = identitySource.length;\n  return {\n    kind: "lexical-slot",\n',
+              'slot hash count',
+          )
+          once(
+              '        if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) return null;\n',
+              '''        if (isLexicalSlotReachable !== undefined) {\n          SLOT_HASH_ATTRIBUTION.reachabilityChecks += 1;\n          if (!isLexicalSlotReachable(slot)) {\n            SLOT_HASH_ATTRIBUTION.reachabilityRejects += 1;\n            SLOT_HASH_ATTRIBUTION.rejectedSlotHashSourceChars += SLOT_HASH_ATTRIBUTION.lastSlotIdentitySourceChars;\n            return null;\n          }\n        }\n''',
+              'reachability attribution',
+          )
+          p.write_text(s)
+          PY
+
+          npm run typecheck
+          npm run app:catalog >/dev/null
+
+          cat > .tmp-slot-reachability-attribution.ts <<'EOF'
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import { createFreshProgressForEnvironment, createProductEnvironment, createProductState } from "./src/product/session.js";
+          import { readSlotHashAttribution } from "./src/syntax/sample.js";
+
+          const sampleCount = Number(process.env.SAMPLE_COUNT);
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "slot-reachability-hash-attribution",
+            "guided",
+            "standard",
+          );
+
+          let attemptTotal = 0;
+          for (let round = 0; round < sampleCount; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            attemptTotal += state.round.selection.generationAttempts;
+          }
+
+          const stats = readSlotHashAttribution();
+          const rejectRatePct = stats.reachabilityChecks === 0
+            ? 0
+            : stats.reachabilityRejects / stats.reachabilityChecks * 100;
+          const rejectedSlotHashCharWorkPct = stats.slotHashSourceChars === 0
+            ? 0
+            : stats.rejectedSlotHashSourceChars / stats.slotHashSourceChars * 100;
+
+          console.log(JSON.stringify({
+            sampleCount,
+            attemptTotal,
+            ...stats,
+            rejectRatePct: Number(rejectRatePct.toFixed(2)),
+            rejectedSlotHashCharWorkPct: Number(rejectedSlotHashCharWorkPct.toFixed(2)),
+            fullEightLaneCharOps: stats.slotHashSourceChars * 8,
+            avoidableEightLaneCharOpsUpperBound: stats.rejectedSlotHashSourceChars * 8,
+          }, null, 2));
+          EOF
+
+          node --import tsx .tmp-slot-reachability-attribution.ts
