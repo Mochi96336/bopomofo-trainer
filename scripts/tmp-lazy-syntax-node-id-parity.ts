@@ -22,16 +22,16 @@ class SeededRandom implements RandomSource {
   }
 }
 
+const sampleCount = 256;
 const prepared = prepareStructuralSamplingContext(FORMAL_SYNTAX_RULES);
 let nonNull = 0;
-for (let seed = 1; seed <= 1024; seed += 1) {
+for (let seed = 1; seed <= sampleCount; seed += 1) {
   const shape = sampleStructuralDerivation({
     rootCategory: "Sentence",
     rules: FORMAL_SYNTAX_RULES,
     random: new SeededRandom(seed),
-    maximumAttempts: 32,
   }, prepared);
   if (shape !== null) nonNull += 1;
   process.stdout.write(`${JSON.stringify({ seed, shape })}\n`);
 }
-process.stderr.write(`nonNull=${nonNull}/1024\n`);
+process.stderr.write(`nonNull=${nonNull}/${sampleCount}\n`);
