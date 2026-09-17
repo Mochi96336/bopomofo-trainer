@@ -631,6 +631,10 @@ function generateOnce(
   // Without scoped binding evidence every expected-token boost is exactly 1.
   // Avoid rescanning each candidate entry's token list in that common fresh-user path.
   const hasBindingEvidence = Object.keys(input.bindingsByToken).length !== 0;
+  const useStaticFormalEntryWeight = input.profiles !== undefined
+    && input.legacyTransitions === null
+    && !hasBindingEvidence
+    && input.history.recentEntryIds.length === 0;
   const entryWeights = new Map<string, number>();
   const entryWeight = (entry: CatalogEntry): number => {
     const existing = entryWeights.get(entry.id);
@@ -661,7 +665,7 @@ function generateOnce(
       eligibleEntries,
       profiles: input.profiles,
       random: input.random,
-      entryWeight,
+      ...(useStaticFormalEntryWeight ? {} : { entryWeight }),
       minimumLexicalEntries: 2,
       maximumCandidates: 1,
       maximumAttempts: 64,
