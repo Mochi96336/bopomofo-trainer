@@ -1,0 +1,30 @@
+name: tmp materialize lazy syntax-node source
+
+on:
+  push:
+    branches:
+      - agent/tmp-lazy-syntax-node-materialization-builder
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Apply verified candidate onto exact production base
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/tmp-lazy-syntax-node-materialization.py "$RUNNER_TEMP/patch.py"
+          git checkout --force 73f419d2c5ada5c3b366af25d0de27dbb860f6bf
+          git clean -fdx
+          python "$RUNNER_TEMP/patch.py"
+          git diff --check
+          git add src/syntax/sample.ts
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'perf(syntax): defer syntax-node materialization'
+          git push --force origin HEAD:refs/heads/agent/tmp-lazy-syntax-node-materialized-source
