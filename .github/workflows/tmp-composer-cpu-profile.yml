@@ -1,5 +1,6 @@
 name: tmp composer steady-state cpu profile
 
+# replicate post-293 profile with identical target, seed, and sampling conditions
 on:
   push:
     branches:
