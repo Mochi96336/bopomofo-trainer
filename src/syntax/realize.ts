@@ -33,6 +33,28 @@ const compatibleProfilesCache = new WeakMap<
   Map<string, readonly RuntimeSyntaxProfile[]>
 >();
 
+export const TMP_COMPATIBILITY_CACHE_ATTRIBUTION = {
+  calls: 0,
+  hits: 0,
+  misses: 0,
+  formalLiteralCalls: 0,
+  repeatedSlotObjectCalls: 0,
+  keyLengthTotal: 0,
+  keyLengthMax: 0,
+  uniqueKeys: new Set<string>(),
+  featureCountHistogram: {} as Record<string, number>,
+  allowedUposLengthHistogram: {} as Record<string, number>,
+  functionLengthHistogram: {} as Record<string, number>,
+  valencyLengthHistogram: {} as Record<string, number>,
+  occurrenceLengthHistogram: {} as Record<string, number>,
+  seenSlots: new WeakSet<StructuralLexicalSlot>(),
+};
+
+function bumpTmpHistogram(record: Record<string, number>, value: number): void {
+  const key = String(value);
+  record[key] = (record[key] ?? 0) + 1;
+}
+
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
@@ -74,14 +96,54 @@ export function compatibleProfilesForSlot(
   slot: StructuralLexicalSlot,
   index: LexicalProfileIndex,
 ): readonly RuntimeSyntaxProfile[] {
+  TMP_COMPATIBILITY_CACHE_ATTRIBUTION.calls += 1;
+  if (TMP_COMPATIBILITY_CACHE_ATTRIBUTION.seenSlots.has(slot)) {
+    TMP_COMPATIBILITY_CACHE_ATTRIBUTION.repeatedSlotObjectCalls += 1;
+  } else {
+    TMP_COMPATIBILITY_CACHE_ATTRIBUTION.seenSlots.add(slot);
+  }
+  if (slot.formalLiteral !== undefined) {
+    TMP_COMPATIBILITY_CACHE_ATTRIBUTION.formalLiteralCalls += 1;
+  }
+  bumpTmpHistogram(
+    TMP_COMPATIBILITY_CACHE_ATTRIBUTION.featureCountHistogram,
+    Object.keys(slot.requiredFeatures).length,
+  );
+  bumpTmpHistogram(
+    TMP_COMPATIBILITY_CACHE_ATTRIBUTION.allowedUposLengthHistogram,
+    slot.allowedUpos.length,
+  );
+  bumpTmpHistogram(
+    TMP_COMPATIBILITY_CACHE_ATTRIBUTION.functionLengthHistogram,
+    slot.requiredFunctions.length,
+  );
+  bumpTmpHistogram(
+    TMP_COMPATIBILITY_CACHE_ATTRIBUTION.valencyLengthHistogram,
+    slot.requiredValencyFrames.length,
+  );
+  bumpTmpHistogram(
+    TMP_COMPATIBILITY_CACHE_ATTRIBUTION.occurrenceLengthHistogram,
+    slot.requiredOccurrenceCapabilities?.length ?? 0,
+  );
+
   let byRequirements = compatibleProfilesCache.get(index);
   if (byRequirements === undefined) {
     byRequirements = new Map<string, readonly RuntimeSyntaxProfile[]>();
     compatibleProfilesCache.set(index, byRequirements);
   }
   const cacheKey = compatibilityCacheKey(slot);
+  TMP_COMPATIBILITY_CACHE_ATTRIBUTION.keyLengthTotal += cacheKey.length;
+  TMP_COMPATIBILITY_CACHE_ATTRIBUTION.keyLengthMax = Math.max(
+    TMP_COMPATIBILITY_CACHE_ATTRIBUTION.keyLengthMax,
+    cacheKey.length,
+  );
+  TMP_COMPATIBILITY_CACHE_ATTRIBUTION.uniqueKeys.add(cacheKey);
   const cached = byRequirements.get(cacheKey);
-  if (cached !== undefined) return cached;
+  if (cached !== undefined) {
+    TMP_COMPATIBILITY_CACHE_ATTRIBUTION.hits += 1;
+    return cached;
+  }
+  TMP_COMPATIBILITY_CACHE_ATTRIBUTION.misses += 1;
 
   if (slot.formalLiteral !== undefined) {
     const compatible: readonly RuntimeSyntaxProfile[] = [];
