@@ -1,0 +1,41 @@
+name: tmp post-301 sampler allocation attribution
+
+on:
+  push:
+    branches:
+      - agent/tmp-post301-sampler-allocation-attribution
+
+permissions:
+  contents: read
+
+env:
+  PRODUCTION_REF: 655c7f5b921c2cf91d5c10273c0e3e847f7db5b5
+  SAMPLE_COUNT: 256
+
+jobs:
+  attribution:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Measure sampler allocation and copy churn
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/tmp-post301-sampler-allocation-attribution.py "$RUNNER_TEMP/patch.py"
+          cp scripts/tmp-post301-sampler-allocation-attribution.ts "$RUNNER_TEMP/runner.ts"
+          git checkout --force "$PRODUCTION_REF"
+          git clean -fdx
+          npm ci --include=dev --ignore-scripts
+          python "$RUNNER_TEMP/patch.py"
+          cp "$RUNNER_TEMP/runner.ts" scripts/tmp-post301-sampler-allocation-attribution.ts
+          git diff --check
+          npm run typecheck
+          npm run app:catalog >/dev/null
+          node --import tsx scripts/tmp-post301-sampler-allocation-attribution.ts
