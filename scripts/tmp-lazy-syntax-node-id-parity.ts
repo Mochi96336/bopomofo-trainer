@@ -1,6 +1,9 @@
 import type { RandomSource } from "../src/core/model.js";
 import { FORMAL_SYNTAX_RULES } from "../src/syntax/grammar.js";
-import { sampleStructuralDerivation } from "../src/syntax/sample.js";
+import {
+  prepareStructuralSamplingContext,
+  sampleStructuralDerivation,
+} from "../src/syntax/sample.js";
 
 class SeededRandom implements RandomSource {
   private state: number;
@@ -19,6 +22,7 @@ class SeededRandom implements RandomSource {
   }
 }
 
+const prepared = prepareStructuralSamplingContext(FORMAL_SYNTAX_RULES);
 let nonNull = 0;
 for (let seed = 1; seed <= 1024; seed += 1) {
   const shape = sampleStructuralDerivation({
@@ -26,7 +30,7 @@ for (let seed = 1; seed <= 1024; seed += 1) {
     rules: FORMAL_SYNTAX_RULES,
     random: new SeededRandom(seed),
     maximumAttempts: 32,
-  });
+  }, prepared);
   if (shape !== null) nonNull += 1;
   process.stdout.write(`${JSON.stringify({ seed, shape })}\n`);
 }
