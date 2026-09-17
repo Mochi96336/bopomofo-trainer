@@ -1,0 +1,45 @@
+name: tmp static compatible weight cache landing builder
+
+on:
+  push:
+    branches:
+      - agent/tmp-static-compatible-weight-cache-landing-builder
+
+permissions:
+  contents: write
+
+env:
+  BASE_REF: 5540ad8cdc5d7950f9b77c52e517be19081225d5
+  TARGET_BRANCH: agent/static-compatible-weight-cache
+
+jobs:
+  build-clean-branch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Rebuild verified source delta on exact main
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/tmp-static-compatible-weight-cache.py "$RUNNER_TEMP/patch.py"
+          git checkout --force "$BASE_REF"
+          git clean -fdx
+          python "$RUNNER_TEMP/patch.py"
+          git diff --check
+          changed="$(git diff --name-only)"
+          test "$changed" = "src/curriculum/formal-syntax-utterance.ts"
+          npm ci --include=dev --ignore-scripts
+          npm run typecheck
+          npx vitest run tests/curriculum/formal-syntax-utterance.test.ts tests/curriculum/formal-syntax-bindings.test.ts tests/curriculum/formal-syntax-lexical-compatibility.test.ts tests/curriculum/frequency-first-utterance.test.ts tests/product/session.test.ts
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/curriculum/formal-syntax-utterance.ts
+          git commit -m "perf(curriculum): cache static compatible entry weights"
+          git push --force-with-lease="refs/heads/${TARGET_BRANCH}:${BASE_REF}" origin "HEAD:refs/heads/${TARGET_BRANCH}"
