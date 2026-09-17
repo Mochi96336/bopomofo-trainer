@@ -416,14 +416,17 @@ function learnerTransitionTrace(
 function bindingOnlyFormalEntryTotalWeight(
   entry: CatalogEntry,
   input: FrequencyFirstScoringInput,
+  hasBindingEvidence: boolean,
 ): number {
   const frequencyBase = catalogEntryFrequencyWeight(entry);
   let expectedTokenBoost = 1;
-  for (const tokenId of scoringTokens([entry], input)) {
-    expectedTokenBoost = Math.max(
-      expectedTokenBoost,
-      expectedTokenTraceForToken(tokenId, input).boost,
-    );
+  if (hasBindingEvidence) {
+    for (const tokenId of scoringTokens([entry], input)) {
+      expectedTokenBoost = Math.max(
+        expectedTokenBoost,
+        expectedTokenTraceForToken(tokenId, input).boost,
+      );
+    }
   }
   const transitionBoost = 1;
   const combinedLearnerBoost = Math.min(
@@ -625,12 +628,15 @@ function generateOnce(
   preparedFormalSyntaxLexicon: PreparedFormalSyntaxLexicon | null,
   preparedFormalSyntaxExecution: PreparedFormalSyntaxExecution | null,
 ): SlotWeightedGrammarGeneration {
+  // Without scoped binding evidence every expected-token boost is exactly 1.
+  // Avoid rescanning each candidate entry's token list in that common fresh-user path.
+  const hasBindingEvidence = Object.keys(input.bindingsByToken).length !== 0;
   const entryWeights = new Map<string, number>();
   const entryWeight = (entry: CatalogEntry): number => {
     const existing = entryWeights.get(entry.id);
     if (existing !== undefined) return existing;
     const weight = input.profiles !== undefined && input.legacyTransitions === null
-      ? bindingOnlyFormalEntryTotalWeight(entry, input)
+      ? bindingOnlyFormalEntryTotalWeight(entry, input, hasBindingEvidence)
       : scoreEntry(entry, input).totalWeight;
     entryWeights.set(entry.id, weight);
     return weight;
