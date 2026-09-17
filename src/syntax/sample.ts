@@ -339,12 +339,12 @@ interface NestedClauseHashPrefixStates {
   readonly priority: number;
 }
 
-const NESTED_CLAUSE_HASH_PREFIX_CACHE = new Map<string, NestedClauseHashPrefixStates>();
+const NESTED_CLAUSE_HASH_PREFIX_CACHE = new WeakMap<ProductionRule, NestedClauseHashPrefixStates>();
 
-function nestedClauseHashPrefixStates(ruleId: string): NestedClauseHashPrefixStates {
-  const cached = NESTED_CLAUSE_HASH_PREFIX_CACHE.get(ruleId);
+function nestedClauseHashPrefixStates(rule: ProductionRule): NestedClauseHashPrefixStates {
+  const cached = NESTED_CLAUSE_HASH_PREFIX_CACHE.get(rule);
   if (cached !== undefined) return cached;
-  const ruleIdCanonicalJson = JSON.stringify(ruleId);
+  const ruleIdCanonicalJson = JSON.stringify(rule.id);
   const created = {
     candidateSubstream: stableRuntimeDigestSourceFirstUint32PrefixState(
       `{"purpose":"candidate-substream","ruleId":${ruleIdCanonicalJson},"ticket":`,
@@ -353,7 +353,7 @@ function nestedClauseHashPrefixStates(ruleId: string): NestedClauseHashPrefixSta
       `{"purpose":"priority","ruleId":${ruleIdCanonicalJson},"ticket":`,
     ),
   };
-  NESTED_CLAUSE_HASH_PREFIX_CACHE.set(ruleId, created);
+  NESTED_CLAUSE_HASH_PREFIX_CACHE.set(rule, created);
   return created;
 }
 
@@ -393,7 +393,7 @@ function stableNestedClauseCandidates(
   const ticket = Math.floor(nextUnit(random) * 0x1_0000_0000);
   return values
     .map((rule) => {
-      const prefixes = nestedClauseHashPrefixStates(rule.id);
+      const prefixes = nestedClauseHashPrefixStates(rule);
       return {
         rule,
         random: nestedClauseCandidateRandom(
