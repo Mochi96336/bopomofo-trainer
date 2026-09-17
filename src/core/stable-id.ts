@@ -23,6 +23,11 @@ const RUNTIME_DIGEST_SEEDS = [
   0xec4e6c89,
 ] as const;
 
+const HEX_BYTE = Array.from(
+  { length: 256 },
+  (_, value) => value.toString(16).padStart(2, "0"),
+);
+
 function finalizeHash32Value(hash: number): number {
   hash ^= hash >>> 16;
   hash = Math.imul(hash, 0x85ebca6b) >>> 0;
@@ -32,8 +37,15 @@ function finalizeHash32Value(hash: number): number {
   return hash >>> 0;
 }
 
+function uint32Hex(value: number): string {
+  return HEX_BYTE[(value >>> 24) & 0xff]!
+    + HEX_BYTE[(value >>> 16) & 0xff]!
+    + HEX_BYTE[(value >>> 8) & 0xff]!
+    + HEX_BYTE[value & 0xff]!;
+}
+
 function finalizeHash32(hash: number): string {
-  return finalizeHash32Value(hash).toString(16).padStart(8, "0");
+  return uint32Hex(finalizeHash32Value(hash));
 }
 
 function hashRuntimeSourceFirst32(source: string): number {
@@ -66,16 +78,14 @@ function hashRuntimeSource(source: string): string {
     hash7 = Math.imul(hash7 ^ code, 0x01000193) >>> 0;
   }
 
-  return [
-    hash0,
-    hash1,
-    hash2,
-    hash3,
-    hash4,
-    hash5,
-    hash6,
-    hash7,
-  ].map(finalizeHash32).join("");
+  return finalizeHash32(hash0)
+    + finalizeHash32(hash1)
+    + finalizeHash32(hash2)
+    + finalizeHash32(hash3)
+    + finalizeHash32(hash4)
+    + finalizeHash32(hash5)
+    + finalizeHash32(hash6)
+    + finalizeHash32(hash7);
 }
 
 /**
