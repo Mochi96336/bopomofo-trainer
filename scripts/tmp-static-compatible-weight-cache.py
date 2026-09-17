@@ -74,6 +74,10 @@ text = text.replace(marker, helper + marker, 1)
 
 needle = '''  const groups = groupedCompatibleProfiles(compatible);\n  const weights = new Array<number>(groups.length);\n'''
 replacement = '''  const useStaticDefaultWeights = entryWeight === undefined\n    && entryWeightsById === undefined\n    && (previousEntry === null || lexicalCompatibility === undefined);\n  if (useStaticDefaultWeights) {\n    const groupIndexByEntryId = compatibleProfileGroupIndex(compatible);\n    let hasExcludedCompatibleEntry = false;\n    for (const entryId of usedEntryIds) {\n      if (entryId !== reusableEntryId && groupIndexByEntryId.has(entryId)) {\n        hasExcludedCompatibleEntry = true;\n        break;\n      }\n    }\n    if (!hasExcludedCompatibleEntry) {\n      const prepared = preparedStaticCompatibleProfileWeights(compatible, entriesById);\n      if (!(prepared.totalWeight > 0)) return null;\n      let target = nextUnit(random) * prepared.totalWeight;\n      let selectedGroup: CompatibleProfileGroup | undefined;\n      for (let index = 0; index < prepared.groups.length; index += 1) {\n        target -= prepared.weights[index] ?? 0;\n        if (target < 0) {\n          selectedGroup = prepared.groups[index];\n          break;\n        }\n      }\n      selectedGroup ??= prepared.groups[prepared.groups.length - 1];\n      if (selectedGroup === undefined) throw new Error("formal syntax entry selection failed");\n      const entryProfiles = selectedGroup.profiles;\n      if (entryProfiles.length === 0) throw new Error("formal syntax profile group is empty");\n      const selectedProfileIndex = entryProfiles.length === 1\n        ? 0\n        : Math.floor(nextUnit(random) * entryProfiles.length);\n      return entryProfiles[selectedProfileIndex] ?? null;\n    }\n  }\n\n  const groups = groupedCompatibleProfiles(compatible);\n  const weights = new Array<number>(groups.length);\n'''
-assert needle in text
-text = text.replace(needle, replacement, 1)
+select_start = text.index("function selectCompatibleProfile(")
+prefix = text[:select_start]
+suffix = text[select_start:]
+assert needle in suffix
+suffix = suffix.replace(needle, replacement, 1)
+text = prefix + suffix
 path.write_text(text)
