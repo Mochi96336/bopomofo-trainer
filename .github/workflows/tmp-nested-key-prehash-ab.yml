@@ -1,4 +1,4 @@
-name: tmp nested key prehash benchmark
+name: tmp nested key prehash 512 benchmark
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
 
 env:
   PRODUCTION_REF: 76c5a18e05110f06b48665fdf01f7df7013fb785
-  SAMPLE_COUNT: 256
+  SAMPLE_COUNT: 512
 
 jobs:
   paired-benchmark:
