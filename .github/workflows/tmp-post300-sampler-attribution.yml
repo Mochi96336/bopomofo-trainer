@@ -1,0 +1,41 @@
+name: tmp post-300 sampler attribution
+
+on:
+  push:
+    branches:
+      - agent/tmp-post300-sampler-attribution
+
+permissions:
+  contents: read
+
+env:
+  PRODUCTION_REF: 7cba167caee64b0f809975916228cc0f24f68575
+  SAMPLE_COUNT: 256
+
+jobs:
+  attribution:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Measure post-300 structural sampler failure shape
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/tmp-post300-sampler-attribution.py "$RUNNER_TEMP/patch.py"
+          cp scripts/tmp-post300-sampler-attribution.ts "$RUNNER_TEMP/runner.ts"
+          git checkout --force "$PRODUCTION_REF"
+          git clean -fdx
+          npm ci --include=dev --ignore-scripts
+          python "$RUNNER_TEMP/patch.py"
+          cp "$RUNNER_TEMP/runner.ts" scripts/tmp-post300-sampler-attribution.ts
+          git diff --check
+          npm run typecheck
+          npm run app:catalog >/dev/null
+          node --import tsx scripts/tmp-post300-sampler-attribution.ts
