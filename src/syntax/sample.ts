@@ -31,6 +31,7 @@ import type {
   ProductionRuleClass,
   RuntimeOccurrenceCapability,
   SyntacticFunction,
+  SurfaceOrder,
   SyntaxCategory,
   SyntaxFeatureName,
   SyntaxFeatureSet,
@@ -224,6 +225,7 @@ export interface PreparedStructuralSamplingContext {
   readonly rules: readonly ProductionRule[];
   readonly bounds: DerivationBounds;
   readonly rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>;
+  readonly orderedConstituentsBySurfaceOrder: ReadonlyMap<SurfaceOrder, readonly ProductionConstituent[]>;
 }
 
 export function prepareStructuralSamplingContext(
@@ -232,10 +234,22 @@ export function prepareStructuralSamplingContext(
 ): PreparedStructuralSamplingContext {
   assertValidGrammar(rules, bounds);
   const rulesByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();
+  const orderedConstituentsBySurfaceOrder = new Map<SurfaceOrder, readonly ProductionConstituent[]>();
   for (const rule of rules) {
     rulesByOutput.set(rule.output, [...(rulesByOutput.get(rule.output) ?? []), rule]);
+    const byKey = new Map(rule.constituents.map((item) => [item.key, item]));
+    for (const order of rule.surfaceOrders) {
+      const ordered = order.constituentKeys.map((key) => byKey.get(key));
+      if (ordered.some((item) => item === undefined)) {
+        throw new Error(`surface order references missing constituent after validation: ${rule.id}:${order.id}`);
+      }
+      orderedConstituentsBySurfaceOrder.set(
+        order,
+        ordered as readonly ProductionConstituent[],
+      );
+    }
   }
-  return { rules, bounds, rulesByOutput };
+  return { rules, bounds, rulesByOutput, orderedConstituentsBySurfaceOrder };
 }
 
 function nextUnit(random: RandomSource): number {
@@ -388,6 +402,7 @@ function sampleRuleChildren(
   ordered: readonly ProductionConstituent[],
   requirements: SyntaxRequirements,
   rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
+  orderedConstituentsBySurfaceOrder: ReadonlyMap<SurfaceOrder, readonly ProductionConstituent[]>,
   random: RandomSource,
   bounds: DerivationBounds,
   inputState: State,
@@ -451,6 +466,7 @@ function sampleRuleChildren(
         constituent.category,
         childRequirements,
         rulesByOutput,
+        orderedConstituentsBySurfaceOrder,
         random,
         bounds,
         workingState,
@@ -486,6 +502,7 @@ function sampleCategory(
   category: SyntaxCategory,
   requirements: SyntaxRequirements,
   rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
+  orderedConstituentsBySurfaceOrder: ReadonlyMap<SurfaceOrder, readonly ProductionConstituent[]>,
   random: RandomSource,
   bounds: DerivationBounds,
   inputState: State,
@@ -532,9 +549,10 @@ function sampleCategory(
       ? rule.surfaceOrders[0]
       : rule.surfaceOrders[chooseIndex(candidateRandom, rule.surfaceOrders.length)];
     if (order === undefined) continue;
-    const byKey = new Map(rule.constituents.map((item) => [item.key, item]));
-    const ordered = order.constituentKeys.map((key) => byKey.get(key));
-    if (ordered.some((item) => item === undefined)) continue;
+    const ordered = orderedConstituentsBySurfaceOrder.get(order);
+    if (ordered === undefined) {
+      throw new Error(`missing prepared surface order: ${rule.id}:${order.id}`);
+    }
 
     let fixedCounts: ConstituentCounts | undefined;
     if (rule.constraints.length > 0) {
@@ -555,6 +573,7 @@ function sampleCategory(
       ordered as readonly ProductionConstituent[],
       requirements,
       rulesByOutput,
+      orderedConstituentsBySurfaceOrder,
       candidateRandom,
       bounds,
       state,
@@ -722,11 +741,13 @@ export function sampleStructuralDerivation(
   const nestedProductionTargets = validatedNestedProductionTargets(options, bounds);
   const requiredProductionRuleIdsAnyOf = validatedRequiredProductionRuleIdsAnyOf(options);
   const rulesByOutput = context.rulesByOutput;
+  const orderedConstituentsBySurfaceOrder = context.orderedConstituentsBySurfaceOrder;
   for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
     const sampled = sampleCategory(
       options.rootCategory,
       EMPTY_SYNTAX_REQUIREMENTS,
       rulesByOutput,
+      orderedConstituentsBySurfaceOrder,
       options.random,
       bounds,
       {
