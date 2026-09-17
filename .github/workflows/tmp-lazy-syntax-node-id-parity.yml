@@ -30,14 +30,14 @@ jobs:
           cp scripts/tmp-lazy-syntax-node-id-parity.ts "$RUNNER_TEMP/snapshot.ts"
 
           npm ci --include=dev --ignore-scripts >/dev/null
-          cp "$RUNNER_TEMP/snapshot.ts" .tmp-snapshot.ts
-          node --import tsx .tmp-snapshot.ts > "$RUNNER_TEMP/candidate.jsonl" 2> "$RUNNER_TEMP/candidate.stderr"
+          cp "$RUNNER_TEMP/snapshot.ts" scripts/.tmp-snapshot.ts
+          node --import tsx scripts/.tmp-snapshot.ts > "$RUNNER_TEMP/candidate.jsonl" 2> "$RUNNER_TEMP/candidate.stderr"
 
           git checkout --force "$PRODUCTION_REF"
           git clean -fdx
           npm ci --include=dev --ignore-scripts >/dev/null
-          cp "$RUNNER_TEMP/snapshot.ts" .tmp-snapshot.ts
-          node --import tsx .tmp-snapshot.ts > "$RUNNER_TEMP/production.jsonl" 2> "$RUNNER_TEMP/production.stderr"
+          cp "$RUNNER_TEMP/snapshot.ts" scripts/.tmp-snapshot.ts
+          node --import tsx scripts/.tmp-snapshot.ts > "$RUNNER_TEMP/production.jsonl" 2> "$RUNNER_TEMP/production.stderr"
 
           cmp "$RUNNER_TEMP/production.jsonl" "$RUNNER_TEMP/candidate.jsonl"
           cmp "$RUNNER_TEMP/production.stderr" "$RUNNER_TEMP/candidate.stderr"
