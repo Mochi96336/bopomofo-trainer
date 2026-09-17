@@ -1,7 +1,8 @@
 import type { RandomSource } from "../core/model.js";
 import {
   stableRuntimeDigestCanonicalJson,
-  stableRuntimeDigestCanonicalJsonFirstUint32,
+  stableRuntimeDigestSourceFirstUint32FromPrefixState,
+  stableRuntimeDigestSourceFirstUint32PrefixState,
 } from "../core/stable-id.js";
 import {
   effectiveConstituentMaximum,
@@ -329,20 +330,43 @@ function nestedClauseKeyedCanonicalJson(
   });
 }
 
-function nestedClausePriorityFirstHex(canonicalJson: string): string {
-  return stableRuntimeDigestCanonicalJsonFirstUint32(canonicalJson)
-    .toString(16)
-    .padStart(8, "0");
+const NESTED_CLAUSE_CANONICAL_SUFFIX = `,"version":${JSON.stringify(
+  NESTED_CLAUSE_RULE_ORDER_VERSION,
+)}}`;
+
+interface NestedClauseHashPrefixStates {
+  readonly candidateSubstream: number;
+  readonly priority: number;
 }
 
-function nestedClauseCandidateSeed(ticket: number, ruleId: string): number {
-  return stableRuntimeDigestCanonicalJsonFirstUint32(
-    nestedClauseKeyedCanonicalJson("candidate-substream", ticket, ruleId),
+const NESTED_CLAUSE_HASH_PREFIX_CACHE = new WeakMap<ProductionRule, NestedClauseHashPrefixStates>();
+
+function nestedClauseHashPrefixStates(rule: ProductionRule): NestedClauseHashPrefixStates {
+  const cached = NESTED_CLAUSE_HASH_PREFIX_CACHE.get(rule);
+  if (cached !== undefined) return cached;
+  const ruleIdCanonicalJson = JSON.stringify(rule.id);
+  const created = {
+    candidateSubstream: stableRuntimeDigestSourceFirstUint32PrefixState(
+      `{"purpose":"candidate-substream","ruleId":${ruleIdCanonicalJson},"ticket":`,
+    ),
+    priority: stableRuntimeDigestSourceFirstUint32PrefixState(
+      `{"purpose":"priority","ruleId":${ruleIdCanonicalJson},"ticket":`,
+    ),
+  };
+  NESTED_CLAUSE_HASH_PREFIX_CACHE.set(rule, created);
+  return created;
+}
+
+function nestedClauseKeyedFirstUint32(prefixState: number, ticket: number): number {
+  return stableRuntimeDigestSourceFirstUint32FromPrefixState(
+    prefixState,
+    String(ticket),
+    NESTED_CLAUSE_CANONICAL_SUFFIX,
   );
 }
 
-function nestedClauseCandidateRandom(ticket: number, ruleId: string): RandomSource {
-  let state = nestedClauseCandidateSeed(ticket, ruleId);
+function nestedClauseCandidateRandom(seed: number): RandomSource {
+  let state = seed;
   return {
     next: () => {
       state = (state + 0x6d2b79f5) >>> 0;
@@ -369,19 +393,24 @@ function stableNestedClauseCandidates(
   const ticket = Math.floor(nextUnit(random) * 0x1_0000_0000);
   return values
     .map((rule) => {
-      const priorityCanonicalJson = nestedClauseKeyedCanonicalJson("priority", ticket, rule.id);
+      const prefixes = nestedClauseHashPrefixStates(rule);
       return {
         rule,
-        random: nestedClauseCandidateRandom(ticket, rule.id),
-        priorityCanonicalJson,
-        priorityFirstHex: nestedClausePriorityFirstHex(priorityCanonicalJson),
+        random: nestedClauseCandidateRandom(
+          nestedClauseKeyedFirstUint32(prefixes.candidateSubstream, ticket),
+        ),
+        priorityFirstUint32: nestedClauseKeyedFirstUint32(prefixes.priority, ticket),
       };
     })
     .sort((left, right) => {
-      const firstLaneOrder = left.priorityFirstHex.localeCompare(right.priorityFirstHex);
-      if (firstLaneOrder !== 0) return firstLaneOrder;
-      const priorityOrder = stableRuntimeDigestCanonicalJson(left.priorityCanonicalJson)
-        .localeCompare(stableRuntimeDigestCanonicalJson(right.priorityCanonicalJson));
+      if (left.priorityFirstUint32 !== right.priorityFirstUint32) {
+        return left.priorityFirstUint32 < right.priorityFirstUint32 ? -1 : 1;
+      }
+      const priorityOrder = stableRuntimeDigestCanonicalJson(
+        nestedClauseKeyedCanonicalJson("priority", ticket, left.rule.id),
+      ).localeCompare(stableRuntimeDigestCanonicalJson(
+        nestedClauseKeyedCanonicalJson("priority", ticket, right.rule.id),
+      ));
       return priorityOrder !== 0 ? priorityOrder : left.rule.id.localeCompare(right.rule.id);
     })
     .map(({ rule, random: candidateRandom }) => ({ rule, random: candidateRandom }));

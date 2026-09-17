@@ -48,12 +48,45 @@ function finalizeHash32(hash: number): string {
   return uint32Hex(finalizeHash32Value(hash));
 }
 
-function hashRuntimeSourceFirst32(source: string): number {
-  let hash = (0x811c9dc5 ^ RUNTIME_DIGEST_SEEDS[0]) >>> 0;
+const RUNTIME_DIGEST_FIRST32_OFFSET = (0x811c9dc5 ^ RUNTIME_DIGEST_SEEDS[0]) >>> 0;
+
+function updateRuntimeDigestFirst32(hash: number, source: string): number {
   for (let index = 0; index < source.length; index += 1) {
     hash = Math.imul(hash ^ source.charCodeAt(index), 0x01000193) >>> 0;
   }
+  return hash;
+}
+
+/**
+ * Pre-hash a stable source prefix for callers that repeatedly vary only a later
+ * fragment. The returned state is intentionally unfinished: callers must pass it
+ * through stableRuntimeDigestSourceFirstUint32FromPrefixState before comparing
+ * it with a normal runtime-digest lane.
+ */
+export function stableRuntimeDigestSourceFirstUint32PrefixState(prefix: string): number {
+  return updateRuntimeDigestFirst32(RUNTIME_DIGEST_FIRST32_OFFSET, prefix);
+}
+
+/**
+ * Finish the first 32-bit runtime-digest lane from a previously hashed prefix,
+ * one dynamic fragment, and one suffix. This is byte-for-byte equivalent to
+ * stableRuntimeDigestCanonicalJsonFirstUint32(prefix + dynamicSource + suffix)
+ * when that concatenation is proven canonical by the caller.
+ */
+export function stableRuntimeDigestSourceFirstUint32FromPrefixState(
+  prefixState: number,
+  dynamicSource: string,
+  suffix: string,
+): number {
+  let hash = updateRuntimeDigestFirst32(prefixState, dynamicSource);
+  hash = updateRuntimeDigestFirst32(hash, suffix);
   return finalizeHash32Value(hash);
+}
+
+function hashRuntimeSourceFirst32(source: string): number {
+  return finalizeHash32Value(
+    stableRuntimeDigestSourceFirstUint32PrefixState(source),
+  );
 }
 
 function hashRuntimeSource(source: string): string {

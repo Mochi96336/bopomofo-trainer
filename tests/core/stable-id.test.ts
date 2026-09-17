@@ -3,6 +3,8 @@ import {
   stableRuntimeDigest,
   stableRuntimeDigestCanonicalJson,
   stableRuntimeDigestCanonicalJsonFirstUint32,
+  stableRuntimeDigestSourceFirstUint32FromPrefixState,
+  stableRuntimeDigestSourceFirstUint32PrefixState,
 } from "../../src/core/stable-id.js";
 
 function legacyCanonicalValue(value: unknown): unknown {
@@ -68,6 +70,24 @@ describe("browser-safe runtime identities", () => {
           expect(stableRuntimeDigestCanonicalJsonFirstUint32(canonicalJson)).toBe(
             Number.parseInt(legacy.slice(0, 8), 16) >>> 0,
           );
+        }
+      }
+    }
+  });
+
+  it("finishes pre-hashed first-lane prefixes byte-for-byte", () => {
+    const suffix = `,"version":"stable-keyed-rule-substream-v2"}`;
+    for (const purpose of ["candidate-substream", "priority"] as const) {
+      for (const ruleId of ["clause.basic", "clause.quoted/特殊", "clause.deep/nested"]) {
+        const prefix = `{"purpose":${JSON.stringify(purpose)},"ruleId":${JSON.stringify(ruleId)},"ticket":`;
+        const prefixState = stableRuntimeDigestSourceFirstUint32PrefixState(prefix);
+        for (const ticket of [0, 1, 9, 10, 0x7fffffff, 0x80000000, 0xffffffff]) {
+          const canonicalJson = `${prefix}${ticket}${suffix}`;
+          expect(stableRuntimeDigestSourceFirstUint32FromPrefixState(
+            prefixState,
+            String(ticket),
+            suffix,
+          )).toBe(stableRuntimeDigestCanonicalJsonFirstUint32(canonicalJson));
         }
       }
     }
