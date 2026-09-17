@@ -1,0 +1,100 @@
+name: tmp post-303 sampler failure attribution
+
+on:
+  push:
+    branches:
+      - agent/tmp-post303-sampler-failure-attribution
+
+permissions:
+  contents: read
+
+jobs:
+  attribute:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run app:catalog
+      - name: Attribute sampler failures
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .tmp-sampler-failure-attribution.ts <<'EOF'
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import { stableRuntimeDigest } from "./src/core/stable-id.js";
+          import { createFreshProgressForEnvironment, createProductEnvironment, createProductState } from "./src/product/session.js";
+          import { TMP_SAMPLER_FAILURE_ATTRIBUTION as counters } from "./src/syntax/sample.js";
+
+          const rounds = 256;
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "post-303-sampler-failure-attribution",
+            "guided",
+            "standard",
+          );
+          const outputs: object[] = [];
+          let attemptTotal = 0;
+          for (let round = 0; round < rounds; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            const selection = state.round.selection;
+            attemptTotal += selection.generationAttempts;
+            outputs.push({
+              id: selection.utterance.id,
+              text: selection.utterance.text,
+              attempts: selection.generationAttempts,
+            });
+          }
+          const failures = counters.ruleChildrenCalls - counters.ruleChildrenSuccesses;
+          const failureReasons = {
+            maximumBelowMinimum: counters.maximumBelowMinimum,
+            countOutOfBounds: counters.countOutOfBounds,
+            targetExactCountMismatch: counters.targetExactCountMismatch,
+            depthExhausted: counters.depthExhausted,
+            requirementsNull: counters.requirementsNull,
+            lexicalLimit: counters.lexicalLimit,
+            lexicalUnreachable: counters.lexicalUnreachable,
+            recursiveChildNull: counters.recursiveChildNull,
+          };
+          const reasonSum = Object.values(failureReasons).reduce((sum, value) => sum + value, 0);
+          const pct = (value: number, denom: number) =>
+            denom === 0 ? 0 : Number((value / denom * 100).toFixed(2));
+          const sortRecord = (record: Record<string, number>) =>
+            Object.fromEntries(Object.entries(record).sort((a, b) => b[1] - a[1]));
+          console.log(JSON.stringify({
+            rounds,
+            attemptTotal,
+            outputDigest: stableRuntimeDigest(outputs),
+            ruleChildrenCalls: counters.ruleChildrenCalls,
+            ruleChildrenSuccesses: counters.ruleChildrenSuccesses,
+            ruleChildrenFailures: failures,
+            ruleChildrenSuccessPct: pct(counters.ruleChildrenSuccesses, counters.ruleChildrenCalls),
+            failureReasons,
+            failureReasonSum: reasonSum,
+            failureReasonsPctOfFailures: Object.fromEntries(
+              Object.entries(failureReasons).map(([key, value]) => [key, pct(value, failures)]),
+            ),
+            recursiveChildNullByCategory: sortRecord(counters.recursiveChildNullByCategory),
+            lexicalUnreachableByKey: sortRecord(counters.lexicalUnreachableByKey),
+            sampleCategoryCalls: counters.sampleCategoryCalls,
+            categoryClauseLimit: counters.categoryClauseLimit,
+            categoryNoEligibleRules: counters.categoryNoEligibleRules,
+            categoryAssignmentEmpty: counters.categoryAssignmentEmpty,
+            categoryCandidateChildrenNull: counters.categoryCandidateChildrenNull,
+            categoryExhaustedCandidates: counters.categoryExhaustedCandidates,
+          }, null, 2));
+          EOF
+          node --import tsx .tmp-sampler-failure-attribution.ts
