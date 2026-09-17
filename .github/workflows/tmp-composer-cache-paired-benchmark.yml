@@ -1,4 +1,4 @@
-name: tmp exact structural canonical benchmark
+name: tmp stable digest hex paired benchmark
 
 on:
   push:
@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      PRODUCTION_REF: 339624d2f62d24f23207078538c96fbdf41843a0
-      CANDIDATE_REF: ed4cd5d6cfc64da3f2efd61f626fb0cf3a8037a3
+      PRODUCTION_REF: 72e7548d7b40451da764296a9146f8fe8094d37f
+      CANDIDATE_REF: aff1dde5b5c45f6f199cbc03b0912ebfaa9af707
       SAMPLE_COUNT: '256'
     steps:
       - uses: actions/checkout@v6
@@ -24,11 +24,20 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Candidate correctness preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --force "$CANDIDATE_REF"
+          git clean -fdx
+          npm ci --include=dev --ignore-scripts
+          npm run typecheck
+          npx vitest run tests/core/stable-id.test.ts tests/product/session.test.ts
       - name: Run exact-head paired benchmark
         shell: bash
         run: |
           set -euo pipefail
-          results="$RUNNER_TEMP/exact-292-results.jsonl"
+          results="$RUNNER_TEMP/exact-293-results.jsonl"
           : > "$results"
 
           measure() {
@@ -63,7 +72,7 @@ jobs:
           const environmentMs = Math.round(performance.now() - environmentStartedAt);
           const baseProgress = createFreshProgressForEnvironment(
             environment,
-            "exact-292-paired",
+            "exact-293-paired",
             "guided",
             "standard",
           );
