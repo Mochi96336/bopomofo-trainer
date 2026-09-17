@@ -1,0 +1,395 @@
+name: tmp post-294 formal composer attribution
+
+on:
+  push:
+    branches:
+      - agent/tmp-post294-formal-attribution
+
+permissions:
+  contents: read
+
+jobs:
+  attribution:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      TARGET_REF: 806b8dd05b76b11a5ea9895db3e29e2c381c3a7a
+      SAMPLE_COUNT: 256
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Checkout production target
+        run: git checkout --force "$TARGET_REF"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run app:catalog
+      - name: Instrument and measure formal composer work
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def patch(path, changes):
+              p = Path(path)
+              s = p.read_text()
+              for label, old, new in changes:
+                  if old not in s:
+                      raise SystemExit(f'{path}: {label} anchor missing: {old!r}')
+                  s = s.replace(old, new, 1)
+              p.write_text(s)
+
+          patch('src/curriculum/formal-syntax-utterance.ts', [
+              (
+                  'formal stats block',
+                  '''const compatibleProfileGroupsCache = new WeakMap<
+  readonly RuntimeSyntaxProfile[],
+  readonly CompatibleProfileGroup[]
+>();
+''',
+                  '''const compatibleProfileGroupsCache = new WeakMap<
+  readonly RuntimeSyntaxProfile[],
+  readonly CompatibleProfileGroup[]
+>();
+
+const FORMAL_ATTRIBUTION = {
+  groupedCalls: 0,
+  groupedCacheHits: 0,
+  groupedCacheMisses: 0,
+  groupedSourceProfiles: 0,
+  groupedBuiltGroups: 0,
+  selectCalls: 0,
+  sourceGroups: 0,
+  eligibleGroups: 0,
+  groupsFilteredByReuse: 0,
+  weightEvaluations: 0,
+  surfaceCompatibilityCalls: 0,
+  reachabilityCalls: 0,
+  reachabilityPunctuationFastPath: 0,
+  reachabilityCompatible: 0,
+  reachabilityRejected: 0,
+  lexicalSlotVisits: 0,
+  allCompatibleProfiles: 0,
+  bindingFilterCalls: 0,
+  bindingFilterSourceProfiles: 0,
+  bindingFilterKeptProfiles: 0,
+  selectedIndexSearches: 0,
+  selectedIndexSearchItems: 0,
+};
+
+export function readFormalSyntaxAttribution() {
+  return { ...FORMAL_ATTRIBUTION };
+}
+''',
+              ),
+              (
+                  'grouped attribution',
+                  '''function groupedCompatibleProfiles(
+  compatible: readonly RuntimeSyntaxProfile[],
+): readonly CompatibleProfileGroup[] {
+  const cached = compatibleProfileGroupsCache.get(compatible);
+  if (cached !== undefined) return cached;
+''',
+                  '''function groupedCompatibleProfiles(
+  compatible: readonly RuntimeSyntaxProfile[],
+): readonly CompatibleProfileGroup[] {
+  FORMAL_ATTRIBUTION.groupedCalls += 1;
+  FORMAL_ATTRIBUTION.groupedSourceProfiles += compatible.length;
+  const cached = compatibleProfileGroupsCache.get(compatible);
+  if (cached !== undefined) {
+    FORMAL_ATTRIBUTION.groupedCacheHits += 1;
+    return cached;
+  }
+  FORMAL_ATTRIBUTION.groupedCacheMisses += 1;
+''',
+              ),
+              (
+                  'grouped built groups',
+                  '''  const groups = [...profilesByEntryId].map(([entryId, profiles]) => ({
+    entryId,
+    profiles,
+  }));
+  compatibleProfileGroupsCache.set(compatible, groups);
+''',
+                  '''  const groups = [...profilesByEntryId].map(([entryId, profiles]) => ({
+    entryId,
+    profiles,
+  }));
+  FORMAL_ATTRIBUTION.groupedBuiltGroups += groups.length;
+  compatibleProfileGroupsCache.set(compatible, groups);
+''',
+              ),
+              (
+                  'select entry',
+                  '''): RuntimeSyntaxProfile | null {
+  const eligibleGroups = groupedCompatibleProfiles(compatible).filter((group) =>
+  !usedEntryIds.has(group.entryId) || group.entryId === reusableEntryId
+);
+  const selectedEntryIndex = weightedIndex(eligibleGroups.map((group) => {
+''',
+                  '''): RuntimeSyntaxProfile | null {
+  FORMAL_ATTRIBUTION.selectCalls += 1;
+  const sourceGroups = groupedCompatibleProfiles(compatible);
+  FORMAL_ATTRIBUTION.sourceGroups += sourceGroups.length;
+  const eligibleGroups = sourceGroups.filter((group) =>
+  !usedEntryIds.has(group.entryId) || group.entryId === reusableEntryId
+);
+  FORMAL_ATTRIBUTION.eligibleGroups += eligibleGroups.length;
+  FORMAL_ATTRIBUTION.groupsFilteredByReuse += sourceGroups.length - eligibleGroups.length;
+  const selectedEntryIndex = weightedIndex(eligibleGroups.map((group) => {
+    FORMAL_ATTRIBUTION.weightEvaluations += 1;
+''',
+              ),
+              (
+                  'surface compat attribution',
+                  '''    if (previousEntry === null || lexicalCompatibility === undefined) return baseWeight;
+    const score = surfaceCompatibilityScore(
+''',
+                  '''    if (previousEntry === null || lexicalCompatibility === undefined) return baseWeight;
+    FORMAL_ATTRIBUTION.surfaceCompatibilityCalls += 1;
+    const score = surfaceCompatibilityScore(
+''',
+              ),
+              (
+                  'reachability callback',
+                  '''      isLexicalSlotReachable: (slot) => {
+        if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") return true;
+        return compatibleProfilesForSlot(slot, index).length > 0;
+      },
+''',
+                  '''      isLexicalSlotReachable: (slot) => {
+        FORMAL_ATTRIBUTION.reachabilityCalls += 1;
+        if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") {
+          FORMAL_ATTRIBUTION.reachabilityPunctuationFastPath += 1;
+          return true;
+        }
+        const reachable = compatibleProfilesForSlot(slot, index).length > 0;
+        if (reachable) FORMAL_ATTRIBUTION.reachabilityCompatible += 1;
+        else FORMAL_ATTRIBUTION.reachabilityRejected += 1;
+        return reachable;
+      },
+''',
+              ),
+              (
+                  'lexical slot loop',
+                  '''    for (const slot of shape.lexicalSlots) {
+      if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") {
+''',
+                  '''    for (const slot of shape.lexicalSlots) {
+      FORMAL_ATTRIBUTION.lexicalSlotVisits += 1;
+      if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") {
+''',
+              ),
+              (
+                  'all compatible stats',
+                  '''      const allCompatible = compatibleProfilesForSlot(slot, index);
+      const boundEntryId = slot.entryBindingId === undefined
+''',
+                  '''      const allCompatible = compatibleProfilesForSlot(slot, index);
+      FORMAL_ATTRIBUTION.allCompatibleProfiles += allCompatible.length;
+      const boundEntryId = slot.entryBindingId === undefined
+''',
+              ),
+              (
+                  'binding filter stats',
+                  '''      const compatible = boundEntryId === undefined
+        ? allCompatible
+        : allCompatible.filter((profile) => profile.entryId === boundEntryId);
+''',
+                  '''      if (boundEntryId !== undefined) {
+        FORMAL_ATTRIBUTION.bindingFilterCalls += 1;
+        FORMAL_ATTRIBUTION.bindingFilterSourceProfiles += allCompatible.length;
+      }
+      const compatible = boundEntryId === undefined
+        ? allCompatible
+        : allCompatible.filter((profile) => profile.entryId === boundEntryId);
+      if (boundEntryId !== undefined) FORMAL_ATTRIBUTION.bindingFilterKeptProfiles += compatible.length;
+''',
+              ),
+              (
+                  'selected index stats',
+                  '''      const selectedIndex = allCompatible.findIndex((profile) => profile.id === selectedProfile.id);
+''',
+                  '''      FORMAL_ATTRIBUTION.selectedIndexSearches += 1;
+      FORMAL_ATTRIBUTION.selectedIndexSearchItems += allCompatible.length;
+      const selectedIndex = allCompatible.findIndex((profile) => profile.id === selectedProfile.id);
+''',
+              ),
+          ])
+
+          patch('src/curriculum/frequency-first-utterance.ts', [
+              (
+                  'frequency stats block',
+                  '''const expectedTokenTraceCache = new WeakMap<
+  FrequencyFirstScoringInput,
+  Map<TokenId, ExpectedTokenBoostTrace>
+>();
+''',
+                  '''const expectedTokenTraceCache = new WeakMap<
+  FrequencyFirstScoringInput,
+  Map<TokenId, ExpectedTokenBoostTrace>
+>();
+
+const FREQUENCY_ATTRIBUTION = {
+  expectedTokenTraceCalls: 0,
+  expectedTokenTraceCacheHits: 0,
+  expectedTokenTraceCacheMisses: 0,
+  bindingOnlyCalls: 0,
+  bindingOnlyTokenVisits: 0,
+  generateOnceCalls: 0,
+  entryWeightCalls: 0,
+  entryWeightCacheHits: 0,
+  entryWeightCacheMisses: 0,
+};
+
+export function readFrequencyFirstAttribution() {
+  return { ...FREQUENCY_ATTRIBUTION };
+}
+''',
+              ),
+              (
+                  'token trace call stats',
+                  '''function expectedTokenTraceForToken(
+  tokenId: TokenId,
+  input: FrequencyFirstScoringInput,
+): ExpectedTokenBoostTrace {
+  let byToken = expectedTokenTraceCache.get(input);
+''',
+                  '''function expectedTokenTraceForToken(
+  tokenId: TokenId,
+  input: FrequencyFirstScoringInput,
+): ExpectedTokenBoostTrace {
+  FREQUENCY_ATTRIBUTION.expectedTokenTraceCalls += 1;
+  let byToken = expectedTokenTraceCache.get(input);
+''',
+              ),
+              (
+                  'token trace hit miss',
+                  '''  const cached = byToken.get(tokenId);
+  if (cached !== undefined) return cached;
+
+  const aggregate = input.bindingsByToken[tokenId];
+''',
+                  '''  const cached = byToken.get(tokenId);
+  if (cached !== undefined) {
+    FREQUENCY_ATTRIBUTION.expectedTokenTraceCacheHits += 1;
+    return cached;
+  }
+  FREQUENCY_ATTRIBUTION.expectedTokenTraceCacheMisses += 1;
+
+  const aggregate = input.bindingsByToken[tokenId];
+''',
+              ),
+              (
+                  'binding only call',
+                  '''function bindingOnlyFormalEntryTotalWeight(
+  entry: CatalogEntry,
+  input: FrequencyFirstScoringInput,
+): number {
+  const frequencyBase = catalogEntryFrequencyWeight(entry);
+''',
+                  '''function bindingOnlyFormalEntryTotalWeight(
+  entry: CatalogEntry,
+  input: FrequencyFirstScoringInput,
+): number {
+  FREQUENCY_ATTRIBUTION.bindingOnlyCalls += 1;
+  const frequencyBase = catalogEntryFrequencyWeight(entry);
+''',
+              ),
+              (
+                  'binding only token visits',
+                  '''  for (const tokenId of scoringTokens([entry], input)) {
+    expectedTokenBoost = Math.max(
+''',
+                  '''  for (const tokenId of scoringTokens([entry], input)) {
+    FREQUENCY_ATTRIBUTION.bindingOnlyTokenVisits += 1;
+    expectedTokenBoost = Math.max(
+''',
+              ),
+              (
+                  'generate once call',
+                  '''): SlotWeightedGrammarGeneration {
+  const entryWeights = new Map<string, number>();
+  const entryWeight = (entry: CatalogEntry): number => {
+    const existing = entryWeights.get(entry.id);
+    if (existing !== undefined) return existing;
+''',
+                  '''): SlotWeightedGrammarGeneration {
+  FREQUENCY_ATTRIBUTION.generateOnceCalls += 1;
+  const entryWeights = new Map<string, number>();
+  const entryWeight = (entry: CatalogEntry): number => {
+    FREQUENCY_ATTRIBUTION.entryWeightCalls += 1;
+    const existing = entryWeights.get(entry.id);
+    if (existing !== undefined) {
+      FREQUENCY_ATTRIBUTION.entryWeightCacheHits += 1;
+      return existing;
+    }
+    FREQUENCY_ATTRIBUTION.entryWeightCacheMisses += 1;
+''',
+              ),
+          ])
+          PY
+
+          npx tsc --noEmit
+
+          cat > .tmp-post294-attribution.ts <<'EOF'
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import { readFormalSyntaxAttribution } from "./src/curriculum/formal-syntax-utterance.js";
+          import { readFrequencyFirstAttribution } from "./src/curriculum/frequency-first-utterance.js";
+          import {
+            createFreshProgressForEnvironment,
+            createProductEnvironment,
+            createProductState,
+          } from "./src/product/session.js";
+
+          const sampleCount = Number(process.env.SAMPLE_COUNT);
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "post294-formal-attribution",
+            "guided",
+            "standard",
+          );
+          let attemptTotal = 0;
+          for (let round = 0; round < sampleCount; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            attemptTotal += state.round.selection.generationAttempts;
+          }
+          const formal = readFormalSyntaxAttribution();
+          const frequency = readFrequencyFirstAttribution();
+          const ratio = (a: number, b: number) => b === 0 ? 0 : Number((a / b * 100).toFixed(2));
+          console.log(JSON.stringify({
+            sampleCount,
+            attemptTotal,
+            formal,
+            frequency,
+            derived: {
+              avgSourceGroupsPerSelect: Number((formal.sourceGroups / formal.selectCalls).toFixed(2)),
+              avgEligibleGroupsPerSelect: Number((formal.eligibleGroups / formal.selectCalls).toFixed(2)),
+              reuseFilterPct: ratio(formal.groupsFilteredByReuse, formal.sourceGroups),
+              avgWeightsPerSelect: Number((formal.weightEvaluations / formal.selectCalls).toFixed(2)),
+              surfaceCompatibilityPctOfWeights: ratio(formal.surfaceCompatibilityCalls, formal.weightEvaluations),
+              groupedCacheHitPct: ratio(formal.groupedCacheHits, formal.groupedCalls),
+              reachabilityRejectPct: ratio(formal.reachabilityRejected, formal.reachabilityCalls - formal.reachabilityPunctuationFastPath),
+              avgAllCompatibleProfilesPerSlot: Number((formal.allCompatibleProfiles / Math.max(1, formal.lexicalSlotVisits - formal.reachabilityPunctuationFastPath)).toFixed(2)),
+              bindingFilterPctOfSlots: ratio(formal.bindingFilterCalls, formal.lexicalSlotVisits),
+              entryWeightCacheHitPct: ratio(frequency.entryWeightCacheHits, frequency.entryWeightCalls),
+              avgBindingTokensPerMiss: Number((frequency.bindingOnlyTokenVisits / frequency.bindingOnlyCalls).toFixed(2)),
+              expectedTokenTraceCacheHitPct: ratio(frequency.expectedTokenTraceCacheHits, frequency.expectedTokenTraceCalls),
+            },
+          }, null, 2));
+          EOF
+
+          node --import tsx .tmp-post294-attribution.ts
