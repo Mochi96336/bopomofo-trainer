@@ -531,13 +531,14 @@ function sampleRuleChildren(
     if (target?.exactCount !== undefined && count !== target.exactCount) return null;
 
     for (let occurrenceIndex = 0; occurrenceIndex < count; occurrenceIndex += 1) {
+      if (constituent.category === "Lexeme"
+        && workingState.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) return null;
       const afterDepth = decrement(workingState, constituent);
       if (afterDepth === null) return null;
       const childRequirements = requirementsForConstituent(constituent, requirements);
       if (childRequirements === null) return null;
       workingState = afterDepth;
       if (constituent.category === "Lexeme") {
-        if (workingState.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) return null;
         const slot = makeSlot(
           constituent,
           childRequirements,
