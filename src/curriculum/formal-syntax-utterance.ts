@@ -214,6 +214,25 @@ function preparedStaticCompatibleProfileWeights(
   return prepared;
 }
 
+export const TMP_PROFILE_SELECTION_ATTRIBUTION = {
+  calls: 0,
+  staticEligibleCalls: 0,
+  staticFastPathCalls: 0,
+  staticBlockedByUsedEntryCalls: 0,
+  dynamicCalls: 0,
+  nullCalls: 0,
+  compatibleLengthTotal: 0,
+  compatibleLengthMax: 0,
+  usedEntryIdsSizeTotal: 0,
+  usedEntryIdsSizeMax: 0,
+  staticGroupLengthTotal: 0,
+  staticGroupLengthMax: 0,
+  dynamicGroupLengthTotal: 0,
+  dynamicGroupLengthMax: 0,
+  singleProfileSelectedGroupCalls: 0,
+  multiProfileSelectedGroupCalls: 0,
+};
+
 function selectCompatibleProfile(
   compatible: readonly RuntimeSyntaxProfile[],
   usedEntryIds: ReadonlySet<string>,
@@ -226,10 +245,22 @@ function selectCompatibleProfile(
   lexicalCompatibilityMaximumBoost: number,
   random: RandomSource,
 ): RuntimeSyntaxProfile | null {
+  TMP_PROFILE_SELECTION_ATTRIBUTION.calls += 1;
+  TMP_PROFILE_SELECTION_ATTRIBUTION.compatibleLengthTotal += compatible.length;
+  TMP_PROFILE_SELECTION_ATTRIBUTION.compatibleLengthMax = Math.max(
+    TMP_PROFILE_SELECTION_ATTRIBUTION.compatibleLengthMax,
+    compatible.length,
+  );
+  TMP_PROFILE_SELECTION_ATTRIBUTION.usedEntryIdsSizeTotal += usedEntryIds.size;
+  TMP_PROFILE_SELECTION_ATTRIBUTION.usedEntryIdsSizeMax = Math.max(
+    TMP_PROFILE_SELECTION_ATTRIBUTION.usedEntryIdsSizeMax,
+    usedEntryIds.size,
+  );
   const useStaticDefaultWeights = entryWeight === undefined
     && entryWeightsById === undefined
     && (previousEntry === null || lexicalCompatibility === undefined);
   if (useStaticDefaultWeights) {
+    TMP_PROFILE_SELECTION_ATTRIBUTION.staticEligibleCalls += 1;
     const groupIndexByEntryId = compatibleProfileGroupIndex(compatible);
     let hasExcludedCompatibleEntry = false;
     for (const entryId of usedEntryIds) {
@@ -239,8 +270,17 @@ function selectCompatibleProfile(
       }
     }
     if (!hasExcludedCompatibleEntry) {
+      TMP_PROFILE_SELECTION_ATTRIBUTION.staticFastPathCalls += 1;
       const prepared = preparedStaticCompatibleProfileWeights(compatible, entriesById);
-      if (!(prepared.totalWeight > 0)) return null;
+      TMP_PROFILE_SELECTION_ATTRIBUTION.staticGroupLengthTotal += prepared.groups.length;
+      TMP_PROFILE_SELECTION_ATTRIBUTION.staticGroupLengthMax = Math.max(
+        TMP_PROFILE_SELECTION_ATTRIBUTION.staticGroupLengthMax,
+        prepared.groups.length,
+      );
+      if (!(prepared.totalWeight > 0)) {
+        TMP_PROFILE_SELECTION_ATTRIBUTION.nullCalls += 1;
+        return null;
+      }
       let target = nextUnit(random) * prepared.totalWeight;
       let selectedGroup: CompatibleProfileGroup | undefined;
       for (let index = 0; index < prepared.groups.length; index += 1) {
@@ -254,14 +294,28 @@ function selectCompatibleProfile(
       if (selectedGroup === undefined) throw new Error("formal syntax entry selection failed");
       const entryProfiles = selectedGroup.profiles;
       if (entryProfiles.length === 0) throw new Error("formal syntax profile group is empty");
+      if (entryProfiles.length === 1) {
+        TMP_PROFILE_SELECTION_ATTRIBUTION.singleProfileSelectedGroupCalls += 1;
+      } else {
+        TMP_PROFILE_SELECTION_ATTRIBUTION.multiProfileSelectedGroupCalls += 1;
+      }
       const selectedProfileIndex = entryProfiles.length === 1
         ? 0
         : Math.floor(nextUnit(random) * entryProfiles.length);
-      return entryProfiles[selectedProfileIndex] ?? null;
+      const selected = entryProfiles[selectedProfileIndex] ?? null;
+      if (selected === null) TMP_PROFILE_SELECTION_ATTRIBUTION.nullCalls += 1;
+      return selected;
     }
+    TMP_PROFILE_SELECTION_ATTRIBUTION.staticBlockedByUsedEntryCalls += 1;
   }
 
+  TMP_PROFILE_SELECTION_ATTRIBUTION.dynamicCalls += 1;
   const groups = groupedCompatibleProfiles(compatible);
+  TMP_PROFILE_SELECTION_ATTRIBUTION.dynamicGroupLengthTotal += groups.length;
+  TMP_PROFILE_SELECTION_ATTRIBUTION.dynamicGroupLengthMax = Math.max(
+    TMP_PROFILE_SELECTION_ATTRIBUTION.dynamicGroupLengthMax,
+    groups.length,
+  );
   const weights = new Array<number>(groups.length);
   let totalWeight = 0;
   let lastEligibleGroup: CompatibleProfileGroup | undefined;
@@ -295,7 +349,10 @@ function selectCompatibleProfile(
     weights[index] = weight;
     totalWeight += weight;
   }
-  if (!(totalWeight > 0)) return null;
+  if (!(totalWeight > 0)) {
+    TMP_PROFILE_SELECTION_ATTRIBUTION.nullCalls += 1;
+    return null;
+  }
   let target = nextUnit(random) * totalWeight;
   let selectedGroup: CompatibleProfileGroup | undefined;
   for (let index = 0; index < groups.length; index += 1) {
@@ -309,10 +366,17 @@ function selectCompatibleProfile(
   if (selectedGroup === undefined) throw new Error("formal syntax entry selection failed");
   const entryProfiles = selectedGroup.profiles;
   if (entryProfiles.length === 0) throw new Error("formal syntax profile group is empty");
+  if (entryProfiles.length === 1) {
+    TMP_PROFILE_SELECTION_ATTRIBUTION.singleProfileSelectedGroupCalls += 1;
+  } else {
+    TMP_PROFILE_SELECTION_ATTRIBUTION.multiProfileSelectedGroupCalls += 1;
+  }
   const selectedProfileIndex = entryProfiles.length === 1
     ? 0
     : Math.floor(nextUnit(random) * entryProfiles.length);
-  return entryProfiles[selectedProfileIndex] ?? null;
+  const selected = entryProfiles[selectedProfileIndex] ?? null;
+  if (selected === null) TMP_PROFILE_SELECTION_ATTRIBUTION.nullCalls += 1;
+  return selected;
 }
 
 function punctuationForPath(path: readonly string[]): "。" | "！" | "？" {
