@@ -222,6 +222,7 @@ function sameCanonicalRuleSet(
   rules: readonly ProductionRule[],
   canonicalRules: readonly ProductionRule[],
 ): boolean {
+  if (rules === canonicalRules) return true;
   if (rules.length !== canonicalRules.length) return false;
   const byId = new Map(rules.map((rule) => [rule.id, rule]));
   if (byId.size !== rules.length) return false;
