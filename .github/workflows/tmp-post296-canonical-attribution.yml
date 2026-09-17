@@ -1,0 +1,134 @@
+name: tmp post-296 structural canonical attribution
+
+on:
+  push:
+    branches:
+      - agent/tmp-post296-canonical-attribution
+
+permissions:
+  contents: read
+
+env:
+  TARGET_REF: e40d43fad19fde32f3d6e1faad5213e2e22f5a41
+  PROFILE_ROUNDS: 256
+
+jobs:
+  attribution:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Patch exact production target
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/tmp-post296-canonical-attribution.py "$RUNNER_TEMP/patch.py"
+          git checkout --force "$TARGET_REF"
+          git clean -fdx
+          npm ci --include=dev --ignore-scripts
+          python "$RUNNER_TEMP/patch.py"
+          git diff --check
+          npm run typecheck
+      - name: Run production-shaped attribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .tmp-canonical-attribution.ts <<'EOF'
+          import {
+            EVALUATION_CATALOG,
+            PRACTICE_CATALOG,
+            SYNTAX_PROFILES,
+          } from "./src/app/generated/catalog.js";
+          import {
+            createFreshProgressForEnvironment,
+            createProductEnvironment,
+            createProductState,
+          } from "./src/product/session.js";
+          import { structuralCanonicalAttributionStats } from "./src/syntax/sample.js";
+
+          const rounds = Number(process.env.PROFILE_ROUNDS);
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "post296-canonical-attribution",
+            "guided",
+            "standard",
+          );
+          let attemptTotal = 0;
+          for (let round = 0; round < rounds; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            attemptTotal += state.round.selection.generationAttempts;
+          }
+          const stats = structuralCanonicalAttributionStats();
+          const pct = (hits: number, calls: number) =>
+            calls === 0 ? 0 : Number((hits / calls * 100).toFixed(2));
+          console.log(JSON.stringify({
+            target: process.env.TARGET_REF,
+            rounds,
+            attemptTotal,
+            stats,
+            derived: {
+              canonicalStringArrayIdentityHitPct: pct(
+                stats.canonicalStringArrayIdentityHits,
+                stats.canonicalStringArrayCalls,
+              ),
+              canonicalFeatureSetIdentityHitPct: pct(
+                stats.canonicalFeatureSetIdentityHits,
+                stats.canonicalFeatureSetCalls,
+              ),
+              lexicalSlotIdentityConstituentHitPct: pct(
+                stats.lexicalSlotIdentityConstituentHits,
+                stats.lexicalSlotIdentityCalls,
+              ),
+              lexicalSlotIdentityRequirementsHitPct: pct(
+                stats.lexicalSlotIdentityRequirementsHits,
+                stats.lexicalSlotIdentityCalls,
+              ),
+              lexicalSlotIdentityPathHitPct: pct(
+                stats.lexicalSlotIdentityPathHits,
+                stats.lexicalSlotIdentityCalls,
+              ),
+              lexicalSlotCanonicalIdentityHitPct: pct(
+                stats.lexicalSlotCanonicalIdentityHits,
+                stats.lexicalSlotCanonicalCalls,
+              ),
+              childrenCanonicalIdentityHitPct: pct(
+                stats.childrenCanonicalIdentityHits,
+                stats.childrenCanonicalCalls,
+              ),
+              syntaxNodeCanonicalNodeHitPct: pct(
+                stats.syntaxNodeCanonicalNodeHits,
+                stats.syntaxNodeCanonicalCalls,
+              ),
+              syntaxNodeCanonicalChildrenHitPct: pct(
+                stats.syntaxNodeCanonicalChildrenHits,
+                stats.syntaxNodeCanonicalCalls,
+              ),
+              nestedClauseDuplicateTuplePct: pct(
+                stats.nestedClauseKeyedDuplicateTuples,
+                stats.nestedClauseKeyedCalls,
+              ),
+              avgCanonicalStringArrayItems: stats.canonicalStringArrayCalls === 0
+                ? 0
+                : Number((stats.canonicalStringArrayItems / stats.canonicalStringArrayCalls).toFixed(2)),
+              avgChildrenCanonicalItems: stats.childrenCanonicalCalls === 0
+                ? 0
+                : Number((stats.childrenCanonicalItems / stats.childrenCanonicalCalls).toFixed(2)),
+            },
+          }, null, 2));
+          EOF
+          node --import tsx .tmp-canonical-attribution.ts
