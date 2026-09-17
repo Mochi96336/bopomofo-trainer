@@ -150,6 +150,70 @@ function groupedCompatibleProfiles(
   return groups;
 }
 
+
+interface StaticCompatibleProfileWeights {
+  readonly groups: readonly CompatibleProfileGroup[];
+  readonly weights: readonly number[];
+  readonly totalWeight: number;
+}
+
+const compatibleProfileGroupIndexCache = new WeakMap<
+  readonly RuntimeSyntaxProfile[],
+  ReadonlyMap<string, number>
+>();
+
+const staticCompatibleProfileWeightsCache = new WeakMap<
+  readonly RuntimeSyntaxProfile[],
+  WeakMap<ReadonlyMap<string, CatalogEntry>, StaticCompatibleProfileWeights>
+>();
+
+function compatibleProfileGroupIndex(
+  compatible: readonly RuntimeSyntaxProfile[],
+): ReadonlyMap<string, number> {
+  const cached = compatibleProfileGroupIndexCache.get(compatible);
+  if (cached !== undefined) return cached;
+  const groups = groupedCompatibleProfiles(compatible);
+  const index = new Map<string, number>();
+  for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
+    index.set(groups[groupIndex]!.entryId, groupIndex);
+  }
+  compatibleProfileGroupIndexCache.set(compatible, index);
+  return index;
+}
+
+function preparedStaticCompatibleProfileWeights(
+  compatible: readonly RuntimeSyntaxProfile[],
+  entriesById: ReadonlyMap<string, CatalogEntry>,
+): StaticCompatibleProfileWeights {
+  let byEntries = staticCompatibleProfileWeightsCache.get(compatible);
+  if (byEntries === undefined) {
+    byEntries = new WeakMap<ReadonlyMap<string, CatalogEntry>, StaticCompatibleProfileWeights>();
+    staticCompatibleProfileWeightsCache.set(compatible, byEntries);
+  }
+  const cached = byEntries.get(entriesById);
+  if (cached !== undefined) return cached;
+
+  const groups = groupedCompatibleProfiles(compatible);
+  const weights = new Array<number>(groups.length);
+  let totalWeight = 0;
+  for (let index = 0; index < groups.length; index += 1) {
+    const group = groups[index]!;
+    const entry = entriesById.get(group.entryId);
+    if (entry === undefined) {
+      throw new Error(`formal syntax profile references missing entry ${group.entryId}`);
+    }
+    const weight = defaultEntryWeight(entry);
+    if (!Number.isFinite(weight) || weight < 0) {
+      throw new Error("formal syntax entry weights must be finite and non-negative");
+    }
+    weights[index] = weight;
+    totalWeight += weight;
+  }
+  const prepared = { groups, weights, totalWeight };
+  byEntries.set(entriesById, prepared);
+  return prepared;
+}
+
 function selectCompatibleProfile(
   compatible: readonly RuntimeSyntaxProfile[],
   usedEntryIds: ReadonlySet<string>,
@@ -162,6 +226,41 @@ function selectCompatibleProfile(
   lexicalCompatibilityMaximumBoost: number,
   random: RandomSource,
 ): RuntimeSyntaxProfile | null {
+  const useStaticDefaultWeights = entryWeight === undefined
+    && entryWeightsById === undefined
+    && (previousEntry === null || lexicalCompatibility === undefined);
+  if (useStaticDefaultWeights) {
+    const groupIndexByEntryId = compatibleProfileGroupIndex(compatible);
+    let hasExcludedCompatibleEntry = false;
+    for (const entryId of usedEntryIds) {
+      if (entryId !== reusableEntryId && groupIndexByEntryId.has(entryId)) {
+        hasExcludedCompatibleEntry = true;
+        break;
+      }
+    }
+    if (!hasExcludedCompatibleEntry) {
+      const prepared = preparedStaticCompatibleProfileWeights(compatible, entriesById);
+      if (!(prepared.totalWeight > 0)) return null;
+      let target = nextUnit(random) * prepared.totalWeight;
+      let selectedGroup: CompatibleProfileGroup | undefined;
+      for (let index = 0; index < prepared.groups.length; index += 1) {
+        target -= prepared.weights[index] ?? 0;
+        if (target < 0) {
+          selectedGroup = prepared.groups[index];
+          break;
+        }
+      }
+      selectedGroup ??= prepared.groups[prepared.groups.length - 1];
+      if (selectedGroup === undefined) throw new Error("formal syntax entry selection failed");
+      const entryProfiles = selectedGroup.profiles;
+      if (entryProfiles.length === 0) throw new Error("formal syntax profile group is empty");
+      const selectedProfileIndex = entryProfiles.length === 1
+        ? 0
+        : Math.floor(nextUnit(random) * entryProfiles.length);
+      return entryProfiles[selectedProfileIndex] ?? null;
+    }
+  }
+
   const groups = groupedCompatibleProfiles(compatible);
   const weights = new Array<number>(groups.length);
   let totalWeight = 0;
