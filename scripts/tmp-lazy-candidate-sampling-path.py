@@ -11,12 +11,26 @@ def once(old: str, new: str, label: str) -> None:
     text = text.replace(old, new, 1)
 
 once(
-'''  bounds: DerivationBounds,
+'''function sampleRuleChildren(
+  parentRuleId: string,
+  ordered: readonly ProductionConstituent[],
+  requirements: SyntaxRequirements,
+  rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
+  orderedConstituentsBySurfaceOrder: ReadonlyMap<SurfaceOrder, readonly ProductionConstituent[]>,
+  random: RandomSource,
+  bounds: DerivationBounds,
   inputState: State,
   path: SamplingPathNode,
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
 ''',
-'''  bounds: DerivationBounds,
+'''function sampleRuleChildren(
+  parentRuleId: string,
+  ordered: readonly ProductionConstituent[],
+  requirements: SyntaxRequirements,
+  rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
+  orderedConstituentsBySurfaceOrder: ReadonlyMap<SurfaceOrder, readonly ProductionConstituent[]>,
+  random: RandomSource,
+  bounds: DerivationBounds,
   inputState: State,
   pathParent: SamplingPathNode,
   pathSegment: string,
