@@ -1,0 +1,36 @@
+name: tmp lazy lexical-slot id landing builder
+
+on:
+  push:
+    branches:
+      - agent/tmp-lazy-lexical-slot-id-landing-builder
+
+permissions:
+  contents: write
+
+env:
+  PRODUCTION_REF: 7cba167caee64b0f809975916228cc0f24f68575
+  TARGET_BRANCH: agent/perf-lazy-lexical-slot-id
+
+jobs:
+  build-clean-landing:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Build exact one-file landing commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/tmp-lazy-lexical-slot-id.py "$RUNNER_TEMP/patch.py"
+          git checkout --force "$PRODUCTION_REF"
+          git clean -fdx
+          python "$RUNNER_TEMP/patch.py"
+          git diff --check
+          test "$(git diff --name-only | tr -d '\r')" = "src/syntax/sample.ts"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/syntax/sample.ts
+          git commit -m "perf(syntax): defer lexical-slot identity"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH" --force
