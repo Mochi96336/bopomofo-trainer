@@ -108,9 +108,18 @@ interface SampledLexicalSlotContext {
   readonly enclosingRequiredFunctions: readonly SyntacticFunction[];
 }
 
+interface PendingSyntaxNode {
+  readonly kind: "syntax-node";
+  readonly category: SyntaxCategory;
+  readonly productionRuleId: string;
+  readonly surfaceOrderId: string;
+  readonly children: readonly PendingStructuralElement[];
+}
+
+type PendingStructuralElement = StructuralLexicalSlot | PendingSyntaxNode;
+
 interface Sampled {
-  readonly element: StructuralElement;
-  readonly canonicalSource: string;
+  readonly element: PendingStructuralElement;
   readonly state: State;
   readonly rulePath: readonly string[];
   readonly slots: readonly StructuralLexicalSlot[];
@@ -119,8 +128,7 @@ interface Sampled {
 
 interface SampledRuleChildren {
   readonly state: State;
-  readonly children: readonly StructuralElement[];
-  readonly childCanonicalSources: readonly string[];
+  readonly children: readonly PendingStructuralElement[];
   readonly rulePath: readonly string[];
   readonly slots: readonly StructuralLexicalSlot[];
   readonly slotContexts: readonly SampledLexicalSlotContext[];
@@ -211,6 +219,39 @@ function syntaxNodeCanonicalJson(
   childCanonicalSources: readonly string[],
 ): string {
   return `{"category":${JSON.stringify(node.category)},"children":${childrenCanonicalJson(childCanonicalSources)},"id":${JSON.stringify(node.id)},"kind":"syntax-node","productionRuleId":${JSON.stringify(node.productionRuleId)},"surfaceOrderId":${JSON.stringify(node.surfaceOrderId)}}`;
+}
+
+interface MaterializedPendingElement {
+  readonly element: StructuralElement;
+  readonly canonicalSource: string;
+}
+
+function materializePendingElement(
+  pending: PendingStructuralElement,
+): MaterializedPendingElement {
+  if (pending.kind === "lexical-slot") {
+    return { element: pending, canonicalSource: lexicalSlotCanonicalJson(pending) };
+  }
+  const materializedChildren = pending.children.map(materializePendingElement);
+  const childCanonicalSources = materializedChildren.map((child) => child.canonicalSource);
+  const identitySource = syntaxNodeIdentityCanonicalJson(
+    pending.category,
+    pending.productionRuleId,
+    pending.surfaceOrderId,
+    childCanonicalSources,
+  );
+  const node: StructuralSyntaxNode = {
+    kind: "syntax-node",
+    id: `syntax-node:${stableRuntimeDigestCanonicalJson(identitySource)}`,
+    category: pending.category,
+    productionRuleId: pending.productionRuleId,
+    surfaceOrderId: pending.surfaceOrderId,
+    children: materializedChildren.map((child) => child.element),
+  };
+  return {
+    element: node,
+    canonicalSource: syntaxNodeCanonicalJson(node, childCanonicalSources),
+  };
 }
 
 function derivationIdentityCanonicalJson(
@@ -414,8 +455,7 @@ function sampleRuleChildren(
   deterministicCounts = false,
 ): SampledRuleChildren | null {
   let workingState = inputState;
-  const children: StructuralElement[] = [];
-  const childCanonicalSources: string[] = [];
+  const children: PendingStructuralElement[] = [];
   const slots: StructuralLexicalSlot[] = [];
   const slotContexts: SampledLexicalSlotContext[] = [];
   const rulePath: string[] = [];
@@ -452,7 +492,6 @@ function sampleRuleChildren(
         );
         if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) return null;
         children.push(slot);
-        childCanonicalSources.push(lexicalSlotCanonicalJson(slot));
         slots.push(slot);
         slotContexts.push({
           slot,
@@ -480,7 +519,6 @@ function sampleRuleChildren(
       );
       if (child === null) return null;
       children.push(child.element);
-      childCanonicalSources.push(child.canonicalSource);
       slots.push(...child.slots);
       slotContexts.push(...child.slotContexts);
       rulePath.push(...child.rulePath);
@@ -491,7 +529,6 @@ function sampleRuleChildren(
   return {
     state: workingState,
     children,
-    childCanonicalSources,
     rulePath,
     slots,
     slotContexts,
@@ -586,15 +623,8 @@ function sampleCategory(
     );
     if (sampledChildren === null) continue;
 
-    const identitySource = syntaxNodeIdentityCanonicalJson(
-      category,
-      rule.id,
-      order.id,
-      sampledChildren.childCanonicalSources,
-    );
-    const node: StructuralSyntaxNode = {
+    const node: PendingSyntaxNode = {
       kind: "syntax-node",
-      id: `syntax-node:${stableRuntimeDigestCanonicalJson(identitySource)}`,
       category,
       productionRuleId: rule.id,
       surfaceOrderId: order.id,
@@ -602,7 +632,6 @@ function sampleCategory(
     };
     return {
       element: node,
-      canonicalSource: syntaxNodeCanonicalJson(node, sampledChildren.childCanonicalSources),
       state: sampledChildren.state,
       rulePath: [rule.id, ...sampledChildren.rulePath],
       slots: sampledChildren.slots,
@@ -771,14 +800,18 @@ export function sampleStructuralDerivation(
       )) continue;
     if (requiredProductionRuleIdsAnyOf !== undefined
       && !requiredProductionRuleIdsAnyOf.some((ruleId) => sampled.rulePath.includes(ruleId))) continue;
+    const materializedRoot = materializePendingElement(sampled.element);
+    if (materializedRoot.element.kind !== "syntax-node") {
+      throw new Error("sampled root materialized as non-syntax node");
+    }
     const identitySource = derivationIdentityCanonicalJson(
-      sampled.canonicalSource,
+      materializedRoot.canonicalSource,
       sampled.rulePath,
     );
     return {
       id: `derivation-shape:${stableRuntimeDigestCanonicalJson(identitySource)}`,
       grammarVersion: FORMAL_GRAMMAR_VERSION,
-      root: sampled.element,
+      root: materializedRoot.element,
       productionRulePath: sampled.rulePath,
       lexicalSlots: sampled.slots,
       clauseCount: sampled.state.clauseCount,
