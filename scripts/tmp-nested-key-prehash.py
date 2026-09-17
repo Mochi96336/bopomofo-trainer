@@ -11,6 +11,17 @@ def once(old: str, new: str, label: str) -> None:
     text = text.replace(old, new, 1)
 
 once(
+'''import {
+  stableRuntimeDigestCanonicalJson,
+  stableRuntimeDigestCanonicalJsonFirstUint32,
+} from "../core/stable-id.js";
+''',
+'''import { stableRuntimeDigestCanonicalJson } from "../core/stable-id.js";
+''',
+"stable-id import",
+)
+
+once(
 '''function nestedClausePriorityFirstHex(canonicalJson: string): string {
   return stableRuntimeDigestCanonicalJsonFirstUint32(canonicalJson)
     .toString(16)
