@@ -183,7 +183,13 @@ once(
 "public rule path",
 )
 
-if "sampled.rulePath" in text or "child.rulePath" in text:
-    raise SystemExit("array rulePath consumer remains")
+for stale in (
+    "sampled.rulePath.includes(",
+    "productionRulePath: sampled.rulePath",
+    "rulePath.push(...child.rulePath)",
+    "[rule.id, ...sampledChildren.rulePath]",
+):
+    if stale in text:
+        raise SystemExit(f"array rulePath consumer remains: {stale}")
 
 path.write_text(text)
