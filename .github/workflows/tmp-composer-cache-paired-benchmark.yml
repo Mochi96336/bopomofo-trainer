@@ -1,4 +1,4 @@
-name: tmp stable digest signed-lane paired benchmark
+name: tmp stable digest two-char unroll paired benchmark
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 30
     env:
       PRODUCTION_REF: 7b4535b2c371d296f0a15cd39b405bd579afe9d5
-      CANDIDATE_REF: afbd3c9698d1e83828c3bd5ad9f14a5c81cce6b1
+      CANDIDATE_REF: 25d439e494647c1ae33a23c88553fec51dd414f9
       SAMPLE_COUNT: '256'
     steps:
       - uses: actions/checkout@v6
@@ -37,7 +37,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          results="$RUNNER_TEMP/exact-294-results.jsonl"
+          results="$RUNNER_TEMP/exact-294-unroll-results.jsonl"
           : > "$results"
 
           measure() {
@@ -72,7 +72,7 @@ jobs:
           const environmentMs = Math.round(performance.now() - environmentStartedAt);
           const baseProgress = createFreshProgressForEnvironment(
             environment,
-            "signed-lane-paired",
+            "two-char-unroll-paired",
             "guided",
             "standard",
           );
