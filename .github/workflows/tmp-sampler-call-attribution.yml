@@ -1,0 +1,230 @@
+name: tmp sampler call attribution
+
+on:
+  push:
+    branches:
+      - agent/tmp-sampler-call-attribution
+
+permissions:
+  contents: read
+
+env:
+  PRODUCTION_REF: 7b4535b2c371d296f0a15cd39b405bd579afe9d5
+  SAMPLE_COUNT: 256
+
+jobs:
+  attribution:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Measure structural sampler call volume
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --force "$PRODUCTION_REF"
+          git clean -fdx
+          npm ci --include=dev --ignore-scripts
+
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/syntax/sample.ts')
+          s = p.read_text()
+
+          def once(old, new, label):
+              global s
+              if old not in s:
+                  raise SystemExit(f'{label} anchor missing: {old!r}')
+              s = s.replace(old, new, 1)
+
+          once(
+              'const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };\n\n',
+              '''const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };\n\nconst SAMPLER_ATTRIBUTION = {\n  structuralCalls: 0,\n  structuralAttempts: 0,\n  rootSampleNulls: 0,\n  requiredLexicalRejects: 0,\n  requiredProductionRejects: 0,\n  sampleCategoryCalls: 0,\n  sampleCategorySuccesses: 0,\n  sampleCategoryExhaustedNulls: 0,\n  categoryRulePoolItems: 0,\n  eligibleRuleItems: 0,\n  shuffleCalls: 0,\n  shuffleItems: 0,\n  stableNestedCandidateCalls: 0,\n  stableNestedCandidateItems: 0,\n  candidateVisits: 0,\n  byKeyMapBuilds: 0,\n  byKeyEntries: 0,\n  orderedConstituentLookups: 0,\n  constrainedCandidateVisits: 0,\n  assignmentEnumerations: 0,\n  assignmentsGenerated: 0,\n  assignmentsAfterTargetFilter: 0,\n  sampleRuleChildrenCalls: 0,\n  sampledChildrenNulls: 0,\n  nonLexicalChildRecursions: 0,\n  excludedClassSetCalls: 0,\n  excludedClassSetItems: 0,\n  lexicalSlotsBuilt: 0,\n  reachabilityRejects: 0,\n};\n\nexport function readSamplerAttribution() {\n  return { ...SAMPLER_ATTRIBUTION };\n}\n\n''',
+              'stats block',
+          )
+
+          once(
+              'function shuffled<T>(values: readonly T[], random: RandomSource): readonly T[] {\n  const result = [...values];\n',
+              'function shuffled<T>(values: readonly T[], random: RandomSource): readonly T[] {\n  SAMPLER_ATTRIBUTION.shuffleCalls += 1;\n  SAMPLER_ATTRIBUTION.shuffleItems += values.length;\n  const result = [...values];\n',
+              'shuffle stats',
+          )
+
+          once(
+              'function stableNestedClauseCandidates(\n  values: readonly ProductionRule[],\n  random: RandomSource,\n): readonly NestedClauseCandidate[] {\n  if (values.length === 0) return [];\n',
+              'function stableNestedClauseCandidates(\n  values: readonly ProductionRule[],\n  random: RandomSource,\n): readonly NestedClauseCandidate[] {\n  SAMPLER_ATTRIBUTION.stableNestedCandidateCalls += 1;\n  SAMPLER_ATTRIBUTION.stableNestedCandidateItems += values.length;\n  if (values.length === 0) return [];\n',
+              'nested candidate stats',
+          )
+
+          once(
+              '  const identitySource = lexicalSlotIdentityCanonicalJson(\n',
+              '  SAMPLER_ATTRIBUTION.lexicalSlotsBuilt += 1;\n  const identitySource = lexicalSlotIdentityCanonicalJson(\n',
+              'slot build stats',
+          )
+
+          once(
+              'function sampleRuleChildren(\n',
+              'function sampleRuleChildren(\n',
+              'sampleRuleChildren anchor',
+          )
+          once(
+              '): SampledRuleChildren | null {\n  let workingState = inputState;\n',
+              '): SampledRuleChildren | null {\n  SAMPLER_ATTRIBUTION.sampleRuleChildrenCalls += 1;\n  let workingState = inputState;\n',
+              'sampleRuleChildren stats',
+          )
+
+          once(
+              '        if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) return null;\n',
+              '        if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) {\n          SAMPLER_ATTRIBUTION.reachabilityRejects += 1;\n          return null;\n        }\n',
+              'reachability stats',
+          )
+
+          once(
+              '      const requestedChildRuleId = target?.childRuleId;\n      const child = sampleCategory(\n',
+              '      const requestedChildRuleId = target?.childRuleId;\n      SAMPLER_ATTRIBUTION.nonLexicalChildRecursions += 1;\n      const childExcludedRuleClasses = excludedClassesForConstituent(constituent);\n      SAMPLER_ATTRIBUTION.excludedClassSetCalls += 1;\n      SAMPLER_ATTRIBUTION.excludedClassSetItems += childExcludedRuleClasses.size;\n      const child = sampleCategory(\n',
+              'child recursion stats',
+          )
+          once(
+              '        excludedClassesForConstituent(constituent),\n',
+              '        childExcludedRuleClasses,\n',
+              'excluded classes argument',
+          )
+
+          once(
+              '): Sampled | null {\n  let state = inputState;\n',
+              '): Sampled | null {\n  SAMPLER_ATTRIBUTION.sampleCategoryCalls += 1;\n  let state = inputState;\n',
+              'sampleCategory call stats',
+          )
+
+          once(
+              '  const eligibleRules = (rulesByOutput.get(category) ?? [])\n    .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))\n',
+              '  const categoryRules = rulesByOutput.get(category) ?? [];\n  SAMPLER_ATTRIBUTION.categoryRulePoolItems += categoryRules.length;\n  const eligibleRules = categoryRules\n    .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))\n',
+              'rule pool stats',
+          )
+          once(
+              '    .filter((rule) => requestedProductionRuleId === undefined || rule.id === requestedProductionRuleId);\n',
+              '    .filter((rule) => requestedProductionRuleId === undefined || rule.id === requestedProductionRuleId);\n  SAMPLER_ATTRIBUTION.eligibleRuleItems += eligibleRules.length;\n',
+              'eligible rule stats',
+          )
+
+          once(
+              '  for (const candidate of candidates) {\n    const { rule } = candidate;\n',
+              '  for (const candidate of candidates) {\n    SAMPLER_ATTRIBUTION.candidateVisits += 1;\n    const { rule } = candidate;\n',
+              'candidate stats',
+          )
+          once(
+              '    const byKey = new Map(rule.constituents.map((item) => [item.key, item]));\n    const ordered = order.constituentKeys.map((key) => byKey.get(key));\n',
+              '    SAMPLER_ATTRIBUTION.byKeyMapBuilds += 1;\n    SAMPLER_ATTRIBUTION.byKeyEntries += rule.constituents.length;\n    SAMPLER_ATTRIBUTION.orderedConstituentLookups += order.constituentKeys.length;\n    const byKey = new Map(rule.constituents.map((item) => [item.key, item]));\n    const ordered = order.constituentKeys.map((key) => byKey.get(key));\n',
+              'byKey stats',
+          )
+
+          once(
+              '    if (rule.constraints.length > 0) {\n      const assignments = [...validConstituentCountAssignments(rule, bounds)].filter((assignment) =>\n',
+              '    if (rule.constraints.length > 0) {\n      SAMPLER_ATTRIBUTION.constrainedCandidateVisits += 1;\n      SAMPLER_ATTRIBUTION.assignmentEnumerations += 1;\n      const generatedAssignments = [...validConstituentCountAssignments(rule, bounds)];\n      SAMPLER_ATTRIBUTION.assignmentsGenerated += generatedAssignments.length;\n      const assignments = generatedAssignments.filter((assignment) =>\n',
+              'assignment stats',
+          )
+          once(
+              '      );\n      if (assignments.length === 0) continue;\n      fixedCounts = assignments[chooseIndex(candidateRandom, assignments.length)];\n',
+              '      );\n      SAMPLER_ATTRIBUTION.assignmentsAfterTargetFilter += assignments.length;\n      if (assignments.length === 0) continue;\n      fixedCounts = assignments[chooseIndex(candidateRandom, assignments.length)];\n',
+              'assignment filter stats',
+          )
+
+          once(
+              '    if (sampledChildren === null) continue;\n\n    const identitySource = syntaxNodeIdentityCanonicalJson(\n',
+              '    if (sampledChildren === null) {\n      SAMPLER_ATTRIBUTION.sampledChildrenNulls += 1;\n      continue;\n    }\n\n    const identitySource = syntaxNodeIdentityCanonicalJson(\n',
+              'children null stats',
+          )
+          once(
+              '    return {\n      element: node,\n',
+              '    SAMPLER_ATTRIBUTION.sampleCategorySuccesses += 1;\n    return {\n      element: node,\n',
+              'category success stats',
+          )
+          once(
+              '  }\n  return null;\n}\n\nfunction validatedRootRuleId',
+              '  }\n  SAMPLER_ATTRIBUTION.sampleCategoryExhaustedNulls += 1;\n  return null;\n}\n\nfunction validatedRootRuleId',
+              'category null stats',
+          )
+
+          once(
+              'export function sampleStructuralDerivation(\n  options: StructuralSamplingOptions,\n  preparedContext?: PreparedStructuralSamplingContext,\n): StructuralDerivationShape | null {\n  const bounds = options.bounds ?? DEFAULT_DERIVATION_BOUNDS;\n',
+              'export function sampleStructuralDerivation(\n  options: StructuralSamplingOptions,\n  preparedContext?: PreparedStructuralSamplingContext,\n): StructuralDerivationShape | null {\n  SAMPLER_ATTRIBUTION.structuralCalls += 1;\n  const bounds = options.bounds ?? DEFAULT_DERIVATION_BOUNDS;\n',
+              'structural call stats',
+          )
+          once(
+              '  for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {\n    const sampled = sampleCategory(\n',
+              '  for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {\n    SAMPLER_ATTRIBUTION.structuralAttempts += 1;\n    const sampled = sampleCategory(\n',
+              'structural attempt stats',
+          )
+          once(
+              '    if (sampled === null || sampled.element.kind !== "syntax-node") continue;\n',
+              '    if (sampled === null || sampled.element.kind !== "syntax-node") {\n      SAMPLER_ATTRIBUTION.rootSampleNulls += 1;\n      continue;\n    }\n',
+              'root null stats',
+          )
+          once(
+              '    if (requiredLexicalSlot !== undefined\n      && !sampled.slotContexts.some((context) =>\n        lexicalSlotMatchesConstraint(context, requiredLexicalSlot),\n      )) continue;\n',
+              '    if (requiredLexicalSlot !== undefined\n      && !sampled.slotContexts.some((context) =>\n        lexicalSlotMatchesConstraint(context, requiredLexicalSlot),\n      )) {\n      SAMPLER_ATTRIBUTION.requiredLexicalRejects += 1;\n      continue;\n    }\n',
+              'required lexical stats',
+          )
+          once(
+              '    if (requiredProductionRuleIdsAnyOf !== undefined\n      && !requiredProductionRuleIdsAnyOf.some((ruleId) => sampled.rulePath.includes(ruleId))) continue;\n',
+              '    if (requiredProductionRuleIdsAnyOf !== undefined\n      && !requiredProductionRuleIdsAnyOf.some((ruleId) => sampled.rulePath.includes(ruleId))) {\n      SAMPLER_ATTRIBUTION.requiredProductionRejects += 1;\n      continue;\n    }\n',
+              'required production stats',
+          )
+
+          p.write_text(s)
+          PY
+
+          npm run typecheck
+          npm run app:catalog >/dev/null
+
+          cat > .tmp-sampler-call-attribution.ts <<'EOF'
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import { createFreshProgressForEnvironment, createProductEnvironment, createProductState } from "./src/product/session.js";
+          import { readSamplerAttribution } from "./src/syntax/sample.js";
+
+          const sampleCount = Number(process.env.SAMPLE_COUNT);
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "sampler-call-attribution",
+            "guided",
+            "standard",
+          );
+          let attemptTotal = 0;
+          for (let round = 0; round < sampleCount; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            attemptTotal += state.round.selection.generationAttempts;
+          }
+          const stats = readSamplerAttribution();
+          const ratio = (a: number, b: number) => b === 0 ? 0 : Number((a / b * 100).toFixed(2));
+          console.log(JSON.stringify({
+            sampleCount,
+            attemptTotal,
+            ...stats,
+            structuralAttemptsPerCall: Number((stats.structuralAttempts / stats.structuralCalls).toFixed(2)),
+            categoryCallsPerStructuralAttempt: Number((stats.sampleCategoryCalls / stats.structuralAttempts).toFixed(2)),
+            candidateVisitsPerCategoryCall: Number((stats.candidateVisits / stats.sampleCategoryCalls).toFixed(2)),
+            childrenNullPctOfCandidateVisits: ratio(stats.sampledChildrenNulls, stats.candidateVisits),
+            reachabilityRejectPctOfSlots: ratio(stats.reachabilityRejects, stats.lexicalSlotsBuilt),
+            avgRulePoolPerCategoryCall: Number((stats.categoryRulePoolItems / stats.sampleCategoryCalls).toFixed(2)),
+            avgEligibleRulesPerCategoryCall: Number((stats.eligibleRuleItems / stats.sampleCategoryCalls).toFixed(2)),
+            avgByKeyEntriesPerBuild: Number((stats.byKeyEntries / stats.byKeyMapBuilds).toFixed(2)),
+            avgOrderedLookupsPerBuild: Number((stats.orderedConstituentLookups / stats.byKeyMapBuilds).toFixed(2)),
+            avgAssignmentsPerEnumeration: stats.assignmentEnumerations === 0 ? 0 : Number((stats.assignmentsGenerated / stats.assignmentEnumerations).toFixed(2)),
+            emptyExcludedClassSetPct: ratio(stats.excludedClassSetCalls - stats.excludedClassSetItems, stats.excludedClassSetCalls),
+          }, null, 2));
+          EOF
+
+          node --import tsx .tmp-sampler-call-attribution.ts
