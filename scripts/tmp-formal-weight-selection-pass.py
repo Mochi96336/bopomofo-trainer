@@ -2,6 +2,29 @@ from pathlib import Path
 
 p = Path("src/curriculum/formal-syntax-utterance.ts")
 s = p.read_text()
+
+weighted_index = '''function weightedIndex(
+  weights: readonly number[],
+  random: RandomSource,
+): number | null {
+  if (weights.some((value) => !Number.isFinite(value) || value < 0)) {
+    throw new Error("formal syntax entry weights must be finite and non-negative");
+  }
+  const total = weights.reduce((sum, value) => sum + value, 0);
+  if (!(total > 0)) return null;
+  let target = nextUnit(random) * total;
+  for (let index = 0; index < weights.length; index += 1) {
+    target -= weights[index] ?? 0;
+    if (target < 0) return index;
+  }
+  return weights.length - 1;
+}
+
+'''
+if weighted_index not in s:
+    raise SystemExit("weightedIndex helper anchor missing")
+s = s.replace(weighted_index, "", 1)
+
 old = '''  const eligibleGroups = groupedCompatibleProfiles(compatible).filter((group) =>
   !usedEntryIds.has(group.entryId) || group.entryId === reusableEntryId
 );
