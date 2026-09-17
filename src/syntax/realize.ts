@@ -38,21 +38,28 @@ function compareText(left: string, right: string): number {
 }
 
 function compatibilityCacheKey(slot: StructuralLexicalSlot): string {
-  return JSON.stringify([
-    slot.formalLiteral === undefined
-      ? ["undefined"]
-      : ["value", slot.formalLiteral],
-    slot.allowedUpos,
-    slot.requiredFunctions,
-    slot.requiredValencyFrames,
-    slot.requiredOccurrenceCapabilities ?? [],
-    Object.entries(slot.requiredFeatures)
-      .sort(([left], [right]) => compareText(left, right))
-      .map(([feature, value]) => [
-        feature,
-        value === undefined ? ["undefined"] : ["value", value],
-      ]),
-  ]);
+  const key: unknown[] = [];
+  if (slot.formalLiteral === undefined) {
+    key.push(0);
+  } else {
+    key.push(1, slot.formalLiteral);
+  }
+  key.push(slot.allowedUpos.length, ...slot.allowedUpos);
+  key.push(slot.requiredFunctions.length, ...slot.requiredFunctions);
+  key.push(slot.requiredValencyFrames.length, ...slot.requiredValencyFrames);
+  const occurrenceCapabilities = slot.requiredOccurrenceCapabilities ?? [];
+  key.push(occurrenceCapabilities.length, ...occurrenceCapabilities);
+
+  const featureEntries = Object.entries(slot.requiredFeatures);
+  if (featureEntries.length > 1) {
+    featureEntries.sort(([left], [right]) => compareText(left, right));
+  }
+  key.push(featureEntries.length);
+  for (const [feature, value] of featureEntries) {
+    key.push(feature, value === undefined ? 0 : 1);
+    if (value !== undefined) key.push(value);
+  }
+  return JSON.stringify(key);
 }
 
 export function buildLexicalProfileIndex(
