@@ -1,0 +1,106 @@
+name: tmp post-303 content cpu profile
+
+on:
+  push:
+    branches:
+      - agent/tmp-post303-content-cpu-profile
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      TARGET_REF: 0b4dc2805573173144ea43293f6faa607aa4b619
+      PROFILE_ROUNDS: 256
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Checkout production target
+        run: git checkout --force "$TARGET_REF"
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run app:catalog
+      - name: Capture steady-state CPU profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .tmp-product-steady-profile.ts <<'EOF'
+          import { writeFileSync } from "node:fs";
+          import { Session } from "node:inspector";
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import { createFreshProgressForEnvironment, createProductEnvironment, createProductState } from "./src/product/session.js";
+
+          type InspectorResult = Record<string, unknown>;
+          const rounds = Number(process.env.PROFILE_ROUNDS);
+          const environment = createProductEnvironment({ practice: PRACTICE_CATALOG, evaluation: EVALUATION_CATALOG, syntaxProfiles: SYNTAX_PROFILES });
+          const baseProgress = createFreshProgressForEnvironment(environment, "post-303-content-cpu-profile", "guided", "standard");
+          const session = new Session();
+          session.connect();
+          const post = <T extends InspectorResult = InspectorResult>(method: string, params: Record<string, unknown> = {}): Promise<T> => new Promise((resolve, reject) => {
+            session.post(method, params, (error, result) => {
+              if (error !== null) reject(error);
+              else resolve(result as T);
+            });
+          });
+          await post("Profiler.enable");
+          await post("Profiler.setSamplingInterval", { interval: 100 });
+          await post("Profiler.start");
+          let attemptTotal = 0;
+          for (let round = 0; round < rounds; round += 1) {
+            const state = createProductState(environment, { ...baseProgress, practiceRoundsCompleted: round }, 0);
+            attemptTotal += state.round.selection.generationAttempts;
+          }
+          const stopped = await post<{ profile: object }>("Profiler.stop");
+          session.disconnect();
+          writeFileSync("steady.cpuprofile", JSON.stringify(stopped.profile));
+          console.log(JSON.stringify({ rounds, attemptTotal }));
+          EOF
+          node --import tsx .tmp-product-steady-profile.ts
+      - name: Summarize CPU samples
+        shell: bash
+        run: |
+          node <<'EOF'
+          const fs = require('node:fs');
+          const profile = JSON.parse(fs.readFileSync('steady.cpuprofile', 'utf8'));
+          const nodes = new Map(profile.nodes.map((node) => [node.id, node]));
+          const counts = new Map();
+          for (const id of profile.samples ?? []) counts.set(id, (counts.get(id) ?? 0) + 1);
+          const rows = [];
+          for (const [id, samples] of counts) {
+            const node = nodes.get(id);
+            if (!node) continue;
+            const frame = node.callFrame ?? {};
+            rows.push({ samples, functionName: frame.functionName || '(anonymous)', url: frame.url || '', line: (frame.lineNumber ?? -1) + 1, column: (frame.columnNumber ?? -1) + 1 });
+          }
+          rows.sort((a, b) => b.samples - a.samples);
+          const applicationRows = rows.filter((row) => {
+            const url = row.url;
+            return !url.startsWith('node:') && !url.includes('/node_modules/') && !url.includes('node_modules\\') && row.functionName !== '(program)' && row.functionName !== '(idle)' && row.functionName !== '(garbage collector)';
+          });
+          const applicationSamples = applicationRows.reduce((sum, row) => sum + row.samples, 0);
+          const byFunction = new Map();
+          for (const row of applicationRows) {
+            const key = `${row.functionName}|${row.url}`;
+            const previous = byFunction.get(key) ?? { samples: 0, functionName: row.functionName, url: row.url, locations: [] };
+            previous.samples += row.samples;
+            previous.locations.push(`${row.line}:${row.column}`);
+            byFunction.set(key, previous);
+          }
+          const aggregated = [...byFunction.values()].sort((a, b) => b.samples - a.samples);
+          const addPct = (row) => ({ ...row, pctOfApplicationSamples: Number((row.samples / applicationSamples * 100).toFixed(2)) });
+          console.log(JSON.stringify({
+            target: process.env.TARGET_REF,
+            rounds: Number(process.env.PROFILE_ROUNDS),
+            totalSamples: (profile.samples ?? []).length,
+            applicationSamples,
+            topApplicationLocations: applicationRows.slice(0, 120).map(addPct),
+            topApplicationFunctions: aggregated.slice(0, 80).map(addPct),
+          }, null, 2));
+          EOF
