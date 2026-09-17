@@ -1,0 +1,89 @@
+name: tmp post-303 compatibility cache attribution
+
+on:
+  push:
+    branches:
+      - agent/tmp-post303-compatibility-cache-attribution
+
+permissions:
+  contents: read
+
+jobs:
+  attribute:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run app:catalog
+      - name: Attribute compatibility cache
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .tmp-compatibility-cache-attribution.ts <<'EOF'
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import { stableRuntimeDigest } from "./src/core/stable-id.js";
+          import { createFreshProgressForEnvironment, createProductEnvironment, createProductState } from "./src/product/session.js";
+          import { TMP_COMPATIBILITY_CACHE_ATTRIBUTION as counters } from "./src/syntax/realize.js";
+
+          const rounds = 256;
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "post-303-compatibility-cache-attribution",
+            "guided",
+            "standard",
+          );
+          const outputs: object[] = [];
+          let attemptTotal = 0;
+          for (let round = 0; round < rounds; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            const selection = state.round.selection;
+            attemptTotal += selection.generationAttempts;
+            outputs.push({
+              id: selection.utterance.id,
+              text: selection.utterance.text,
+              attempts: selection.generationAttempts,
+            });
+          }
+          const pct = (value: number, denom: number) =>
+            denom === 0 ? 0 : Number((value / denom * 100).toFixed(2));
+          const sortHistogram = (record: Record<string, number>) =>
+            Object.fromEntries(Object.entries(record).sort((a, b) => Number(a[0]) - Number(b[0])));
+          console.log(JSON.stringify({
+            rounds,
+            attemptTotal,
+            outputDigest: stableRuntimeDigest(outputs),
+            calls: counters.calls,
+            hits: counters.hits,
+            misses: counters.misses,
+            hitPct: pct(counters.hits, counters.calls),
+            missPct: pct(counters.misses, counters.calls),
+            uniqueKeys: counters.uniqueKeys.size,
+            callsPerUniqueKey: Number((counters.calls / Math.max(1, counters.uniqueKeys.size)).toFixed(2)),
+            repeatedSlotObjectCalls: counters.repeatedSlotObjectCalls,
+            repeatedSlotObjectCallPct: pct(counters.repeatedSlotObjectCalls, counters.calls),
+            formalLiteralCalls: counters.formalLiteralCalls,
+            formalLiteralPct: pct(counters.formalLiteralCalls, counters.calls),
+            averageKeyLength: Number((counters.keyLengthTotal / Math.max(1, counters.calls)).toFixed(2)),
+            maxKeyLength: counters.keyLengthMax,
+            featureCountHistogram: sortHistogram(counters.featureCountHistogram),
+            allowedUposLengthHistogram: sortHistogram(counters.allowedUposLengthHistogram),
+            functionLengthHistogram: sortHistogram(counters.functionLengthHistogram),
+            valencyLengthHistogram: sortHistogram(counters.valencyLengthHistogram),
+            occurrenceLengthHistogram: sortHistogram(counters.occurrenceLengthHistogram),
+          }, null, 2));
+          EOF
+          node --import tsx .tmp-compatibility-cache-attribution.ts
