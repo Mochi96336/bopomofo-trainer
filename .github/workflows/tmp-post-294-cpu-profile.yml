@@ -119,6 +119,7 @@ jobs:
               && row.functionName !== '(idle)'
               && row.functionName !== '(garbage collector)';
           });
+          const applicationSamples = applicationRows.reduce((sum, row) => sum + row.samples, 0);
           const byFunction = new Map();
           for (const row of applicationRows) {
             const key = `${row.functionName}|${row.url}`;
@@ -133,15 +134,16 @@ jobs:
             byFunction.set(key, previous);
           }
           const aggregated = [...byFunction.values()].sort((a, b) => b.samples - a.samples);
-          const applicationSamples = aggregated.reduce((sum, row) => sum + row.samples, 0);
+          const addPct = (row) => ({
+            ...row,
+            pctOfApplicationSamples: Number((row.samples / applicationSamples * 100).toFixed(2)),
+          });
           console.log(JSON.stringify({
             target: process.env.TARGET_REF,
             rounds: Number(process.env.PROFILE_ROUNDS),
             totalSamples: (profile.samples ?? []).length,
             applicationSamples,
-            topApplicationFunctions: aggregated.slice(0, 80).map((row) => ({
-              ...row,
-              pctOfApplicationSamples: Number((row.samples / applicationSamples * 100).toFixed(2)),
-            })),
+            topApplicationLocations: applicationRows.slice(0, 120).map(addPct),
+            topApplicationFunctions: aggregated.slice(0, 80).map(addPct),
           }, null, 2));
           EOF
