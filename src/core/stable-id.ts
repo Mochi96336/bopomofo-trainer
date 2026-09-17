@@ -50,7 +50,12 @@ function finalizeHash32(hash: number): string {
 
 function hashRuntimeSourceFirst32(source: string): number {
   let hash = (0x811c9dc5 ^ RUNTIME_DIGEST_SEEDS[0]) >>> 0;
-  for (let index = 0; index < source.length; index += 1) {
+  let index = 0;
+  for (; index + 1 < source.length; index += 2) {
+    hash = Math.imul(hash ^ source.charCodeAt(index), 0x01000193) >>> 0;
+    hash = Math.imul(hash ^ source.charCodeAt(index + 1), 0x01000193) >>> 0;
+  }
+  if (index < source.length) {
     hash = Math.imul(hash ^ source.charCodeAt(index), 0x01000193) >>> 0;
   }
   return finalizeHash32Value(hash);
@@ -66,7 +71,30 @@ function hashRuntimeSource(source: string): string {
   let hash6 = (0x811c9dc5 ^ RUNTIME_DIGEST_SEEDS[6]) >>> 0;
   let hash7 = (0x811c9dc5 ^ RUNTIME_DIGEST_SEEDS[7]) >>> 0;
 
-  for (let index = 0; index < source.length; index += 1) {
+  let index = 0;
+  for (; index + 1 < source.length; index += 2) {
+    const code0 = source.charCodeAt(index);
+    hash0 = Math.imul(hash0 ^ code0, 0x01000193) >>> 0;
+    hash1 = Math.imul(hash1 ^ code0, 0x01000193) >>> 0;
+    hash2 = Math.imul(hash2 ^ code0, 0x01000193) >>> 0;
+    hash3 = Math.imul(hash3 ^ code0, 0x01000193) >>> 0;
+    hash4 = Math.imul(hash4 ^ code0, 0x01000193) >>> 0;
+    hash5 = Math.imul(hash5 ^ code0, 0x01000193) >>> 0;
+    hash6 = Math.imul(hash6 ^ code0, 0x01000193) >>> 0;
+    hash7 = Math.imul(hash7 ^ code0, 0x01000193) >>> 0;
+
+    const code1 = source.charCodeAt(index + 1);
+    hash0 = Math.imul(hash0 ^ code1, 0x01000193) >>> 0;
+    hash1 = Math.imul(hash1 ^ code1, 0x01000193) >>> 0;
+    hash2 = Math.imul(hash2 ^ code1, 0x01000193) >>> 0;
+    hash3 = Math.imul(hash3 ^ code1, 0x01000193) >>> 0;
+    hash4 = Math.imul(hash4 ^ code1, 0x01000193) >>> 0;
+    hash5 = Math.imul(hash5 ^ code1, 0x01000193) >>> 0;
+    hash6 = Math.imul(hash6 ^ code1, 0x01000193) >>> 0;
+    hash7 = Math.imul(hash7 ^ code1, 0x01000193) >>> 0;
+  }
+
+  if (index < source.length) {
     const code = source.charCodeAt(index);
     hash0 = Math.imul(hash0 ^ code, 0x01000193) >>> 0;
     hash1 = Math.imul(hash1 ^ code, 0x01000193) >>> 0;
