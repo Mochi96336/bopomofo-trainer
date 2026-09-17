@@ -146,6 +146,30 @@ const CLAUSE_LIKE = new Set<SyntaxCategory>([
 
 const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };
 
+export const TMP_SAMPLER_FAILURE_ATTRIBUTION = {
+  ruleChildrenCalls: 0,
+  ruleChildrenSuccesses: 0,
+  maximumBelowMinimum: 0,
+  countOutOfBounds: 0,
+  targetExactCountMismatch: 0,
+  depthExhausted: 0,
+  requirementsNull: 0,
+  lexicalLimit: 0,
+  lexicalUnreachable: 0,
+  recursiveChildNull: 0,
+  recursiveChildNullByCategory: {} as Record<string, number>,
+  lexicalUnreachableByKey: {} as Record<string, number>,
+  sampleCategoryCalls: 0,
+  categoryClauseLimit: 0,
+  categoryNoEligibleRules: 0,
+  categoryAssignmentEmpty: 0,
+  categoryCandidateChildrenNull: 0,
+  categoryExhaustedCandidates: 0,
+};
+
+function bumpTmpCounter(record: Record<string, number>, key: string): void {
+  record[key] = (record[key] ?? 0) + 1;
+}
 
 function canonicalFeatureSetJson(features: SyntaxFeatureSet): string {
   const fields = Object.keys(features)
@@ -508,6 +532,7 @@ function sampleRuleChildren(
   fixedCounts?: ConstituentCounts,
   deterministicCounts = false,
 ): SampledRuleChildren | null {
+  TMP_SAMPLER_FAILURE_ATTRIBUTION.ruleChildrenCalls += 1;
   let workingState = inputState;
   const children: PendingStructuralElement[] = [];
   const slots: StructuralLexicalSlot[] = [];
@@ -516,7 +541,10 @@ function sampleRuleChildren(
 
   for (const constituent of ordered) {
     const maximum = effectiveConstituentMaximum(constituent, bounds);
-    if (maximum < constituent.minimum) return null;
+    if (maximum < constituent.minimum) {
+      TMP_SAMPLER_FAILURE_ATTRIBUTION.maximumBelowMinimum += 1;
+      return null;
+    }
     const target = nestedProductionTargets.get(
       nestedTargetKey(parentRuleId, constituent.key),
     );
@@ -527,24 +555,43 @@ function sampleRuleChildren(
             : constituent.minimum + chooseIndex(random, maximum - constituent.minimum + 1)
         )
       : fixedCounts[constituent.key] ?? 0;
-    if (count < constituent.minimum || count > maximum) return null;
-    if (target?.exactCount !== undefined && count !== target.exactCount) return null;
+    if (count < constituent.minimum || count > maximum) {
+      TMP_SAMPLER_FAILURE_ATTRIBUTION.countOutOfBounds += 1;
+      return null;
+    }
+    if (target?.exactCount !== undefined && count !== target.exactCount) {
+      TMP_SAMPLER_FAILURE_ATTRIBUTION.targetExactCountMismatch += 1;
+      return null;
+    }
 
     for (let occurrenceIndex = 0; occurrenceIndex < count; occurrenceIndex += 1) {
       const afterDepth = decrement(workingState, constituent);
-      if (afterDepth === null) return null;
+      if (afterDepth === null) {
+        TMP_SAMPLER_FAILURE_ATTRIBUTION.depthExhausted += 1;
+        return null;
+      }
       const childRequirements = requirementsForConstituent(constituent, requirements);
-      if (childRequirements === null) return null;
+      if (childRequirements === null) {
+        TMP_SAMPLER_FAILURE_ATTRIBUTION.requirementsNull += 1;
+        return null;
+      }
       workingState = afterDepth;
       if (constituent.category === "Lexeme") {
-        if (workingState.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) return null;
+        if (workingState.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) {
+          TMP_SAMPLER_FAILURE_ATTRIBUTION.lexicalLimit += 1;
+          return null;
+        }
         const slot = makeSlot(
           constituent,
           childRequirements,
           occurrenceIndex,
           extendSamplingPath(path, constituent.key),
         );
-        if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) return null;
+        if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) {
+          TMP_SAMPLER_FAILURE_ATTRIBUTION.lexicalUnreachable += 1;
+          bumpTmpCounter(TMP_SAMPLER_FAILURE_ATTRIBUTION.lexicalUnreachableByKey, constituent.key);
+          return null;
+        }
         children.push(slot);
         slots.push(slot);
         slotContexts.push({
@@ -571,7 +618,14 @@ function sampleRuleChildren(
         false,
         requestedChildRuleId,
       );
-      if (child === null) return null;
+      if (child === null) {
+        TMP_SAMPLER_FAILURE_ATTRIBUTION.recursiveChildNull += 1;
+        bumpTmpCounter(
+          TMP_SAMPLER_FAILURE_ATTRIBUTION.recursiveChildNullByCategory,
+          constituent.category,
+        );
+        return null;
+      }
       children.push(child.element);
       slots.push(...child.slots);
       slotContexts.push(...child.slotContexts);
@@ -580,6 +634,7 @@ function sampleRuleChildren(
     }
   }
 
+  TMP_SAMPLER_FAILURE_ATTRIBUTION.ruleChildrenSuccesses += 1;
   return {
     state: workingState,
     children,
@@ -605,15 +660,22 @@ function sampleCategory(
   isRoot: boolean,
   requestedProductionRuleId?: string,
 ): Sampled | null {
+  TMP_SAMPLER_FAILURE_ATTRIBUTION.sampleCategoryCalls += 1;
   let state = inputState;
   if (category === "Clause" || category === "OpenClause") {
-    if (state.clauseCount >= bounds.maximumClausesPerSentence) return null;
+    if (state.clauseCount >= bounds.maximumClausesPerSentence) {
+      TMP_SAMPLER_FAILURE_ATTRIBUTION.categoryClauseLimit += 1;
+      return null;
+    }
     state = { ...state, clauseCount: state.clauseCount + 1 };
   }
   const eligibleRules = (rulesByOutput.get(category) ?? [])
     .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))
     .filter((rule) => !isRoot || rootProductionRuleId === undefined || rule.id === rootProductionRuleId)
     .filter((rule) => requestedProductionRuleId === undefined || rule.id === requestedProductionRuleId);
+  if (eligibleRules.length === 0) {
+    TMP_SAMPLER_FAILURE_ATTRIBUTION.categoryNoEligibleRules += 1;
+  }
   // BAPredicate alternatives are licensing fallbacks, not a product-probability
   // dimension. Keep the reviewed path first; productive paths use a local
   // deterministic source. Nested Clause candidates independently retain #248's
@@ -655,7 +717,10 @@ function sampleCategory(
           return exactCount === undefined || assignment[constituent.key] === exactCount;
         }),
       );
-      if (assignments.length === 0) continue;
+      if (assignments.length === 0) {
+        TMP_SAMPLER_FAILURE_ATTRIBUTION.categoryAssignmentEmpty += 1;
+        continue;
+      }
       fixedCounts = assignments[chooseIndex(candidateRandom, assignments.length)];
     }
 
@@ -675,7 +740,10 @@ function sampleCategory(
       fixedCounts,
       orderedLicensingAlternatives && !productiveBaAlternative,
     );
-    if (sampledChildren === null) continue;
+    if (sampledChildren === null) {
+      TMP_SAMPLER_FAILURE_ATTRIBUTION.categoryCandidateChildrenNull += 1;
+      continue;
+    }
 
     const node: PendingSyntaxNode = {
       kind: "syntax-node",
@@ -692,6 +760,7 @@ function sampleCategory(
       slotContexts: sampledChildren.slotContexts,
     };
   }
+  TMP_SAMPLER_FAILURE_ATTRIBUTION.categoryExhaustedCandidates += 1;
   return null;
 }
 
