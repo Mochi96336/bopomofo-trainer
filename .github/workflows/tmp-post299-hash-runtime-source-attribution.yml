@@ -1,0 +1,278 @@
+name: tmp post299 hash runtime source attribution
+
+on:
+  push:
+    branches:
+      - agent/tmp-post299-hash-runtime-source-attribution
+
+permissions:
+  contents: read
+
+env:
+  PRODUCTION_REF: 73f419d2c5ada5c3b366af25d0de27dbb860f6bf
+  SAMPLE_COUNT: 256
+
+jobs:
+  attribute:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instrument exact production hash paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout --force "$PRODUCTION_REF"
+          git clean -fdx
+          npm ci --include=dev --ignore-scripts
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/core/stable-id.ts')
+          s = p.read_text()
+
+          anchor = '''function finalizeHash32Value(hash: number): number {
+          '''
+          instrumentation = r'''interface RuntimeHashAttributionBucketState {
+            calls: number;
+            sourceChars: number;
+            laneCharWork: number;
+            minChars: number;
+            maxChars: number;
+            readonly uniqueSources: Set<string>;
+          }
+
+          export interface RuntimeHashAttributionBucket {
+            readonly kind: string;
+            readonly calls: number;
+            readonly sourceChars: number;
+            readonly laneCharWork: number;
+            readonly averageChars: number;
+            readonly minChars: number;
+            readonly maxChars: number;
+            readonly uniqueSources: number;
+            readonly repeatedCalls: number;
+          }
+
+          let runtimeHashAttributionEnabled = false;
+          const runtimeHashAttribution = new Map<string, RuntimeHashAttributionBucketState>();
+
+          function runtimeHashSourceKind(source: string): string {
+            if (source.startsWith('{"seed":') && source.includes('"slotId":')) return "seeded-offset";
+            if (source.startsWith('{"derivationId":')
+              && source.includes('"entryIds":')
+              && source.includes('"tokens":')) return "surface-realization-identity";
+            if (source.startsWith('{"grammarVersion":')
+              && source.includes('"productionRulePath":')
+              && source.includes('"root":')) return "derivation-identity";
+            if (source.startsWith('{"allowedUpos":')) {
+              return source.includes('"kind":"lexical-slot"')
+                ? "lexical-slot-canonical"
+                : "lexical-slot-identity";
+            }
+            if (source.startsWith('{"category":')) {
+              return source.includes('"kind":"syntax-node"')
+                ? "syntax-node-canonical"
+                : "syntax-node-identity";
+            }
+            if (source.startsWith('{"purpose":')) {
+              if (source.includes('"purpose":"candidate-substream"')) return "nested-candidate-substream";
+              if (source.includes('"purpose":"priority"')) return "nested-priority";
+              return "nested-keyed";
+            }
+            if (source.startsWith('{"ticketUnit":') && source.includes('"version":')) {
+              return "argument-realization-ticket";
+            }
+            if (source.startsWith("[")) return "generic-array";
+            if (source.startsWith("{")) return "generic-object";
+            if (source.startsWith('"')) return "generic-string";
+            return "generic-primitive";
+          }
+
+          function recordRuntimeHashAttribution(source: string, laneCount: 1 | 8): void {
+            if (!runtimeHashAttributionEnabled) return;
+            const kind = `${laneCount === 8 ? "full8" : "first1"}:${runtimeHashSourceKind(source)}`;
+            let bucket = runtimeHashAttribution.get(kind);
+            if (bucket === undefined) {
+              bucket = {
+                calls: 0,
+                sourceChars: 0,
+                laneCharWork: 0,
+                minChars: Number.POSITIVE_INFINITY,
+                maxChars: 0,
+                uniqueSources: new Set<string>(),
+              };
+              runtimeHashAttribution.set(kind, bucket);
+            }
+            bucket.calls += 1;
+            bucket.sourceChars += source.length;
+            bucket.laneCharWork += source.length * laneCount;
+            bucket.minChars = Math.min(bucket.minChars, source.length);
+            bucket.maxChars = Math.max(bucket.maxChars, source.length);
+            bucket.uniqueSources.add(source);
+          }
+
+          export function resetRuntimeHashAttribution(): void {
+            runtimeHashAttribution.clear();
+          }
+
+          export function setRuntimeHashAttributionEnabled(enabled: boolean): void {
+            runtimeHashAttributionEnabled = enabled;
+          }
+
+          export function readRuntimeHashAttribution(): readonly RuntimeHashAttributionBucket[] {
+            return [...runtimeHashAttribution.entries()]
+              .map(([kind, bucket]) => ({
+                kind,
+                calls: bucket.calls,
+                sourceChars: bucket.sourceChars,
+                laneCharWork: bucket.laneCharWork,
+                averageChars: bucket.calls === 0 ? 0 : bucket.sourceChars / bucket.calls,
+                minChars: bucket.minChars === Number.POSITIVE_INFINITY ? 0 : bucket.minChars,
+                maxChars: bucket.maxChars,
+                uniqueSources: bucket.uniqueSources.size,
+                repeatedCalls: bucket.calls - bucket.uniqueSources.size,
+              }))
+              .sort((left, right) => right.laneCharWork - left.laneCharWork || right.calls - left.calls);
+          }
+
+          function finalizeHash32Value(hash: number): number {
+          '''
+          if anchor not in s:
+              raise SystemExit('finalizeHash32Value anchor missing')
+          s = s.replace(anchor, instrumentation, 1)
+
+          old_first = '''  return finalizeHash32Value(hash);
+          }
+
+          function hashRuntimeSource(source: string): string {
+          '''
+          new_first = '''  const result = finalizeHash32Value(hash);
+            recordRuntimeHashAttribution(source, 1);
+            return result;
+          }
+
+          function hashRuntimeSource(source: string): string {
+          '''
+          if old_first not in s:
+              raise SystemExit('first32 return anchor missing')
+          s = s.replace(old_first, new_first, 1)
+
+          old_full = '''  return finalizeHash32(hash0)
+              + finalizeHash32(hash1)
+              + finalizeHash32(hash2)
+              + finalizeHash32(hash3)
+              + finalizeHash32(hash4)
+              + finalizeHash32(hash5)
+              + finalizeHash32(hash6)
+              + finalizeHash32(hash7);
+          }
+          '''
+          new_full = '''  const digest = finalizeHash32(hash0)
+              + finalizeHash32(hash1)
+              + finalizeHash32(hash2)
+              + finalizeHash32(hash3)
+              + finalizeHash32(hash4)
+              + finalizeHash32(hash5)
+              + finalizeHash32(hash6)
+              + finalizeHash32(hash7);
+            recordRuntimeHashAttribution(source, 8);
+            return digest;
+          }
+          '''
+          if old_full not in s:
+              raise SystemExit('full hash return anchor missing')
+          s = s.replace(old_full, new_full, 1)
+          p.write_text(s)
+          PY
+          npm run typecheck
+
+      - name: Measure ordinary product rounds
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm run app:catalog >/dev/null
+          cat > .tmp-post299-hash-attribution.ts <<'EOF'
+          import { performance } from "node:perf_hooks";
+          import {
+            EVALUATION_CATALOG,
+            PRACTICE_CATALOG,
+            SYNTAX_PROFILES,
+          } from "./src/app/generated/catalog.js";
+          import {
+            readRuntimeHashAttribution,
+            resetRuntimeHashAttribution,
+            setRuntimeHashAttributionEnabled,
+            stableRuntimeDigest,
+          } from "./src/core/stable-id.js";
+          import {
+            createFreshProgressForEnvironment,
+            createProductEnvironment,
+            createProductState,
+          } from "./src/product/session.js";
+
+          const sampleCount = Number(process.env.SAMPLE_COUNT);
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "post299-hash-runtime-source-attribution",
+            "guided",
+            "standard",
+          );
+          const outputs: object[] = [];
+          let attemptTotal = 0;
+          resetRuntimeHashAttribution();
+          setRuntimeHashAttributionEnabled(true);
+          const startedAt = performance.now();
+          for (let round = 0; round < sampleCount; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            const selection = state.round.selection;
+            if (selection.generationAttempts !== 1) {
+              throw new Error(`normal product round unexpectedly retried: ${selection.generationAttempts}`);
+            }
+            attemptTotal += selection.generationAttempts;
+            outputs.push({
+              id: selection.utterance.id,
+              text: selection.utterance.text,
+              root: selection.utterance.syntaxRootRuleId ?? null,
+              profileIds: selection.utterance.syntaxProfileIds ?? [],
+              generationAttempts: selection.generationAttempts,
+              fallbackReasons: selection.grammarFallbackReasons,
+            });
+          }
+          const elapsedMs = Math.round(performance.now() - startedAt);
+          setRuntimeHashAttributionEnabled(false);
+          const buckets = readRuntimeHashAttribution();
+          const totalLaneCharWork = buckets.reduce((sum, bucket) => sum + bucket.laneCharWork, 0);
+          const totalCalls = buckets.reduce((sum, bucket) => sum + bucket.calls, 0);
+          console.log(JSON.stringify({
+            productionRef: process.env.PRODUCTION_REF,
+            sampleCount,
+            attemptTotal,
+            elapsedMs,
+            outputDigest: stableRuntimeDigest(outputs),
+            totalCalls,
+            totalLaneCharWork,
+            buckets: buckets.map((bucket) => ({
+              ...bucket,
+              laneWorkPct: Number((bucket.laneCharWork / totalLaneCharWork * 100).toFixed(2)),
+              callPct: Number((bucket.calls / totalCalls * 100).toFixed(2)),
+              repeatRatePct: Number((bucket.repeatedCalls / bucket.calls * 100).toFixed(2)),
+            })),
+          }, null, 2));
+          EOF
+          node --import tsx .tmp-post299-hash-attribution.ts
