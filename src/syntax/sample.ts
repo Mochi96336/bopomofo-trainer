@@ -412,16 +412,19 @@ function makeSlot(
   const occurrenceRequirement = requirements.requiredOccurrenceCapabilities.length === 0
     ? {}
     : { requiredOccurrenceCapabilities: requirements.requiredOccurrenceCapabilities };
-  const identitySource = lexicalSlotIdentityCanonicalJson(
-    constituent,
-    requirements,
-    occurrenceIndex,
-    path,
-    entryBindingId,
-  );
+  let cachedId: string | undefined;
   return {
     kind: "lexical-slot",
-    id: `syntax-slot:${stableRuntimeDigestCanonicalJson(identitySource)}`,
+    get id() {
+      cachedId ??= `syntax-slot:${stableRuntimeDigestCanonicalJson(lexicalSlotIdentityCanonicalJson(
+        constituent,
+        requirements,
+        occurrenceIndex,
+        path,
+        entryBindingId,
+      ))}`;
+      return cachedId;
+    },
     constituentKey: constituent.key,
     occurrenceIndex,
     allowedUpos: constituent.allowedUpos,
