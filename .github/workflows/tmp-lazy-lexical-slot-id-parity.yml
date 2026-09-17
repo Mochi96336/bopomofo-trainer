@@ -1,0 +1,51 @@
+name: tmp lazy lexical-slot id parity
+
+on:
+  push:
+    branches:
+      - agent/tmp-lazy-lexical-slot-id-parity
+
+permissions:
+  contents: read
+
+env:
+  PRODUCTION_REF: 7cba167caee64b0f809975916228cc0f24f68575
+
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Compare complete structural derivations
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/tmp-lazy-lexical-slot-id.py "$RUNNER_TEMP/patch.py"
+          cp scripts/tmp-lazy-lexical-slot-id-parity.ts "$RUNNER_TEMP/snapshot.ts"
+
+          git checkout --force "$PRODUCTION_REF"
+          git clean -fdx
+          npm ci --include=dev --ignore-scripts >/dev/null
+          python "$RUNNER_TEMP/patch.py"
+          cp "$RUNNER_TEMP/snapshot.ts" scripts/.tmp-snapshot.ts
+          npm run typecheck >/dev/null
+          node --import tsx scripts/.tmp-snapshot.ts > "$RUNNER_TEMP/candidate.jsonl" 2> "$RUNNER_TEMP/candidate.stderr"
+
+          git checkout --force "$PRODUCTION_REF"
+          git clean -fdx
+          npm ci --include=dev --ignore-scripts >/dev/null
+          cp "$RUNNER_TEMP/snapshot.ts" scripts/.tmp-snapshot.ts
+          node --import tsx scripts/.tmp-snapshot.ts > "$RUNNER_TEMP/production.jsonl" 2> "$RUNNER_TEMP/production.stderr"
+
+          cmp "$RUNNER_TEMP/production.jsonl" "$RUNNER_TEMP/candidate.jsonl"
+          cmp "$RUNNER_TEMP/production.stderr" "$RUNNER_TEMP/candidate.stderr"
+          cat "$RUNNER_TEMP/production.stderr"
+          sha256sum "$RUNNER_TEMP/production.jsonl" "$RUNNER_TEMP/candidate.jsonl"
+          echo "complete structural derivations are byte-identical"
