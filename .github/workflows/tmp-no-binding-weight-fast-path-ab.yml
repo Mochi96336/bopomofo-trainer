@@ -10,7 +10,7 @@ permissions:
 
 env:
   PRODUCTION_REF: 806b8dd05b76b11a5ea9895db3e29e2c381c3a7a
-  SAMPLE_COUNT: 256
+  SAMPLE_COUNT: 512
 
 jobs:
   paired-benchmark:
