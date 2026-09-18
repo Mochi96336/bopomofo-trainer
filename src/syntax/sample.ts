@@ -71,6 +71,15 @@ export interface StructuralSamplingOptions {
   readonly maximumAttempts?: number;
   readonly isLexicalSlotReachable?: (slot: StructuralLexicalSlot) => boolean;
   /**
+   * Requirements-only reachability path for callers that do not need slot
+   * identity during sampling. When provided without isLexicalSlotReachable,
+   * lexical slots are materialized only after a complete derivation succeeds.
+   */
+  readonly isLexicalRequirementsReachable?: (
+    constituent: ProductionConstituent,
+    requirements: SyntaxRequirements,
+  ) => boolean;
+  /**
    * Target exactly one existing production at the root choice point. Descendant
    * categories still see the complete grammar. Restricting this API to one root
    * rule prevents a family with more executable variants from receiving extra
@@ -103,8 +112,17 @@ interface State {
   lexicalCount: number;
 }
 
+type PendingLexicalSlot = readonly [
+  constituent: ProductionConstituent,
+  requirements: SyntaxRequirements,
+  occurrenceIndex: number,
+  parentPath: SamplingPathNode,
+];
+
+type SampledLexicalSlot = StructuralLexicalSlot | PendingLexicalSlot;
+
 interface SampledLexicalSlotContext {
-  readonly slot: StructuralLexicalSlot;
+  readonly slot: SampledLexicalSlot;
   readonly enclosingRequiredFunctions: readonly SyntacticFunction[];
 }
 
@@ -116,13 +134,13 @@ interface PendingSyntaxNode {
   readonly children: readonly PendingStructuralElement[];
 }
 
-type PendingStructuralElement = StructuralLexicalSlot | PendingSyntaxNode;
+type PendingStructuralElement = SampledLexicalSlot | PendingSyntaxNode;
 
 interface Sampled {
   readonly element: PendingStructuralElement;
   readonly state: State;
   readonly rulePath: readonly string[];
-  readonly slots: readonly StructuralLexicalSlot[];
+  readonly slots: readonly SampledLexicalSlot[];
   readonly slotContexts: readonly SampledLexicalSlotContext[];
 }
 
@@ -130,7 +148,7 @@ interface SampledRuleChildren {
   readonly state: State;
   readonly children: readonly PendingStructuralElement[];
   readonly rulePath: readonly string[];
-  readonly slots: readonly StructuralLexicalSlot[];
+  readonly slots: readonly SampledLexicalSlot[];
   readonly slotContexts: readonly SampledLexicalSlotContext[];
 }
 
@@ -273,6 +291,30 @@ function syntaxNodeCanonicalJson(
   return `{"category":${JSON.stringify(node.category)},"children":${childrenCanonicalJson(childCanonicalSources)},"id":${JSON.stringify(node.id)},"kind":"syntax-node","productionRuleId":${JSON.stringify(node.productionRuleId)},"surfaceOrderId":${JSON.stringify(node.surfaceOrderId)}}`;
 }
 
+const materializedPendingLexicalSlots = new WeakMap<object, StructuralLexicalSlot>();
+
+function isPendingLexicalSlot(slot: SampledLexicalSlot): slot is PendingLexicalSlot {
+  return Array.isArray(slot);
+}
+
+function materializeSampledLexicalSlot(
+  slot: SampledLexicalSlot,
+): StructuralLexicalSlot {
+  if (!isPendingLexicalSlot(slot)) return slot;
+  const cached = materializedPendingLexicalSlots.get(slot);
+  if (cached !== undefined) return cached;
+  const [constituent, requirements, occurrenceIndex, parentPath] = slot;
+  const materialized = makeSlot(
+    constituent,
+    requirements,
+    occurrenceIndex,
+    parentPath,
+    constituent.key,
+  );
+  materializedPendingLexicalSlots.set(slot, materialized);
+  return materialized;
+}
+
 interface MaterializedPendingElement {
   readonly element: StructuralElement;
   readonly canonicalSource: string;
@@ -281,6 +323,10 @@ interface MaterializedPendingElement {
 function materializePendingElement(
   pending: PendingStructuralElement,
 ): MaterializedPendingElement {
+  if (Array.isArray(pending)) {
+    const materialized = materializeSampledLexicalSlot(pending);
+    return { element: materialized, canonicalSource: lexicalSlotCanonicalJson(materialized) };
+  }
   if (pending.kind === "lexical-slot") {
     return { element: pending, canonicalSource: lexicalSlotCanonicalJson(pending) };
   }
@@ -609,13 +655,17 @@ function sampleRuleChildren(
   inputState: State,
   path: SamplingPathNode,
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
+  isLexicalRequirementsReachable: ((
+    constituent: ProductionConstituent,
+    requirements: SyntaxRequirements,
+  ) => boolean) | undefined,
   rootProductionRuleId: string | undefined,
   nestedProductionTargets: ReadonlyMap<string, ValidatedNestedProductionTarget>,
   fixedCounts?: ConstituentCounts,
   deterministicCounts = false,
 ): SampledRuleChildren | null {
   const children: PendingStructuralElement[] = [];
-  const slots: StructuralLexicalSlot[] = [];
+  const slots: SampledLexicalSlot[] = [];
   const slotContexts: SampledLexicalSlotContext[] = [];
   const rulePath: string[] = [];
 
@@ -642,14 +692,22 @@ function sampleRuleChildren(
       const childRequirements = requirementsForSampledConstituent(constituent, requirements);
       if (childRequirements === null) return null;
       if (constituent.category === "Lexeme") {
-        const slot = makeSlot(
-          constituent,
-          childRequirements,
-          occurrenceIndex,
-          path,
-          constituent.key,
-        );
-        if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) return null;
+        if (isLexicalRequirementsReachable !== undefined
+          && !isLexicalRequirementsReachable(constituent, childRequirements)) return null;
+        let slot: SampledLexicalSlot;
+        if (isLexicalSlotReachable !== undefined) {
+          const materialized = makeSlot(
+            constituent,
+            childRequirements,
+            occurrenceIndex,
+            path,
+            constituent.key,
+          );
+          if (!isLexicalSlotReachable(materialized)) return null;
+          slot = materialized;
+        } else {
+          slot = [constituent, childRequirements, occurrenceIndex, path] as const;
+        }
         children.push(slot);
         slots.push(slot);
         slotContexts.push({
@@ -671,6 +729,7 @@ function sampleRuleChildren(
         inputState,
         extendSamplingPath(path, `${constituent.key}[${occurrenceIndex}]`),
         isLexicalSlotReachable,
+        isLexicalRequirementsReachable,
         samplingRuleClassMask(constituent),
         rootProductionRuleId,
         nestedProductionTargets,
@@ -705,6 +764,10 @@ function sampleCategory(
   inputState: State,
   path: SamplingPathNode,
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
+  isLexicalRequirementsReachable: ((
+    constituent: ProductionConstituent,
+    requirements: SyntaxRequirements,
+  ) => boolean) | undefined,
   excludedRuleClassMask: number,
   rootProductionRuleId: string | undefined,
   nestedProductionTargets: ReadonlyMap<string, ValidatedNestedProductionTarget>,
@@ -791,6 +854,7 @@ function sampleCategory(
       inputState,
       extendSamplingPath(path, rule.id),
       isLexicalSlotReachable,
+      isLexicalRequirementsReachable,
       rootProductionRuleId,
       nestedProductionTargets,
       fixedCounts,
@@ -922,13 +986,16 @@ function lexicalSlotMatchesConstraint(
   context: SampledLexicalSlotContext,
   required: RequiredLexicalSlotConstraint,
 ): boolean {
+  const slotRequirements = isPendingLexicalSlot(context.slot)
+    ? context.slot[1]
+    : context.slot;
   const requiredFeatures = required.requiredFeatures ?? {};
   const featuresMatch = (Object.keys(requiredFeatures) as SyntaxFeatureName[]).every((feature) =>
-    context.slot.requiredFeatures[feature] === requiredFeatures[feature],
+    slotRequirements.requiredFeatures[feature] === requiredFeatures[feature],
   );
   if (!featuresMatch) return false;
   const requiredOccurrenceCapabilities = required.requiredOccurrenceCapabilities ?? [];
-  const slotOccurrenceCapabilities = context.slot.requiredOccurrenceCapabilities ?? [];
+  const slotOccurrenceCapabilities = slotRequirements.requiredOccurrenceCapabilities ?? [];
   if (!requiredOccurrenceCapabilities.every((capability) =>
     slotOccurrenceCapabilities.includes(capability),
   )) return false;
@@ -974,6 +1041,7 @@ export function sampleStructuralDerivation(
       },
       extendSamplingPath(null, options.rootCategory),
       options.isLexicalSlotReachable,
+      options.isLexicalRequirementsReachable,
       0,
       requestedRootRuleId,
       nestedProductionTargets,
@@ -1000,7 +1068,7 @@ export function sampleStructuralDerivation(
       grammarVersion: FORMAL_GRAMMAR_VERSION,
       root: materializedRoot.element,
       productionRulePath: sampled.rulePath,
-      lexicalSlots: sampled.slots,
+      lexicalSlots: sampled.slots.map(materializeSampledLexicalSlot),
       clauseCount: sampled.state.clauseCount,
       lexicalSlotCount: sampled.state.lexicalCount,
     };
