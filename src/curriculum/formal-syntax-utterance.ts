@@ -214,6 +214,19 @@ function preparedStaticCompatibleProfileWeights(
   return prepared;
 }
 
+export const TMP_PROFILE_SELECTION_ATTRIBUTION = {
+  calls: 0,
+  staticDefaultEligibleCalls: 0,
+  staticFastPathCalls: 0,
+  staticFallbackCalls: 0,
+  usedEntryIdIterations: 0,
+  compatibleUsedEntryHits: 0,
+  dynamicPathCalls: 0,
+  totalCompatibleProfiles: 0,
+  totalStaticGroups: 0,
+  totalDynamicGroups: 0,
+};
+
 function selectCompatibleProfile(
   compatible: readonly RuntimeSyntaxProfile[],
   usedEntryIds: ReadonlySet<string>,
@@ -226,20 +239,27 @@ function selectCompatibleProfile(
   lexicalCompatibilityMaximumBoost: number,
   random: RandomSource,
 ): RuntimeSyntaxProfile | null {
+  TMP_PROFILE_SELECTION_ATTRIBUTION.calls += 1;
+  TMP_PROFILE_SELECTION_ATTRIBUTION.totalCompatibleProfiles += compatible.length;
   const useStaticDefaultWeights = entryWeight === undefined
     && entryWeightsById === undefined
     && (previousEntry === null || lexicalCompatibility === undefined);
   if (useStaticDefaultWeights) {
+    TMP_PROFILE_SELECTION_ATTRIBUTION.staticDefaultEligibleCalls += 1;
     const groupIndexByEntryId = compatibleProfileGroupIndex(compatible);
     let hasExcludedCompatibleEntry = false;
     for (const entryId of usedEntryIds) {
+      TMP_PROFILE_SELECTION_ATTRIBUTION.usedEntryIdIterations += 1;
       if (entryId !== reusableEntryId && groupIndexByEntryId.has(entryId)) {
+        TMP_PROFILE_SELECTION_ATTRIBUTION.compatibleUsedEntryHits += 1;
         hasExcludedCompatibleEntry = true;
         break;
       }
     }
     if (!hasExcludedCompatibleEntry) {
+      TMP_PROFILE_SELECTION_ATTRIBUTION.staticFastPathCalls += 1;
       const prepared = preparedStaticCompatibleProfileWeights(compatible, entriesById);
+      TMP_PROFILE_SELECTION_ATTRIBUTION.totalStaticGroups += prepared.groups.length;
       if (!(prepared.totalWeight > 0)) return null;
       let target = nextUnit(random) * prepared.totalWeight;
       let selectedGroup: CompatibleProfileGroup | undefined;
@@ -259,9 +279,12 @@ function selectCompatibleProfile(
         : Math.floor(nextUnit(random) * entryProfiles.length);
       return entryProfiles[selectedProfileIndex] ?? null;
     }
+    TMP_PROFILE_SELECTION_ATTRIBUTION.staticFallbackCalls += 1;
   }
 
+  TMP_PROFILE_SELECTION_ATTRIBUTION.dynamicPathCalls += 1;
   const groups = groupedCompatibleProfiles(compatible);
+  TMP_PROFILE_SELECTION_ATTRIBUTION.totalDynamicGroups += groups.length;
   const weights = new Array<number>(groups.length);
   let totalWeight = 0;
   let lastEligibleGroup: CompatibleProfileGroup | undefined;
