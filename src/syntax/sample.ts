@@ -589,6 +589,21 @@ function sampleRuleChildren(
   };
 }
 
+export const TMP_CATEGORY_ELIGIBILITY_ATTRIBUTION = {
+  calls: 0,
+  requestedRuleCalls: 0,
+  rootRestrictedCalls: 0,
+  stableNestedClauseCalls: 0,
+  baCalls: 0,
+  keyCalls: {} as Record<string, number>,
+  eligibleLengthHistogram: {} as Record<string, number>,
+  sourceLengthHistogram: {} as Record<string, number>,
+};
+
+function bumpTmpCategoryRecord(record: Record<string, number>, key: string): void {
+  record[key] = (record[key] ?? 0) + 1;
+}
+
 function sampleCategory(
   category: SyntaxCategory,
   requirements: SyntaxRequirements,
@@ -605,24 +620,50 @@ function sampleCategory(
   isRoot: boolean,
   requestedProductionRuleId?: string,
 ): Sampled | null {
+  TMP_CATEGORY_ELIGIBILITY_ATTRIBUTION.calls += 1;
+  if (requestedProductionRuleId !== undefined) {
+    TMP_CATEGORY_ELIGIBILITY_ATTRIBUTION.requestedRuleCalls += 1;
+  }
+  if (isRoot && rootProductionRuleId !== undefined) {
+    TMP_CATEGORY_ELIGIBILITY_ATTRIBUTION.rootRestrictedCalls += 1;
+  }
   let state = inputState;
   if (category === "Clause" || category === "OpenClause") {
     if (state.clauseCount >= bounds.maximumClausesPerSentence) return null;
     state = { ...state, clauseCount: state.clauseCount + 1 };
   }
-  const eligibleRules = (rulesByOutput.get(category) ?? [])
+  const sourceRules = rulesByOutput.get(category) ?? [];
+  bumpTmpCategoryRecord(
+    TMP_CATEGORY_ELIGIBILITY_ATTRIBUTION.sourceLengthHistogram,
+    String(sourceRules.length),
+  );
+  const excludedKey = [...excludedRuleClasses].sort().join(",");
+  const attributionKey = [
+    category,
+    excludedKey,
+    isRoot ? rootProductionRuleId ?? "*" : "-",
+    requestedProductionRuleId ?? "*",
+  ].join("|");
+  bumpTmpCategoryRecord(TMP_CATEGORY_ELIGIBILITY_ATTRIBUTION.keyCalls, attributionKey);
+  const eligibleRules = sourceRules
     .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))
     .filter((rule) => !isRoot || rootProductionRuleId === undefined || rule.id === rootProductionRuleId)
     .filter((rule) => requestedProductionRuleId === undefined || rule.id === requestedProductionRuleId);
+  bumpTmpCategoryRecord(
+    TMP_CATEGORY_ELIGIBILITY_ATTRIBUTION.eligibleLengthHistogram,
+    String(eligibleRules.length),
+  );
   // BAPredicate alternatives are licensing fallbacks, not a product-probability
   // dimension. Keep the reviewed path first; productive paths use a local
   // deterministic source. Nested Clause candidates independently retain #248's
   // fixed-cost keyed ordering and candidate-local substreams.
   const orderedLicensingAlternatives = category === "BAPredicate";
+  if (orderedLicensingAlternatives) TMP_CATEGORY_ELIGIBILITY_ATTRIBUTION.baCalls += 1;
   const stableNestedClause = !orderedLicensingAlternatives
     && !isRoot
     && category === "Clause"
     && requestedProductionRuleId === undefined;
+  if (stableNestedClause) TMP_CATEGORY_ELIGIBILITY_ATTRIBUTION.stableNestedClauseCalls += 1;
   const candidates: readonly NestedClauseCandidate[] = orderedLicensingAlternatives
     ? eligibleRules.map((rule) => ({
         rule,
