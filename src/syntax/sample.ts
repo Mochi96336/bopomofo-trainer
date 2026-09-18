@@ -6,7 +6,6 @@ import {
 } from "../core/stable-id.js";
 import {
   effectiveConstituentMaximum,
-  excludedClassesForConstituent,
   ruleAllowedByDerivationBounds,
 } from "./derivation-limits.js";
 import { DEFAULT_DERIVATION_BOUNDS, FORMAL_GRAMMAR_VERSION } from "./features.js";
@@ -145,7 +144,59 @@ const CLAUSE_LIKE = new Set<SyntaxCategory>([
 ]);
 
 const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };
+const NO_EXCLUDED_RULE_CLASSES = new Set<ProductionRuleClass>();
+const COORDINATION_EXCLUDED_RULE_CLASSES = new Set<ProductionRuleClass>(["coordination"]);
 
+interface PreparedEligibleRuleSets {
+  readonly defaultByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>;
+  readonly withoutCoordinationByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>;
+}
+
+const preparedEligibleRuleSetsByContext = new WeakMap<
+  PreparedStructuralSamplingContext,
+  PreparedEligibleRuleSets
+>();
+
+function prepareEligibleRuleSets(
+  rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
+  bounds: DerivationBounds,
+): PreparedEligibleRuleSets {
+  const defaultByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();
+  const withoutCoordinationByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();
+  for (const [category, rules] of rulesByOutput) {
+    defaultByOutput.set(
+      category,
+      rules.filter((rule) =>
+        ruleAllowedByDerivationBounds(rule, bounds, NO_EXCLUDED_RULE_CLASSES)
+      ),
+    );
+    withoutCoordinationByOutput.set(
+      category,
+      rules.filter((rule) =>
+        ruleAllowedByDerivationBounds(rule, bounds, COORDINATION_EXCLUDED_RULE_CLASSES)
+      ),
+    );
+  }
+  return { defaultByOutput, withoutCoordinationByOutput };
+}
+
+function samplingRuleClassMask(
+  constituent: ProductionConstituent,
+): number {
+  let mask = 0;
+  for (const ruleClass of constituent.excludedRuleClasses ?? []) {
+    switch (ruleClass) {
+      case "coordination":
+        mask |= 1;
+        break;
+      default: {
+        const unsupported: never = ruleClass;
+        throw new Error(`unsupported production rule class: ${String(unsupported)}`);
+      }
+    }
+  }
+  return mask;
+}
 
 function canonicalFeatureSetJson(features: SyntaxFeatureSet): string {
   const fields = Object.keys(features)
@@ -291,7 +342,23 @@ export function prepareStructuralSamplingContext(
       );
     }
   }
-  return { rules, bounds, rulesByOutput, orderedConstituentsBySurfaceOrder };
+  const context = { rules, bounds, rulesByOutput, orderedConstituentsBySurfaceOrder };
+  preparedEligibleRuleSetsByContext.set(
+    context,
+    prepareEligibleRuleSets(rulesByOutput, bounds),
+  );
+  return context;
+}
+
+function eligibleRuleSetsForContext(
+  context: PreparedStructuralSamplingContext,
+  bounds: DerivationBounds,
+): PreparedEligibleRuleSets {
+  const cached = preparedEligibleRuleSetsByContext.get(context);
+  if (cached !== undefined) return cached;
+  const prepared = prepareEligibleRuleSets(context.rulesByOutput, bounds);
+  preparedEligibleRuleSetsByContext.set(context, prepared);
+  return prepared;
 }
 
 function nextUnit(random: RandomSource): number {
@@ -498,6 +565,7 @@ function sampleRuleChildren(
   requirements: SyntaxRequirements,
   rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
   orderedConstituentsBySurfaceOrder: ReadonlyMap<SurfaceOrder, readonly ProductionConstituent[]>,
+  eligibleRuleSets: PreparedEligibleRuleSets,
   random: RandomSource,
   bounds: DerivationBounds,
   inputState: State,
@@ -560,12 +628,13 @@ function sampleRuleChildren(
         childRequirements,
         rulesByOutput,
         orderedConstituentsBySurfaceOrder,
+        eligibleRuleSets,
         random,
         bounds,
         workingState,
         extendSamplingPath(path, `${constituent.key}[${occurrenceIndex}]`),
         isLexicalSlotReachable,
-        excludedClassesForConstituent(constituent),
+        samplingRuleClassMask(constituent),
         rootProductionRuleId,
         nestedProductionTargets,
         false,
@@ -594,12 +663,13 @@ function sampleCategory(
   requirements: SyntaxRequirements,
   rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
   orderedConstituentsBySurfaceOrder: ReadonlyMap<SurfaceOrder, readonly ProductionConstituent[]>,
+  eligibleRuleSets: PreparedEligibleRuleSets,
   random: RandomSource,
   bounds: DerivationBounds,
   inputState: State,
   path: SamplingPathNode,
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
-  excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
+  excludedRuleClassMask: number,
   rootProductionRuleId: string | undefined,
   nestedProductionTargets: ReadonlyMap<string, ValidatedNestedProductionTarget>,
   isRoot: boolean,
@@ -610,10 +680,17 @@ function sampleCategory(
     if (state.clauseCount >= bounds.maximumClausesPerSentence) return null;
     state = { ...state, clauseCount: state.clauseCount + 1 };
   }
-  const eligibleRules = (rulesByOutput.get(category) ?? [])
-    .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))
-    .filter((rule) => !isRoot || rootProductionRuleId === undefined || rule.id === rootProductionRuleId)
-    .filter((rule) => requestedProductionRuleId === undefined || rule.id === requestedProductionRuleId);
+  let eligibleRules = (
+    excludedRuleClassMask === 0
+      ? eligibleRuleSets.defaultByOutput
+      : eligibleRuleSets.withoutCoordinationByOutput
+  ).get(category) ?? [];
+  if (isRoot && rootProductionRuleId !== undefined) {
+    eligibleRules = eligibleRules.filter((rule) => rule.id === rootProductionRuleId);
+  }
+  if (requestedProductionRuleId !== undefined) {
+    eligibleRules = eligibleRules.filter((rule) => rule.id === requestedProductionRuleId);
+  }
   // BAPredicate alternatives are licensing fallbacks, not a product-probability
   // dimension. Keep the reviewed path first; productive paths use a local
   // deterministic source. Nested Clause candidates independently retain #248's
@@ -665,6 +742,7 @@ function sampleCategory(
       requirements,
       rulesByOutput,
       orderedConstituentsBySurfaceOrder,
+      eligibleRuleSets,
       candidateRandom,
       bounds,
       state,
@@ -825,12 +903,14 @@ export function sampleStructuralDerivation(
   const requiredProductionRuleIdsAnyOf = validatedRequiredProductionRuleIdsAnyOf(options);
   const rulesByOutput = context.rulesByOutput;
   const orderedConstituentsBySurfaceOrder = context.orderedConstituentsBySurfaceOrder;
+  const eligibleRuleSets = eligibleRuleSetsForContext(context, bounds);
   for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
     const sampled = sampleCategory(
       options.rootCategory,
       EMPTY_SYNTAX_REQUIREMENTS,
       rulesByOutput,
       orderedConstituentsBySurfaceOrder,
+      eligibleRuleSets,
       options.random,
       bounds,
       {
@@ -841,7 +921,7 @@ export function sampleStructuralDerivation(
       },
       extendSamplingPath(null, options.rootCategory),
       options.isLexicalSlotReachable,
-      new Set(),
+      0,
       requestedRootRuleId,
       nestedProductionTargets,
       true,
