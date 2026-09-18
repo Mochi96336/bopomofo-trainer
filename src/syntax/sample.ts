@@ -561,6 +561,39 @@ function nestedTargetKey(parentRuleId: string, constituentKey: string): string {
   return `${parentRuleId}\u0000${constituentKey}`;
 }
 
+const sampledLocalRequirementsCache = new WeakMap<
+  ProductionConstituent,
+  SyntaxRequirements
+>();
+
+function hasDynamicInheritedContribution(
+  constituent: ProductionConstituent,
+  parent: SyntaxRequirements,
+): boolean {
+  if (constituent.inheritFunctions === true && parent.requiredFunctions.length > 0) return true;
+  if (constituent.inheritValencyFrames === true && parent.requiredValencyFrames.length > 0) return true;
+  if (constituent.inheritOccurrenceCapabilities === true
+    && parent.requiredOccurrenceCapabilities.length > 0) return true;
+  return constituent.inheritFeatures === true && Object.keys(parent.requiredFeatures).length > 0;
+}
+
+function requirementsForSampledConstituent(
+  constituent: ProductionConstituent,
+  parent: SyntaxRequirements,
+): SyntaxRequirements | null {
+  if (constituent.category === "Lexeme" || hasDynamicInheritedContribution(constituent, parent)) {
+    return requirementsForConstituent(constituent, parent);
+  }
+  const cached = sampledLocalRequirementsCache.get(constituent);
+  if (cached !== undefined) return cached;
+  const prepared = requirementsForConstituent(constituent, EMPTY_SYNTAX_REQUIREMENTS);
+  if (prepared === null) {
+    throw new Error("local syntax requirements unexpectedly conflict");
+  }
+  sampledLocalRequirementsCache.set(constituent, prepared);
+  return prepared;
+}
+
 function sampleRuleChildren(
   parentRuleId: string,
   ordered: readonly ProductionConstituent[],
@@ -603,7 +636,7 @@ function sampleRuleChildren(
       if (constituent.category === "Lexeme"
         && inputState.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) return null;
       if (!decrement(inputState, constituent)) return null;
-      const childRequirements = requirementsForConstituent(constituent, requirements);
+      const childRequirements = requirementsForSampledConstituent(constituent, requirements);
       if (childRequirements === null) return null;
       if (constituent.category === "Lexeme") {
         const slot = makeSlot(
