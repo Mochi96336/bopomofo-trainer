@@ -559,6 +559,23 @@ function nestedTargetKey(parentRuleId: string, constituentKey: string): string {
   return `${parentRuleId}\u0000${constituentKey}`;
 }
 
+export const TMP_RULE_CHILDREN_ATTRIBUTION = {
+  calls: 0,
+  constituentIterations: 0,
+  targetMapEmptyIterations: 0,
+  targetMapNonEmptyIterations: 0,
+  targetHits: 0,
+  exactCountHits: 0,
+  childRuleHits: 0,
+  fixedCountCalls: 0,
+  deterministicCountCalls: 0,
+  lexicalOccurrences: 0,
+  recursiveOccurrences: 0,
+  returnedChildSlots: 0,
+  returnedChildSlotContexts: 0,
+  returnedChildRulePathItems: 0,
+};
+
 function sampleRuleChildren(
   parentRuleId: string,
   ordered: readonly ProductionConstituent[],
@@ -576,6 +593,9 @@ function sampleRuleChildren(
   fixedCounts?: ConstituentCounts,
   deterministicCounts = false,
 ): SampledRuleChildren | null {
+  TMP_RULE_CHILDREN_ATTRIBUTION.calls += 1;
+  if (fixedCounts !== undefined) TMP_RULE_CHILDREN_ATTRIBUTION.fixedCountCalls += 1;
+  if (deterministicCounts) TMP_RULE_CHILDREN_ATTRIBUTION.deterministicCountCalls += 1;
   let workingState = inputState;
   const children: PendingStructuralElement[] = [];
   const slots: StructuralLexicalSlot[] = [];
@@ -583,11 +603,22 @@ function sampleRuleChildren(
   const rulePath: string[] = [];
 
   for (const constituent of ordered) {
+    TMP_RULE_CHILDREN_ATTRIBUTION.constituentIterations += 1;
+    if (nestedProductionTargets.size === 0) {
+      TMP_RULE_CHILDREN_ATTRIBUTION.targetMapEmptyIterations += 1;
+    } else {
+      TMP_RULE_CHILDREN_ATTRIBUTION.targetMapNonEmptyIterations += 1;
+    }
     const maximum = effectiveConstituentMaximum(constituent, bounds);
     if (maximum < constituent.minimum) return null;
     const target = nestedProductionTargets.get(
       nestedTargetKey(parentRuleId, constituent.key),
     );
+    if (target !== undefined) {
+      TMP_RULE_CHILDREN_ATTRIBUTION.targetHits += 1;
+      if (target.exactCount !== undefined) TMP_RULE_CHILDREN_ATTRIBUTION.exactCountHits += 1;
+      if (target.childRuleId !== undefined) TMP_RULE_CHILDREN_ATTRIBUTION.childRuleHits += 1;
+    }
     const count = fixedCounts === undefined
       ? target?.exactCount ?? (
           deterministicCounts
@@ -605,6 +636,7 @@ function sampleRuleChildren(
       if (childRequirements === null) return null;
       workingState = afterDepth;
       if (constituent.category === "Lexeme") {
+        TMP_RULE_CHILDREN_ATTRIBUTION.lexicalOccurrences += 1;
         if (workingState.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) return null;
         const slot = makeSlot(
           constituent,
@@ -622,6 +654,7 @@ function sampleRuleChildren(
         workingState = { ...workingState, lexicalCount: workingState.lexicalCount + 1 };
         continue;
       }
+      TMP_RULE_CHILDREN_ATTRIBUTION.recursiveOccurrences += 1;
       const requestedChildRuleId = target?.childRuleId;
       const child = sampleCategory(
         constituent.category,
@@ -642,6 +675,9 @@ function sampleRuleChildren(
       );
       if (child === null) return null;
       children.push(child.element);
+      TMP_RULE_CHILDREN_ATTRIBUTION.returnedChildSlots += child.slots.length;
+      TMP_RULE_CHILDREN_ATTRIBUTION.returnedChildSlotContexts += child.slotContexts.length;
+      TMP_RULE_CHILDREN_ATTRIBUTION.returnedChildRulePathItems += child.rulePath.length;
       slots.push(...child.slots);
       slotContexts.push(...child.slotContexts);
       rulePath.push(...child.rulePath);
