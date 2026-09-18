@@ -34,7 +34,7 @@ jobs:
             local ref="$1"
             local out="$2"
             git checkout --force "$ref" >/dev/null
-            git clean -fdx >/dev/null
+            git clean -fd >/dev/null
             npm run app:catalog >/dev/null
             cat > .tmp-post305-product-parity.ts <<'EOF'
           import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
@@ -70,7 +70,7 @@ jobs:
             local ref="$1"
             local out="$2"
             git checkout --force "$ref" >/dev/null
-            git clean -fdx >/dev/null
+            git clean -fd >/dev/null
             cat > .tmp-post305-structural-parity.ts <<'EOF'
           import type { RandomSource } from "./src/core/model.js";
           import { FORMAL_SYNTAX_RULES } from "./src/syntax/grammar.js";
