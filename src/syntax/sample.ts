@@ -146,6 +146,13 @@ const CLAUSE_LIKE = new Set<SyntaxCategory>([
 
 const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };
 
+export const TMP_ELIGIBILITY_CONTEXT_ATTRIBUTION = {
+  calls: 0,
+  uniqueKeys: new Set<string>(),
+  keyCalls: {} as Record<string, number>,
+  keyEligibleLengthTotal: {} as Record<string, number>,
+  keySourceLengthTotal: {} as Record<string, number>,
+};
 
 function canonicalFeatureSetJson(features: SyntaxFeatureSet): string {
   const fields = Object.keys(features)
@@ -610,10 +617,30 @@ function sampleCategory(
     if (state.clauseCount >= bounds.maximumClausesPerSentence) return null;
     state = { ...state, clauseCount: state.clauseCount + 1 };
   }
-  const eligibleRules = (rulesByOutput.get(category) ?? [])
+  const sourceRules = rulesByOutput.get(category) ?? [];
+  const excludedKey = [...excludedRuleClasses].sort().join(",");
+  const attributionKey = [
+    category,
+    excludedKey,
+    isRoot ? "root" : "nested",
+    rootProductionRuleId ?? "",
+    requestedProductionRuleId ?? "",
+  ].join("|");
+  TMP_ELIGIBILITY_CONTEXT_ATTRIBUTION.calls += 1;
+  TMP_ELIGIBILITY_CONTEXT_ATTRIBUTION.uniqueKeys.add(attributionKey);
+  TMP_ELIGIBILITY_CONTEXT_ATTRIBUTION.keyCalls[attributionKey] =
+    (TMP_ELIGIBILITY_CONTEXT_ATTRIBUTION.keyCalls[attributionKey] ?? 0) + 1;
+  TMP_ELIGIBILITY_CONTEXT_ATTRIBUTION.keySourceLengthTotal[attributionKey] =
+    (TMP_ELIGIBILITY_CONTEXT_ATTRIBUTION.keySourceLengthTotal[attributionKey] ?? 0)
+    + sourceRules.length;
+
+  const eligibleRules = sourceRules
     .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))
     .filter((rule) => !isRoot || rootProductionRuleId === undefined || rule.id === rootProductionRuleId)
     .filter((rule) => requestedProductionRuleId === undefined || rule.id === requestedProductionRuleId);
+  TMP_ELIGIBILITY_CONTEXT_ATTRIBUTION.keyEligibleLengthTotal[attributionKey] =
+    (TMP_ELIGIBILITY_CONTEXT_ATTRIBUTION.keyEligibleLengthTotal[attributionKey] ?? 0)
+    + eligibleRules.length;
   // BAPredicate alternatives are licensing fallbacks, not a product-probability
   // dimension. Keep the reviewed path first; productive paths use a local
   // deterministic source. Nested Clause candidates independently retain #248's
