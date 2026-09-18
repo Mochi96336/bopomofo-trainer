@@ -151,7 +151,7 @@ function groupedCompatibleProfiles(
 }
 
 
-interface StaticCompatibleProfileWeights {
+export interface StaticCompatibleProfileWeights {
   readonly groups: readonly CompatibleProfileGroup[];
   readonly weights: readonly number[];
   readonly cumulativeWeights: readonly number[];
@@ -182,7 +182,7 @@ function compatibleProfileGroupIndex(
   return index;
 }
 
-function preparedStaticCompatibleProfileWeights(
+export function tmpPreparedStaticCompatibleProfileWeights(
   compatible: readonly RuntimeSyntaxProfile[],
   entriesById: ReadonlyMap<string, CatalogEntry>,
 ): StaticCompatibleProfileWeights {
@@ -242,7 +242,7 @@ function selectCompatibleProfile(
       }
     }
     if (!hasExcludedCompatibleEntry) {
-      const prepared = preparedStaticCompatibleProfileWeights(compatible, entriesById);
+      const prepared = tmpPreparedStaticCompatibleProfileWeights(compatible, entriesById);
       if (!(prepared.totalWeight > 0)) return null;
       const target = nextUnit(random) * prepared.totalWeight;
       let low = 0;
