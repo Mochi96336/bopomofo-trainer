@@ -11,7 +11,7 @@ permissions:
 env:
   PRODUCTION_REF: 0b4dc2805573173144ea43293f6faa607aa4b619
   CANDIDATE_REF: agent/tmp-prepared-eligibility-mask-ab
-  SAMPLE_COUNT: 256
+  SAMPLE_COUNT: 512
 
 jobs:
   paired-benchmark:
