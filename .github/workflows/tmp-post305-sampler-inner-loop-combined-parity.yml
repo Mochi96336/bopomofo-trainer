@@ -1,0 +1,140 @@
+name: tmp post-305 sampler inner-loop parity
+
+on:
+  push:
+    branches:
+      - agent/tmp-post305-sampler-inner-loop-combined-parity
+
+permissions:
+  contents: read
+
+env:
+  PRODUCTION_REF: b6d531f1df8ae67108232ecbd0b9bd2074e5dedc
+  CANDIDATE_REF: agent/tmp-post305-sampler-inner-loop-combined-ab
+
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify product and structural byte parity
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci --include=dev --ignore-scripts
+
+          run_product() {
+            local ref="$1"
+            local out="$2"
+            git checkout --force "$ref" >/dev/null
+            git clean -fdx >/dev/null
+            npm run app:catalog >/dev/null
+            cat > .tmp-post305-product-parity.ts <<'EOF'
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import { createFreshProgressForEnvironment, createProductEnvironment, createProductState } from "./src/product/session.js";
+
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "post305-inner-loop-parity",
+            "guided",
+            "standard",
+          );
+          for (let round = 0; round < 2048; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            process.stdout.write(JSON.stringify({
+              round,
+              selection: state.round.selection,
+            }) + "\n");
+          }
+          EOF
+            node --import tsx .tmp-post305-product-parity.ts > "$out"
+          }
+
+          run_structural() {
+            local ref="$1"
+            local out="$2"
+            git checkout --force "$ref" >/dev/null
+            git clean -fdx >/dev/null
+            cat > .tmp-post305-structural-parity.ts <<'EOF'
+          import type { RandomSource } from "./src/core/model.js";
+          import { FORMAL_SYNTAX_RULES } from "./src/syntax/grammar.js";
+          import {
+            prepareStructuralSamplingContext,
+            sampleStructuralDerivation,
+          } from "./src/syntax/sample.js";
+
+          class SeededRandom implements RandomSource {
+            private state: number;
+            constructor(seed: number) { this.state = seed >>> 0; }
+            next(): number {
+              let value = this.state;
+              value ^= value << 13;
+              value ^= value >>> 17;
+              value ^= value << 5;
+              this.state = value >>> 0;
+              return this.state / 0x1_0000_0000;
+            }
+          }
+
+          const prepared = prepareStructuralSamplingContext(FORMAL_SYNTAX_RULES);
+          const boundsCases = [
+            undefined,
+            {
+              maximumPhraseDepth: 1,
+              maximumClauseDepth: 1,
+              maximumClausesPerSentence: 1,
+              maximumLexicalEntriesPerUtterance: 4,
+            },
+            {
+              maximumPhraseDepth: 2,
+              maximumClauseDepth: 2,
+              maximumClausesPerSentence: 2,
+              maximumLexicalEntriesPerUtterance: 7,
+            },
+          ] as const;
+          for (let caseIndex = 0; caseIndex < boundsCases.length; caseIndex += 1) {
+            const bounds = boundsCases[caseIndex];
+            const context = bounds === undefined
+              ? prepared
+              : prepareStructuralSamplingContext(FORMAL_SYNTAX_RULES, bounds);
+            for (let seed = 1; seed <= 1024; seed += 1) {
+              const shape = sampleStructuralDerivation({
+                rootCategory: "Sentence",
+                rules: FORMAL_SYNTAX_RULES,
+                random: new SeededRandom((seed * 2654435761 + caseIndex) >>> 0),
+                ...(bounds === undefined ? {} : { bounds }),
+              }, context);
+              process.stdout.write(JSON.stringify({ caseIndex, seed, shape }) + "\n");
+            }
+          }
+          EOF
+            node --import tsx .tmp-post305-structural-parity.ts > "$out"
+          }
+
+          run_product "$PRODUCTION_REF" "$RUNNER_TEMP/product-production.jsonl"
+          run_product "$CANDIDATE_REF" "$RUNNER_TEMP/product-candidate.jsonl"
+          cmp "$RUNNER_TEMP/product-production.jsonl" "$RUNNER_TEMP/product-candidate.jsonl"
+          sha256sum "$RUNNER_TEMP/product-production.jsonl" "$RUNNER_TEMP/product-candidate.jsonl"
+          wc -l "$RUNNER_TEMP/product-production.jsonl" "$RUNNER_TEMP/product-candidate.jsonl"
+
+          run_structural "$PRODUCTION_REF" "$RUNNER_TEMP/structural-production.jsonl"
+          run_structural "$CANDIDATE_REF" "$RUNNER_TEMP/structural-candidate.jsonl"
+          cmp "$RUNNER_TEMP/structural-production.jsonl" "$RUNNER_TEMP/structural-candidate.jsonl"
+          sha256sum "$RUNNER_TEMP/structural-production.jsonl" "$RUNNER_TEMP/structural-candidate.jsonl"
+          wc -l "$RUNNER_TEMP/structural-production.jsonl" "$RUNNER_TEMP/structural-candidate.jsonl"
