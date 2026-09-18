@@ -32,8 +32,17 @@ export function ruleAllowedByDerivationBounds(
   return true;
 }
 
+const excludedClassesByConstituent = new WeakMap<
+  ProductionConstituent,
+  ReadonlySet<ProductionRuleClass>
+>();
+
 export function excludedClassesForConstituent(
   constituent: ProductionConstituent,
 ): ReadonlySet<ProductionRuleClass> {
-  return new Set(constituent.excludedRuleClasses ?? []);
+  const cached = excludedClassesByConstituent.get(constituent);
+  if (cached !== undefined) return cached;
+  const created = new Set(constituent.excludedRuleClasses ?? []);
+  excludedClassesByConstituent.set(constituent, created);
+  return created;
 }
