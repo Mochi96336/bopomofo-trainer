@@ -1,0 +1,77 @@
+name: tmp post-304 profile selection attribution
+
+on:
+  push:
+    branches:
+      - agent/tmp-post304-profile-selection-attribution
+
+permissions:
+  contents: read
+
+jobs:
+  attribute:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run app:catalog
+      - name: Attribute profile selection
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .tmp-profile-selection-attribution.ts <<'EOF'
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import { stableRuntimeDigest } from "./src/core/stable-id.js";
+          import { TMP_PROFILE_SELECTION_ATTRIBUTION as counters } from "./src/curriculum/formal-syntax-utterance.js";
+          import { createFreshProgressForEnvironment, createProductEnvironment, createProductState } from "./src/product/session.js";
+
+          const rounds = 256;
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "post304-profile-selection-attribution",
+            "guided",
+            "standard",
+          );
+          const outputs: object[] = [];
+          let attemptTotal = 0;
+          for (let round = 0; round < rounds; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            const selection = state.round.selection;
+            attemptTotal += selection.generationAttempts;
+            outputs.push({ id: selection.utterance.id, text: selection.utterance.text });
+          }
+          const pct = (value: number, denom: number) =>
+            denom === 0 ? 0 : Number((value / denom * 100).toFixed(2));
+          const avg = (value: number, denom: number) =>
+            denom === 0 ? 0 : Number((value / denom).toFixed(2));
+          console.log(JSON.stringify({
+            rounds,
+            attemptTotal,
+            outputDigest: stableRuntimeDigest(outputs),
+            ...counters,
+            staticDefaultEligiblePct: pct(counters.staticDefaultEligibleCalls, counters.calls),
+            staticFastPathPct: pct(counters.staticFastPathCalls, counters.calls),
+            staticFallbackPctOfEligible: pct(counters.staticFallbackCalls, counters.staticDefaultEligibleCalls),
+            dynamicPathPct: pct(counters.dynamicPathCalls, counters.calls),
+            averageUsedEntryIdIterationsPerEligibleCall: avg(counters.usedEntryIdIterations, counters.staticDefaultEligibleCalls),
+            compatibleUsedEntryHitPctOfEligible: pct(counters.compatibleUsedEntryHits, counters.staticDefaultEligibleCalls),
+            averageCompatibleProfilesPerCall: avg(counters.totalCompatibleProfiles, counters.calls),
+            averageStaticGroupsPerFastCall: avg(counters.totalStaticGroups, counters.staticFastPathCalls),
+            averageDynamicGroupsPerDynamicCall: avg(counters.totalDynamicGroups, counters.dynamicPathCalls),
+          }, null, 2));
+          EOF
+          node --import tsx .tmp-profile-selection-attribution.ts
