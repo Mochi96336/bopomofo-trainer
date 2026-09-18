@@ -1,0 +1,81 @@
+name: tmp post-303 eligibility context attribution
+
+on:
+  push:
+    branches:
+      - agent/tmp-post303-eligibility-context-attribution
+
+permissions:
+  contents: read
+
+jobs:
+  attribute:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run app:catalog
+      - name: Attribute sampler eligibility contexts
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .tmp-eligibility-context-attribution.ts <<'EOF'
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import { stableRuntimeDigest } from "./src/core/stable-id.js";
+          import { createFreshProgressForEnvironment, createProductEnvironment, createProductState } from "./src/product/session.js";
+          import { TMP_ELIGIBILITY_CONTEXT_ATTRIBUTION as counters } from "./src/syntax/sample.js";
+
+          const rounds = 256;
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "post-303-eligibility-context-attribution",
+            "guided",
+            "standard",
+          );
+          const outputs: object[] = [];
+          let attemptTotal = 0;
+          for (let round = 0; round < rounds; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            const selection = state.round.selection;
+            attemptTotal += selection.generationAttempts;
+            outputs.push({
+              id: selection.utterance.id,
+              text: selection.utterance.text,
+              attempts: selection.generationAttempts,
+            });
+          }
+          const rows = Object.entries(counters.keyCalls).map(([key, calls]) => ({
+            key,
+            calls,
+            averageSourceRules: Number(
+              ((counters.keySourceLengthTotal[key] ?? 0) / calls).toFixed(2),
+            ),
+            averageEligibleRules: Number(
+              ((counters.keyEligibleLengthTotal[key] ?? 0) / calls).toFixed(2),
+            ),
+          })).sort((a, b) => b.calls - a.calls);
+          console.log(JSON.stringify({
+            rounds,
+            attemptTotal,
+            outputDigest: stableRuntimeDigest(outputs),
+            calls: counters.calls,
+            uniqueKeys: counters.uniqueKeys.size,
+            averageCallsPerKey: Number((counters.calls / Math.max(1, counters.uniqueKeys.size)).toFixed(2)),
+            topContexts: rows.slice(0, 60),
+          }, null, 2));
+          EOF
+          node --import tsx .tmp-eligibility-context-attribution.ts
