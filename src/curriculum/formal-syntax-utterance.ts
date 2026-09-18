@@ -153,8 +153,8 @@ function groupedCompatibleProfiles(
 
 interface StaticCompatibleProfileWeights {
   readonly groups: readonly CompatibleProfileGroup[];
-  readonly weights: readonly number[];
-  readonly totalWeight: number;
+  readonly weights: (number | undefined)[];
+  totalWeight: number | undefined;
 }
 
 const compatibleProfileGroupIndexCache = new WeakMap<
@@ -194,24 +194,47 @@ function preparedStaticCompatibleProfileWeights(
   if (cached !== undefined) return cached;
 
   const groups = groupedCompatibleProfiles(compatible);
-  const weights = new Array<number>(groups.length);
-  let totalWeight = 0;
-  for (let index = 0; index < groups.length; index += 1) {
-    const group = groups[index]!;
-    const entry = entriesById.get(group.entryId);
-    if (entry === undefined) {
-      throw new Error(`formal syntax profile references missing entry ${group.entryId}`);
-    }
-    const weight = defaultEntryWeight(entry);
-    if (!Number.isFinite(weight) || weight < 0) {
-      throw new Error("formal syntax entry weights must be finite and non-negative");
-    }
-    weights[index] = weight;
-    totalWeight += weight;
-  }
-  const prepared = { groups, weights, totalWeight };
+  const prepared: StaticCompatibleProfileWeights = {
+    groups,
+    weights: new Array<number | undefined>(groups.length),
+    totalWeight: undefined,
+  };
   byEntries.set(entriesById, prepared);
   return prepared;
+}
+
+function staticCompatibleProfileWeight(
+  prepared: StaticCompatibleProfileWeights,
+  index: number,
+  entriesById: ReadonlyMap<string, CatalogEntry>,
+): number {
+  const cached = prepared.weights[index];
+  if (cached !== undefined) return cached;
+  const group = prepared.groups[index];
+  if (group === undefined) throw new Error("formal syntax profile group index is out of range");
+  const entry = entriesById.get(group.entryId);
+  if (entry === undefined) {
+    throw new Error(`formal syntax profile references missing entry ${group.entryId}`);
+  }
+  const weight = defaultEntryWeight(entry);
+  if (!Number.isFinite(weight) || weight < 0) {
+    throw new Error("formal syntax entry weights must be finite and non-negative");
+  }
+  prepared.weights[index] = weight;
+  return weight;
+}
+
+function staticCompatibleProfileTotalWeight(
+  prepared: StaticCompatibleProfileWeights,
+  entriesById: ReadonlyMap<string, CatalogEntry>,
+): number {
+  if (prepared.totalWeight !== undefined) return prepared.totalWeight;
+  let totalWeight = 0;
+  for (let index = 0; index < prepared.groups.length; index += 1) {
+    totalWeight += staticCompatibleProfileWeight(prepared, index, entriesById);
+  }
+  prepared.totalWeight = totalWeight;
+  return totalWeight;
 }
 
 function selectCompatibleProfile(
@@ -231,6 +254,7 @@ function selectCompatibleProfile(
     && (previousEntry === null || lexicalCompatibility === undefined);
   if (useStaticDefaultWeights) {
     const groupIndexByEntryId = compatibleProfileGroupIndex(compatible);
+    const prepared = preparedStaticCompatibleProfileWeights(compatible, entriesById);
     let hasExcludedCompatibleEntry = false;
     for (const entryId of usedEntryIds) {
       if (entryId !== reusableEntryId && groupIndexByEntryId.has(entryId)) {
@@ -238,10 +262,11 @@ function selectCompatibleProfile(
         break;
       }
     }
+
     if (!hasExcludedCompatibleEntry) {
-      const prepared = preparedStaticCompatibleProfileWeights(compatible, entriesById);
-      if (!(prepared.totalWeight > 0)) return null;
-      let target = nextUnit(random) * prepared.totalWeight;
+      const totalWeight = staticCompatibleProfileTotalWeight(prepared, entriesById);
+      if (!(totalWeight > 0)) return null;
+      let target = nextUnit(random) * totalWeight;
       let selectedGroup: CompatibleProfileGroup | undefined;
       for (let index = 0; index < prepared.groups.length; index += 1) {
         target -= prepared.weights[index] ?? 0;
@@ -259,6 +284,36 @@ function selectCompatibleProfile(
         : Math.floor(nextUnit(random) * entryProfiles.length);
       return entryProfiles[selectedProfileIndex] ?? null;
     }
+
+    let totalWeight = 0;
+    let lastEligibleGroup: CompatibleProfileGroup | undefined;
+    for (let index = 0; index < prepared.groups.length; index += 1) {
+      const group = prepared.groups[index]!;
+      if (usedEntryIds.has(group.entryId) && group.entryId !== reusableEntryId) continue;
+      lastEligibleGroup = group;
+      totalWeight += staticCompatibleProfileWeight(prepared, index, entriesById);
+    }
+    if (!(totalWeight > 0)) return null;
+
+    let target = nextUnit(random) * totalWeight;
+    let selectedGroup: CompatibleProfileGroup | undefined;
+    for (let index = 0; index < prepared.groups.length; index += 1) {
+      const group = prepared.groups[index]!;
+      if (usedEntryIds.has(group.entryId) && group.entryId !== reusableEntryId) continue;
+      target -= prepared.weights[index] ?? 0;
+      if (target < 0) {
+        selectedGroup = group;
+        break;
+      }
+    }
+    selectedGroup ??= lastEligibleGroup;
+    if (selectedGroup === undefined) throw new Error("formal syntax entry selection failed");
+    const entryProfiles = selectedGroup.profiles;
+    if (entryProfiles.length === 0) throw new Error("formal syntax profile group is empty");
+    const selectedProfileIndex = entryProfiles.length === 1
+      ? 0
+      : Math.floor(nextUnit(random) * entryProfiles.length);
+    return entryProfiles[selectedProfileIndex] ?? null;
   }
 
   const groups = groupedCompatibleProfiles(compatible);
