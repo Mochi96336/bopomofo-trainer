@@ -20,7 +20,6 @@ import {
   type ConstituentCounts,
 } from "./presence-constraints.js";
 import {
-  EMPTY_SYNTAX_REQUIREMENTS,
   requirementsForConstituent,
   type SyntaxRequirements,
 } from "./requirements.js";
@@ -97,10 +96,10 @@ export interface StructuralSamplingOptions {
 }
 
 interface State {
-  readonly remainingPhraseDepth: number;
-  readonly remainingClauseDepth: number;
-  readonly clauseCount: number;
-  readonly lexicalCount: number;
+  remainingPhraseDepth: number;
+  remainingClauseDepth: number;
+  clauseCount: number;
+  lexicalCount: number;
 }
 
 interface SampledLexicalSlotContext {
@@ -483,14 +482,16 @@ function stableNestedClauseCandidates(
     .map(({ rule, random: candidateRandom }) => ({ rule, random: candidateRandom }));
 }
 
-function decrement(state: State, constituent: ProductionConstituent): State | null {
-  if (!constituent.recursive) return state;
+function decrement(state: State, constituent: ProductionConstituent): boolean {
+  if (!constituent.recursive) return true;
   if (CLAUSE_LIKE.has(constituent.category)) {
-    if (state.remainingClauseDepth <= 0) return null;
-    return { ...state, remainingClauseDepth: state.remainingClauseDepth - 1 };
+    if (state.remainingClauseDepth <= 0) return false;
+    state.remainingClauseDepth -= 1;
+    return true;
   }
-  if (state.remainingPhraseDepth <= 0) return null;
-  return { ...state, remainingPhraseDepth: state.remainingPhraseDepth - 1 };
+  if (state.remainingPhraseDepth <= 0) return false;
+  state.remainingPhraseDepth -= 1;
+  return true;
 }
 
 interface SamplingPathNode {
@@ -514,19 +515,22 @@ function materializeSamplingPath(path: SamplingPathNode): readonly string[] {
   return segments;
 }
 
-function bindingId(constituent: ProductionConstituent, path: SamplingPathNode): string | undefined {
+function bindingId(
+  constituent: ProductionConstituent,
+  parentPath: SamplingPathNode,
+): string | undefined {
   if (constituent.entryBinding === undefined) return undefined;
-  const parentPath = path.parent;
-  return `${parentPath === null ? "" : materializeSamplingPath(parentPath).join("/")}:${constituent.entryBinding}`;
+  return `${materializeSamplingPath(parentPath).join("/")}:${constituent.entryBinding}`;
 }
 
 function makeSlot(
   constituent: ProductionConstituent,
   requirements: SyntaxRequirements,
   occurrenceIndex: number,
-  path: SamplingPathNode,
+  parentPath: SamplingPathNode,
+  pathSegment: string,
 ): StructuralLexicalSlot {
-  const entryBindingId = bindingId(constituent, path);
+  const entryBindingId = bindingId(constituent, parentPath);
   const occurrenceRequirement = requirements.requiredOccurrenceCapabilities.length === 0
     ? {}
     : { requiredOccurrenceCapabilities: requirements.requiredOccurrenceCapabilities };
@@ -538,7 +542,7 @@ function makeSlot(
         constituent,
         requirements,
         occurrenceIndex,
-        materializeSamplingPath(path),
+        [...materializeSamplingPath(parentPath), pathSegment],
         entryBindingId,
       ))}`;
       return cachedId;
@@ -576,7 +580,6 @@ function sampleRuleChildren(
   fixedCounts?: ConstituentCounts,
   deterministicCounts = false,
 ): SampledRuleChildren | null {
-  let workingState = inputState;
   const children: PendingStructuralElement[] = [];
   const slots: StructuralLexicalSlot[] = [];
   const slotContexts: SampledLexicalSlotContext[] = [];
@@ -599,18 +602,18 @@ function sampleRuleChildren(
     if (target?.exactCount !== undefined && count !== target.exactCount) return null;
 
     for (let occurrenceIndex = 0; occurrenceIndex < count; occurrenceIndex += 1) {
-      const afterDepth = decrement(workingState, constituent);
-      if (afterDepth === null) return null;
+      if (constituent.category === "Lexeme"
+        && inputState.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) return null;
+      if (!decrement(inputState, constituent)) return null;
       const childRequirements = requirementsForConstituent(constituent, requirements);
       if (childRequirements === null) return null;
-      workingState = afterDepth;
       if (constituent.category === "Lexeme") {
-        if (workingState.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) return null;
         const slot = makeSlot(
           constituent,
           childRequirements,
           occurrenceIndex,
-          extendSamplingPath(path, constituent.key),
+          path,
+          constituent.key,
         );
         if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) return null;
         children.push(slot);
@@ -619,7 +622,7 @@ function sampleRuleChildren(
           slot,
           enclosingRequiredFunctions: requirements.requiredFunctions,
         });
-        workingState = { ...workingState, lexicalCount: workingState.lexicalCount + 1 };
+        inputState.lexicalCount += 1;
         continue;
       }
       const requestedChildRuleId = target?.childRuleId;
@@ -631,7 +634,7 @@ function sampleRuleChildren(
         eligibleRuleSets,
         random,
         bounds,
-        workingState,
+        inputState,
         extendSamplingPath(path, `${constituent.key}[${occurrenceIndex}]`),
         isLexicalSlotReachable,
         samplingRuleClassMask(constituent),
@@ -645,12 +648,11 @@ function sampleRuleChildren(
       slots.push(...child.slots);
       slotContexts.push(...child.slotContexts);
       rulePath.push(...child.rulePath);
-      workingState = child.state;
     }
   }
 
   return {
-    state: workingState,
+    state: inputState,
     children,
     rulePath,
     slots,
@@ -675,11 +677,18 @@ function sampleCategory(
   isRoot: boolean,
   requestedProductionRuleId?: string,
 ): Sampled | null {
-  let state = inputState;
+  const entryRemainingPhraseDepth = inputState.remainingPhraseDepth;
+  const entryRemainingClauseDepth = inputState.remainingClauseDepth;
+  const entryClauseCount = inputState.clauseCount;
+  const entryLexicalCount = inputState.lexicalCount;
   if (category === "Clause" || category === "OpenClause") {
-    if (state.clauseCount >= bounds.maximumClausesPerSentence) return null;
-    state = { ...state, clauseCount: state.clauseCount + 1 };
+    if (inputState.clauseCount >= bounds.maximumClausesPerSentence) return null;
+    inputState.clauseCount += 1;
   }
+  const candidateRemainingPhraseDepth = inputState.remainingPhraseDepth;
+  const candidateRemainingClauseDepth = inputState.remainingClauseDepth;
+  const candidateClauseCount = inputState.clauseCount;
+  const candidateLexicalCount = inputState.lexicalCount;
   let eligibleRules = (
     excludedRuleClassMask === 0
       ? eligibleRuleSets.defaultByOutput
@@ -745,7 +754,7 @@ function sampleCategory(
       eligibleRuleSets,
       candidateRandom,
       bounds,
-      state,
+      inputState,
       extendSamplingPath(path, rule.id),
       isLexicalSlotReachable,
       rootProductionRuleId,
@@ -753,7 +762,13 @@ function sampleCategory(
       fixedCounts,
       orderedLicensingAlternatives && !productiveBaAlternative,
     );
-    if (sampledChildren === null) continue;
+    if (sampledChildren === null) {
+      inputState.remainingPhraseDepth = candidateRemainingPhraseDepth;
+      inputState.remainingClauseDepth = candidateRemainingClauseDepth;
+      inputState.clauseCount = candidateClauseCount;
+      inputState.lexicalCount = candidateLexicalCount;
+      continue;
+    }
 
     const node: PendingSyntaxNode = {
       kind: "syntax-node",
@@ -770,6 +785,10 @@ function sampleCategory(
       slotContexts: sampledChildren.slotContexts,
     };
   }
+  inputState.remainingPhraseDepth = entryRemainingPhraseDepth;
+  inputState.remainingClauseDepth = entryRemainingClauseDepth;
+  inputState.clauseCount = entryClauseCount;
+  inputState.lexicalCount = entryLexicalCount;
   return null;
 }
 
