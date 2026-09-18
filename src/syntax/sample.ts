@@ -514,19 +514,22 @@ function materializeSamplingPath(path: SamplingPathNode): readonly string[] {
   return segments;
 }
 
-function bindingId(constituent: ProductionConstituent, path: SamplingPathNode): string | undefined {
+function bindingId(
+  constituent: ProductionConstituent,
+  parentPath: SamplingPathNode,
+): string | undefined {
   if (constituent.entryBinding === undefined) return undefined;
-  const parentPath = path.parent;
-  return `${parentPath === null ? "" : materializeSamplingPath(parentPath).join("/")}:${constituent.entryBinding}`;
+  return `${materializeSamplingPath(parentPath).join("/")}:${constituent.entryBinding}`;
 }
 
 function makeSlot(
   constituent: ProductionConstituent,
   requirements: SyntaxRequirements,
   occurrenceIndex: number,
-  path: SamplingPathNode,
+  parentPath: SamplingPathNode,
+  pathSegment: string,
 ): StructuralLexicalSlot {
-  const entryBindingId = bindingId(constituent, path);
+  const entryBindingId = bindingId(constituent, parentPath);
   const occurrenceRequirement = requirements.requiredOccurrenceCapabilities.length === 0
     ? {}
     : { requiredOccurrenceCapabilities: requirements.requiredOccurrenceCapabilities };
@@ -538,7 +541,7 @@ function makeSlot(
         constituent,
         requirements,
         occurrenceIndex,
-        materializeSamplingPath(path),
+        [...materializeSamplingPath(parentPath), pathSegment],
         entryBindingId,
       ))}`;
       return cachedId;
@@ -610,7 +613,8 @@ function sampleRuleChildren(
           constituent,
           childRequirements,
           occurrenceIndex,
-          extendSamplingPath(path, constituent.key),
+          path,
+          constituent.key,
         );
         if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) return null;
         children.push(slot);
