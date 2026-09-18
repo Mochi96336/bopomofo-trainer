@@ -1,0 +1,52 @@
+name: tmp post-304 sampler package parity
+
+on:
+  push:
+    branches:
+      - agent/tmp-post304-sampler-package-parity
+
+permissions:
+  contents: read
+
+env:
+  PRODUCTION_REF: 5320baeb1953d7c243c2e584952b88ee144637f2
+  CANDIDATE_REF: a41e3f5e5d602bdbb9ce908eb0c4a78ee05edc22
+
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Compare production and candidate structural outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp scripts/tmp-post304-sampler-package-parity.ts "$RUNNER_TEMP/parity.ts"
+
+          run_side() {
+            local ref="$1"
+            local output="$2"
+            git checkout --force "$ref" >/dev/null
+            git clean -fdx >/dev/null
+            npm ci --include=dev --ignore-scripts >/dev/null
+            cp "$RUNNER_TEMP/parity.ts" .tmp-post304-sampler-package-parity.ts
+            : > "$output"
+            OUTPUT_PATH="$output" node --import tsx .tmp-post304-sampler-package-parity.ts
+          }
+
+          production="$RUNNER_TEMP/production.jsonl"
+          candidate="$RUNNER_TEMP/candidate.jsonl"
+          run_side "$PRODUCTION_REF" "$production"
+          run_side "$CANDIDATE_REF" "$candidate"
+
+          cmp "$production" "$candidate"
+          echo "production_sha256=$(sha256sum "$production" | cut -d' ' -f1)"
+          echo "candidate_sha256=$(sha256sum "$candidate" | cut -d' ' -f1)"
+          echo "lines=$(wc -l < "$production")"
