@@ -1,0 +1,77 @@
+name: tmp post-304 rule children attribution
+
+on:
+  push:
+    branches:
+      - agent/tmp-post304-rule-children-attribution
+
+permissions:
+  contents: read
+
+jobs:
+  attribute:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run app:catalog
+      - name: Attribute sampleRuleChildren
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .tmp-rule-children-attribution.ts <<'EOF'
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import { stableRuntimeDigest } from "./src/core/stable-id.js";
+          import { createFreshProgressForEnvironment, createProductEnvironment, createProductState } from "./src/product/session.js";
+          import { TMP_RULE_CHILDREN_ATTRIBUTION as counters } from "./src/syntax/sample.js";
+
+          const rounds = 256;
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "post304-rule-children-attribution",
+            "guided",
+            "standard",
+          );
+          const outputs: object[] = [];
+          let attemptTotal = 0;
+          for (let round = 0; round < rounds; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            const selection = state.round.selection;
+            attemptTotal += selection.generationAttempts;
+            outputs.push({
+              id: selection.utterance.id,
+              text: selection.utterance.text,
+              attempts: selection.generationAttempts,
+            });
+          }
+          const pct = (value: number, denom: number) =>
+            denom === 0 ? 0 : Number((value / denom * 100).toFixed(2));
+          console.log(JSON.stringify({
+            rounds,
+            attemptTotal,
+            outputDigest: stableRuntimeDigest(outputs),
+            ...counters,
+            targetMapEmptyIterationPct: pct(counters.targetMapEmptyIterations, counters.constituentIterations),
+            targetMapNonEmptyIterationPct: pct(counters.targetMapNonEmptyIterations, counters.constituentIterations),
+            targetHitPct: pct(counters.targetHits, counters.constituentIterations),
+            lexicalOccurrencePct: pct(counters.lexicalOccurrences, counters.lexicalOccurrences + counters.recursiveOccurrences),
+            recursiveOccurrencePct: pct(counters.recursiveOccurrences, counters.lexicalOccurrences + counters.recursiveOccurrences),
+            averageReturnedChildSlots: counters.recursiveOccurrences === 0 ? 0 : Number((counters.returnedChildSlots / counters.recursiveOccurrences).toFixed(2)),
+            averageReturnedChildRulePathItems: counters.recursiveOccurrences === 0 ? 0 : Number((counters.returnedChildRulePathItems / counters.recursiveOccurrences).toFixed(2)),
+          }, null, 2));
+          EOF
+          node --import tsx .tmp-rule-children-attribution.ts
