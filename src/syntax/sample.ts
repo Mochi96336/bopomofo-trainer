@@ -526,11 +526,34 @@ function makeSlot(
   occurrenceIndex: number,
   path: SamplingPathNode,
 ): StructuralLexicalSlot {
-  const entryBindingId = bindingId(constituent, path);
-  const occurrenceRequirement = requirements.requiredOccurrenceCapabilities.length === 0
-    ? {}
-    : { requiredOccurrenceCapabilities: requirements.requiredOccurrenceCapabilities };
+  const hasOccurrenceRequirement = requirements.requiredOccurrenceCapabilities.length !== 0;
+  const hasEntryBinding = constituent.entryBinding !== undefined;
+  const hasFormalLiteral = constituent.formalLiteral !== undefined;
   let cachedId: string | undefined;
+
+  if (!hasOccurrenceRequirement && !hasEntryBinding && !hasFormalLiteral) {
+    return {
+      kind: "lexical-slot",
+      get id() {
+        cachedId ??= `syntax-slot:${stableRuntimeDigestCanonicalJson(lexicalSlotIdentityCanonicalJson(
+          constituent,
+          requirements,
+          occurrenceIndex,
+          materializeSamplingPath(path),
+          undefined,
+        ))}`;
+        return cachedId;
+      },
+      constituentKey: constituent.key,
+      occurrenceIndex,
+      allowedUpos: constituent.allowedUpos,
+      requiredFunctions: requirements.requiredFunctions,
+      requiredValencyFrames: requirements.requiredValencyFrames,
+      requiredFeatures: requirements.requiredFeatures,
+    };
+  }
+
+  const entryBindingId = bindingId(constituent, path);
   return {
     kind: "lexical-slot",
     get id() {
@@ -548,7 +571,9 @@ function makeSlot(
     allowedUpos: constituent.allowedUpos,
     requiredFunctions: requirements.requiredFunctions,
     requiredValencyFrames: requirements.requiredValencyFrames,
-    ...occurrenceRequirement,
+    ...(hasOccurrenceRequirement
+      ? { requiredOccurrenceCapabilities: requirements.requiredOccurrenceCapabilities }
+      : {}),
     requiredFeatures: requirements.requiredFeatures,
     ...(entryBindingId === undefined ? {} : { entryBindingId }),
     ...(constituent.formalLiteral === undefined ? {} : { formalLiteral: constituent.formalLiteral }),
