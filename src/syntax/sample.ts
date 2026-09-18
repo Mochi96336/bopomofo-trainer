@@ -20,6 +20,7 @@ import {
   type ConstituentCounts,
 } from "./presence-constraints.js";
 import {
+  EMPTY_SYNTAX_REQUIREMENTS,
   requirementsForConstituent,
   type SyntaxRequirements,
 } from "./requirements.js";
