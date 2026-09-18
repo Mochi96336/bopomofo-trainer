@@ -3,6 +3,7 @@ import { stableRuntimeDigest } from "../core/stable-id.js";
 import type { StructuralDerivationShape, StructuralLexicalSlot } from "./derive.js";
 import { syntaxProfileMatchesRequirements } from "./profile-match.js";
 import type {
+  ProductionConstituent,
   RuntimeSyntaxProfile,
   SurfaceRealization,
   SurfaceToken,
@@ -32,6 +33,8 @@ const compatibleProfilesCache = new WeakMap<
   LexicalProfileIndex,
   Map<string, readonly RuntimeSyntaxProfile[]>
 >();
+const staticCompatibilityKeyByConstituent = new WeakMap<ProductionConstituent, string>();
+const preparedCompatibilityKeyBySlot = new WeakMap<StructuralLexicalSlot, string>();
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -53,6 +56,18 @@ function compatibilityCacheKey(slot: StructuralLexicalSlot): string {
         value === undefined ? ["undefined"] : ["value", value],
       ]),
   ]);
+}
+
+export function prepareStaticCompatibilityCacheKey(
+  slot: StructuralLexicalSlot,
+  constituent: ProductionConstituent,
+): void {
+  let cacheKey = staticCompatibilityKeyByConstituent.get(constituent);
+  if (cacheKey === undefined) {
+    cacheKey = compatibilityCacheKey(slot);
+    staticCompatibilityKeyByConstituent.set(constituent, cacheKey);
+  }
+  preparedCompatibilityKeyBySlot.set(slot, cacheKey);
 }
 
 export function buildLexicalProfileIndex(
@@ -79,7 +94,7 @@ export function compatibleProfilesForSlot(
     byRequirements = new Map<string, readonly RuntimeSyntaxProfile[]>();
     compatibleProfilesCache.set(index, byRequirements);
   }
-  const cacheKey = compatibilityCacheKey(slot);
+  const cacheKey = preparedCompatibilityKeyBySlot.get(slot) ?? compatibilityCacheKey(slot);
   const cached = byRequirements.get(cacheKey);
   if (cached !== undefined) return cached;
 
