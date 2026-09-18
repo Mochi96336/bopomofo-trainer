@@ -158,6 +158,8 @@ export interface StaticCompatibleProfileWeights {
   readonly totalWeight: number;
 }
 
+export const TMP_STATIC_WEIGHT_PREPARED = new Set<StaticCompatibleProfileWeights>();
+
 const compatibleProfileGroupIndexCache = new WeakMap<
   readonly RuntimeSyntaxProfile[],
   ReadonlyMap<string, number>
@@ -214,6 +216,7 @@ export function tmpPreparedStaticCompatibleProfileWeights(
   }
   const prepared = { groups, weights, cumulativeWeights, totalWeight };
   byEntries.set(entriesById, prepared);
+  TMP_STATIC_WEIGHT_PREPARED.add(prepared);
   return prepared;
 }
 
