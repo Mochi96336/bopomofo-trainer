@@ -181,6 +181,13 @@ function compatibleProfileGroupIndex(
   return index;
 }
 
+function cachedStaticCompatibleProfileWeights(
+  compatible: readonly RuntimeSyntaxProfile[],
+  entriesById: ReadonlyMap<string, CatalogEntry>,
+): StaticCompatibleProfileWeights | undefined {
+  return staticCompatibleProfileWeightsCache.get(compatible)?.get(entriesById);
+}
+
 function preparedStaticCompatibleProfileWeights(
   compatible: readonly RuntimeSyntaxProfile[],
   entriesById: ReadonlyMap<string, CatalogEntry>,
@@ -251,6 +258,39 @@ function selectCompatibleProfile(
         }
       }
       selectedGroup ??= prepared.groups[prepared.groups.length - 1];
+      if (selectedGroup === undefined) throw new Error("formal syntax entry selection failed");
+      const entryProfiles = selectedGroup.profiles;
+      if (entryProfiles.length === 0) throw new Error("formal syntax profile group is empty");
+      const selectedProfileIndex = entryProfiles.length === 1
+        ? 0
+        : Math.floor(nextUnit(random) * entryProfiles.length);
+      return entryProfiles[selectedProfileIndex] ?? null;
+    }
+
+    const prepared = cachedStaticCompatibleProfileWeights(compatible, entriesById);
+    if (prepared !== undefined) {
+      let totalWeight = 0;
+      let lastEligibleGroup: CompatibleProfileGroup | undefined;
+      for (let index = 0; index < prepared.groups.length; index += 1) {
+        const group = prepared.groups[index]!;
+        if (usedEntryIds.has(group.entryId) && group.entryId !== reusableEntryId) continue;
+        lastEligibleGroup = group;
+        totalWeight += prepared.weights[index] ?? 0;
+      }
+      if (!(totalWeight > 0)) return null;
+
+      let target = nextUnit(random) * totalWeight;
+      let selectedGroup: CompatibleProfileGroup | undefined;
+      for (let index = 0; index < prepared.groups.length; index += 1) {
+        const group = prepared.groups[index]!;
+        if (usedEntryIds.has(group.entryId) && group.entryId !== reusableEntryId) continue;
+        target -= prepared.weights[index] ?? 0;
+        if (target < 0) {
+          selectedGroup = group;
+          break;
+        }
+      }
+      selectedGroup ??= lastEligibleGroup;
       if (selectedGroup === undefined) throw new Error("formal syntax entry selection failed");
       const entryProfiles = selectedGroup.profiles;
       if (entryProfiles.length === 0) throw new Error("formal syntax profile group is empty");
