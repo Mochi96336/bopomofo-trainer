@@ -1,0 +1,199 @@
+name: tmp post-306 deferred slot parity
+
+on:
+  push:
+    branches:
+      - agent/tmp-post306-deferred-slot-parity
+
+permissions:
+  contents: read
+
+env:
+  PRODUCTION_REF: a967cfd7e52d223a19fc39e28d79d314d83609af
+  CANDIDATE_REF: 361f24796382554f06160b04be04aef71a9e8f42
+
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+
+      - name: Product and structural byte parity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          run_product() {
+            local ref="$1"
+            local output="$2"
+            git checkout --force "$ref" >/dev/null
+            git clean -fd >/dev/null
+            npm run app:catalog >/dev/null
+            cat > .tmp-product-parity.ts <<'EOF'
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import { createFreshProgressForEnvironment, createProductEnvironment, createProductState } from "./src/product/session.js";
+
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "post306-deferred-slot-parity",
+            "guided",
+            "standard",
+          );
+          for (let round = 0; round < 2048; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            process.stdout.write(JSON.stringify({
+              round,
+              selection: state.round.selection,
+            }) + "\n");
+          }
+          EOF
+            node --import tsx .tmp-product-parity.ts > "$output"
+          }
+
+          run_structural() {
+            local ref="$1"
+            local output="$2"
+            git checkout --force "$ref" >/dev/null
+            git clean -fd >/dev/null
+            cat > .tmp-structural-parity.ts <<'EOF'
+          import type { RandomSource } from "./src/core/model.js";
+          import { stableRuntimeDigest } from "./src/core/stable-id.js";
+          import type { StructuralElement, StructuralLexicalSlot } from "./src/syntax/derive.js";
+          import { FORMAL_SYNTAX_RULES } from "./src/syntax/grammar.js";
+          import {
+            prepareStructuralSamplingContext,
+            sampleStructuralDerivation,
+          } from "./src/syntax/sample.js";
+
+          class SeededRandom implements RandomSource {
+            private state: number;
+            constructor(seed: number) { this.state = seed >>> 0; }
+            next(): number {
+              let value = this.state;
+              value ^= value << 13;
+              value ^= value >>> 17;
+              value ^= value << 5;
+              this.state = value >>> 0;
+              return this.state / 0x1_0000_0000;
+            }
+          }
+
+          function collectSlots(element: StructuralElement, target: StructuralLexicalSlot[]): void {
+            if (element.kind === "lexical-slot") {
+              target.push(element);
+              return;
+            }
+            for (const child of element.children) collectSlots(child, target);
+          }
+
+          function identityPreserved(shape: ReturnType<typeof sampleStructuralDerivation>): boolean {
+            if (shape === null) return true;
+            const treeSlots: StructuralLexicalSlot[] = [];
+            collectSlots(shape.root, treeSlots);
+            return treeSlots.length === shape.lexicalSlots.length
+              && treeSlots.every((slot, index) => slot === shape.lexicalSlots[index]);
+          }
+
+          const boundsCases = [
+            undefined,
+            {
+              maximumPhraseDepth: 1,
+              maximumClauseDepth: 1,
+              maximumClausesPerSentence: 1,
+              maximumLexicalEntriesPerUtterance: 4,
+            },
+            {
+              maximumPhraseDepth: 2,
+              maximumClauseDepth: 2,
+              maximumClausesPerSentence: 2,
+              maximumLexicalEntriesPerUtterance: 7,
+            },
+          ] as const;
+
+          for (let caseIndex = 0; caseIndex < boundsCases.length; caseIndex += 1) {
+            const bounds = boundsCases[caseIndex];
+            const context = bounds === undefined
+              ? prepareStructuralSamplingContext(FORMAL_SYNTAX_RULES)
+              : prepareStructuralSamplingContext(FORMAL_SYNTAX_RULES, bounds);
+            for (let seed = 1; seed <= 512; seed += 1) {
+              const shape = sampleStructuralDerivation({
+                rootCategory: "Sentence",
+                rules: FORMAL_SYNTAX_RULES,
+                random: new SeededRandom((seed * 2654435761 + caseIndex) >>> 0),
+                ...(bounds === undefined ? {} : { bounds }),
+              }, context);
+              process.stdout.write(JSON.stringify({
+                mode: "ordinary",
+                caseIndex,
+                seed,
+                shape,
+                identityPreserved: identityPreserved(shape),
+              }) + "\n");
+            }
+          }
+
+          const legacyContext = prepareStructuralSamplingContext(FORMAL_SYNTAX_RULES);
+          for (let seed = 1; seed <= 512; seed += 1) {
+            const callbackTrace: object[] = [];
+            const shape = sampleStructuralDerivation({
+              rootCategory: "Sentence",
+              rules: FORMAL_SYNTAX_RULES,
+              random: new SeededRandom((seed * 2246822519) >>> 0),
+              isLexicalSlotReachable: (slot) => {
+                callbackTrace.push({
+                  keys: Object.keys(slot),
+                  id: slot.id,
+                  constituentKey: slot.constituentKey,
+                  occurrenceIndex: slot.occurrenceIndex,
+                  allowedUpos: slot.allowedUpos,
+                  requiredFunctions: slot.requiredFunctions,
+                  requiredValencyFrames: slot.requiredValencyFrames,
+                  requiredOccurrenceCapabilities: slot.requiredOccurrenceCapabilities ?? [],
+                  requiredFeatures: slot.requiredFeatures,
+                  entryBindingId: slot.entryBindingId ?? null,
+                  formalLiteral: slot.formalLiteral ?? null,
+                });
+                return !slot.requiredValencyFrames.includes("transitive");
+              },
+            }, legacyContext);
+            process.stdout.write(JSON.stringify({
+              mode: "legacy-callback",
+              seed,
+              shape,
+              callbackDigest: stableRuntimeDigest(callbackTrace),
+              callbackCount: callbackTrace.length,
+              identityPreserved: identityPreserved(shape),
+            }) + "\n");
+          }
+          EOF
+            node --import tsx .tmp-structural-parity.ts > "$output"
+          }
+
+          run_product "$PRODUCTION_REF" "$RUNNER_TEMP/product-production.jsonl"
+          run_product "$CANDIDATE_REF" "$RUNNER_TEMP/product-candidate.jsonl"
+          cmp "$RUNNER_TEMP/product-production.jsonl" "$RUNNER_TEMP/product-candidate.jsonl"
+          sha256sum "$RUNNER_TEMP/product-production.jsonl" "$RUNNER_TEMP/product-candidate.jsonl"
+          wc -l "$RUNNER_TEMP/product-production.jsonl" "$RUNNER_TEMP/product-candidate.jsonl"
+
+          run_structural "$PRODUCTION_REF" "$RUNNER_TEMP/structural-production.jsonl"
+          run_structural "$CANDIDATE_REF" "$RUNNER_TEMP/structural-candidate.jsonl"
+          cmp "$RUNNER_TEMP/structural-production.jsonl" "$RUNNER_TEMP/structural-candidate.jsonl"
+          sha256sum "$RUNNER_TEMP/structural-production.jsonl" "$RUNNER_TEMP/structural-candidate.jsonl"
+          wc -l "$RUNNER_TEMP/structural-production.jsonl" "$RUNNER_TEMP/structural-candidate.jsonl"
