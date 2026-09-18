@@ -122,7 +122,6 @@ interface Sampled {
   readonly element: PendingStructuralElement;
   readonly state: State;
   readonly rulePath: readonly string[];
-  readonly slots: readonly StructuralLexicalSlot[];
   readonly slotContexts: readonly SampledLexicalSlotContext[];
 }
 
@@ -130,7 +129,6 @@ interface SampledRuleChildren {
   readonly state: State;
   readonly children: readonly PendingStructuralElement[];
   readonly rulePath: readonly string[];
-  readonly slots: readonly StructuralLexicalSlot[];
   readonly slotContexts: readonly SampledLexicalSlotContext[];
 }
 
@@ -578,7 +576,6 @@ function sampleRuleChildren(
 ): SampledRuleChildren | null {
   let workingState = inputState;
   const children: PendingStructuralElement[] = [];
-  const slots: StructuralLexicalSlot[] = [];
   const slotContexts: SampledLexicalSlotContext[] = [];
   const rulePath: string[] = [];
 
@@ -614,7 +611,6 @@ function sampleRuleChildren(
         );
         if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) return null;
         children.push(slot);
-        slots.push(slot);
         slotContexts.push({
           slot,
           enclosingRequiredFunctions: requirements.requiredFunctions,
@@ -642,7 +638,6 @@ function sampleRuleChildren(
       );
       if (child === null) return null;
       children.push(child.element);
-      slots.push(...child.slots);
       slotContexts.push(...child.slotContexts);
       rulePath.push(...child.rulePath);
       workingState = child.state;
@@ -653,7 +648,6 @@ function sampleRuleChildren(
     state: workingState,
     children,
     rulePath,
-    slots,
     slotContexts,
   };
 }
@@ -766,7 +760,6 @@ function sampleCategory(
       element: node,
       state: sampledChildren.state,
       rulePath: [rule.id, ...sampledChildren.rulePath],
-      slots: sampledChildren.slots,
       slotContexts: sampledChildren.slotContexts,
     };
   }
@@ -885,6 +878,21 @@ function lexicalSlotMatchesConstraint(
   );
 }
 
+function lexicalSlotsFromPendingTree(
+  root: PendingStructuralElement,
+): readonly StructuralLexicalSlot[] {
+  const slots: StructuralLexicalSlot[] = [];
+  const visit = (element: PendingStructuralElement): void => {
+    if (element.kind === "lexical-slot") {
+      slots.push(element);
+      return;
+    }
+    for (const child of element.children) visit(child);
+  };
+  visit(root);
+  return slots;
+}
+
 export function sampleStructuralDerivation(
   options: StructuralSamplingOptions,
   preparedContext?: PreparedStructuralSamplingContext,
@@ -947,7 +955,7 @@ export function sampleStructuralDerivation(
       grammarVersion: FORMAL_GRAMMAR_VERSION,
       root: materializedRoot.element,
       productionRulePath: sampled.rulePath,
-      lexicalSlots: sampled.slots,
+      lexicalSlots: lexicalSlotsFromPendingTree(sampled.element),
       clauseCount: sampled.state.clauseCount,
       lexicalSlotCount: sampled.state.lexicalCount,
     };
