@@ -49,7 +49,7 @@ const output = process.env.OUTPUT_PATH!;
 const write = (
   scenario: string,
   seed: number,
-  options: Parameters<typeof sampleStructuralDerivation>[0],
+  options: Omit<Parameters<typeof sampleStructuralDerivation>[0], "random">,
   context?: PreparedStructuralSamplingContext,
 ) => {
   const shape = sampleStructuralDerivation(
