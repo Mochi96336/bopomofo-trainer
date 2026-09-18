@@ -350,8 +350,20 @@ describe("prepared structural sampling context", () => {
       rules,
       random: new SequenceRandom([0]),
     }, prepared);
+    const reconstructedPrepared = {
+      rules: prepared.rules,
+      bounds: prepared.bounds,
+      rulesByOutput: prepared.rulesByOutput,
+      orderedConstituentsBySurfaceOrder: prepared.orderedConstituentsBySurfaceOrder,
+    };
+    const reconstructed = sampleStructuralDerivation({
+      rootCategory: "Sentence",
+      rules,
+      random: new SequenceRandom([0]),
+    }, reconstructedPrepared);
 
     expect(reused).toEqual(raw);
+    expect(reconstructed).toEqual(raw);
     expect(() => sampleStructuralDerivation({
       rootCategory: "Sentence",
       rules: [...rules],
