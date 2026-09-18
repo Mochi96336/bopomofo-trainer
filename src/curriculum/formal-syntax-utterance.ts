@@ -231,6 +231,7 @@ function selectCompatibleProfile(
     && (previousEntry === null || lexicalCompatibility === undefined);
   if (useStaticDefaultWeights) {
     const groupIndexByEntryId = compatibleProfileGroupIndex(compatible);
+    const prepared = preparedStaticCompatibleProfileWeights(compatible, entriesById);
     let hasExcludedCompatibleEntry = false;
     for (const entryId of usedEntryIds) {
       if (entryId !== reusableEntryId && groupIndexByEntryId.has(entryId)) {
@@ -238,27 +239,41 @@ function selectCompatibleProfile(
         break;
       }
     }
-    if (!hasExcludedCompatibleEntry) {
-      const prepared = preparedStaticCompatibleProfileWeights(compatible, entriesById);
-      if (!(prepared.totalWeight > 0)) return null;
-      let target = nextUnit(random) * prepared.totalWeight;
-      let selectedGroup: CompatibleProfileGroup | undefined;
+
+    let totalWeight = prepared.totalWeight;
+    if (hasExcludedCompatibleEntry) {
+      totalWeight = 0;
       for (let index = 0; index < prepared.groups.length; index += 1) {
-        target -= prepared.weights[index] ?? 0;
-        if (target < 0) {
-          selectedGroup = prepared.groups[index];
-          break;
-        }
+        const group = prepared.groups[index]!;
+        if (usedEntryIds.has(group.entryId) && group.entryId !== reusableEntryId) continue;
+        totalWeight += prepared.weights[index] ?? 0;
       }
-      selectedGroup ??= prepared.groups[prepared.groups.length - 1];
-      if (selectedGroup === undefined) throw new Error("formal syntax entry selection failed");
-      const entryProfiles = selectedGroup.profiles;
-      if (entryProfiles.length === 0) throw new Error("formal syntax profile group is empty");
-      const selectedProfileIndex = entryProfiles.length === 1
-        ? 0
-        : Math.floor(nextUnit(random) * entryProfiles.length);
-      return entryProfiles[selectedProfileIndex] ?? null;
     }
+    if (!(totalWeight > 0)) return null;
+
+    let target = nextUnit(random) * totalWeight;
+    let selectedGroup: CompatibleProfileGroup | undefined;
+    let lastEligibleGroup: CompatibleProfileGroup | undefined;
+    for (let index = 0; index < prepared.groups.length; index += 1) {
+      const group = prepared.groups[index]!;
+      if (hasExcludedCompatibleEntry
+        && usedEntryIds.has(group.entryId)
+        && group.entryId !== reusableEntryId) continue;
+      lastEligibleGroup = group;
+      target -= prepared.weights[index] ?? 0;
+      if (target < 0) {
+        selectedGroup = group;
+        break;
+      }
+    }
+    selectedGroup ??= lastEligibleGroup;
+    if (selectedGroup === undefined) throw new Error("formal syntax entry selection failed");
+    const entryProfiles = selectedGroup.profiles;
+    if (entryProfiles.length === 0) throw new Error("formal syntax profile group is empty");
+    const selectedProfileIndex = entryProfiles.length === 1
+      ? 0
+      : Math.floor(nextUnit(random) * entryProfiles.length);
+    return entryProfiles[selectedProfileIndex] ?? null;
   }
 
   const groups = groupedCompatibleProfiles(compatible);
