@@ -1,0 +1,164 @@
+name: tmp static weight binary boundary parity
+
+on:
+  push:
+    branches:
+      - agent/tmp-static-weight-binary-boundary-parity
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run app:catalog
+      - name: Probe floating-point selection boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .tmp-static-weight-boundary-parity.ts <<'EOF'
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import {
+            TMP_STATIC_WEIGHT_PREPARED,
+          } from "./src/curriculum/formal-syntax-utterance.js";
+          import {
+            createFreshProgressForEnvironment,
+            createProductEnvironment,
+            createProductState,
+          } from "./src/product/session.js";
+
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "static-weight-boundary-parity",
+            "guided",
+            "standard",
+          );
+          for (let round = 0; round < 256; round += 1) {
+            createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+          }
+
+          const buffer = new ArrayBuffer(8);
+          const view = new DataView(buffer);
+          function bits(value: number): bigint {
+            view.setFloat64(0, value, false);
+            return view.getBigUint64(0, false);
+          }
+          function fromBits(value: bigint): number {
+            view.setBigUint64(0, value, false);
+            return view.getFloat64(0, false);
+          }
+          function nextUp(value: number): number {
+            if (Number.isNaN(value) || value === Infinity) return value;
+            if (Object.is(value, -0)) return Number.MIN_VALUE;
+            if (value === 0) return Number.MIN_VALUE;
+            const b = bits(value);
+            return fromBits(value > 0 ? b + 1n : b - 1n);
+          }
+          function nextDown(value: number): number {
+            if (Number.isNaN(value) || value === -Infinity) return value;
+            if (Object.is(value, 0) || Object.is(value, +0)) return -Number.MIN_VALUE;
+            const b = bits(value);
+            return fromBits(value > 0 ? b - 1n : b + 1n);
+          }
+          function oldIndex(weights: readonly number[], totalWeight: number, unit: number): number {
+            let target = unit * totalWeight;
+            for (let index = 0; index < weights.length; index += 1) {
+              target -= weights[index] ?? 0;
+              if (target < 0) return index;
+            }
+            return weights.length - 1;
+          }
+          function binaryIndex(cumulativeWeights: readonly number[], totalWeight: number, unit: number): number {
+            const target = unit * totalWeight;
+            let low = 0;
+            let high = cumulativeWeights.length;
+            while (low < high) {
+              const middle = (low + high) >>> 1;
+              if (target < cumulativeWeights[middle]!) high = middle;
+              else low = middle + 1;
+            }
+            return Math.min(low, cumulativeWeights.length - 1);
+          }
+          function validUnit(value: number): boolean {
+            return Number.isFinite(value) && value >= 0 && value < 1;
+          }
+
+          let preparedCount = 0;
+          let boundaryCount = 0;
+          let checkedUnits = 0;
+          let mismatchCount = 0;
+          const mismatchSamples: object[] = [];
+          let totalGroups = 0;
+          let maxGroups = 0;
+          for (const prepared of TMP_STATIC_WEIGHT_PREPARED) {
+            preparedCount += 1;
+            totalGroups += prepared.groups.length;
+            maxGroups = Math.max(maxGroups, prepared.groups.length);
+            for (let index = 0; index < prepared.cumulativeWeights.length - 1; index += 1) {
+              boundaryCount += 1;
+              const unit = prepared.cumulativeWeights[index]! / prepared.totalWeight;
+              const candidates = [
+                nextDown(nextDown(unit)),
+                nextDown(unit),
+                unit,
+                nextUp(unit),
+                nextUp(nextUp(unit)),
+              ];
+              for (const candidate of candidates) {
+                if (!validUnit(candidate)) continue;
+                checkedUnits += 1;
+                const old = oldIndex(prepared.weights, prepared.totalWeight, candidate);
+                const binary = binaryIndex(
+                  prepared.cumulativeWeights,
+                  prepared.totalWeight,
+                  candidate,
+                );
+                if (old !== binary) {
+                  mismatchCount += 1;
+                  if (mismatchSamples.length < 20) {
+                    mismatchSamples.push({
+                      groups: prepared.groups.length,
+                      boundaryIndex: index,
+                      unit,
+                      candidate,
+                      old,
+                      binary,
+                      cumulative: prepared.cumulativeWeights[index],
+                      totalWeight: prepared.totalWeight,
+                    });
+                  }
+                }
+              }
+            }
+          }
+          console.log(JSON.stringify({
+            preparedCount,
+            totalGroups,
+            maxGroups,
+            boundaryCount,
+            checkedUnits,
+            mismatchCount,
+            mismatchSamples,
+          }, null, 2));
+          if (mismatchCount !== 0) {
+            throw new Error(`binary selection mismatched old subtraction at ${mismatchCount} boundary probes`);
+          }
+          EOF
+          node --import tsx .tmp-static-weight-boundary-parity.ts
