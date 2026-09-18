@@ -11,7 +11,7 @@ permissions:
 env:
   PRODUCTION_REF: a967cfd7e52d223a19fc39e28d79d314d83609af
   CANDIDATE_REF: agent/tmp-post306-deferred-slot-materialization-ab
-  SAMPLE_COUNT: 256
+  SAMPLE_COUNT: 512
 
 jobs:
   paired-benchmark:
