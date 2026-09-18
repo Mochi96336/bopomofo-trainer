@@ -1,0 +1,66 @@
+name: tmp post-306 slot survival attribution
+
+on:
+  push:
+    branches:
+      - agent/tmp-post306-slot-survival-attribution
+
+permissions:
+  contents: read
+
+jobs:
+  attribute:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run app:catalog
+      - name: Attribute lexical slot survival
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .tmp-slot-survival.ts <<'EOF'
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import { createFreshProgressForEnvironment, createProductEnvironment, createProductState } from "./src/product/session.js";
+          import { TMP_SLOT_SURVIVAL_ATTRIBUTION as counters } from "./src/syntax/sample.js";
+
+          const rounds = 256;
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "post306-slot-survival-attribution",
+            "guided",
+            "standard",
+          );
+          let attemptTotal = 0;
+          let finalSlots = 0;
+          for (let round = 0; round < rounds; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            attemptTotal += state.round.selection.generationAttempts;
+            finalSlots += state.round.selection.utterance.syntaxProfileIds?.length ?? 0;
+          }
+          console.log(JSON.stringify({
+            rounds,
+            attemptTotal,
+            created: counters.created,
+            returned: counters.returned,
+            successfulDerivations: counters.successfulDerivations,
+            survivalPct: Number((counters.returned / counters.created * 100).toFixed(2)),
+            discarded: counters.created - counters.returned,
+            discardedPct: Number(((counters.created - counters.returned) / counters.created * 100).toFixed(2)),
+          }, null, 2));
+          EOF
+          node --import tsx .tmp-slot-survival.ts
