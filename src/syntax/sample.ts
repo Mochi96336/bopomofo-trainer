@@ -145,7 +145,75 @@ const CLAUSE_LIKE = new Set<SyntaxCategory>([
 ]);
 
 const DETERMINISTIC_MINIMUM_RANDOM: RandomSource = { next: () => 0 };
+const NO_EXCLUDED_RULE_CLASSES = new Set<ProductionRuleClass>();
 
+interface EligibleRuleVariants {
+  readonly nestedDefault: readonly ProductionRule[];
+  readonly nestedRequested: Map<string, readonly ProductionRule[]>;
+  readonly rootDefault: readonly ProductionRule[];
+  readonly rootRequested: Map<string, readonly ProductionRule[]>;
+}
+
+const eligibleRuleVariantsCache = new WeakMap<
+  ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
+  Map<SyntaxCategory, WeakMap<ReadonlySet<ProductionRuleClass>, EligibleRuleVariants>>
+>();
+
+function eligibleRulesForCategory(
+  category: SyntaxCategory,
+  rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
+  bounds: DerivationBounds,
+  excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
+  isRoot: boolean,
+  rootProductionRuleId: string | undefined,
+  requestedProductionRuleId: string | undefined,
+): readonly ProductionRule[] {
+  let byCategory = eligibleRuleVariantsCache.get(rulesByOutput);
+  if (byCategory === undefined) {
+    byCategory = new Map();
+    eligibleRuleVariantsCache.set(rulesByOutput, byCategory);
+  }
+  let byExclusion = byCategory.get(category);
+  if (byExclusion === undefined) {
+    byExclusion = new WeakMap();
+    byCategory.set(category, byExclusion);
+  }
+  let variants = byExclusion.get(excludedRuleClasses);
+  if (variants === undefined) {
+    const base = (rulesByOutput.get(category) ?? [])
+      .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses));
+    variants = {
+      nestedDefault: base,
+      nestedRequested: new Map(),
+      rootDefault: base,
+      rootRequested: new Map(),
+    };
+    byExclusion.set(excludedRuleClasses, variants);
+  }
+
+  if (isRoot) {
+    const rootId = rootProductionRuleId;
+    const requestedId = requestedProductionRuleId;
+    if (rootId === undefined && requestedId === undefined) return variants.rootDefault;
+    const key = `${rootId ?? ""}\u0000${requestedId ?? ""}`;
+    const cached = variants.rootRequested.get(key);
+    if (cached !== undefined) return cached;
+    const filtered = variants.rootDefault
+      .filter((rule) => rootId === undefined || rule.id === rootId)
+      .filter((rule) => requestedId === undefined || rule.id === requestedId);
+    variants.rootRequested.set(key, filtered);
+    return filtered;
+  }
+
+  if (requestedProductionRuleId === undefined) return variants.nestedDefault;
+  const cached = variants.nestedRequested.get(requestedProductionRuleId);
+  if (cached !== undefined) return cached;
+  const filtered = variants.nestedDefault.filter(
+    (rule) => rule.id === requestedProductionRuleId,
+  );
+  variants.nestedRequested.set(requestedProductionRuleId, filtered);
+  return filtered;
+}
 
 function canonicalFeatureSetJson(features: SyntaxFeatureSet): string {
   const fields = Object.keys(features)
@@ -610,10 +678,15 @@ function sampleCategory(
     if (state.clauseCount >= bounds.maximumClausesPerSentence) return null;
     state = { ...state, clauseCount: state.clauseCount + 1 };
   }
-  const eligibleRules = (rulesByOutput.get(category) ?? [])
-    .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses))
-    .filter((rule) => !isRoot || rootProductionRuleId === undefined || rule.id === rootProductionRuleId)
-    .filter((rule) => requestedProductionRuleId === undefined || rule.id === requestedProductionRuleId);
+  const eligibleRules = eligibleRulesForCategory(
+    category,
+    rulesByOutput,
+    bounds,
+    excludedRuleClasses,
+    isRoot,
+    rootProductionRuleId,
+    requestedProductionRuleId,
+  );
   // BAPredicate alternatives are licensing fallbacks, not a product-probability
   // dimension. Keep the reviewed path first; productive paths use a local
   // deterministic source. Nested Clause candidates independently retain #248's
@@ -841,7 +914,7 @@ export function sampleStructuralDerivation(
       },
       extendSamplingPath(null, options.rootCategory),
       options.isLexicalSlotReachable,
-      new Set(),
+      NO_EXCLUDED_RULE_CLASSES,
       requestedRootRuleId,
       nestedProductionTargets,
       true,
