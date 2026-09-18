@@ -112,12 +112,13 @@ interface State {
   lexicalCount: number;
 }
 
-type PendingLexicalSlot = readonly [
-  constituent: ProductionConstituent,
-  requirements: SyntaxRequirements,
-  occurrenceIndex: number,
-  parentPath: SamplingPathNode,
-];
+interface PendingLexicalSlot {
+  readonly kind: "pending-lexical-slot";
+  readonly constituent: ProductionConstituent;
+  readonly requirements: SyntaxRequirements;
+  readonly occurrenceIndex: number;
+  readonly parentPath: SamplingPathNode;
+}
 
 type SampledLexicalSlot = StructuralLexicalSlot | PendingLexicalSlot;
 
@@ -294,7 +295,7 @@ function syntaxNodeCanonicalJson(
 const materializedPendingLexicalSlots = new WeakMap<object, StructuralLexicalSlot>();
 
 function isPendingLexicalSlot(slot: SampledLexicalSlot): slot is PendingLexicalSlot {
-  return Array.isArray(slot);
+  return slot.kind === "pending-lexical-slot";
 }
 
 function materializeSampledLexicalSlot(
@@ -303,13 +304,12 @@ function materializeSampledLexicalSlot(
   if (!isPendingLexicalSlot(slot)) return slot;
   const cached = materializedPendingLexicalSlots.get(slot);
   if (cached !== undefined) return cached;
-  const [constituent, requirements, occurrenceIndex, parentPath] = slot;
   const materialized = makeSlot(
-    constituent,
-    requirements,
-    occurrenceIndex,
-    parentPath,
-    constituent.key,
+    slot.constituent,
+    slot.requirements,
+    slot.occurrenceIndex,
+    slot.parentPath,
+    slot.constituent.key,
   );
   materializedPendingLexicalSlots.set(slot, materialized);
   return materialized;
@@ -323,7 +323,7 @@ interface MaterializedPendingElement {
 function materializePendingElement(
   pending: PendingStructuralElement,
 ): MaterializedPendingElement {
-  if (Array.isArray(pending)) {
+  if (pending.kind === "pending-lexical-slot") {
     const materialized = materializeSampledLexicalSlot(pending);
     return { element: materialized, canonicalSource: lexicalSlotCanonicalJson(materialized) };
   }
@@ -706,7 +706,13 @@ function sampleRuleChildren(
           if (!isLexicalSlotReachable(materialized)) return null;
           slot = materialized;
         } else {
-          slot = [constituent, childRequirements, occurrenceIndex, path] as const;
+          slot = {
+            kind: "pending-lexical-slot",
+            constituent,
+            requirements: childRequirements,
+            occurrenceIndex,
+            parentPath: path,
+          };
         }
         children.push(slot);
         slots.push(slot);
@@ -987,7 +993,7 @@ function lexicalSlotMatchesConstraint(
   required: RequiredLexicalSlotConstraint,
 ): boolean {
   const slotRequirements = isPendingLexicalSlot(context.slot)
-    ? context.slot[1]
+    ? context.slot.requirements
     : context.slot;
   const requiredFeatures = required.requiredFeatures ?? {};
   const featuresMatch = (Object.keys(requiredFeatures) as SyntaxFeatureName[]).every((feature) =>
