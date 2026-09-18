@@ -11,7 +11,7 @@ permissions:
 env:
   PRODUCTION_REF: 5320baeb1953d7c243c2e584952b88ee144637f2
   CANDIDATE_REF: agent/tmp-post304-static-exclusion-weight-reuse-ab
-  SAMPLE_COUNT: 256
+  SAMPLE_COUNT: 512
 
 jobs:
   paired-benchmark:
