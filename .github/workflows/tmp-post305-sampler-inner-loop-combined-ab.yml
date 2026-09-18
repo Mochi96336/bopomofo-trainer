@@ -11,7 +11,7 @@ permissions:
 env:
   PRODUCTION_REF: b6d531f1df8ae67108232ecbd0b9bd2074e5dedc
   CANDIDATE_REF: agent/tmp-post305-sampler-inner-loop-combined-ab
-  SAMPLE_COUNT: 256
+  SAMPLE_COUNT: 512
 
 jobs:
   paired-benchmark:
