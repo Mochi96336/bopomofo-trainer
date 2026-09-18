@@ -24,6 +24,7 @@ import {
   requirementsForConstituent,
   type SyntaxRequirements,
 } from "./requirements.js";
+import { prepareStaticCompatibilityCacheKey } from "./realize.js";
 import type {
   DerivationBounds,
   ProductionConstituent,
@@ -559,6 +560,17 @@ function nestedTargetKey(parentRuleId: string, constituentKey: string): string {
   return `${parentRuleId}\u0000${constituentKey}`;
 }
 
+function hasDynamicInheritedContribution(
+  constituent: ProductionConstituent,
+  parent: SyntaxRequirements,
+): boolean {
+  if (constituent.inheritFunctions === true && parent.requiredFunctions.length > 0) return true;
+  if (constituent.inheritValencyFrames === true && parent.requiredValencyFrames.length > 0) return true;
+  if (constituent.inheritOccurrenceCapabilities === true
+    && parent.requiredOccurrenceCapabilities.length > 0) return true;
+  return constituent.inheritFeatures === true && Object.keys(parent.requiredFeatures).length > 0;
+}
+
 function sampleRuleChildren(
   parentRuleId: string,
   ordered: readonly ProductionConstituent[],
@@ -612,6 +624,9 @@ function sampleRuleChildren(
           occurrenceIndex,
           extendSamplingPath(path, constituent.key),
         );
+        if (!hasDynamicInheritedContribution(constituent, requirements)) {
+          prepareStaticCompatibilityCacheKey(slot, constituent);
+        }
         if (isLexicalSlotReachable !== undefined && !isLexicalSlotReachable(slot)) return null;
         children.push(slot);
         slots.push(slot);
