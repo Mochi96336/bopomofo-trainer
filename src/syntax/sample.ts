@@ -520,13 +520,34 @@ function bindingId(constituent: ProductionConstituent, path: SamplingPathNode): 
   return `${parentPath === null ? "" : materializeSamplingPath(parentPath).join("/")}:${constituent.entryBinding}`;
 }
 
+export const TMP_SLOT_SHAPE_ATTRIBUTION = {
+  created: 0,
+  idReads: 0,
+  binding: 0,
+  formalLiteral: 0,
+  occurrenceRequirement: 0,
+  allThreeOptional: 0,
+  noOptional: 0,
+};
+
 function makeSlot(
   constituent: ProductionConstituent,
   requirements: SyntaxRequirements,
   occurrenceIndex: number,
   path: SamplingPathNode,
 ): StructuralLexicalSlot {
+  TMP_SLOT_SHAPE_ATTRIBUTION.created += 1;
   const entryBindingId = bindingId(constituent, path);
+  const hasOccurrenceRequirement = requirements.requiredOccurrenceCapabilities.length > 0;
+  if (entryBindingId !== undefined) TMP_SLOT_SHAPE_ATTRIBUTION.binding += 1;
+  if (constituent.formalLiteral !== undefined) TMP_SLOT_SHAPE_ATTRIBUTION.formalLiteral += 1;
+  if (hasOccurrenceRequirement) TMP_SLOT_SHAPE_ATTRIBUTION.occurrenceRequirement += 1;
+  if (entryBindingId !== undefined && constituent.formalLiteral !== undefined && hasOccurrenceRequirement) {
+    TMP_SLOT_SHAPE_ATTRIBUTION.allThreeOptional += 1;
+  }
+  if (entryBindingId === undefined && constituent.formalLiteral === undefined && !hasOccurrenceRequirement) {
+    TMP_SLOT_SHAPE_ATTRIBUTION.noOptional += 1;
+  }
   const occurrenceRequirement = requirements.requiredOccurrenceCapabilities.length === 0
     ? {}
     : { requiredOccurrenceCapabilities: requirements.requiredOccurrenceCapabilities };
@@ -534,6 +555,7 @@ function makeSlot(
   return {
     kind: "lexical-slot",
     get id() {
+      TMP_SLOT_SHAPE_ATTRIBUTION.idReads += 1;
       cachedId ??= `syntax-slot:${stableRuntimeDigestCanonicalJson(lexicalSlotIdentityCanonicalJson(
         constituent,
         requirements,
