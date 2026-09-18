@@ -555,12 +555,7 @@ function makeSlot(
   };
 }
 
-function nestedTargetKey(parentRuleId: string, constituentKey: string): string {
-  return `${parentRuleId}\u0000${constituentKey}`;
-}
-
 function sampleRuleChildren(
-  parentRuleId: string,
   ordered: readonly ProductionConstituent[],
   requirements: SyntaxRequirements,
   rulesByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>,
@@ -572,7 +567,7 @@ function sampleRuleChildren(
   path: SamplingPathNode,
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   rootProductionRuleId: string | undefined,
-  nestedProductionTargets: ReadonlyMap<string, ValidatedNestedProductionTarget>,
+  nestedProductionTargets: ReadonlyMap<ProductionConstituent, ValidatedNestedProductionTarget>,
   fixedCounts?: ConstituentCounts,
   deterministicCounts = false,
 ): SampledRuleChildren | null {
@@ -585,9 +580,7 @@ function sampleRuleChildren(
   for (const constituent of ordered) {
     const maximum = effectiveConstituentMaximum(constituent, bounds);
     if (maximum < constituent.minimum) return null;
-    const target = nestedProductionTargets.get(
-      nestedTargetKey(parentRuleId, constituent.key),
-    );
+    const target = nestedProductionTargets.get(constituent);
     const count = fixedCounts === undefined
       ? target?.exactCount ?? (
           deterministicCounts
@@ -671,7 +664,7 @@ function sampleCategory(
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   excludedRuleClassMask: number,
   rootProductionRuleId: string | undefined,
-  nestedProductionTargets: ReadonlyMap<string, ValidatedNestedProductionTarget>,
+  nestedProductionTargets: ReadonlyMap<ProductionConstituent, ValidatedNestedProductionTarget>,
   isRoot: boolean,
   requestedProductionRuleId?: string,
 ): Sampled | null {
@@ -726,9 +719,7 @@ function sampleCategory(
     if (rule.constraints.length > 0) {
       const assignments = [...validConstituentCountAssignments(rule, bounds)].filter((assignment) =>
         rule.constituents.every((constituent) => {
-          const exactCount = nestedProductionTargets.get(
-            nestedTargetKey(rule.id, constituent.key),
-          )?.exactCount;
+          const exactCount = nestedProductionTargets.get(constituent)?.exactCount;
           return exactCount === undefined || assignment[constituent.key] === exactCount;
         }),
       );
@@ -737,7 +728,6 @@ function sampleCategory(
     }
 
     const sampledChildren = sampleRuleChildren(
-      rule.id,
       ordered as readonly ProductionConstituent[],
       requirements,
       rulesByOutput,
@@ -786,9 +776,9 @@ function validatedRootRuleId(options: StructuralSamplingOptions): string | undef
 function validatedNestedProductionTargets(
   options: StructuralSamplingOptions,
   bounds: DerivationBounds,
-): ReadonlyMap<string, ValidatedNestedProductionTarget> {
+): ReadonlyMap<ProductionConstituent, ValidatedNestedProductionTarget> {
   const rulesById = new Map(options.rules.map((rule) => [rule.id, rule]));
-  const targets = new Map<string, ValidatedNestedProductionTarget>();
+  const targets = new Map<ProductionConstituent, ValidatedNestedProductionTarget>();
   for (const target of options.nestedProductionTargets ?? []) {
     const parent = rulesById.get(target.parentRuleId);
     if (parent === undefined) {
@@ -831,13 +821,12 @@ function validatedNestedProductionTargets(
         );
       }
     }
-    const key = nestedTargetKey(target.parentRuleId, target.constituentKey);
-    if (targets.has(key)) {
+    if (targets.has(constituent)) {
       throw new Error(
         `nested production target duplicates parent constituent: ${target.parentRuleId}:${target.constituentKey}`,
       );
     }
-    targets.set(key, {
+    targets.set(constituent, {
       ...(target.childRuleId === undefined ? {} : { childRuleId: target.childRuleId }),
       ...(target.exactCount === undefined ? {} : { exactCount: target.exactCount }),
     });
