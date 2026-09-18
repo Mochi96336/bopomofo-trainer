@@ -14,6 +14,7 @@ import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";
 import { PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY } from "../syntax/runtime-occurrence-capabilities.js";
 import {
   buildLexicalProfileIndex,
+  compatibleProfilesForRequirements,
   compatibleProfilesForSlot,
   realizeStructuralDerivationWithIndex,
   type LexicalProfileIndex,
@@ -586,9 +587,9 @@ export function composeFormalSyntaxUtterances(
       ...(argumentRealizationPractice?.requiredProductionRuleIdsAnyOf === undefined
         ? {}
         : { requiredProductionRuleIdsAnyOf: argumentRealizationPractice.requiredProductionRuleIdsAnyOf }),
-      isLexicalSlotReachable: (slot) => {
-        if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") return true;
-        return compatibleProfilesForSlot(slot, index).length > 0;
+      isLexicalRequirementsReachable: (constituent, requirements) => {
+        if (constituent.allowedUpos.length === 1 && constituent.allowedUpos[0] === "PUNCT") return true;
+        return compatibleProfilesForRequirements(constituent, requirements, index).length > 0;
       },
       ...(input.bounds === undefined ? {} : { bounds: input.bounds }),
       ...(rootProductionRuleId === undefined ? {} : { rootProductionRuleId }),
