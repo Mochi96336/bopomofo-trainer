@@ -3,14 +3,14 @@ name: tmp nested target object key api safe benchmark
 on:
   push:
     branches:
-      - agent/tmp-nested-target-object-key-api-safe-api-safe-ab
+      - agent/tmp-nested-target-object-key-api-safe-ab
 
 permissions:
   contents: read
 
 env:
   PRODUCTION_REF: 5320baeb1953d7c243c2e584952b88ee144637f2
-  CANDIDATE_REF: agent/tmp-nested-target-object-key-api-safe-api-safe-ab
+  CANDIDATE_REF: agent/tmp-nested-target-object-key-api-safe-ab
   SAMPLE_COUNT: 256
 
 jobs:
