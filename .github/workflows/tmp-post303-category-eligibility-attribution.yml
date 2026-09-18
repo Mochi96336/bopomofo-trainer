@@ -1,0 +1,85 @@
+name: tmp post-303 category eligibility attribution
+
+on:
+  push:
+    branches:
+      - agent/tmp-post303-category-eligibility-attribution
+
+permissions:
+  contents: read
+
+jobs:
+  attribute:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run app:catalog
+      - name: Attribute category eligibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .tmp-category-eligibility-attribution.ts <<'EOF'
+          import { EVALUATION_CATALOG, PRACTICE_CATALOG, SYNTAX_PROFILES } from "./src/app/generated/catalog.js";
+          import { stableRuntimeDigest } from "./src/core/stable-id.js";
+          import { createFreshProgressForEnvironment, createProductEnvironment, createProductState } from "./src/product/session.js";
+          import { TMP_CATEGORY_ELIGIBILITY_ATTRIBUTION as counters } from "./src/syntax/sample.js";
+
+          const rounds = 256;
+          const environment = createProductEnvironment({
+            practice: PRACTICE_CATALOG,
+            evaluation: EVALUATION_CATALOG,
+            syntaxProfiles: SYNTAX_PROFILES,
+          });
+          const baseProgress = createFreshProgressForEnvironment(
+            environment,
+            "post-303-category-eligibility-attribution",
+            "guided",
+            "standard",
+          );
+          const outputs: object[] = [];
+          let attemptTotal = 0;
+          for (let round = 0; round < rounds; round += 1) {
+            const state = createProductState(
+              environment,
+              { ...baseProgress, practiceRoundsCompleted: round },
+              0,
+            );
+            const selection = state.round.selection;
+            attemptTotal += selection.generationAttempts;
+            outputs.push({
+              id: selection.utterance.id,
+              text: selection.utterance.text,
+              attempts: selection.generationAttempts,
+            });
+          }
+          const pct = (value: number, denom: number) =>
+            denom === 0 ? 0 : Number((value / denom * 100).toFixed(2));
+          const sortRecord = (record: Record<string, number>) =>
+            Object.fromEntries(Object.entries(record).sort((a, b) => b[1] - a[1]));
+          console.log(JSON.stringify({
+            rounds,
+            attemptTotal,
+            outputDigest: stableRuntimeDigest(outputs),
+            calls: counters.calls,
+            requestedRuleCalls: counters.requestedRuleCalls,
+            requestedRulePct: pct(counters.requestedRuleCalls, counters.calls),
+            rootRestrictedCalls: counters.rootRestrictedCalls,
+            rootRestrictedPct: pct(counters.rootRestrictedCalls, counters.calls),
+            stableNestedClauseCalls: counters.stableNestedClauseCalls,
+            stableNestedClausePct: pct(counters.stableNestedClauseCalls, counters.calls),
+            baCalls: counters.baCalls,
+            baPct: pct(counters.baCalls, counters.calls),
+            uniqueEligibilityKeys: Object.keys(counters.keyCalls).length,
+            topEligibilityKeys: Object.entries(counters.keyCalls)
+              .sort((a,b)=>b[1]-a[1]).slice(0,30),
+            eligibleLengthHistogram: sortRecord(counters.eligibleLengthHistogram),
+            sourceLengthHistogram: sortRecord(counters.sourceLengthHistogram),
+          }, null, 2));
+          EOF
+          node --import tsx .tmp-category-eligibility-attribution.ts
