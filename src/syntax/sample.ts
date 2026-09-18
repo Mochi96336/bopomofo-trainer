@@ -559,6 +559,26 @@ function nestedTargetKey(parentRuleId: string, constituentKey: string): string {
   return `${parentRuleId}\u0000${constituentKey}`;
 }
 
+export const TMP_REQUIREMENTS_KIND_ATTRIBUTION = {
+  calls: 0,
+  lexicalCalls: 0,
+  nonLexicalCalls: 0,
+  noContributionCalls: 0,
+  lexicalNoContributionCalls: 0,
+  nonLexicalNoContributionCalls: 0,
+};
+
+function hasDynamicInheritedContribution(
+  constituent: ProductionConstituent,
+  parent: SyntaxRequirements,
+): boolean {
+  if (constituent.inheritFunctions === true && parent.requiredFunctions.length > 0) return true;
+  if (constituent.inheritValencyFrames === true && parent.requiredValencyFrames.length > 0) return true;
+  if (constituent.inheritOccurrenceCapabilities === true
+    && parent.requiredOccurrenceCapabilities.length > 0) return true;
+  return constituent.inheritFeatures === true && Object.keys(parent.requiredFeatures).length > 0;
+}
+
 function sampleRuleChildren(
   parentRuleId: string,
   ordered: readonly ProductionConstituent[],
@@ -601,6 +621,16 @@ function sampleRuleChildren(
     for (let occurrenceIndex = 0; occurrenceIndex < count; occurrenceIndex += 1) {
       const afterDepth = decrement(workingState, constituent);
       if (afterDepth === null) return null;
+      TMP_REQUIREMENTS_KIND_ATTRIBUTION.calls += 1;
+      const lexical = constituent.category === "Lexeme";
+      if (lexical) TMP_REQUIREMENTS_KIND_ATTRIBUTION.lexicalCalls += 1;
+      else TMP_REQUIREMENTS_KIND_ATTRIBUTION.nonLexicalCalls += 1;
+      const noContribution = !hasDynamicInheritedContribution(constituent, requirements);
+      if (noContribution) {
+        TMP_REQUIREMENTS_KIND_ATTRIBUTION.noContributionCalls += 1;
+        if (lexical) TMP_REQUIREMENTS_KIND_ATTRIBUTION.lexicalNoContributionCalls += 1;
+        else TMP_REQUIREMENTS_KIND_ATTRIBUTION.nonLexicalNoContributionCalls += 1;
+      }
       const childRequirements = requirementsForConstituent(constituent, requirements);
       if (childRequirements === null) return null;
       workingState = afterDepth;
