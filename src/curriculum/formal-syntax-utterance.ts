@@ -154,6 +154,7 @@ function groupedCompatibleProfiles(
 interface StaticCompatibleProfileWeights {
   readonly groups: readonly CompatibleProfileGroup[];
   readonly weights: readonly number[];
+  readonly cumulativeWeights: readonly number[];
   readonly totalWeight: number;
 }
 
@@ -195,6 +196,7 @@ function preparedStaticCompatibleProfileWeights(
 
   const groups = groupedCompatibleProfiles(compatible);
   const weights = new Array<number>(groups.length);
+  const cumulativeWeights = new Array<number>(groups.length);
   let totalWeight = 0;
   for (let index = 0; index < groups.length; index += 1) {
     const group = groups[index]!;
@@ -208,8 +210,9 @@ function preparedStaticCompatibleProfileWeights(
     }
     weights[index] = weight;
     totalWeight += weight;
+    cumulativeWeights[index] = totalWeight;
   }
-  const prepared = { groups, weights, totalWeight };
+  const prepared = { groups, weights, cumulativeWeights, totalWeight };
   byEntries.set(entriesById, prepared);
   return prepared;
 }
@@ -241,16 +244,17 @@ function selectCompatibleProfile(
     if (!hasExcludedCompatibleEntry) {
       const prepared = preparedStaticCompatibleProfileWeights(compatible, entriesById);
       if (!(prepared.totalWeight > 0)) return null;
-      let target = nextUnit(random) * prepared.totalWeight;
-      let selectedGroup: CompatibleProfileGroup | undefined;
-      for (let index = 0; index < prepared.groups.length; index += 1) {
-        target -= prepared.weights[index] ?? 0;
-        if (target < 0) {
-          selectedGroup = prepared.groups[index];
-          break;
-        }
+      const target = nextUnit(random) * prepared.totalWeight;
+      let low = 0;
+      let high = prepared.cumulativeWeights.length;
+      while (low < high) {
+        const middle = (low + high) >>> 1;
+        if (target < prepared.cumulativeWeights[middle]!) high = middle;
+        else low = middle + 1;
       }
-      selectedGroup ??= prepared.groups[prepared.groups.length - 1];
+      const selectedGroup = prepared.groups[
+        Math.min(low, prepared.groups.length - 1)
+      ];
       if (selectedGroup === undefined) throw new Error("formal syntax entry selection failed");
       const entryProfiles = selectedGroup.profiles;
       if (entryProfiles.length === 0) throw new Error("formal syntax profile group is empty");
