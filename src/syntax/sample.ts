@@ -452,35 +452,59 @@ function nestedClauseCandidateRandom(seed: number): RandomSource {
  * remaining candidates, and a failed candidate cannot consume random draws that
  * would otherwise alter a later candidate or the parent sampling trajectory.
  */
+interface RankedNestedClauseCandidate extends NestedClauseCandidate {
+  readonly priorityFirstUint32: number;
+}
+
+function compareRankedNestedClauseCandidates(
+  left: RankedNestedClauseCandidate,
+  right: RankedNestedClauseCandidate,
+  ticket: number,
+): number {
+  if (left.priorityFirstUint32 !== right.priorityFirstUint32) {
+    return left.priorityFirstUint32 < right.priorityFirstUint32 ? -1 : 1;
+  }
+  const priorityOrder = stableRuntimeDigestCanonicalJson(
+    nestedClauseKeyedCanonicalJson("priority", ticket, left.rule.id),
+  ).localeCompare(stableRuntimeDigestCanonicalJson(
+    nestedClauseKeyedCanonicalJson("priority", ticket, right.rule.id),
+  ));
+  return priorityOrder !== 0 ? priorityOrder : left.rule.id.localeCompare(right.rule.id);
+}
+
 function stableNestedClauseCandidates(
   values: readonly ProductionRule[],
   random: RandomSource,
 ): readonly NestedClauseCandidate[] {
   if (values.length === 0) return [];
   const ticket = Math.floor(nextUnit(random) * 0x1_0000_0000);
-  return values
-    .map((rule) => {
-      const prefixes = nestedClauseHashPrefixStates(rule);
-      return {
-        rule,
-        random: nestedClauseCandidateRandom(
-          nestedClauseKeyedFirstUint32(prefixes.candidateSubstream, ticket),
-        ),
-        priorityFirstUint32: nestedClauseKeyedFirstUint32(prefixes.priority, ticket),
-      };
-    })
-    .sort((left, right) => {
-      if (left.priorityFirstUint32 !== right.priorityFirstUint32) {
-        return left.priorityFirstUint32 < right.priorityFirstUint32 ? -1 : 1;
-      }
-      const priorityOrder = stableRuntimeDigestCanonicalJson(
-        nestedClauseKeyedCanonicalJson("priority", ticket, left.rule.id),
-      ).localeCompare(stableRuntimeDigestCanonicalJson(
-        nestedClauseKeyedCanonicalJson("priority", ticket, right.rule.id),
-      ));
-      return priorityOrder !== 0 ? priorityOrder : left.rule.id.localeCompare(right.rule.id);
-    })
-    .map(({ rule, random: candidateRandom }) => ({ rule, random: candidateRandom }));
+  const ranked = new Array<RankedNestedClauseCandidate>(values.length);
+  for (let index = 0; index < values.length; index += 1) {
+    const rule = values[index]!;
+    const prefixes = nestedClauseHashPrefixStates(rule);
+    ranked[index] = {
+      rule,
+      random: nestedClauseCandidateRandom(
+        nestedClauseKeyedFirstUint32(prefixes.candidateSubstream, ticket),
+      ),
+      priorityFirstUint32: nestedClauseKeyedFirstUint32(prefixes.priority, ticket),
+    };
+  }
+  for (let index = 1; index < ranked.length; index += 1) {
+    const candidate = ranked[index]!;
+    let insertionIndex = index;
+    while (insertionIndex > 0
+      && compareRankedNestedClauseCandidates(
+        candidate,
+        ranked[insertionIndex - 1]!,
+        ticket,
+      ) < 0) {
+      ranked[insertionIndex] = ranked[insertionIndex - 1]!;
+      insertionIndex -= 1;
+    }
+    ranked[insertionIndex] = candidate;
+  }
+  return ranked;
 }
 
 function decrement(state: State, constituent: ProductionConstituent): boolean {
