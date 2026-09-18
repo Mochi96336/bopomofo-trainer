@@ -524,6 +524,12 @@ function bindingId(
   return `${materializeSamplingPath(parentPath).join("/")}:${constituent.entryBinding}`;
 }
 
+export const TMP_SLOT_SURVIVAL_ATTRIBUTION = {
+  created: 0,
+  returned: 0,
+  successfulDerivations: 0,
+};
+
 function makeSlot(
   constituent: ProductionConstituent,
   requirements: SyntaxRequirements,
@@ -531,6 +537,7 @@ function makeSlot(
   parentPath: SamplingPathNode,
   pathSegment: string,
 ): StructuralLexicalSlot {
+  TMP_SLOT_SURVIVAL_ATTRIBUTION.created += 1;
   const entryBindingId = bindingId(constituent, parentPath);
   const occurrenceRequirement = requirements.requiredOccurrenceCapabilities.length === 0
     ? {}
@@ -995,6 +1002,8 @@ export function sampleStructuralDerivation(
       materializedRoot.canonicalSource,
       sampled.rulePath,
     );
+    TMP_SLOT_SURVIVAL_ATTRIBUTION.successfulDerivations += 1;
+    TMP_SLOT_SURVIVAL_ATTRIBUTION.returned += sampled.slots.length;
     return {
       id: `derivation-shape:${stableRuntimeDigestCanonicalJson(identitySource)}`,
       grammarVersion: FORMAL_GRAMMAR_VERSION,
