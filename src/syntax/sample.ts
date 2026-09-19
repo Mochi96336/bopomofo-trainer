@@ -433,7 +433,9 @@ function shuffled<T>(values: readonly T[], random: RandomSource): readonly T[] {
   const result = [...values];
   for (let index = result.length - 1; index > 0; index -= 1) {
     const swap = chooseIndex(random, index + 1);
-    [result[index], result[swap]] = [result[swap]!, result[index]!];
+    const current = result[index]!;
+    result[index] = result[swap]!;
+    result[swap] = current;
   }
   return result;
 }
