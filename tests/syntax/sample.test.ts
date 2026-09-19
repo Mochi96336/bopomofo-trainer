@@ -205,6 +205,27 @@ describe("random structural sampling", () => {
     expect(viaRequirements).toBeNull();
   });
 
+  it("rolls back sampled artifacts when a failed candidate falls through", () => {
+    const fallbackRules: readonly ProductionRule[] = [
+      production("sentence.success", "Sentence", [constituent("success", "Lexeme")]),
+      production("sentence.fail", "Sentence", [
+        constituent("nested", "NounPhrase"),
+        constituent("reject", "Lexeme"),
+      ]),
+      production("noun.nested", "NounPhrase", [constituent("nested-head", "Lexeme")]),
+    ];
+    const shape = sampleStructuralDerivation({
+      rootCategory: "Sentence",
+      rules: fallbackRules,
+      random: new SequenceRandom([0]),
+      maximumAttempts: 1,
+      isLexicalRequirementsReachable: (constituent) => constituent.key !== "reject",
+    });
+
+    expect(shape?.productionRulePath).toEqual(["sentence.success"]);
+    expect(shape?.lexicalSlots.map((slot) => slot.constituentKey)).toEqual(["success"]);
+  });
+
   it("targets one named nested edge without constraining deeper occurrences of the same category", () => {
     const shape = sampleStructuralDerivation({
       rootCategory: "Sentence",
