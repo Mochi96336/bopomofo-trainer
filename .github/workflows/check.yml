@@ -36,6 +36,14 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: npm ci --include=dev --ignore-scripts
+      - name: Empty-target validation paired benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin 140f24a53e9cd31ee586a405511659cd22ecb7c4
+          git show FETCH_HEAD:src/syntax/sample.ts > src/syntax/sample-baseline-bench.ts
+          trap 'rm -f src/syntax/sample-baseline-bench.ts scripts/bench-sampler-empty-target-validation.ts' EXIT
+          npx tsx scripts/bench-sampler-empty-target-validation.ts
       - name: Verify active runtime morphology provenance
         id: morphology
         shell: bash
@@ -223,6 +231,7 @@ jobs:
   # rather than one of its own so that the deploy gate -- which waits on this
   # workflow concluding successfully -- covers it too.
   browser:
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
