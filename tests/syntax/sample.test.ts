@@ -185,14 +185,24 @@ describe("random structural sampling", () => {
       "phrase.nominal-head.noun",
       "predicate.verb.lexical",
     ]);
-    const shape = sampleStructuralDerivation({
+    const rules = FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id));
+    const viaSlot = sampleStructuralDerivation({
       rootCategory: "Sentence",
-      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
+      rules,
       random: new SequenceRandom([0]),
       maximumAttempts: 1,
       isLexicalSlotReachable: (slot) => !slot.requiredValencyFrames.includes("transitive"),
     });
-    expect(shape).toBeNull();
+    const viaRequirements = sampleStructuralDerivation({
+      rootCategory: "Sentence",
+      rules,
+      random: new SequenceRandom([0]),
+      maximumAttempts: 1,
+      isLexicalRequirementsReachable: (_constituent, requirements) =>
+        !requirements.requiredValencyFrames.includes("transitive"),
+    });
+    expect(viaSlot).toBeNull();
+    expect(viaRequirements).toBeNull();
   });
 
   it("targets one named nested edge without constraining deeper occurrences of the same category", () => {

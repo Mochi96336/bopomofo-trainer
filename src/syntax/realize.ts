@@ -1,8 +1,10 @@
 import type { CatalogEntry } from "../core/model.js";
 import { stableRuntimeDigest } from "../core/stable-id.js";
 import type { StructuralDerivationShape, StructuralLexicalSlot } from "./derive.js";
+import type { SyntaxRequirements } from "./requirements.js";
 import { syntaxProfileMatchesRequirements } from "./profile-match.js";
 import type {
+  ProductionConstituent,
   RuntimeSyntaxProfile,
   SurfaceRealization,
   SurfaceToken,
@@ -37,16 +39,23 @@ function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
-function compatibilityCacheKey(slot: StructuralLexicalSlot): string {
+function compatibilityCacheKeyFields(
+  formalLiteral: StructuralLexicalSlot["formalLiteral"],
+  allowedUpos: StructuralLexicalSlot["allowedUpos"],
+  requiredFunctions: StructuralLexicalSlot["requiredFunctions"],
+  requiredValencyFrames: StructuralLexicalSlot["requiredValencyFrames"],
+  requiredOccurrenceCapabilities: StructuralLexicalSlot["requiredOccurrenceCapabilities"],
+  requiredFeatures: StructuralLexicalSlot["requiredFeatures"],
+): string {
   return JSON.stringify([
-    slot.formalLiteral === undefined
+    formalLiteral === undefined
       ? ["undefined"]
-      : ["value", slot.formalLiteral],
-    slot.allowedUpos,
-    slot.requiredFunctions,
-    slot.requiredValencyFrames,
-    slot.requiredOccurrenceCapabilities ?? [],
-    Object.entries(slot.requiredFeatures)
+      : ["value", formalLiteral],
+    allowedUpos,
+    requiredFunctions,
+    requiredValencyFrames,
+    requiredOccurrenceCapabilities ?? [],
+    Object.entries(requiredFeatures)
       .sort(([left], [right]) => compareText(left, right))
       .map(([feature, value]) => [
         feature,
@@ -70,8 +79,13 @@ export function buildLexicalProfileIndex(
   return { profilesByUpos: grouped, entriesById };
 }
 
-export function compatibleProfilesForSlot(
-  slot: StructuralLexicalSlot,
+function compatibleProfilesForFields(
+  formalLiteral: StructuralLexicalSlot["formalLiteral"],
+  allowedUpos: StructuralLexicalSlot["allowedUpos"],
+  requiredFunctions: StructuralLexicalSlot["requiredFunctions"],
+  requiredValencyFrames: StructuralLexicalSlot["requiredValencyFrames"],
+  requiredOccurrenceCapabilities: StructuralLexicalSlot["requiredOccurrenceCapabilities"],
+  requiredFeatures: StructuralLexicalSlot["requiredFeatures"],
   index: LexicalProfileIndex,
 ): readonly RuntimeSyntaxProfile[] {
   let byRequirements = compatibleProfilesCache.get(index);
@@ -79,25 +93,72 @@ export function compatibleProfilesForSlot(
     byRequirements = new Map<string, readonly RuntimeSyntaxProfile[]>();
     compatibleProfilesCache.set(index, byRequirements);
   }
-  const cacheKey = compatibilityCacheKey(slot);
+  const cacheKey = compatibilityCacheKeyFields(
+    formalLiteral,
+    allowedUpos,
+    requiredFunctions,
+    requiredValencyFrames,
+    requiredOccurrenceCapabilities,
+    requiredFeatures,
+  );
   const cached = byRequirements.get(cacheKey);
   if (cached !== undefined) return cached;
 
-  if (slot.formalLiteral !== undefined) {
+  if (formalLiteral !== undefined) {
     const compatible: readonly RuntimeSyntaxProfile[] = [];
     byRequirements.set(cacheKey, compatible);
     return compatible;
   }
-  const candidates = slot.allowedUpos.length === 0
+  const candidates = allowedUpos.length === 0
     ? Object.values(index.profilesByUpos).flat()
-    : slot.allowedUpos.flatMap((upos) => index.profilesByUpos[upos] ?? []);
+    : allowedUpos.flatMap((upos) => index.profilesByUpos[upos] ?? []);
+  const matchingRequirements = {
+    allowedUpos,
+    requiredFunctions,
+    requiredValencyFrames,
+    ...(requiredOccurrenceCapabilities === undefined
+      ? {}
+      : { requiredOccurrenceCapabilities }),
+    requiredFeatures,
+  };
   const compatible = candidates.filter((profile) => {
     const entry = index.entriesById.get(profile.entryId);
     return entry !== undefined
-      && syntaxProfileMatchesRequirements(profile, slot, entry.prompt.text);
+      && syntaxProfileMatchesRequirements(profile, matchingRequirements, entry.prompt.text);
   });
   byRequirements.set(cacheKey, compatible);
   return compatible;
+}
+
+export function compatibleProfilesForRequirements(
+  constituent: Pick<ProductionConstituent, "allowedUpos" | "formalLiteral">,
+  requirements: SyntaxRequirements,
+  index: LexicalProfileIndex,
+): readonly RuntimeSyntaxProfile[] {
+  return compatibleProfilesForFields(
+    constituent.formalLiteral,
+    constituent.allowedUpos,
+    requirements.requiredFunctions,
+    requirements.requiredValencyFrames,
+    requirements.requiredOccurrenceCapabilities,
+    requirements.requiredFeatures,
+    index,
+  );
+}
+
+export function compatibleProfilesForSlot(
+  slot: StructuralLexicalSlot,
+  index: LexicalProfileIndex,
+): readonly RuntimeSyntaxProfile[] {
+  return compatibleProfilesForFields(
+    slot.formalLiteral,
+    slot.allowedUpos,
+    slot.requiredFunctions,
+    slot.requiredValencyFrames,
+    slot.requiredOccurrenceCapabilities,
+    slot.requiredFeatures,
+    index,
+  );
 }
 
 function seededOffset(seed: string, slotId: string, size: number): number {
