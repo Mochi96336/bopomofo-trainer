@@ -141,3 +141,5 @@ for (const rounds of [256]) {
   }
   console.log(JSON.stringify(summarize(rounds, baseline, candidate)));
 }
+
+// Benchmark evidence captured from the preceding exact-candidate run.
