@@ -488,17 +488,24 @@ function nestedClauseKeyedFirstUint32(prefixState: number, ticket: number): numb
   );
 }
 
+class NestedClauseCandidateRandom implements RandomSource {
+  private state: number;
+
+  constructor(seed: number) {
+    this.state = seed;
+  }
+
+  next(): number {
+    this.state = (this.state + 0x6d2b79f5) >>> 0;
+    let value = this.state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 0x1_0000_0000;
+  }
+}
+
 function nestedClauseCandidateRandom(seed: number): RandomSource {
-  let state = seed;
-  return {
-    next: () => {
-      state = (state + 0x6d2b79f5) >>> 0;
-      let value = state;
-      value = Math.imul(value ^ (value >>> 15), value | 1);
-      value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-      return ((value ^ (value >>> 14)) >>> 0) / 0x1_0000_0000;
-    },
-  };
+  return new NestedClauseCandidateRandom(seed);
 }
 
 /**
