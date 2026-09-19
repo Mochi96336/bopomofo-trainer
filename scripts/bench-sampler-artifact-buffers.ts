@@ -126,10 +126,10 @@ const baselineModule = await import(baselinePath) as {
 const baselineContext = baselineModule.prepareStructuralSamplingContext(FORMAL_SYNTAX_RULES);
 const candidateContext = prepareCandidate(FORMAL_SYNTAX_RULES);
 
-runLeg(baselineModule.sampleStructuralDerivation, baselineContext, 64);
-runLeg(sampleCandidate, candidateContext, 64);
+runLeg(baselineModule.sampleStructuralDerivation, baselineContext, 16);
+runLeg(sampleCandidate, candidateContext, 16);
 
-for (const rounds of [256, 512]) {
+for (const rounds of [64, 128]) {
   const order = ["P", "C", "C", "P", "P", "C", "C", "P"] as const;
   const baseline: LegResult[] = [];
   const candidate: LegResult[] = [];
