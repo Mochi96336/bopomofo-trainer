@@ -27,6 +27,7 @@ import {
 } from "../syntax/sample.js";
 import type {
   DerivationBounds,
+  ProductionConstituent,
   ProductionRule,
   RuntimeSyntaxProfile,
 } from "../syntax/types.js";
@@ -403,6 +404,25 @@ export function composeFormalSyntaxUtterances(
     preparedStructuralSamplingContext ??= prepareStructuralSamplingContext(rules, input.bounds);
     return preparedStructuralSamplingContext;
   };
+  const staticLexicalReachability = new WeakMap<ProductionConstituent, boolean>();
+  const lexicalRequirementsReachable = (
+    constituent: ProductionConstituent,
+    requirements: Parameters<typeof compatibleProfilesForRequirements>[1],
+  ): boolean => {
+    if (constituent.allowedUpos.length === 1 && constituent.allowedUpos[0] === "PUNCT") return true;
+    const staticRequirements = constituent.inheritFunctions !== true
+      && constituent.inheritValencyFrames !== true
+      && constituent.inheritOccurrenceCapabilities !== true
+      && constituent.inheritFeatures !== true;
+    if (!staticRequirements) {
+      return compatibleProfilesForRequirements(constituent, requirements, index).length > 0;
+    }
+    const cached = staticLexicalReachability.get(constituent);
+    if (cached !== undefined) return cached;
+    const reachable = compatibleProfilesForRequirements(constituent, requirements, index).length > 0;
+    staticLexicalReachability.set(constituent, reachable);
+    return reachable;
+  };
 
   // #155 deliberately controls Sentence-root family probability only. Nested
   // Clause/Phrase sampling stays on the raw structural sampler until a dedicated
@@ -587,10 +607,7 @@ export function composeFormalSyntaxUtterances(
       ...(argumentRealizationPractice?.requiredProductionRuleIdsAnyOf === undefined
         ? {}
         : { requiredProductionRuleIdsAnyOf: argumentRealizationPractice.requiredProductionRuleIdsAnyOf }),
-      isLexicalRequirementsReachable: (constituent, requirements) => {
-        if (constituent.allowedUpos.length === 1 && constituent.allowedUpos[0] === "PUNCT") return true;
-        return compatibleProfilesForRequirements(constituent, requirements, index).length > 0;
-      },
+      isLexicalRequirementsReachable: lexicalRequirementsReachable,
       ...(input.bounds === undefined ? {} : { bounds: input.bounds }),
       ...(rootProductionRuleId === undefined ? {} : { rootProductionRuleId }),
       ...(useProductFamilyPolicy
