@@ -169,6 +169,7 @@ const COORDINATION_EXCLUDED_RULE_CLASSES = new Set<ProductionRuleClass>(["coordi
 interface PreparedEligibleRuleSets {
   readonly defaultByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>;
   readonly withoutCoordinationByOutput: ReadonlyMap<SyntaxCategory, readonly ProductionRule[]>;
+  readonly constrainedCountsByRule: ReadonlyMap<ProductionRule, readonly ConstituentCounts[]>;
 }
 
 const preparedEligibleRuleSetsByContext = new WeakMap<
@@ -182,6 +183,7 @@ function prepareEligibleRuleSets(
 ): PreparedEligibleRuleSets {
   const defaultByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();
   const withoutCoordinationByOutput = new Map<SyntaxCategory, readonly ProductionRule[]>();
+  const constrainedCountsByRule = new Map<ProductionRule, readonly ConstituentCounts[]>();
   for (const [category, rules] of rulesByOutput) {
     defaultByOutput.set(
       category,
@@ -195,8 +197,16 @@ function prepareEligibleRuleSets(
         ruleAllowedByDerivationBounds(rule, bounds, COORDINATION_EXCLUDED_RULE_CLASSES)
       ),
     );
+    for (const rule of rules) {
+      if (rule.constraints.length > 0) {
+        constrainedCountsByRule.set(
+          rule,
+          [...validConstituentCountAssignments(rule, bounds)],
+        );
+      }
+    }
   }
-  return { defaultByOutput, withoutCoordinationByOutput };
+  return { defaultByOutput, withoutCoordinationByOutput, constrainedCountsByRule };
 }
 
 function samplingRuleClassMask(
@@ -836,16 +846,17 @@ function sampleCategory(
 
     let fixedCounts: ConstituentCounts | undefined;
     if (rule.constraints.length > 0) {
-      const assignments = [...validConstituentCountAssignments(rule, bounds)].filter((assignment) =>
-        rule.constituents.every((constituent) => {
-          const exactCount = nestedProductionTargets.size === 0
-            ? undefined
-            : nestedProductionTargets.get(
+      const preparedAssignments = eligibleRuleSets.constrainedCountsByRule.get(rule) ?? [];
+      const assignments = nestedProductionTargets.size === 0
+        ? preparedAssignments
+        : preparedAssignments.filter((assignment) =>
+            rule.constituents.every((constituent) => {
+              const exactCount = nestedProductionTargets.get(
                 nestedTargetKey(rule.id, constituent.key),
               )?.exactCount;
-          return exactCount === undefined || assignment[constituent.key] === exactCount;
-        }),
-      );
+              return exactCount === undefined || assignment[constituent.key] === exactCount;
+            })
+          );
       if (assignments.length === 0) continue;
       fixedCounts = assignments[chooseIndex(candidateRandom, assignments.length)];
     }
