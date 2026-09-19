@@ -498,35 +498,80 @@ function nestedClauseCandidateRandom(seed: number): RandomSource {
  * remaining candidates, and a failed candidate cannot consume random draws that
  * would otherwise alter a later candidate or the parent sampling trajectory.
  */
-function stableNestedClauseCandidates(
+interface RankedNestedClauseRule {
+  readonly rule: ProductionRule;
+  readonly candidateSubstreamPrefixState: number;
+  readonly priorityFirstUint32: number;
+}
+
+function compareRankedNestedClauseRules(
+  left: RankedNestedClauseRule,
+  right: RankedNestedClauseRule,
+  ticket: number,
+): number {
+  if (left.priorityFirstUint32 !== right.priorityFirstUint32) {
+    return left.priorityFirstUint32 < right.priorityFirstUint32 ? -1 : 1;
+  }
+  const priorityOrder = stableRuntimeDigestCanonicalJson(
+    nestedClauseKeyedCanonicalJson("priority", ticket, left.rule.id),
+  ).localeCompare(stableRuntimeDigestCanonicalJson(
+    nestedClauseKeyedCanonicalJson("priority", ticket, right.rule.id),
+  ));
+  return priorityOrder !== 0 ? priorityOrder : left.rule.id.localeCompare(right.rule.id);
+}
+
+function* stableNestedClauseCandidates(
   values: readonly ProductionRule[],
   random: RandomSource,
-): readonly NestedClauseCandidate[] {
-  if (values.length === 0) return [];
+): Generator<NestedClauseCandidate> {
+  if (values.length === 0) return;
   const ticket = Math.floor(nextUnit(random) * 0x1_0000_0000);
-  return values
-    .map((rule) => {
-      const prefixes = nestedClauseHashPrefixStates(rule);
-      return {
-        rule,
-        random: nestedClauseCandidateRandom(
-          nestedClauseKeyedFirstUint32(prefixes.candidateSubstream, ticket),
-        ),
-        priorityFirstUint32: nestedClauseKeyedFirstUint32(prefixes.priority, ticket),
-      };
-    })
-    .sort((left, right) => {
-      if (left.priorityFirstUint32 !== right.priorityFirstUint32) {
-        return left.priorityFirstUint32 < right.priorityFirstUint32 ? -1 : 1;
+  const heap = new Array<RankedNestedClauseRule>(values.length);
+  for (let index = 0; index < values.length; index += 1) {
+    const rule = values[index]!;
+    const prefixes = nestedClauseHashPrefixStates(rule);
+    heap[index] = {
+      rule,
+      candidateSubstreamPrefixState: prefixes.candidateSubstream,
+      priorityFirstUint32: nestedClauseKeyedFirstUint32(prefixes.priority, ticket),
+    };
+  }
+
+  const siftDown = (start: number): void => {
+    let root = start;
+    while (true) {
+      const left = root * 2 + 1;
+      if (left >= heap.length) return;
+      const right = left + 1;
+      let smallest = left;
+      if (right < heap.length
+        && compareRankedNestedClauseRules(heap[right]!, heap[left]!, ticket) < 0) {
+        smallest = right;
       }
-      const priorityOrder = stableRuntimeDigestCanonicalJson(
-        nestedClauseKeyedCanonicalJson("priority", ticket, left.rule.id),
-      ).localeCompare(stableRuntimeDigestCanonicalJson(
-        nestedClauseKeyedCanonicalJson("priority", ticket, right.rule.id),
-      ));
-      return priorityOrder !== 0 ? priorityOrder : left.rule.id.localeCompare(right.rule.id);
-    })
-    .map(({ rule, random: candidateRandom }) => ({ rule, random: candidateRandom }));
+      if (compareRankedNestedClauseRules(heap[smallest]!, heap[root]!, ticket) >= 0) return;
+      [heap[root], heap[smallest]] = [heap[smallest]!, heap[root]!];
+      root = smallest;
+    }
+  };
+
+  for (let index = (heap.length >>> 1) - 1; index >= 0; index -= 1) {
+    siftDown(index);
+  }
+
+  while (heap.length > 0) {
+    const ranked = heap[0]!;
+    const tail = heap.pop()!;
+    if (heap.length > 0) {
+      heap[0] = tail;
+      siftDown(0);
+    }
+    yield {
+      rule: ranked.rule,
+      random: nestedClauseCandidateRandom(
+        nestedClauseKeyedFirstUint32(ranked.candidateSubstreamPrefixState, ticket),
+      ),
+    };
+  }
 }
 
 function decrement(state: State, constituent: ProductionConstituent): boolean {
@@ -812,7 +857,7 @@ function sampleCategory(
     && !isRoot
     && category === "Clause"
     && requestedProductionRuleId === undefined;
-  const candidates: readonly NestedClauseCandidate[] = orderedLicensingAlternatives
+  const candidates: Iterable<NestedClauseCandidate> = orderedLicensingAlternatives
     ? eligibleRules.map((rule) => ({
         rule,
         random: rule.id === "ba-predicate.attested" ? random : DETERMINISTIC_MINIMUM_RANDOM,
