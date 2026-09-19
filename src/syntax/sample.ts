@@ -429,7 +429,14 @@ function chooseIndex(random: RandomSource, size: number): number {
   return Math.min(size - 1, Math.floor(nextUnit(random) * size));
 }
 
+const shuffledSizeCounts = new Map<number, number>();
+
+export function sampledShuffleSizeHistogram(): readonly (readonly [number, number])[] {
+  return [...shuffledSizeCounts.entries()].sort(([left], [right]) => left - right);
+}
+
 function shuffled<T>(values: readonly T[], random: RandomSource): readonly T[] {
+  shuffledSizeCounts.set(values.length, (shuffledSizeCounts.get(values.length) ?? 0) + 1);
   const result = [...values];
   for (let index = result.length - 1; index > 0; index -= 1) {
     const swap = chooseIndex(random, index + 1);
