@@ -3,7 +3,7 @@ name: tmp post-307-candidate content cpu profile
 on:
   push:
     branches:
-      - agent/tmp-post307-candidate-content-cpu-profile
+      - agent/tmp-post307-candidate-cpu-profile
 
 permissions:
   contents: read
