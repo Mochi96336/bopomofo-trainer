@@ -541,10 +541,18 @@ function decrement(state: State, constituent: ProductionConstituent): boolean {
   return true;
 }
 
-interface SamplingPathNode {
+interface LiteralSamplingPathNode {
   readonly parent: SamplingPathNode | null;
   readonly segment: string;
 }
+
+interface OccurrenceSamplingPathNode {
+  readonly parent: SamplingPathNode | null;
+  readonly constituentKey: string;
+  readonly occurrenceIndex: number;
+}
+
+type SamplingPathNode = LiteralSamplingPathNode | OccurrenceSamplingPathNode;
 
 function extendSamplingPath(
   parent: SamplingPathNode | null,
@@ -553,10 +561,22 @@ function extendSamplingPath(
   return { parent, segment };
 }
 
+function extendSamplingOccurrencePath(
+  parent: SamplingPathNode,
+  constituentKey: string,
+  occurrenceIndex: number,
+): SamplingPathNode {
+  return { parent, constituentKey, occurrenceIndex };
+}
+
 function materializeSamplingPath(path: SamplingPathNode): readonly string[] {
   const segments: string[] = [];
   for (let current: SamplingPathNode | null = path; current !== null; current = current.parent) {
-    segments.push(current.segment);
+    segments.push(
+      "segment" in current
+        ? current.segment
+        : `${current.constituentKey}[${current.occurrenceIndex}]`,
+    );
   }
   segments.reverse();
   return segments;
@@ -733,7 +753,7 @@ function sampleRuleChildren(
         random,
         bounds,
         inputState,
-        extendSamplingPath(path, `${constituent.key}[${occurrenceIndex}]`),
+        extendSamplingOccurrencePath(path, constituent.key, occurrenceIndex),
         isLexicalSlotReachable,
         isLexicalRequirementsReachable,
         samplingRuleClassMask(constituent),
