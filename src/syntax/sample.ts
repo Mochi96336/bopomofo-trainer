@@ -118,12 +118,6 @@ interface PendingLexicalSlot {
   readonly requirements: SyntaxRequirements;
   readonly occurrenceIndex: number;
   readonly parentPath: SamplingPathNode;
-}
-
-type SampledLexicalSlot = StructuralLexicalSlot | PendingLexicalSlot;
-
-interface SampledLexicalSlotContext {
-  readonly slot: SampledLexicalSlot;
   readonly enclosingRequiredFunctions: readonly SyntacticFunction[];
 }
 
@@ -135,22 +129,16 @@ interface PendingSyntaxNode {
   readonly children: readonly PendingStructuralElement[];
 }
 
-type PendingStructuralElement = SampledLexicalSlot | PendingSyntaxNode;
+type PendingStructuralElement = PendingLexicalSlot | PendingSyntaxNode;
 
 interface Sampled {
   readonly element: PendingStructuralElement;
   readonly state: State;
-  readonly rulePath: readonly string[];
-  readonly slots: readonly SampledLexicalSlot[];
-  readonly slotContexts: readonly SampledLexicalSlotContext[];
 }
 
 interface SampledRuleChildren {
   readonly state: State;
   readonly children: readonly PendingStructuralElement[];
-  readonly rulePath: readonly string[];
-  readonly slots: readonly SampledLexicalSlot[];
-  readonly slotContexts: readonly SampledLexicalSlotContext[];
 }
 
 interface NestedClauseCandidate {
@@ -292,16 +280,11 @@ function syntaxNodeCanonicalJson(
   return `{"category":${JSON.stringify(node.category)},"children":${childrenCanonicalJson(childCanonicalSources)},"id":${JSON.stringify(node.id)},"kind":"syntax-node","productionRuleId":${JSON.stringify(node.productionRuleId)},"surfaceOrderId":${JSON.stringify(node.surfaceOrderId)}}`;
 }
 
-const materializedPendingLexicalSlots = new WeakMap<object, StructuralLexicalSlot>();
-
-function isPendingLexicalSlot(slot: SampledLexicalSlot): slot is PendingLexicalSlot {
-  return slot.kind === "pending-lexical-slot";
-}
+const materializedPendingLexicalSlots = new WeakMap<PendingLexicalSlot, StructuralLexicalSlot>();
 
 function materializeSampledLexicalSlot(
-  slot: SampledLexicalSlot,
+  slot: PendingLexicalSlot,
 ): StructuralLexicalSlot {
-  if (!isPendingLexicalSlot(slot)) return slot;
   const cached = materializedPendingLexicalSlots.get(slot);
   if (cached !== undefined) return cached;
   const materialized = makeSlot(
@@ -326,9 +309,6 @@ function materializePendingElement(
   if (pending.kind === "pending-lexical-slot") {
     const materialized = materializeSampledLexicalSlot(pending);
     return { element: materialized, canonicalSource: lexicalSlotCanonicalJson(materialized) };
-  }
-  if (pending.kind === "lexical-slot") {
-    return { element: pending, canonicalSource: lexicalSlotCanonicalJson(pending) };
   }
   const materializedChildren = pending.children.map(materializePendingElement);
   const childCanonicalSources = materializedChildren.map((child) => child.canonicalSource);
@@ -665,9 +645,6 @@ function sampleRuleChildren(
   deterministicCounts = false,
 ): SampledRuleChildren | null {
   const children: PendingStructuralElement[] = [];
-  const slots: SampledLexicalSlot[] = [];
-  const slotContexts: SampledLexicalSlotContext[] = [];
-  const rulePath: string[] = [];
 
   for (const constituent of ordered) {
     const maximum = effectiveConstituentMaximum(constituent, bounds);
@@ -694,32 +671,17 @@ function sampleRuleChildren(
       if (constituent.category === "Lexeme") {
         if (isLexicalRequirementsReachable !== undefined
           && !isLexicalRequirementsReachable(constituent, childRequirements)) return null;
-        let slot: SampledLexicalSlot;
-        if (isLexicalSlotReachable !== undefined) {
-          const materialized = makeSlot(
-            constituent,
-            childRequirements,
-            occurrenceIndex,
-            path,
-            constituent.key,
-          );
-          if (!isLexicalSlotReachable(materialized)) return null;
-          slot = materialized;
-        } else {
-          slot = {
-            kind: "pending-lexical-slot",
-            constituent,
-            requirements: childRequirements,
-            occurrenceIndex,
-            parentPath: path,
-          };
-        }
-        children.push(slot);
-        slots.push(slot);
-        slotContexts.push({
-          slot,
+        const slot: PendingLexicalSlot = {
+          kind: "pending-lexical-slot",
+          constituent,
+          requirements: childRequirements,
+          occurrenceIndex,
+          parentPath: path,
           enclosingRequiredFunctions: requirements.requiredFunctions,
-        });
+        };
+        if (isLexicalSlotReachable !== undefined
+          && !isLexicalSlotReachable(materializeSampledLexicalSlot(slot))) return null;
+        children.push(slot);
         inputState.lexicalCount += 1;
         continue;
       }
@@ -744,18 +706,12 @@ function sampleRuleChildren(
       );
       if (child === null) return null;
       children.push(child.element);
-      slots.push(...child.slots);
-      slotContexts.push(...child.slotContexts);
-      rulePath.push(...child.rulePath);
     }
   }
 
   return {
     state: inputState,
     children,
-    rulePath,
-    slots,
-    slotContexts,
   };
 }
 
@@ -884,9 +840,6 @@ function sampleCategory(
     return {
       element: node,
       state: sampledChildren.state,
-      rulePath: [rule.id, ...sampledChildren.rulePath],
-      slots: sampledChildren.slots,
-      slotContexts: sampledChildren.slotContexts,
     };
   }
   inputState.remainingPhraseDepth = entryRemainingPhraseDepth;
@@ -989,26 +942,43 @@ function validatedRequiredProductionRuleIdsAnyOf(
 }
 
 function lexicalSlotMatchesConstraint(
-  context: SampledLexicalSlotContext,
+  slot: PendingLexicalSlot,
   required: RequiredLexicalSlotConstraint,
 ): boolean {
-  const slotRequirements = isPendingLexicalSlot(context.slot)
-    ? context.slot.requirements
-    : context.slot;
   const requiredFeatures = required.requiredFeatures ?? {};
   const featuresMatch = (Object.keys(requiredFeatures) as SyntaxFeatureName[]).every((feature) =>
-    slotRequirements.requiredFeatures[feature] === requiredFeatures[feature],
+    slot.requirements.requiredFeatures[feature] === requiredFeatures[feature],
   );
   if (!featuresMatch) return false;
   const requiredOccurrenceCapabilities = required.requiredOccurrenceCapabilities ?? [];
-  const slotOccurrenceCapabilities = slotRequirements.requiredOccurrenceCapabilities ?? [];
+  const slotOccurrenceCapabilities = slot.requirements.requiredOccurrenceCapabilities ?? [];
   if (!requiredOccurrenceCapabilities.every((capability) =>
     slotOccurrenceCapabilities.includes(capability),
   )) return false;
   const requiredFunctions = required.enclosingRequiredFunctions ?? [];
   return requiredFunctions.every((requiredFunction) =>
-    context.enclosingRequiredFunctions.includes(requiredFunction),
+    slot.enclosingRequiredFunctions.includes(requiredFunction),
   );
+}
+
+interface SampledTreeMetadata {
+  readonly productionRulePath: readonly string[];
+  readonly lexicalSlots: readonly PendingLexicalSlot[];
+}
+
+function sampledTreeMetadata(root: PendingSyntaxNode): SampledTreeMetadata {
+  const productionRulePath: string[] = [];
+  const lexicalSlots: PendingLexicalSlot[] = [];
+  const visit = (element: PendingStructuralElement): void => {
+    if (element.kind === "pending-lexical-slot") {
+      lexicalSlots.push(element);
+      return;
+    }
+    productionRulePath.push(element.productionRuleId);
+    for (const child of element.children) visit(child);
+  };
+  visit(root);
+  return { productionRulePath, lexicalSlots };
 }
 
 export function sampleStructuralDerivation(
@@ -1054,27 +1024,30 @@ export function sampleStructuralDerivation(
       true,
     );
     if (sampled === null || sampled.element.kind !== "syntax-node") continue;
+    const metadata = sampledTreeMetadata(sampled.element);
     const requiredLexicalSlot = options.requiredLexicalSlot;
     if (requiredLexicalSlot !== undefined
-      && !sampled.slotContexts.some((context) =>
-        lexicalSlotMatchesConstraint(context, requiredLexicalSlot),
+      && !metadata.lexicalSlots.some((slot) =>
+        lexicalSlotMatchesConstraint(slot, requiredLexicalSlot),
       )) continue;
     if (requiredProductionRuleIdsAnyOf !== undefined
-      && !requiredProductionRuleIdsAnyOf.some((ruleId) => sampled.rulePath.includes(ruleId))) continue;
+      && !requiredProductionRuleIdsAnyOf.some((ruleId) =>
+        metadata.productionRulePath.includes(ruleId),
+      )) continue;
     const materializedRoot = materializePendingElement(sampled.element);
     if (materializedRoot.element.kind !== "syntax-node") {
       throw new Error("sampled root materialized as non-syntax node");
     }
     const identitySource = derivationIdentityCanonicalJson(
       materializedRoot.canonicalSource,
-      sampled.rulePath,
+      metadata.productionRulePath,
     );
     return {
       id: `derivation-shape:${stableRuntimeDigestCanonicalJson(identitySource)}`,
       grammarVersion: FORMAL_GRAMMAR_VERSION,
       root: materializedRoot.element,
-      productionRulePath: sampled.rulePath,
-      lexicalSlots: sampled.slots.map(materializeSampledLexicalSlot),
+      productionRulePath: metadata.productionRulePath,
+      lexicalSlots: metadata.lexicalSlots.map(materializeSampledLexicalSlot),
       clauseCount: sampled.state.clauseCount,
       lexicalSlotCount: sampled.state.lexicalCount,
     };
