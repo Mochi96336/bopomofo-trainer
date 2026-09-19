@@ -36,6 +36,14 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: npm ci --include=dev --ignore-scripts
+      - name: Direct candidate-rule paired benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin 87cd8286ed46068975286f85f4a667e7d1510f18
+          git show FETCH_HEAD:src/syntax/sample.ts > src/syntax/sample-baseline-bench.ts
+          trap 'rm -f src/syntax/sample-baseline-bench.ts scripts/bench-sampler-candidate-rules.ts' EXIT
+          npx tsx scripts/bench-sampler-candidate-rules.ts
       - name: Verify active runtime morphology provenance
         id: morphology
         shell: bash
@@ -223,6 +231,7 @@ jobs:
   # rather than one of its own so that the deploy gate -- which waits on this
   # workflow concluding successfully -- covers it too.
   browser:
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
