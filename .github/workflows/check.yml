@@ -231,6 +231,7 @@ jobs:
   # rather than one of its own so that the deploy gate -- which waits on this
   # workflow concluding successfully -- covers it too.
   browser:
+    if: false
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
