@@ -672,9 +672,9 @@ function sampleRuleChildren(
   for (const constituent of ordered) {
     const maximum = effectiveConstituentMaximum(constituent, bounds);
     if (maximum < constituent.minimum) return null;
-    const target = nestedProductionTargets.get(
-      nestedTargetKey(parentRuleId, constituent.key),
-    );
+    const target = nestedProductionTargets.size === 0
+      ? undefined
+      : nestedProductionTargets.get(nestedTargetKey(parentRuleId, constituent.key));
     const count = fixedCounts === undefined
       ? target?.exactCount ?? (
           deterministicCounts
@@ -838,9 +838,11 @@ function sampleCategory(
     if (rule.constraints.length > 0) {
       const assignments = [...validConstituentCountAssignments(rule, bounds)].filter((assignment) =>
         rule.constituents.every((constituent) => {
-          const exactCount = nestedProductionTargets.get(
-            nestedTargetKey(rule.id, constituent.key),
-          )?.exactCount;
+          const exactCount = nestedProductionTargets.size === 0
+            ? undefined
+            : nestedProductionTargets.get(
+                nestedTargetKey(rule.id, constituent.key),
+              )?.exactCount;
           return exactCount === undefined || assignment[constituent.key] === exactCount;
         }),
       );
