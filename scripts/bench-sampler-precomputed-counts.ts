@@ -112,7 +112,7 @@ const candidateContext = prepareCandidate(FORMAL_SYNTAX_RULES);
 runLeg(baselineModule.sampleStructuralDerivation, baselineContext, 32);
 runLeg(sampleCandidate, candidateContext, 32);
 
-for (const rounds of [256, 512]) {
+for (const rounds of [1024]) {
   const order = ["P", "C", "C", "P", "P", "C", "C", "P"] as const;
   const baseline: LegResult[] = [];
   const candidate: LegResult[] = [];
