@@ -812,17 +812,20 @@ function sampleCategory(
     && !isRoot
     && category === "Clause"
     && requestedProductionRuleId === undefined;
-  const candidates: readonly NestedClauseCandidate[] = orderedLicensingAlternatives
-    ? eligibleRules.map((rule) => ({
-        rule,
-        random: rule.id === "ba-predicate.attested" ? random : DETERMINISTIC_MINIMUM_RANDOM,
-      }))
-    : stableNestedClause
-      ? stableNestedClauseCandidates(eligibleRules, random)
-      : shuffled(eligibleRules, random).map((rule) => ({ rule, random }));
+  const candidates: readonly (ProductionRule | NestedClauseCandidate)[] = stableNestedClause
+    ? stableNestedClauseCandidates(eligibleRules, random)
+    : orderedLicensingAlternatives
+      ? eligibleRules
+      : shuffled(eligibleRules, random);
   for (const candidate of candidates) {
-    const { rule } = candidate;
-    const candidateRandom = candidate.random;
+    const rule = stableNestedClause
+      ? (candidate as NestedClauseCandidate).rule
+      : candidate as ProductionRule;
+    const candidateRandom = stableNestedClause
+      ? (candidate as NestedClauseCandidate).random
+      : orderedLicensingAlternatives && rule.id !== "ba-predicate.attested"
+        ? DETERMINISTIC_MINIMUM_RANDOM
+        : random;
     const productiveBaAlternative = orderedLicensingAlternatives
       && rule.id !== "ba-predicate.attested";
     const order = orderedLicensingAlternatives && rule.surfaceOrders.length === 1
