@@ -478,10 +478,14 @@ function nestedClauseKeyedFirstUint32(prefixState: number, ticket: number): numb
   );
 }
 
-function nestedClauseCandidateRandom(seed: number): RandomSource {
-  let state = seed;
+function nestedClauseCandidateRandom(
+  prefixState: number,
+  ticket: number,
+): RandomSource {
+  let state: number | undefined;
   return {
     next: () => {
+      state ??= nestedClauseKeyedFirstUint32(prefixState, ticket);
       state = (state + 0x6d2b79f5) >>> 0;
       let value = state;
       value = Math.imul(value ^ (value >>> 15), value | 1);
@@ -510,7 +514,8 @@ function stableNestedClauseCandidates(
       return {
         rule,
         random: nestedClauseCandidateRandom(
-          nestedClauseKeyedFirstUint32(prefixes.candidateSubstream, ticket),
+          prefixes.candidateSubstream,
+          ticket,
         ),
         priorityFirstUint32: nestedClauseKeyedFirstUint32(prefixes.priority, ticket),
       };
