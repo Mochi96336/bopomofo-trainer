@@ -430,6 +430,7 @@ function chooseIndex(random: RandomSource, size: number): number {
 }
 
 function shuffled<T>(values: readonly T[], random: RandomSource): readonly T[] {
+  if (values.length <= 1) return values;
   const result = [...values];
   for (let index = result.length - 1; index > 0; index -= 1) {
     const swap = chooseIndex(random, index + 1);
