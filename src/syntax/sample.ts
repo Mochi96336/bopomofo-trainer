@@ -202,8 +202,10 @@ function prepareEligibleRuleSets(
 function samplingRuleClassMask(
   constituent: ProductionConstituent,
 ): number {
+  const excludedRuleClasses = constituent.excludedRuleClasses;
+  if (excludedRuleClasses === undefined || excludedRuleClasses.length === 0) return 0;
   let mask = 0;
-  for (const ruleClass of constituent.excludedRuleClasses ?? []) {
+  for (const ruleClass of excludedRuleClasses) {
     switch (ruleClass) {
       case "coordination":
         mask |= 1;
