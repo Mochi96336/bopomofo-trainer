@@ -908,13 +908,22 @@ function validatedRootRuleId(options: StructuralSamplingOptions): string | undef
   return ruleId;
 }
 
+const EMPTY_NESTED_PRODUCTION_TARGETS: ReadonlyMap<
+  string,
+  ValidatedNestedProductionTarget
+> = new Map();
+
 function validatedNestedProductionTargets(
   options: StructuralSamplingOptions,
   bounds: DerivationBounds,
 ): ReadonlyMap<string, ValidatedNestedProductionTarget> {
+  const requested = options.nestedProductionTargets;
+  if (requested === undefined || requested.length === 0) {
+    return EMPTY_NESTED_PRODUCTION_TARGETS;
+  }
   const rulesById = new Map(options.rules.map((rule) => [rule.id, rule]));
   const targets = new Map<string, ValidatedNestedProductionTarget>();
-  for (const target of options.nestedProductionTargets ?? []) {
+  for (const target of requested) {
     const parent = rulesById.get(target.parentRuleId);
     if (parent === undefined) {
       throw new Error(`nested production target references missing parent: ${target.parentRuleId}`);
