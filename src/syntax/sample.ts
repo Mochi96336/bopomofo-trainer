@@ -140,17 +140,17 @@ type PendingStructuralElement = SampledLexicalSlot | PendingSyntaxNode;
 interface Sampled {
   readonly element: PendingStructuralElement;
   readonly state: State;
-  readonly rulePath: readonly string[];
-  readonly slots: readonly SampledLexicalSlot[];
-  readonly slotContexts: readonly SampledLexicalSlotContext[];
 }
 
 interface SampledRuleChildren {
   readonly state: State;
   readonly children: readonly PendingStructuralElement[];
-  readonly rulePath: readonly string[];
-  readonly slots: readonly SampledLexicalSlot[];
-  readonly slotContexts: readonly SampledLexicalSlotContext[];
+}
+
+interface SampledArtifacts {
+  readonly rulePath: string[];
+  readonly slots: SampledLexicalSlot[];
+  readonly slotContexts: SampledLexicalSlotContext[];
 }
 
 interface NestedClauseCandidate {
@@ -653,6 +653,7 @@ function sampleRuleChildren(
   random: RandomSource,
   bounds: DerivationBounds,
   inputState: State,
+  artifacts: SampledArtifacts,
   path: SamplingPathNode,
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   isLexicalRequirementsReachable: ((
@@ -665,9 +666,6 @@ function sampleRuleChildren(
   deterministicCounts = false,
 ): SampledRuleChildren | null {
   const children: PendingStructuralElement[] = [];
-  const slots: SampledLexicalSlot[] = [];
-  const slotContexts: SampledLexicalSlotContext[] = [];
-  const rulePath: string[] = [];
 
   for (const constituent of ordered) {
     const maximum = effectiveConstituentMaximum(constituent, bounds);
@@ -715,8 +713,8 @@ function sampleRuleChildren(
           };
         }
         children.push(slot);
-        slots.push(slot);
-        slotContexts.push({
+        artifacts.slots.push(slot);
+        artifacts.slotContexts.push({
           slot,
           enclosingRequiredFunctions: requirements.requiredFunctions,
         });
@@ -733,6 +731,7 @@ function sampleRuleChildren(
         random,
         bounds,
         inputState,
+        artifacts,
         extendSamplingPath(path, `${constituent.key}[${occurrenceIndex}]`),
         isLexicalSlotReachable,
         isLexicalRequirementsReachable,
@@ -744,18 +743,12 @@ function sampleRuleChildren(
       );
       if (child === null) return null;
       children.push(child.element);
-      slots.push(...child.slots);
-      slotContexts.push(...child.slotContexts);
-      rulePath.push(...child.rulePath);
     }
   }
 
   return {
     state: inputState,
     children,
-    rulePath,
-    slots,
-    slotContexts,
   };
 }
 
@@ -768,6 +761,7 @@ function sampleCategory(
   random: RandomSource,
   bounds: DerivationBounds,
   inputState: State,
+  artifacts: SampledArtifacts,
   path: SamplingPathNode,
   isLexicalSlotReachable: ((slot: StructuralLexicalSlot) => boolean) | undefined,
   isLexicalRequirementsReachable: ((
@@ -848,6 +842,11 @@ function sampleCategory(
       fixedCounts = assignments[chooseIndex(candidateRandom, assignments.length)];
     }
 
+    const rulePathLength = artifacts.rulePath.length;
+    const slotsLength = artifacts.slots.length;
+    const slotContextsLength = artifacts.slotContexts.length;
+    artifacts.rulePath.push(rule.id);
+
     const sampledChildren = sampleRuleChildren(
       rule.id,
       ordered as readonly ProductionConstituent[],
@@ -858,6 +857,7 @@ function sampleCategory(
       candidateRandom,
       bounds,
       inputState,
+      artifacts,
       extendSamplingPath(path, rule.id),
       isLexicalSlotReachable,
       isLexicalRequirementsReachable,
@@ -867,6 +867,9 @@ function sampleCategory(
       orderedLicensingAlternatives && !productiveBaAlternative,
     );
     if (sampledChildren === null) {
+      artifacts.rulePath.length = rulePathLength;
+      artifacts.slots.length = slotsLength;
+      artifacts.slotContexts.length = slotContextsLength;
       inputState.remainingPhraseDepth = candidateRemainingPhraseDepth;
       inputState.remainingClauseDepth = candidateRemainingClauseDepth;
       inputState.clauseCount = candidateClauseCount;
@@ -884,9 +887,6 @@ function sampleCategory(
     return {
       element: node,
       state: sampledChildren.state,
-      rulePath: [rule.id, ...sampledChildren.rulePath],
-      slots: sampledChildren.slots,
-      slotContexts: sampledChildren.slotContexts,
     };
   }
   inputState.remainingPhraseDepth = entryRemainingPhraseDepth;
@@ -1030,7 +1030,15 @@ export function sampleStructuralDerivation(
   const rulesByOutput = context.rulesByOutput;
   const orderedConstituentsBySurfaceOrder = context.orderedConstituentsBySurfaceOrder;
   const eligibleRuleSets = eligibleRuleSetsForContext(context, bounds);
+  const artifacts: SampledArtifacts = {
+    rulePath: [],
+    slots: [],
+    slotContexts: [],
+  };
   for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
+    artifacts.rulePath.length = 0;
+    artifacts.slots.length = 0;
+    artifacts.slotContexts.length = 0;
     const sampled = sampleCategory(
       options.rootCategory,
       EMPTY_SYNTAX_REQUIREMENTS,
@@ -1045,6 +1053,7 @@ export function sampleStructuralDerivation(
         clauseCount: 0,
         lexicalCount: 0,
       },
+      artifacts,
       extendSamplingPath(null, options.rootCategory),
       options.isLexicalSlotReachable,
       options.isLexicalRequirementsReachable,
@@ -1056,25 +1065,25 @@ export function sampleStructuralDerivation(
     if (sampled === null || sampled.element.kind !== "syntax-node") continue;
     const requiredLexicalSlot = options.requiredLexicalSlot;
     if (requiredLexicalSlot !== undefined
-      && !sampled.slotContexts.some((context) =>
+      && !artifacts.slotContexts.some((context) =>
         lexicalSlotMatchesConstraint(context, requiredLexicalSlot),
       )) continue;
     if (requiredProductionRuleIdsAnyOf !== undefined
-      && !requiredProductionRuleIdsAnyOf.some((ruleId) => sampled.rulePath.includes(ruleId))) continue;
+      && !requiredProductionRuleIdsAnyOf.some((ruleId) => artifacts.rulePath.includes(ruleId))) continue;
     const materializedRoot = materializePendingElement(sampled.element);
     if (materializedRoot.element.kind !== "syntax-node") {
       throw new Error("sampled root materialized as non-syntax node");
     }
     const identitySource = derivationIdentityCanonicalJson(
       materializedRoot.canonicalSource,
-      sampled.rulePath,
+      artifacts.rulePath,
     );
     return {
       id: `derivation-shape:${stableRuntimeDigestCanonicalJson(identitySource)}`,
       grammarVersion: FORMAL_GRAMMAR_VERSION,
       root: materializedRoot.element,
-      productionRulePath: sampled.rulePath,
-      lexicalSlots: sampled.slots.map(materializeSampledLexicalSlot),
+      productionRulePath: artifacts.rulePath,
+      lexicalSlots: artifacts.slots.map(materializeSampledLexicalSlot),
       clauseCount: sampled.state.clauseCount,
       lexicalSlotCount: sampled.state.lexicalCount,
     };
