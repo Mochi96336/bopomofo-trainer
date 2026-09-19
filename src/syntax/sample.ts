@@ -525,8 +525,7 @@ function stableNestedClauseCandidates(
         nestedClauseKeyedCanonicalJson("priority", ticket, right.rule.id),
       ));
       return priorityOrder !== 0 ? priorityOrder : left.rule.id.localeCompare(right.rule.id);
-    })
-    .map(({ rule, random: candidateRandom }) => ({ rule, random: candidateRandom }));
+    });
 }
 
 function decrement(state: State, constituent: ProductionConstituent): boolean {
