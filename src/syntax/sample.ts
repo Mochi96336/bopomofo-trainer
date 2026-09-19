@@ -687,7 +687,9 @@ function sampleRuleChildren(
   const rulePath: string[] = [];
 
   for (const constituent of ordered) {
-    const maximum = effectiveConstituentMaximum(constituent, bounds);
+    const maximum = constituent.cardinalityBound === undefined
+      ? constituent.maximum
+      : effectiveConstituentMaximum(constituent, bounds);
     if (maximum < constituent.minimum) return null;
     const target = nestedProductionTargets.size === 0
       ? undefined
