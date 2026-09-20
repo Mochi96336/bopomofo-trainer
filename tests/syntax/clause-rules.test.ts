@@ -55,6 +55,43 @@ describe("formal clause and question production inventory", () => {
     expect(ids.has("clause.object-omission")).toBe(false);
   });
 
+  it("rebuilds locative as reviewed verbal predication plus a structural location object", () => {
+    const locative = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "clause.locative");
+    expect(locative?.constituents.map((item) => [item.key, item.category])).toEqual([
+      ["subject", "Subject"],
+      ["predicate", "Lexeme"],
+      ["location", "Object"],
+    ]);
+    expect(locative?.constituents.find((item) => item.key === "predicate")).toMatchObject({
+      allowedUpos: ["VERB"],
+      requiredFunctions: ["predicate"],
+      requiredValencyFrames: ["transitive"],
+      requiredOccurrenceCapabilities: [
+        "verbal-locative-root-subject-object-same-occurrence",
+      ],
+    });
+    expect(locative?.constituents.some((item) => item.key === "copula")).toBe(false);
+    expect(locative?.constituents.some((item) => item.category === "AdpositionPhrase")).toBe(false);
+
+    const keep = new Set([
+      "clause.locative",
+      "argument.subject.noun",
+      "argument.object.noun",
+      "phrase.noun.bare",
+      "phrase.nominal-head.noun",
+    ]);
+    const shapes = [...enumerateStructuralDerivations({
+      rootCategory: "Clause",
+      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
+    })];
+    expect(shapes).toHaveLength(1);
+    expect(shapes[0]?.productionRulePath).toContain("argument.object.noun");
+    const predicate = shapes[0]?.lexicalSlots.find((slot) => slot.constituentKey === "predicate");
+    expect(predicate?.requiredOccurrenceCapabilities).toEqual([
+      "verbal-locative-root-subject-object-same-occurrence",
+    ]);
+  });
+
   it("represents BA patient as a construction role with preverbal predicate marking", () => {
     const ba = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "clause.ba");
     expect(ba?.constituents.map((item) => [item.key, item.category])).toEqual([
