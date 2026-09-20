@@ -31,7 +31,7 @@ describe("locative runtime sidecar integration", () => {
     expect(textByEntryId.get(occurrenceBacked[0]?.entryId ?? "")).toBe("在");
   });
 
-  it("does not make the sidecar executable grammar authority yet", () => {
+  it("makes the reviewed capability authoritative only for the locative predicate head", () => {
     const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
       rule.constituents.filter((constituent) =>
         constituent.requiredOccurrenceCapabilities?.includes(
@@ -39,6 +39,6 @@ describe("locative runtime sidecar integration", () => {
         ) ?? false,
       ).map((constituent) => `${rule.id}:${constituent.key}`),
     );
-    expect(consumers).toEqual([]);
+    expect(consumers).toEqual(["clause.locative:predicate"]);
   });
 });
