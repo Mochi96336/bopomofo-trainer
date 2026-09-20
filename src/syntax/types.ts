@@ -37,6 +37,7 @@ export const RUNTIME_OCCURRENCE_CAPABILITIES = [
   "ba-obl-patient-case-same-occurrence",
   "preverbal-auxiliary-same-occurrence",
   "short-passive-aux-pass-bei-same-occurrence",
+  "verbal-locative-root-subject-object-same-occurrence",
 ] as const;
 export type RuntimeOccurrenceCapability = (typeof RUNTIME_OCCURRENCE_CAPABILITIES)[number];
 
