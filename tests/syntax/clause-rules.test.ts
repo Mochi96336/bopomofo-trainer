@@ -92,6 +92,37 @@ describe("formal clause and question production inventory", () => {
     ]);
   });
 
+  it("keeps predicate marking orthogonal inside the reviewed locative frame", () => {
+    const keep = new Set([
+      "clause.locative",
+      "argument.subject.noun",
+      "argument.object.noun",
+      "predicate.verb.expanded",
+      "phrase.noun.bare",
+      "phrase.nominal-head.noun",
+    ]);
+    const shape = sampleStructuralDerivation({
+      rootCategory: "Clause",
+      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
+      random: { next: () => 0 },
+      maximumAttempts: 8,
+      rootProductionRuleId: "clause.locative",
+      requiredLexicalSlot: {
+        requiredFeatures: { polarity: "negative" },
+        enclosingRequiredFunctions: ["predicate"],
+      },
+    });
+
+    expect(shape).not.toBeNull();
+    const negation = shape?.lexicalSlots.find((slot) => slot.constituentKey === "negation");
+    expect(negation?.requiredFeatures).toMatchObject({ polarity: "negative" });
+    const head = shape?.lexicalSlots.find((slot) => slot.constituentKey === "head");
+    expect(head?.requiredOccurrenceCapabilities).toContain(
+      "verbal-locative-root-subject-object-same-occurrence",
+    );
+    expect(head?.requiredValencyFrames).toContain("transitive");
+  });
+
   it("represents BA patient as a construction role with preverbal predicate marking", () => {
     const ba = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "clause.ba");
     expect(ba?.constituents.map((item) => [item.key, item.category])).toEqual([
