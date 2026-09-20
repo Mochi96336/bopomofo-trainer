@@ -70,6 +70,11 @@ export const RETIRED_CLAUSE_RULE_V2_DECISIONS = {
     evidenceContract: "pinned-gsd-argument-realization-alternation-v1",
     note: "Direct-object non-realization preserves transitive/ditransitive predicate-frame identity and is practiced through the orthogonal argument-realization ticket.",
   },
+  "clause.serial-verb": {
+    targetAxes: ["predicate-structure", "embedding"],
+    evidenceContract: "pinned-gsd-direct-verb-pair-inventory-v1",
+    note: "Pinned direct VERB→VERB evidence does not define one generic serial predicate: unmarked shared-subject candidates split primarily across pre-head advcl and post-head xcomp, with coordination/parataxis separate. Retire arbitrary VP + VP; rebuild advcl and controller-typed xcomp under their own evidence contracts.",
+  },
 } as const satisfies Readonly<Record<string, RetiredClauseRuleV2Decision>>;
 
 /**
@@ -186,11 +191,5 @@ export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
     targetAxis: "predicate-frame",
     target: "locative.verbal",
     note: "Reviewed pinned-GSD evidence licenses 在/VERB as a verbal locative predicate with subject + object realization; ordinary 在-marked obliques and existential 有 remain outside this frame.",
-  },
-  "clause.serial-verb": {
-    group: "hold-for-corpus-rebuild",
-    targetAxis: "predicate-structure",
-    target: "serial:TBD",
-    note: "Do not treat arbitrary VP + VP as serial-verb without a dependency-pattern contract.",
   },
 } as const satisfies Readonly<Record<string, ClauseRuleV2Migration>>;
