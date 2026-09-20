@@ -43,6 +43,7 @@ const [
   baOccurrenceCapabilitiesSource,
   shortPassiveOccurrenceCapabilitiesSource,
   preverbalAuxOccurrenceCapabilitiesSource,
+  locativeOccurrenceCapabilitiesSource,
   syntaxRuntimeLockSource,
 ] = await Promise.all([
   loadResolvedCatalogSource(),
@@ -54,6 +55,7 @@ const [
   readFile(new URL("../data/grammar/formal-syntax-runtime-ba-occurrence-capabilities.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-runtime-short-passive-occurrence-capabilities.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-runtime-preverbal-aux-occurrence-capabilities.json", import.meta.url), "utf8"),
+  readFile(new URL("../data/grammar/formal-syntax-runtime-locative-occurrence-capabilities.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-runtime-lock.json", import.meta.url), "utf8"),
 ]);
 
@@ -98,6 +100,9 @@ const shortPassiveOccurrenceCapabilitiesArtifact = JSON.parse(
 const preverbalAuxOccurrenceCapabilitiesArtifact = JSON.parse(
   preverbalAuxOccurrenceCapabilitiesSource,
 ) as RuntimeOccurrenceCapabilityProjectionArtifact;
+const locativeOccurrenceCapabilitiesArtifact = JSON.parse(
+  locativeOccurrenceCapabilitiesSource,
+) as RuntimeOccurrenceCapabilityProjectionArtifact;
 const sourceSyntaxProfiles = applyRuntimeOccurrenceCapabilityProjections(
   baseSyntaxProfiles,
   syntaxProfilesArtifact.determinismDigest,
@@ -106,6 +111,7 @@ const sourceSyntaxProfiles = applyRuntimeOccurrenceCapabilityProjections(
     baOccurrenceCapabilitiesArtifact,
     shortPassiveOccurrenceCapabilitiesArtifact,
     preverbalAuxOccurrenceCapabilitiesArtifact,
+    locativeOccurrenceCapabilitiesArtifact,
   ],
 );
 if (syntaxProfilesArtifact.sourceRuleIndexDigest !== sourceSyntaxArtifact.sourceRuleIndexDigest) {
@@ -198,6 +204,7 @@ const moduleSource = [
   `export const SYNTAX_RUNTIME_BA_OCCURRENCE_CAPABILITIES_DIGEST = ${JSON.stringify(baOccurrenceCapabilitiesArtifact.determinismDigest)};`,
   `export const SYNTAX_RUNTIME_SHORT_PASSIVE_OCCURRENCE_CAPABILITIES_DIGEST = ${JSON.stringify(shortPassiveOccurrenceCapabilitiesArtifact.determinismDigest)};`,
   `export const SYNTAX_RUNTIME_PREVERBAL_AUX_OCCURRENCE_CAPABILITIES_DIGEST = ${JSON.stringify(preverbalAuxOccurrenceCapabilitiesArtifact.determinismDigest)};`,
+  `export const SYNTAX_RUNTIME_LOCATIVE_OCCURRENCE_CAPABILITIES_DIGEST = ${JSON.stringify(locativeOccurrenceCapabilitiesArtifact.determinismDigest)};`,
   "",
   `const ENCODED_PRACTICE: readonly EncodedCatalogEntry[] = ${JSON.stringify(encodeCatalogEntries(syntaxLegalEntries))};`,
   "const ENCODED_EVALUATION: readonly EncodedCatalogEntry[] = [];",
