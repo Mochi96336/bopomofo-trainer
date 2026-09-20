@@ -86,8 +86,8 @@ describe("formal clause and question production inventory", () => {
     })];
     expect(shapes).toHaveLength(1);
     expect(shapes[0]?.productionRulePath).toContain("argument.object.noun");
-    const predicate = shapes[0]?.lexicalSlots.find((slot) => slot.constituentKey === "predicate");
-    expect(predicate?.requiredOccurrenceCapabilities).toEqual([
+    const predicateHead = shapes[0]?.lexicalSlots.find((slot) => slot.constituentKey === "head");
+    expect(predicateHead?.requiredOccurrenceCapabilities).toEqual([
       "verbal-locative-root-subject-object-same-occurrence",
     ]);
   });
@@ -105,8 +105,20 @@ describe("formal clause and question production inventory", () => {
       rootCategory: "Clause",
       rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
       random: { next: () => 0 },
-      maximumAttempts: 8,
+      maximumAttempts: 1,
       rootProductionRuleId: "clause.locative",
+      nestedProductionTargets: [
+        {
+          parentRuleId: "clause.locative",
+          constituentKey: "predicate",
+          childRuleId: "predicate.verb.expanded",
+        },
+        {
+          parentRuleId: "predicate.verb.expanded",
+          constituentKey: "negation",
+          exactCount: 1,
+        },
+      ],
       requiredLexicalSlot: {
         requiredFeatures: { polarity: "negative" },
         enclosingRequiredFunctions: ["predicate"],
