@@ -55,7 +55,12 @@ const childObjectRelations = new Map<string, number>();
 const childCcRelations = new Map<string, number>();
 const childMarkRelations = new Map<string, number>();
 const headChildFormPairs = new Map<string, number>();
+const focusedCandidateRelations = new Map<string, number>();
+const focusedCandidateSurfaceOrder = new Map<string, number>();
+const focusedCandidateObjectPatterns = new Map<string, number>();
+const focusedCandidateFormPairs = new Map<string, number>();
 const examplesByRelation = new Map<string, Example[]>();
+const focusedExamplesByRelation = new Map<string, Example[]>();
 
 let sentenceCount = 0;
 let tokenCount = 0;
@@ -97,22 +102,54 @@ for (const source of await loadPinnedUdGsdOccurrenceSources()) {
       if (childHasMark) increment(childMarkRelations, relation);
       increment(headChildFormPairs, `${head.form}\u0000${child.form}\u0000${relation}`);
 
+      const focusedCandidate = headHasSubject
+        && !childHasSubject
+        && !childHasCc
+        && !childHasMark
+        && (relation === "advcl" || relation === "xcomp" || relation === "conj"
+          || relation === "parataxis" || relation === "ccomp");
+      if (focusedCandidate) {
+        increment(focusedCandidateRelations, relation);
+        increment(
+          focusedCandidateSurfaceOrder,
+          `${relation}:${child.id > head.id ? "child-after-head" : "child-before-head"}`,
+        );
+        const objectPattern = headHasObject && childHasObject
+          ? "both"
+          : headHasObject
+            ? "head-only"
+            : childHasObject
+              ? "child-only"
+              : "neither";
+        increment(focusedCandidateObjectPatterns, `${relation}:${objectPattern}`);
+        increment(focusedCandidateFormPairs, `${head.form}\u0000${child.form}\u0000${relation}`);
+      }
+
+      const example: Example = {
+        relation,
+        head: head.form,
+        child: child.form,
+        headRoot,
+        headHasSubject,
+        childHasSubject,
+        headHasObject,
+        childHasObject,
+        childHasCc,
+        childHasMark,
+        text: sentence.map((token) => token.form).join(""),
+      };
+
       const examples = examplesByRelation.get(relation) ?? [];
       if (examples.length < 12) {
-        examples.push({
-          relation,
-          head: head.form,
-          child: child.form,
-          headRoot,
-          headHasSubject,
-          childHasSubject,
-          headHasObject,
-          childHasObject,
-          childHasCc,
-          childHasMark,
-          text: sentence.map((token) => token.form).join(""),
-        });
+        examples.push(example);
         examplesByRelation.set(relation, examples);
+      }
+      if (focusedCandidate) {
+        const focusedExamples = focusedExamplesByRelation.get(relation) ?? [];
+        if (focusedExamples.length < 20) {
+          focusedExamples.push(example);
+          focusedExamplesByRelation.set(relation, focusedExamples);
+        }
       }
     }
   }
@@ -125,6 +162,14 @@ const topFormPairs = Object.fromEntries(
 );
 const examples = Object.fromEntries(
   [...examplesByRelation].sort(([left], [right]) => left.localeCompare(right)),
+);
+const focusedTopFormPairs = Object.fromEntries(
+  [...focusedCandidateFormPairs]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0], "zh-Hant"))
+    .slice(0, 100),
+);
+const focusedExamples = Object.fromEntries(
+  [...focusedExamplesByRelation].sort(([left], [right]) => left.localeCompare(right)),
 );
 
 console.log(JSON.stringify({
@@ -141,6 +186,13 @@ console.log(JSON.stringify({
   childObjectRelations: sortedRecord(childObjectRelations),
   childCcRelations: sortedRecord(childCcRelations),
   childMarkRelations: sortedRecord(childMarkRelations),
+  focusedCandidateDefinition:
+    "head-subject + child-no-subject + child-no-cc + child-no-mark; selected clause relations only",
+  focusedCandidateRelations: sortedRecord(focusedCandidateRelations),
+  focusedCandidateSurfaceOrder: sortedRecord(focusedCandidateSurfaceOrder),
+  focusedCandidateObjectPatterns: sortedRecord(focusedCandidateObjectPatterns),
+  focusedTopFormPairs,
   topFormPairs,
+  focusedExamples,
   examples,
 }, null, 2));
