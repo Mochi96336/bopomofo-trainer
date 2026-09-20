@@ -59,11 +59,10 @@ describe("formal clause and question production inventory", () => {
     const locative = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "clause.locative");
     expect(locative?.constituents.map((item) => [item.key, item.category])).toEqual([
       ["subject", "Subject"],
-      ["predicate", "Lexeme"],
+      ["predicate", "Predicate"],
       ["location", "Object"],
     ]);
     expect(locative?.constituents.find((item) => item.key === "predicate")).toMatchObject({
-      allowedUpos: ["VERB"],
       requiredFunctions: ["predicate"],
       requiredValencyFrames: ["transitive"],
       requiredOccurrenceCapabilities: [
@@ -77,6 +76,7 @@ describe("formal clause and question production inventory", () => {
       "clause.locative",
       "argument.subject.noun",
       "argument.object.noun",
+      "predicate.verb.lexical",
       "phrase.noun.bare",
       "phrase.nominal-head.noun",
     ]);
