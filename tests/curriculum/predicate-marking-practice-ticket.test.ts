@@ -145,7 +145,10 @@ describe("predicate marking practice ticket", () => {
         bounds: PRODUCT_BOUNDS,
       });
       expect(composition.candidates, JSON.stringify(composition.fallbackReasons)).toHaveLength(1);
-      expect(composition.candidates[0]!.text).toMatch(/[不未別沒非無]/u);
+      expect(
+        composition.candidates[0]!.text,
+        JSON.stringify({ round, fallbackReasons: composition.fallbackReasons }),
+      ).toMatch(/[不未別沒非無]/u);
     }
   }, 60_000);
 
