@@ -30,7 +30,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for n in 8 16 32; do
+          for n in 8 16 24 32; do
             python - "$n" <<'PY'
           import re
           import sys
