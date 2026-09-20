@@ -86,10 +86,14 @@ describe("formal clause and question production inventory", () => {
     })];
     expect(shapes).toHaveLength(1);
     expect(shapes[0]?.productionRulePath).toContain("argument.object.noun");
-    const predicateHead = shapes[0]?.lexicalSlots.find((slot) => slot.constituentKey === "head");
-    expect(predicateHead?.requiredOccurrenceCapabilities).toEqual([
-      "verbal-locative-root-subject-object-same-occurrence",
-    ]);
+    const locativeHeads = shapes[0]?.lexicalSlots.filter((slot) =>
+      slot.allowedUpos.includes("VERB")
+        && (slot.requiredOccurrenceCapabilities ?? []).includes(
+          "verbal-locative-root-subject-object-same-occurrence",
+        )
+    ) ?? [];
+    expect(locativeHeads).toHaveLength(1);
+    expect(locativeHeads[0]?.requiredValencyFrames).toContain("transitive");
   });
 
   it("keeps predicate marking orthogonal inside the reviewed locative frame", () => {
@@ -128,11 +132,14 @@ describe("formal clause and question production inventory", () => {
     expect(shape).not.toBeNull();
     const negation = shape?.lexicalSlots.find((slot) => slot.constituentKey === "negation");
     expect(negation?.requiredFeatures).toMatchObject({ polarity: "negative" });
-    const head = shape?.lexicalSlots.find((slot) => slot.constituentKey === "head");
-    expect(head?.requiredOccurrenceCapabilities).toContain(
-      "verbal-locative-root-subject-object-same-occurrence",
+    const locativeHead = shape?.lexicalSlots.find((slot) =>
+      slot.allowedUpos.includes("VERB")
+        && (slot.requiredOccurrenceCapabilities ?? []).includes(
+          "verbal-locative-root-subject-object-same-occurrence",
+        )
     );
-    expect(head?.requiredValencyFrames).toContain("transitive");
+    expect(locativeHead).toBeDefined();
+    expect(locativeHead?.requiredValencyFrames).toContain("transitive");
   });
 
   it("represents BA patient as a construction role with preverbal predicate marking", () => {
