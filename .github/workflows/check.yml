@@ -99,6 +99,8 @@ jobs:
         with:
           name: locative-source-audit-failure
           path: locative-source-audit.log
+      - name: Measure locative runtime identity
+        run: npx tsx scripts/measure-locative-runtime-identity.ts
       - name: Verify modality source evidence
         id: modality-source-audit
         shell: bash
