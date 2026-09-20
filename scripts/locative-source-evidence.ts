@@ -2,6 +2,7 @@ import {
   indexUdOccurrenceChildren,
   loadPinnedUdGsdOccurrenceSources,
   parseUdOccurrenceSentences,
+  lexemeUposKey,
   type UdOccurrenceToken,
 } from "./ud-occurrence-source.js";
 
@@ -61,6 +62,7 @@ export interface LocativeSourceEvidenceSummary {
   readonly zaiVerbRootWithSubjectTokenCount: number;
   readonly zaiVerbRootWithObjectTokenCount: number;
   readonly zaiVerbRootWithSubjectAndObjectTokenCount: number;
+  readonly verbalLocativePredicateCounts: ReadonlyMap<string, number>;
   readonly zaiVerbWithSubjectTokenCount: number;
   readonly zaiVerbWithNominalComplementTokenCount: number;
   readonly zaiVerbWithCopChildTokenCount: number;
@@ -97,6 +99,7 @@ export function summarizeLocativeSourceEvidence(
   const predicateWithZaiObliqueUposCounts = new Map<string, number>();
   const predicateWithZaiObliqueFormCounts = new Map<string, number>();
   const obliqueCaseMarkerFormCounts = new Map<string, number>();
+  const verbalLocativePredicateCounts = new Map<string, number>();
 
   let sentenceCount = 0;
   let tokenCount = 0;
@@ -169,7 +172,10 @@ export function summarizeLocativeSourceEvidence(
           if (root) zaiVerbRootTokenCount += 1;
           if (root && subject) zaiVerbRootWithSubjectTokenCount += 1;
           if (root && object) zaiVerbRootWithObjectTokenCount += 1;
-          if (root && subject && object) zaiVerbRootWithSubjectAndObjectTokenCount += 1;
+          if (root && subject && object) {
+            zaiVerbRootWithSubjectAndObjectTokenCount += 1;
+            increment(verbalLocativePredicateCounts, lexemeUposKey(token.form, token.upos));
+          }
           if (subject) zaiVerbWithSubjectTokenCount += 1;
           if (hasNominalComplement(children)) zaiVerbWithNominalComplementTokenCount += 1;
           if (children.some((child) => child.relation === "cop")) {
@@ -221,6 +227,7 @@ export function summarizeLocativeSourceEvidence(
     zaiVerbRootWithSubjectTokenCount,
     zaiVerbRootWithObjectTokenCount,
     zaiVerbRootWithSubjectAndObjectTokenCount,
+    verbalLocativePredicateCounts,
     zaiVerbWithSubjectTokenCount,
     zaiVerbWithNominalComplementTokenCount,
     zaiVerbWithCopChildTokenCount,

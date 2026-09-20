@@ -7,6 +7,7 @@ export const RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS = [
   "same-predicate-obl-patient-case-ba-v1",
   "same-token-exact-aux-preverbal-v1",
   "same-predicate-aux-pass-bei-v1",
+  "same-predicate-verbal-locative-root-subject-object-v1",
 ] as const;
 export type RuntimeOccurrenceEvidenceContract =
   (typeof RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS)[number];
@@ -63,6 +64,15 @@ const REVIEWED_PROJECTION_CONTRACTS = new Map<RuntimeOccurrenceCapability, Revie
     // profiles) and adpositional-complement is a different relation family
     // entirely (145/248), so neither is a valid projection prerequisite.
     acceptTargetProfile: () => true,
+  }],
+  ["verbal-locative-root-subject-object-same-occurrence", {
+    evidenceContract: "same-predicate-verbal-locative-root-subject-object-v1",
+    // The pinned occurrence sidecar owns the exact root + subject + object
+    // conjunction. Aggregate runtime profiles only provide a coarse lexical
+    // backstop so this capability cannot be projected onto a non-verbal or
+    // non-predicate identity.
+    acceptTargetProfile: (profile) =>
+      profile.upos === "VERB" && profile.functions.includes("predicate"),
   }],
 ]);
 
