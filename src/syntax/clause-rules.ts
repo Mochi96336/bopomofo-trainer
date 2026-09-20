@@ -202,7 +202,7 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   ]),
   production("clause.locative", "Clause", [
     subject(),
-    lexical("predicate", ["VERB"], {
+    constituent("predicate", "Predicate", {
       requiredFunctions: ["predicate"],
       requiredValencyFrames: ["transitive"],
       requiredOccurrenceCapabilities: [
