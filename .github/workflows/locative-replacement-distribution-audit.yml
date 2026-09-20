@@ -1,0 +1,60 @@
+name: locative replacement distribution audit
+
+on:
+  push:
+    branches:
+      - agent/measure-locative-replacement-distribution
+    paths:
+      - .github/workflows/locative-replacement-distribution-audit.yml
+      - scripts/audit-locative-replacement-distribution.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Generate packaged app catalog
+        run: npm run app:catalog
+      - name: Add audit-only production path trace
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
+          if text.count(needle) != 1:
+              raise SystemExit("unexpected formal-syntax candidate shape")
+          path.write_text(text.replace(
+              needle,
+              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
+          ))
+          PY
+      - name: Run 2048-seed replacement audit
+        run: npx tsx scripts/audit-locative-replacement-distribution.ts
+      - name: Publish summary
+        if: always()
+        run: |
+          if [ -f locative-replacement-distribution-audit.md ]; then
+            cat locative-replacement-distribution-audit.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: locative-replacement-distribution-audit
+          path: |
+            locative-replacement-distribution-audit.json
+            locative-replacement-distribution-audit.md
+          if-no-files-found: error
