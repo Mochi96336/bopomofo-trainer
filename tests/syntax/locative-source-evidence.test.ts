@@ -35,6 +35,9 @@ describe("locative source evidence", () => {
 
     expect(evidence.zaiVerbTokenCount).toBe(1);
     expect(evidence.zaiVerbRootTokenCount).toBe(1);
+    expect(evidence.zaiVerbRootWithSubjectTokenCount).toBe(1);
+    expect(evidence.zaiVerbRootWithObjectTokenCount).toBe(1);
+    expect(evidence.zaiVerbRootWithSubjectAndObjectTokenCount).toBe(1);
     expect(evidence.zaiVerbWithSubjectTokenCount).toBe(1);
     expect(evidence.zaiVerbWithNominalComplementTokenCount).toBe(1);
 
