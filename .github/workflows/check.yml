@@ -183,6 +183,21 @@ jobs:
             preverbal-aux-occurrence-capabilities.log
             runtime-preverbal-aux-occurrence-capabilities-candidate.json
           if-no-files-found: ignore
+      - name: Verify locative runtime occurrence capability projection
+        id: locative-occurrence-capabilities
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run grammar:runtime-locative-occurrence-capabilities -- --output runtime-locative-occurrence-capabilities-candidate.json 2>&1 | tee locative-occurrence-capabilities.log
+      - name: Upload locative runtime occurrence capability verification
+        if: failure() && steps.locative-occurrence-capabilities.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: locative-runtime-occurrence-capability-verification
+          path: |
+            locative-occurrence-capabilities.log
+            runtime-locative-occurrence-capabilities-candidate.json
+          if-no-files-found: ignore
       - name: Typecheck
         id: typecheck
         shell: bash
