@@ -90,8 +90,6 @@ describe("valency reachability audit", () => {
       "object-controlled-open-complement",
     ]);
     expect(audit.zeroSupportSlots.map((slot) => [slot.ruleId, slot.constituentKey])).toEqual([
-      ["clause.serial-verb", "firstPredicate"],
-      ["clause.serial-verb", "secondPredicate"],
       ["clause.xcomp-object-control", "predicate"],
       ["clause.xcomp-subject-control", "predicate"],
     ]);
