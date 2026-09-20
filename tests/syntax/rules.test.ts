@@ -73,9 +73,8 @@ describe("formal phrase production inventory", () => {
   });
 
   it("does not inherit the phrase function through an adposition object", () => {
-    // clause.locative requires an oblique AdpositionPhrase. The phrase is the
-    // oblique; the noun inside 在<NP> is the object of the adposition and must
-    // not be forced to have been observed as an oblique dependent itself.
+    // An AdpositionPhrase owns its oblique function at phrase level. The noun
+    // object under the adposition must not inherit that corpus role.
     for (const ruleId of ["phrase.adposition.preposed", "phrase.adposition.postposed"]) {
       const rule = PHRASE_PRODUCTION_RULES.find((item) => item.id === ruleId);
       expect(rule, ruleId).toBeDefined();
@@ -89,7 +88,7 @@ describe("formal phrase production inventory", () => {
       "clause.locative",
       "argument.subject.noun",
       "argument.object.noun",
-      "predicate.verb.lexical",
+      "locative-predicate.lexical",
       "phrase.noun.bare",
       "phrase.nominal-head.noun",
     ]);
