@@ -1,6 +1,9 @@
 import { ARGUMENT_PRODUCTION_RULES } from "./argument-rules.js";
 import { FORMAL_GRAMMAR_VERSION } from "./features.js";
-import { PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY } from "./runtime-occurrence-capabilities.js";
+import {
+  PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY,
+  VERBAL_LOCATIVE_ROOT_SUBJECT_OBJECT_SAME_OCCURRENCE_CAPABILITY,
+} from "./runtime-occurrence-capabilities.js";
 import type {
   ProductionConstituent,
   ProductionFixture,
@@ -199,8 +202,14 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
   ]),
   production("clause.locative", "Clause", [
     subject(),
-    lexical("copula", ["AUX", "VERB"], { requiredFunctions: ["copula"] }),
-    constituent("location", "AdpositionPhrase", { requiredFunctions: ["oblique"] }),
+    lexical("predicate", ["VERB"], {
+      requiredFunctions: ["predicate"],
+      requiredValencyFrames: ["transitive"],
+      requiredOccurrenceCapabilities: [
+        VERBAL_LOCATIVE_ROOT_SUBJECT_OBJECT_SAME_OCCURRENCE_CAPABILITY,
+      ],
+    }),
+    constituent("location", "Object"),
   ]),
   production("clause.ba", "Clause", [
     subject(),
