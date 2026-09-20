@@ -1,0 +1,66 @@
+name: predicate marking retry budget audit
+
+on:
+  push:
+    branches:
+      - agent/measure-predicate-marking-retry-budget
+    paths:
+      - .github/workflows/predicate-marking-retry-budget-audit.yml
+      - scripts/measure-predicate-marking-retry-budget.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Generate packaged app catalog
+        run: npm run app:catalog
+      - name: Measure retry budgets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for n in 8 16 32; do
+            python - "$n" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+          n = sys.argv[1]
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          pattern = r'maximumAttempts: requiresPredicateMarkingPractice \|\| requiresArgumentRealizationPractice \? \d+ : 1,'
+          replacement = f'maximumAttempts: requiresPredicateMarkingPractice || requiresArgumentRealizationPractice ? {n} : 1,'
+          next_text, count = re.subn(pattern, replacement, text)
+          if count != 1:
+              raise SystemExit(f"expected one retry-budget site, got {count}")
+          path.write_text(next_text)
+          PY
+            npx tsx scripts/measure-predicate-marking-retry-budget.ts --label "$n"
+          done
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          for f in predicate-marking-retry-*.json; do
+            echo '### '"$f" >> "$GITHUB_STEP_SUMMARY"
+            echo '~~~json' >> "$GITHUB_STEP_SUMMARY"
+            cat "$f" >> "$GITHUB_STEP_SUMMARY"
+            echo '~~~' >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: predicate-marking-retry-budget-audit
+          path: predicate-marking-retry-*.json
+          if-no-files-found: error
