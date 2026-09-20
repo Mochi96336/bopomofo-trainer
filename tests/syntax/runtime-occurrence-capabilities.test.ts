@@ -67,7 +67,7 @@ describe("packaged same-occurrence capabilities", () => {
     expect(texts).not.toContain("著");
   });
 
-  it("uses preverbal auxiliary evidence only on the three reviewed live modal consumers", () => {
+  it("uses preverbal auxiliary evidence only on the four reviewed live modal consumers", () => {
     const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
       rule.constituents.filter((constituent) =>
         constituent.requiredOccurrenceCapabilities?.includes(
@@ -79,6 +79,7 @@ describe("packaged same-occurrence capabilities", () => {
     expect(consumers).toEqual([
       "phrase.verb.expanded:modal",
       "predicate.verb.expanded:modal",
+      "locative-predicate.expanded:modal",
       "predicate-marking.modal:modal",
     ]);
 
