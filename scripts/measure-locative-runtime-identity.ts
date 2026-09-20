@@ -41,7 +41,7 @@ const candidates = profilesArtifact.profiles.map((profile) => {
 const identity = classifyRuntimeSourceIdentityMatches(candidates, sourceKeys);
 
 const matchingProfiles = profilesArtifact.profiles
-  .filter((profile, index) => {
+  .filter((_, index) => {
     const candidate = candidates[index];
     return candidate !== undefined && identity.matchedSourceKeys.has(candidate.sourceKey);
   })
@@ -56,7 +56,7 @@ const matchingProfiles = profilesArtifact.profiles
   .sort((left, right) => left.id.localeCompare(right.id));
 
 const activatableProfiles = profilesArtifact.profiles
-  .filter((profile, index) => {
+  .filter((_, index) => {
     const candidate = candidates[index];
     return candidate !== undefined && identity.activatableSourceKeys.has(candidate.sourceKey);
   })
