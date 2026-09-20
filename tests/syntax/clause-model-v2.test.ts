@@ -62,19 +62,22 @@ describe("Clause model v2 migration inventory", () => {
       }, {});
 
     expect(counts).toEqual({
-      "preserve-core": 7,
+      "preserve-core": 8,
       "move-to-axis": 1,
       "rebuild-construction": 3,
       "rebuild-embedding-control": 5,
-      "hold-for-corpus-rebuild": 2,
+      "hold-for-corpus-rebuild": 1,
     });
   });
 
   it("keeps unresolved live rules separate from deliberately retired rules", () => {
-    for (const ruleId of ["clause.locative", "clause.serial-verb"] as const) {
-      expect(CURRENT_CLAUSE_RULE_V2_MIGRATION[ruleId].group)
-        .toBe("hold-for-corpus-rebuild");
-    }
+    expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.locative"]).toMatchObject({
+      group: "preserve-core",
+      targetAxis: "predicate-frame",
+      target: "locative.verbal",
+    });
+    expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.serial-verb"].group)
+      .toBe("hold-for-corpus-rebuild");
     expect(RETIRED_CLAUSE_RULE_V2_DECISIONS["clause.causative"]).toMatchObject({
       targetAxes: ["predicate-marking", "embedding"],
       evidenceContract: "causative-evidence-audit-v1",
