@@ -58,6 +58,9 @@ export interface LocativeSourceEvidenceSummary {
   readonly zaiRelationCounts: Readonly<Record<string, number>>;
   readonly zaiVerbTokenCount: number;
   readonly zaiVerbRootTokenCount: number;
+  readonly zaiVerbRootWithSubjectTokenCount: number;
+  readonly zaiVerbRootWithObjectTokenCount: number;
+  readonly zaiVerbRootWithSubjectAndObjectTokenCount: number;
   readonly zaiVerbWithSubjectTokenCount: number;
   readonly zaiVerbWithNominalComplementTokenCount: number;
   readonly zaiVerbWithCopChildTokenCount: number;
@@ -100,6 +103,9 @@ export function summarizeLocativeSourceEvidence(
   let zaiTokenCount = 0;
   let zaiVerbTokenCount = 0;
   let zaiVerbRootTokenCount = 0;
+  let zaiVerbRootWithSubjectTokenCount = 0;
+  let zaiVerbRootWithObjectTokenCount = 0;
+  let zaiVerbRootWithSubjectAndObjectTokenCount = 0;
   let zaiVerbWithSubjectTokenCount = 0;
   let zaiVerbWithNominalComplementTokenCount = 0;
   let zaiVerbWithCopChildTokenCount = 0;
@@ -157,8 +163,14 @@ export function summarizeLocativeSourceEvidence(
 
         if (token.upos === "VERB") {
           zaiVerbTokenCount += 1;
-          if (token.head === 0 || token.relation === "root") zaiVerbRootTokenCount += 1;
-          if (hasSubject(children)) zaiVerbWithSubjectTokenCount += 1;
+          const root = token.head === 0 || token.relation === "root";
+          const subject = hasSubject(children);
+          const object = children.some((child) => relationBase(child.relation) === "obj");
+          if (root) zaiVerbRootTokenCount += 1;
+          if (root && subject) zaiVerbRootWithSubjectTokenCount += 1;
+          if (root && object) zaiVerbRootWithObjectTokenCount += 1;
+          if (root && subject && object) zaiVerbRootWithSubjectAndObjectTokenCount += 1;
+          if (subject) zaiVerbWithSubjectTokenCount += 1;
           if (hasNominalComplement(children)) zaiVerbWithNominalComplementTokenCount += 1;
           if (children.some((child) => child.relation === "cop")) {
             zaiVerbWithCopChildTokenCount += 1;
@@ -206,6 +218,9 @@ export function summarizeLocativeSourceEvidence(
     zaiRelationCounts: sortedRecord(zaiRelationCounts),
     zaiVerbTokenCount,
     zaiVerbRootTokenCount,
+    zaiVerbRootWithSubjectTokenCount,
+    zaiVerbRootWithObjectTokenCount,
+    zaiVerbRootWithSubjectAndObjectTokenCount,
     zaiVerbWithSubjectTokenCount,
     zaiVerbWithNominalComplementTokenCount,
     zaiVerbWithCopChildTokenCount,
