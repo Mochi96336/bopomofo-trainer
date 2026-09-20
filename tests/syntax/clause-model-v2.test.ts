@@ -66,7 +66,6 @@ describe("Clause model v2 migration inventory", () => {
       "move-to-axis": 1,
       "rebuild-construction": 3,
       "rebuild-embedding-control": 5,
-      "hold-for-corpus-rebuild": 1,
     });
   });
 
@@ -76,8 +75,10 @@ describe("Clause model v2 migration inventory", () => {
       targetAxis: "predicate-frame",
       target: "locative.verbal",
     });
-    expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.serial-verb"].group)
-      .toBe("hold-for-corpus-rebuild");
+    expect(RETIRED_CLAUSE_RULE_V2_DECISIONS["clause.serial-verb"]).toMatchObject({
+      targetAxes: ["predicate-structure", "embedding"],
+      evidenceContract: "pinned-gsd-direct-verb-pair-inventory-v1",
+    });
     expect(RETIRED_CLAUSE_RULE_V2_DECISIONS["clause.causative"]).toMatchObject({
       targetAxes: ["predicate-marking", "embedding"],
       evidenceContract: "causative-evidence-audit-v1",
@@ -86,6 +87,7 @@ describe("Clause model v2 migration inventory", () => {
     expect(FORMAL_SYNTAX_RULES.some((rule) => rule.id === "clause.negative")).toBe(false);
     expect(FORMAL_SYNTAX_RULES.some((rule) => rule.id === "clause.aspect")).toBe(false);
     expect(FORMAL_SYNTAX_RULES.some((rule) => rule.id === "clause.modal")).toBe(false);
+    expect(FORMAL_SYNTAX_RULES.some((rule) => rule.id === "clause.serial-verb")).toBe(false);
 
     expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.bei"]).toMatchObject({
       group: "rebuild-construction",
