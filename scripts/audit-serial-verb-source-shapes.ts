@@ -172,6 +172,63 @@ const focusedExamples = Object.fromEntries(
   [...focusedExamplesByRelation].sort(([left], [right]) => left.localeCompare(right)),
 );
 
+const reviewedBoundary = {
+  directVerbPairCount: 10_004,
+  directVerbPairRelations: {
+    advcl: 3_423,
+    ccomp: 1_704,
+    conj: 299,
+    parataxis: 1_344,
+    xcomp: 1_567,
+  },
+  focusedCandidateRelations: {
+    advcl: 1_858,
+    ccomp: 12,
+    conj: 34,
+    parataxis: 156,
+    xcomp: 880,
+  },
+  focusedCandidateSurfaceOrder: {
+    "advcl:child-after-head": 2,
+    "advcl:child-before-head": 1_856,
+    "xcomp:child-after-head": 721,
+    "xcomp:child-before-head": 159,
+  },
+} as const;
+
+function requireCount(
+  label: string,
+  actual: number | undefined,
+  expected: number,
+): void {
+  if (actual !== expected) {
+    throw new Error(`${label} drifted: expected ${expected}, got ${String(actual)}`);
+  }
+}
+
+requireCount("directVerbPairCount", directVerbPairCount, reviewedBoundary.directVerbPairCount);
+for (const [relation, expected] of Object.entries(reviewedBoundary.directVerbPairRelations)) {
+  requireCount(
+    `directVerbPairRelations.${relation}`,
+    directVerbPairRelations.get(relation),
+    expected,
+  );
+}
+for (const [relation, expected] of Object.entries(reviewedBoundary.focusedCandidateRelations)) {
+  requireCount(
+    `focusedCandidateRelations.${relation}`,
+    focusedCandidateRelations.get(relation),
+    expected,
+  );
+}
+for (const [key, expected] of Object.entries(reviewedBoundary.focusedCandidateSurfaceOrder)) {
+  requireCount(
+    `focusedCandidateSurfaceOrder.${key}`,
+    focusedCandidateSurfaceOrder.get(key),
+    expected,
+  );
+}
+
 console.log(JSON.stringify({
   contract: "pinned-gsd-direct-verb-pair-inventory-v1",
   sentenceCount,
