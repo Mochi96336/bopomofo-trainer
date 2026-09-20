@@ -21,6 +21,10 @@ export type SyntacticFunction = (typeof SYNTACTIC_FUNCTIONS)[number];
 export const VALENCY_FRAMES = [
   "avalent", "intransitive", "transitive", "ditransitive", "ambitransitive",
   "copular", "clausal-complement", "open-clausal-complement", "adpositional-complement",
+  // Reserved legacy wire value. The generic clause.serial-verb grammar was
+  // retired after pinned evidence split apparent multi-verb surfaces across
+  // advcl, xcomp, coordination, and other dependency ownership. Keep this
+  // position stable so compact catalog encodings after it are not renumbered.
   "serial-verb", "causative", "resultative",
   "subject-controlled-open-complement", "object-controlled-open-complement",
 ] as const;
