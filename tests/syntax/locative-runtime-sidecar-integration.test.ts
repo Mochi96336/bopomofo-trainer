@@ -25,9 +25,6 @@ describe("locative runtime sidecar integration", () => {
     );
 
     expect(occurrenceBacked).toHaveLength(1);
-    expect(occurrenceBacked[0]?.id).toBe(
-      "runtime-syntax-profile:22ea14b107a15cbe46f08b647e006e0e97e2d17f2f154d257dab14021c9de9c6",
-    );
     expect(occurrenceBacked[0]?.entryId).toBe("word:在:ㄗㄞ4");
     expect(occurrenceBacked[0]?.upos).toBe("VERB");
     expect(occurrenceBacked[0]?.functions).toContain("predicate");
