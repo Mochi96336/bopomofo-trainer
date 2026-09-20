@@ -59,7 +59,7 @@ describe("formal clause and question production inventory", () => {
     const locative = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "clause.locative");
     expect(locative?.constituents.map((item) => [item.key, item.category])).toEqual([
       ["subject", "Subject"],
-      ["predicate", "Predicate"],
+      ["predicate", "LocativePredicate"],
       ["location", "Object"],
     ]);
     expect(locative?.constituents.find((item) => item.key === "predicate")).toMatchObject({
@@ -76,7 +76,7 @@ describe("formal clause and question production inventory", () => {
       "clause.locative",
       "argument.subject.noun",
       "argument.object.noun",
-      "predicate.verb.lexical",
+      "locative-predicate.lexical",
       "phrase.noun.bare",
       "phrase.nominal-head.noun",
     ]);
@@ -101,7 +101,7 @@ describe("formal clause and question production inventory", () => {
       "clause.locative",
       "argument.subject.noun",
       "argument.object.noun",
-      "predicate.verb.expanded",
+      "locative-predicate.expanded",
       "phrase.noun.bare",
       "phrase.nominal-head.noun",
     ]);
@@ -115,10 +115,10 @@ describe("formal clause and question production inventory", () => {
         {
           parentRuleId: "clause.locative",
           constituentKey: "predicate",
-          childRuleId: "predicate.verb.expanded",
+          childRuleId: "locative-predicate.expanded",
         },
         {
-          parentRuleId: "predicate.verb.expanded",
+          parentRuleId: "locative-predicate.expanded",
           constituentKey: "negation",
           exactCount: 1,
         },
@@ -140,6 +140,18 @@ describe("formal clause and question production inventory", () => {
     );
     expect(locativeHead).toBeDefined();
     expect(locativeHead?.requiredValencyFrames).toContain("transitive");
+  });
+
+  it("keeps productive aspect out of the reviewed locative predicate boundary", () => {
+    const locativeRules = FORMAL_SYNTAX_RULES.filter((rule) =>
+      rule.output === "LocativePredicate");
+    expect(locativeRules.map((rule) => rule.id).sort()).toEqual([
+      "locative-predicate.expanded",
+      "locative-predicate.lexical",
+    ]);
+    expect(locativeRules.flatMap((rule) => rule.constituents)
+      .some((item) => item.key === "aspect"
+        || item.requiredFeatures.aspect === "marked")).toBe(false);
   });
 
   it("represents BA patient as a construction role with preverbal predicate marking", () => {
