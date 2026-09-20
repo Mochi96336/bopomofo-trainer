@@ -38,6 +38,7 @@ describe("locative source evidence", () => {
     expect(evidence.zaiVerbRootWithSubjectTokenCount).toBe(1);
     expect(evidence.zaiVerbRootWithObjectTokenCount).toBe(1);
     expect(evidence.zaiVerbRootWithSubjectAndObjectTokenCount).toBe(1);
+    expect([...evidence.verbalLocativePredicateCounts]).toEqual([["在\u0000VERB", 1]]);
     expect(evidence.zaiVerbWithSubjectTokenCount).toBe(1);
     expect(evidence.zaiVerbWithNominalComplementTokenCount).toBe(1);
 
