@@ -60,3 +60,43 @@ const summary = {
 };
 
 console.log(JSON.stringify(summary, null, 2));
+
+
+const EXPECTED_PINNED_BOUNDARY = {
+  sourceCommit: UD_GSD_SOURCE_COMMIT,
+  evidenceContract: "pinned-gsd-locative-shape-inventory-v1",
+  sentenceCount: 4_997,
+  tokenCount: 123_289,
+  zaiTokenCount: 1_644,
+  zaiUposCounts: { ADP: 1_061, ADV: 28, VERB: 555 },
+  zaiVerbRootTokenCount: 21,
+  zaiVerbRootWithSubjectTokenCount: 20,
+  zaiVerbRootWithObjectTokenCount: 13,
+  zaiVerbRootWithSubjectAndObjectTokenCount: 12,
+  zaiAdpCaseTokenCount: 1_050,
+  zaiCaseObliqueHeadTokenCount: 825,
+  zaiCaseRootHeadTokenCount: 3,
+  zaiCaseHeadWithCopAndSubjectTokenCount: 2,
+  predicateWithZaiObliqueTokenCount: 825,
+  predicateWithZaiObliqueVerbTokenCount: 821,
+  youVerbTokenCount: 603,
+  youVerbRootTokenCount: 254,
+  youVerbWithZaiObliqueTokenCount: 35,
+} as const;
+
+if (process.argv.includes("--verify")) {
+  const failures: string[] = [];
+  for (const [key, expected] of Object.entries(EXPECTED_PINNED_BOUNDARY)) {
+    const observed = summary[key as keyof typeof summary];
+    if (JSON.stringify(observed) !== JSON.stringify(expected)) {
+      failures.push(`${key}=${JSON.stringify(observed)}`);
+    }
+  }
+  if (failures.length > 0) {
+    throw new Error(
+      `locative source evidence drifted from the pinned reviewed boundary: ${failures.join(", ")}\n`
+      + `expected: ${JSON.stringify(EXPECTED_PINNED_BOUNDARY, null, 2)}\n`
+      + `observed: ${JSON.stringify(summary, null, 2)}`,
+    );
+  }
+}
