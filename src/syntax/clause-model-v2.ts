@@ -182,10 +182,10 @@ export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
   },
 
   "clause.locative": {
-    group: "hold-for-corpus-rebuild",
+    group: "preserve-core",
     targetAxis: "predicate-frame",
-    target: "locative:TBD",
-    note: "Current copula + adposition rule is narrower than Mandarin locative predication; rebuild from observed patterns.",
+    target: "locative.verbal",
+    note: "Reviewed pinned-GSD evidence licenses 在/VERB as a verbal locative predicate with subject + object realization; ordinary 在-marked obliques and existential 有 remain outside this frame.",
   },
   "clause.serial-verb": {
     group: "hold-for-corpus-rebuild",

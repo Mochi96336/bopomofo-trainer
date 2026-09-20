@@ -580,7 +580,11 @@ export function composeFormalSyntaxUtterances(
       rootCategory: "Sentence",
       rules,
       random: input.random,
-      maximumAttempts: requiresPredicateMarkingPractice || requiresArgumentRealizationPractice ? 8 : 1,
+      maximumAttempts: requiresPredicateMarkingPractice
+        ? 32
+        : requiresArgumentRealizationPractice
+          ? 8
+          : 1,
       ...(requiredPredicateMarkingSlot === null
         ? {}
         : { requiredLexicalSlot: requiredPredicateMarkingSlot }),

@@ -84,11 +84,12 @@ describe("formal phrase production inventory", () => {
     }
   });
 
-  it("keeps oblique on the locative phrase without pushing it onto either noun", () => {
+  it("keeps the rebuilt locative location structural instead of corpus-role-gating its noun", () => {
     const keep = new Set([
       "clause.locative",
       "argument.subject.noun",
-      "phrase.adposition.preposed",
+      "argument.object.noun",
+      "predicate.verb.lexical",
       "phrase.noun.bare",
       "phrase.nominal-head.noun",
     ]);
@@ -98,7 +99,11 @@ describe("formal phrase production inventory", () => {
     })].flatMap((shape) => shape.lexicalSlots);
     const nounSlots = slots.filter((slot) => slot.allowedUpos.includes("NOUN"));
     expect(nounSlots.length).toBeGreaterThan(0);
-    expect(nounSlots.some((slot) => slot.requiredFunctions.includes("oblique")))
-      .toBe(false);
+    expect(nounSlots.some((slot) => slot.requiredFunctions.includes("object")
+      || slot.requiredFunctions.includes("oblique"))).toBe(false);
+    const predicate = slots.find((slot) => slot.allowedUpos.includes("VERB"));
+    expect(predicate?.requiredOccurrenceCapabilities).toContain(
+      "verbal-locative-root-subject-object-same-occurrence",
+    );
   });
 });

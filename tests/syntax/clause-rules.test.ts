@@ -55,6 +55,93 @@ describe("formal clause and question production inventory", () => {
     expect(ids.has("clause.object-omission")).toBe(false);
   });
 
+  it("rebuilds locative as reviewed verbal predication plus a structural location object", () => {
+    const locative = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "clause.locative");
+    expect(locative?.constituents.map((item) => [item.key, item.category])).toEqual([
+      ["subject", "Subject"],
+      ["predicate", "Predicate"],
+      ["location", "Object"],
+    ]);
+    expect(locative?.constituents.find((item) => item.key === "predicate")).toMatchObject({
+      requiredFunctions: ["predicate"],
+      requiredValencyFrames: ["transitive"],
+      requiredOccurrenceCapabilities: [
+        "verbal-locative-root-subject-object-same-occurrence",
+      ],
+    });
+    expect(locative?.constituents.some((item) => item.key === "copula")).toBe(false);
+    expect(locative?.constituents.some((item) => item.category === "AdpositionPhrase")).toBe(false);
+
+    const keep = new Set([
+      "clause.locative",
+      "argument.subject.noun",
+      "argument.object.noun",
+      "predicate.verb.lexical",
+      "phrase.noun.bare",
+      "phrase.nominal-head.noun",
+    ]);
+    const shapes = [...enumerateStructuralDerivations({
+      rootCategory: "Clause",
+      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
+    })];
+    expect(shapes).toHaveLength(1);
+    expect(shapes[0]?.productionRulePath).toContain("argument.object.noun");
+    const locativeHeads = shapes[0]?.lexicalSlots.filter((slot) =>
+      slot.allowedUpos.includes("VERB")
+        && (slot.requiredOccurrenceCapabilities ?? []).includes(
+          "verbal-locative-root-subject-object-same-occurrence",
+        )
+    ) ?? [];
+    expect(locativeHeads).toHaveLength(1);
+    expect(locativeHeads[0]?.requiredValencyFrames).toContain("transitive");
+  });
+
+  it("keeps predicate marking orthogonal inside the reviewed locative frame", () => {
+    const keep = new Set([
+      "clause.locative",
+      "argument.subject.noun",
+      "argument.object.noun",
+      "predicate.verb.expanded",
+      "phrase.noun.bare",
+      "phrase.nominal-head.noun",
+    ]);
+    const shape = sampleStructuralDerivation({
+      rootCategory: "Clause",
+      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
+      random: { next: () => 0 },
+      maximumAttempts: 1,
+      rootProductionRuleId: "clause.locative",
+      nestedProductionTargets: [
+        {
+          parentRuleId: "clause.locative",
+          constituentKey: "predicate",
+          childRuleId: "predicate.verb.expanded",
+        },
+        {
+          parentRuleId: "predicate.verb.expanded",
+          constituentKey: "negation",
+          exactCount: 1,
+        },
+      ],
+      requiredLexicalSlot: {
+        requiredFeatures: { polarity: "negative" },
+        enclosingRequiredFunctions: ["predicate"],
+      },
+    });
+
+    expect(shape).not.toBeNull();
+    const negation = shape?.lexicalSlots.find((slot) => slot.constituentKey === "negation");
+    expect(negation?.requiredFeatures).toMatchObject({ polarity: "negative" });
+    const locativeHead = shape?.lexicalSlots.find((slot) =>
+      slot.allowedUpos.includes("VERB")
+        && (slot.requiredOccurrenceCapabilities ?? []).includes(
+          "verbal-locative-root-subject-object-same-occurrence",
+        )
+    );
+    expect(locativeHead).toBeDefined();
+    expect(locativeHead?.requiredValencyFrames).toContain("transitive");
+  });
+
   it("represents BA patient as a construction role with preverbal predicate marking", () => {
     const ba = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "clause.ba");
     expect(ba?.constituents.map((item) => [item.key, item.category])).toEqual([
