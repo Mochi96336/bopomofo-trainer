@@ -28,7 +28,6 @@ const REQUIRED_CONSTRUCTIONS = [
   "clause.locative",
   "clause.ba",
   "clause.bei",
-  "clause.serial-verb",
   "clause.comparative",
   "clause.topic-comment",
   "sentence.request",
@@ -53,6 +52,7 @@ describe("formal clause and question production inventory", () => {
     expect(ids.has("clause.aspect")).toBe(false);
     expect(ids.has("clause.subject-omission")).toBe(false);
     expect(ids.has("clause.object-omission")).toBe(false);
+    expect(ids.has("clause.serial-verb")).toBe(false);
   });
 
   it("rebuilds locative as reviewed verbal predication plus a structural location object", () => {

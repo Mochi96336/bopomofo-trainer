@@ -127,8 +127,6 @@ describe("Clause-model v2 predicate argument ownership", () => {
     expect(FORMAL_SYNTAX_RULES.some((item) => item.id === "clause.causative")).toBe(false);
     expect(rule("clause.subject-content").constituents.find((item) => item.key === "predicate")?.category)
       .toBe("VerbPhrase");
-    expect(rule("clause.serial-verb").constituents.find((item) => item.key === "firstPredicate")?.category)
-      .toBe("VerbPhrase");
     expect(rule("clause.topic-comment").constituents.find((item) => item.key === "comment")?.category)
       .toBe("VerbPhrase");
     expect(rule("sentence.constituent-subject-question").constituents.find((item) => item.key === "predicate")?.category)

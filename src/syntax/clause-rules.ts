@@ -232,18 +232,6 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     constituent("passive", "PassivePhrase"),
     corePredicate(["transitive", "ambitransitive"]),
   ]),
-  production("clause.serial-verb", "Clause", [
-    subject({ minimum: 0, maximum: 1 }),
-    constituent("firstPredicate", "VerbPhrase", {
-      requiredFunctions: ["predicate"],
-      requiredValencyFrames: ["serial-verb"],
-    }),
-    constituent("secondPredicate", "VerbPhrase", {
-      requiredFunctions: ["predicate"],
-      requiredValencyFrames: ["serial-verb"],
-    }),
-    constituent("object", "NounPhrase", { minimum: 0, maximum: 1 }),
-  ]),
   production("clause.comparative", "Clause", [
     subject(),
     lexical("marker", ["ADP"], { requiredFeatures: { clauseType: "comparative" } }),

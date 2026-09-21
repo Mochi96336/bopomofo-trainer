@@ -23,7 +23,6 @@ export type SentenceConstructionFamily =
 export type ClauseKind =
   | "core-predication"
   | "marked"
-  | "complex-predicate"
   | "information-structure"
   | "embedded-content";
 
@@ -39,7 +38,6 @@ export type ClauseConstructionFamily =
   | "marked.ba"
   | "marked.bei"
   | "marked.comparative"
-  | "complex.serial-verb"
   | "information.topic-comment"
   | "embedded.subject-content"
   | "embedded.object-content"
@@ -82,8 +80,6 @@ const CLAUSE_CLASSIFICATION_BY_RULE_ID: Readonly<Record<string, ClauseConstructi
   "clause.ba": { kind: "marked", family: "marked.ba" },
   "clause.bei": { kind: "marked", family: "marked.bei" },
   "clause.comparative": { kind: "marked", family: "marked.comparative" },
-
-  "clause.serial-verb": { kind: "complex-predicate", family: "complex.serial-verb" },
 
   "clause.topic-comment": { kind: "information-structure", family: "information.topic-comment" },
 
