@@ -101,6 +101,8 @@ jobs:
           path: locative-source-audit.log
       - name: Audit serial-verb source shapes
         run: npx tsx scripts/audit-serial-verb-source-shapes.ts
+      - name: Audit topic-dislocation source shapes
+        run: npx tsx scripts/audit-topic-dislocation-source-shapes.ts
       - name: Verify modality source evidence
         id: modality-source-audit
         shell: bash
