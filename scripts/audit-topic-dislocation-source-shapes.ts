@@ -110,6 +110,53 @@ const topFormPairs = Object.fromEntries(
     .slice(0, 100),
 );
 
+const reviewedBoundary = {
+  sentenceCount: 4_997,
+  tokenCount: 123_289,
+  dislocatedCount: 62,
+  headRootCount: 25,
+  verbalHeadCount: 4,
+  surfaceOrderCounts: {
+    "child-after-head": 60,
+    "child-before-head": 2,
+  },
+  childUposCounts: {
+    ADJ: 11,
+    NOUN: 10,
+    PROPN: 2,
+    VERB: 39,
+  },
+  headUposCounts: {
+    NOUN: 36,
+    PART: 9,
+    PRON: 3,
+    PROPN: 8,
+    VERB: 4,
+    X: 2,
+  },
+} as const;
+
+function requireCount(label: string, actual: number | undefined, expected: number): void {
+  if (actual !== expected) {
+    throw new Error(`${label} drifted: expected ${expected}, got ${String(actual)}`);
+  }
+}
+
+requireCount("sentenceCount", sentenceCount, reviewedBoundary.sentenceCount);
+requireCount("tokenCount", tokenCount, reviewedBoundary.tokenCount);
+requireCount("dislocatedCount", dislocatedCount, reviewedBoundary.dislocatedCount);
+requireCount("headRootCount", headRootCount, reviewedBoundary.headRootCount);
+requireCount("verbalHeadCount", verbalHeadCount, reviewedBoundary.verbalHeadCount);
+for (const [key, expected] of Object.entries(reviewedBoundary.surfaceOrderCounts)) {
+  requireCount(`surfaceOrderCounts.${key}`, surfaceOrderCounts.get(key), expected);
+}
+for (const [key, expected] of Object.entries(reviewedBoundary.childUposCounts)) {
+  requireCount(`childUposCounts.${key}`, childUposCounts.get(key), expected);
+}
+for (const [key, expected] of Object.entries(reviewedBoundary.headUposCounts)) {
+  requireCount(`headUposCounts.${key}`, headUposCounts.get(key), expected);
+}
+
 console.log(JSON.stringify({
   contract: "pinned-gsd-topic-dislocation-inventory-v1",
   sentenceCount,
