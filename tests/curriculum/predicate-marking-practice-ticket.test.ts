@@ -60,7 +60,7 @@ describe("predicate marking practice ticket", () => {
   });
 
   it("uses the measured product marking prior with the historical negation interval preserved", () => {
-    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v9");
+    expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version).toBe("formal-syntax-family-sampling-v10");
     expect(PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.predicateMarkingPracticeWeights).toEqual({
       ordinary: 0.831,
       modal: 0.057,
