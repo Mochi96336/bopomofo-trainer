@@ -98,6 +98,11 @@ export interface StructuralSamplingOptions {
    */
   readonly requiredProductionRuleIdsAnyOf?: readonly string[];
   /**
+   * Exclude named productions from this sampling attempt without mutating the
+   * canonical grammar. This is a curriculum/search control, not a legality rule.
+   */
+  readonly excludedProductionRuleIds?: readonly string[];
+  /**
    * Require at least one realized lexical slot matching both lexical requirements
    * and requirements on its immediately enclosing syntax category. Enclosing
    * requirements are sampler-only metadata and do not alter derivation identity.
@@ -678,6 +683,7 @@ function sampleRuleChildren(
   ) => boolean) | undefined,
   rootProductionRuleId: string | undefined,
   nestedProductionTargets: ReadonlyMap<string, ValidatedNestedProductionTarget>,
+  excludedProductionRuleIds: ReadonlySet<string>,
   fixedCounts?: ConstituentCounts,
   deterministicCounts = false,
 ): SampledRuleChildren | null {
@@ -756,6 +762,7 @@ function sampleRuleChildren(
         samplingRuleClassMask(constituent),
         rootProductionRuleId,
         nestedProductionTargets,
+        excludedProductionRuleIds,
         false,
         requestedChildRuleId,
       );
@@ -794,6 +801,7 @@ function sampleCategory(
   excludedRuleClassMask: number,
   rootProductionRuleId: string | undefined,
   nestedProductionTargets: ReadonlyMap<string, ValidatedNestedProductionTarget>,
+  excludedProductionRuleIds: ReadonlySet<string>,
   isRoot: boolean,
   requestedProductionRuleId?: string,
 ): Sampled | null {
@@ -814,6 +822,9 @@ function sampleCategory(
       ? eligibleRuleSets.defaultByOutput
       : eligibleRuleSets.withoutCoordinationByOutput
   ).get(category) ?? [];
+  if (excludedProductionRuleIds.size > 0) {
+    eligibleRules = eligibleRules.filter((rule) => !excludedProductionRuleIds.has(rule.id));
+  }
   if (isRoot && rootProductionRuleId !== undefined) {
     eligibleRules = eligibleRules.filter((rule) => rule.id === rootProductionRuleId);
   }
@@ -883,6 +894,7 @@ function sampleCategory(
       isLexicalRequirementsReachable,
       rootProductionRuleId,
       nestedProductionTargets,
+      excludedProductionRuleIds,
       fixedCounts,
       orderedLicensingAlternatives && !productiveBaAlternative,
     );
@@ -988,6 +1000,33 @@ function validatedNestedProductionTargets(
   return targets;
 }
 
+function validatedExcludedProductionRuleIds(
+  options: StructuralSamplingOptions,
+  rootProductionRuleId: string | undefined,
+  nestedProductionTargets: ReadonlyMap<string, ValidatedNestedProductionTarget>,
+): ReadonlySet<string> {
+  const requested = options.excludedProductionRuleIds ?? [];
+  const unique = [...new Set(requested)];
+  if (unique.length !== requested.length) {
+    throw new Error("excludedProductionRuleIds contains duplicate production rules");
+  }
+  const known = new Set(options.rules.map((rule) => rule.id));
+  const missing = unique.filter((ruleId) => !known.has(ruleId));
+  if (missing.length > 0) {
+    throw new Error(`excludedProductionRuleIds references missing productions: ${missing.join(", ")}`);
+  }
+  const excluded = new Set(unique);
+  if (rootProductionRuleId !== undefined && excluded.has(rootProductionRuleId)) {
+    throw new Error(`excludedProductionRuleIds conflicts with rootProductionRuleId: ${rootProductionRuleId}`);
+  }
+  for (const target of nestedProductionTargets.values()) {
+    if (target.childRuleId !== undefined && excluded.has(target.childRuleId)) {
+      throw new Error(`excludedProductionRuleIds conflicts with nested child target: ${target.childRuleId}`);
+    }
+  }
+  return excluded;
+}
+
 function validatedRequiredProductionRuleIdsAnyOf(
   options: StructuralSamplingOptions,
 ): readonly string[] | undefined {
@@ -1046,6 +1085,11 @@ export function sampleStructuralDerivation(
   }
   const requestedRootRuleId = validatedRootRuleId(options);
   const nestedProductionTargets = validatedNestedProductionTargets(options, bounds);
+  const excludedProductionRuleIds = validatedExcludedProductionRuleIds(
+    options,
+    requestedRootRuleId,
+    nestedProductionTargets,
+  );
   const requiredProductionRuleIdsAnyOf = validatedRequiredProductionRuleIdsAnyOf(options);
   const rulesByOutput = context.rulesByOutput;
   const orderedConstituentsBySurfaceOrder = context.orderedConstituentsBySurfaceOrder;
@@ -1071,6 +1115,7 @@ export function sampleStructuralDerivation(
       0,
       requestedRootRuleId,
       nestedProductionTargets,
+      excludedProductionRuleIds,
       true,
     );
     if (sampled === null || sampled.element.kind !== "syntax-node") continue;
