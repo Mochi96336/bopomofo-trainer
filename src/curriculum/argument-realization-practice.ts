@@ -5,6 +5,7 @@ export const CORE_ARGUMENT_REALIZATION_RULE_IDS = [
   "clause.intransitive",
   "clause.transitive",
   "clause.ditransitive",
+  "clause.comparative",
 ] as const;
 
 export const OBJECT_ARGUMENT_REALIZATION_RULE_IDS = [
@@ -23,6 +24,7 @@ const OVERT_CORE_TARGETS: readonly NestedProductionTarget[] = [
   { parentRuleId: "clause.transitive", constituentKey: "object", exactCount: 1 },
   { parentRuleId: "clause.ditransitive", constituentKey: "subject", exactCount: 1 },
   { parentRuleId: "clause.ditransitive", constituentKey: "object", exactCount: 1 },
+  { parentRuleId: "clause.comparative", constituentKey: "subject", exactCount: 1 },
 ];
 
 export function argumentRealizationStructuralPractice(
@@ -39,6 +41,7 @@ export function argumentRealizationStructuralPractice(
         { parentRuleId: "clause.transitive", constituentKey: "object", exactCount: 1 },
         { parentRuleId: "clause.ditransitive", constituentKey: "subject", exactCount: 0 },
         { parentRuleId: "clause.ditransitive", constituentKey: "object", exactCount: 1 },
+        { parentRuleId: "clause.comparative", constituentKey: "subject", exactCount: 0 },
       ],
       requiredProductionRuleIdsAnyOf: CORE_ARGUMENT_REALIZATION_RULE_IDS,
     };
