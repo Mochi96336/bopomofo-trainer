@@ -300,6 +300,58 @@ describe("random structural sampling", () => {
     })).toThrow(/duplicates parent constituent/u);
   });
 
+  it("excludes named productions per sampling attempt without mutating grammar legality", () => {
+    const shape = sampleStructuralDerivation({
+      rootCategory: "Sentence",
+      rootProductionRuleId: "sentence.wrapper",
+      rules: nestedTargetRules,
+      random: new SequenceRandom([0]),
+      maximumAttempts: 1,
+      excludedProductionRuleIds: ["clause.target"],
+    });
+
+    expect(shape?.productionRulePath).toEqual([
+      "sentence.wrapper",
+      "clause.other",
+    ]);
+    expect(nestedTargetRules.some((rule) => rule.id === "clause.target")).toBe(true);
+  });
+
+  it("rejects invalid or contradictory production exclusions before sampling", () => {
+    const base = {
+      rootCategory: "Sentence" as const,
+      rules: nestedTargetRules,
+      random: new SequenceRandom([0]),
+      maximumAttempts: 1,
+    };
+
+    expect(() => sampleStructuralDerivation({
+      ...base,
+      excludedProductionRuleIds: ["missing.rule"],
+    })).toThrow(/references missing productions/u);
+
+    expect(() => sampleStructuralDerivation({
+      ...base,
+      excludedProductionRuleIds: ["clause.target", "clause.target"],
+    })).toThrow(/duplicate production rules/u);
+
+    expect(() => sampleStructuralDerivation({
+      ...base,
+      rootProductionRuleId: "sentence.wrapper",
+      excludedProductionRuleIds: ["sentence.wrapper"],
+    })).toThrow(/conflicts with rootProductionRuleId/u);
+
+    expect(() => sampleStructuralDerivation({
+      ...base,
+      nestedProductionTargets: [{
+        parentRuleId: "sentence.wrapper",
+        constituentKey: "clause",
+        childRuleId: "clause.target",
+      }],
+      excludedProductionRuleIds: ["clause.target"],
+    })).toThrow(/conflicts with nested child target/u);
+  });
+
   it("matches lexical requirements only in the requested enclosing function context", () => {
     const requiredLexicalSlot = {
       requiredFeatures: { polarity: "negative" },
