@@ -103,6 +103,8 @@ jobs:
         run: npx tsx scripts/audit-serial-verb-source-shapes.ts
       - name: Audit topic-dislocation source shapes
         run: npx tsx scripts/audit-topic-dislocation-source-shapes.ts
+      - name: Verify comparative source shapes
+        run: npx tsx scripts/audit-comparative-source-evidence.ts --verify
       - name: Verify modality source evidence
         id: modality-source-audit
         shell: bash
