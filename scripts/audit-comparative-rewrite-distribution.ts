@@ -1,5 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+import { CORE_ARGUMENT_REALIZATION_RULE_IDS } from "../src/curriculum/argument-realization-practice.js";
 import { createSeededRandom } from "../src/curriculum/random.js";
 import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
 import { sentenceConstructionClassification } from "../src/curriculum/formal-syntax-taxonomy.js";
@@ -9,7 +10,7 @@ import type { ProductionConstituent, ProductionRule } from "../src/syntax/types.
 const SAMPLE_COUNT = 2048;
 const SEED_NAMESPACE = "comparative-rewrite-distribution-v1";
 const BASE_HEAD = "094b0caa50ea486dd8bbf50e8a006c61a6b05d39";
-const REWRITE_HEAD = "09fdde56c8030dbd1218f8a5c5eaa4e34d26c938";
+const REWRITE_HEAD = "e2b89c22b6371f15a64ccea1ef6dfca50c1a968c";
 const COMPARATIVE_RULE = "clause.comparative";
 
 const PRODUCT_BOUNDS = {
@@ -210,10 +211,22 @@ const legacyComparative = legacyComparativeRule(currentComparative);
 
 const currentRows = measure("current");
 mutableRules[comparativeIndex] = legacyComparative;
+
+// Production main did not include clause.comparative in subject-omission
+// eligibility. The rewrite does. Remove only that eligibility while measuring
+// the in-memory legacy rule so the shadow matches the old curriculum contract.
+const mutableArgumentRules = CORE_ARGUMENT_REALIZATION_RULE_IDS as unknown as string[];
+const comparativeArgumentIndex = mutableArgumentRules.indexOf(COMPARATIVE_RULE);
+if (comparativeArgumentIndex < 0) {
+  throw new Error("rewrite argument-realization policy does not own comparative subject");
+}
+mutableArgumentRules.splice(comparativeArgumentIndex, 1);
+
 let legacyRows: Row[];
 try {
   legacyRows = measure("legacy");
 } finally {
+  mutableArgumentRules.splice(comparativeArgumentIndex, 0, COMPARATIVE_RULE);
   mutableRules[comparativeIndex] = currentComparative;
 }
 
