@@ -151,8 +151,8 @@ export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
   "clause.comparative": {
     group: "rebuild-construction",
     targetAxis: "argument-construction",
-    target: "comparative",
-    note: "Keep the construction but re-derive the licensed predicate/complement shapes from evidence.",
+    target: "comparative.bi",
+    note: "Reviewed 比/ADP(case) evidence makes the standard a structural construction role, keeps subject realization orthogonal, preserves adjectival predicates, and gates verbal predicates by same-occurrence capability.",
   },
 
   "clause.subject-content": {
