@@ -233,10 +233,10 @@ export const CLAUSE_PRODUCTION_RULES: readonly ProductionRule[] = [
     corePredicate(["transitive", "ambitransitive"]),
   ]),
   production("clause.comparative", "Clause", [
-    subject(),
+    subject({ minimum: 0, maximum: 1 }),
     lexical("marker", ["ADP"], { requiredFeatures: { clauseType: "comparative" } }),
-    constituent("standard", "NounPhrase", { requiredFunctions: ["oblique"] }),
-    constituent("predicate", "AdjectivePhrase", { requiredFunctions: ["predicate"] }),
+    constituent("standard", "ComparativeStandard"),
+    constituent("predicate", "ComparativePredicate", { requiredFunctions: ["predicate"] }),
   ]),
   production("clause.topic-comment", "Clause", [
     constituent("topicPhrase", "NounPhrase", { requiredFunctions: ["modifier"] }),
