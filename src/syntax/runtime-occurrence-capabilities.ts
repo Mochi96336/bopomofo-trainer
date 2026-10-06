@@ -13,6 +13,8 @@ export const SHORT_PASSIVE_AUX_PASS_SAME_OCCURRENCE_CAPABILITY: RuntimeOccurrenc
   "short-passive-aux-pass-bei-same-occurrence";
 export const VERBAL_LOCATIVE_ROOT_SUBJECT_OBJECT_SAME_OCCURRENCE_CAPABILITY: RuntimeOccurrenceCapability =
   "verbal-locative-root-subject-object-same-occurrence";
+export const VERBAL_COMPARATIVE_BI_STANDARD_SAME_OCCURRENCE_CAPABILITY: RuntimeOccurrenceCapability =
+  "verbal-comparative-bi-standard-same-occurrence";
 
 const REVIEWED_CAPABILITIES = new Set<string>(RUNTIME_OCCURRENCE_CAPABILITIES);
 
