@@ -28,9 +28,10 @@ export interface ArgumentRealizationPracticeWeights {
   readonly objectOmission: number;
 }
 
-export type ComparativePredicatePracticeIntent = "adjectival" | "verbal";
+export type ComparativePracticeIntent = "inactive" | "adjectival" | "verbal";
 
-export interface ComparativePredicatePracticeWeights {
+export interface ComparativePracticeWeights {
+  readonly inactive: number;
   readonly adjectival: number;
   readonly verbal: number;
 }
@@ -44,8 +45,8 @@ export interface FormalSyntaxSamplingPolicy {
   readonly predicateMarkingPracticeWeights: PredicateMarkingPracticeWeights;
   /** Product practice intent for overt/absent core arguments, separate from predicate-frame identity. */
   readonly argumentRealizationPracticeWeights: ArgumentRealizationPracticeWeights;
-  /** Product practice prior for legal comparative predicate branches, separate from grammar legality. */
-  readonly comparativePredicatePracticeWeights: ComparativePredicatePracticeWeights;
+  /** Product practice prior for comparative incidence and legal predicate branches, separate from grammar legality. */
+  readonly comparativePracticeWeights: ComparativePracticeWeights;
 }
 
 export const SENTENCE_KINDS: readonly SentenceKind[] = [
@@ -108,9 +109,11 @@ export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy =
   // Calibrated against the immutable #269 final-namespace 8192-seed structural-surface meter.
   // This is a product-practice prior, not a corpus/linguistic omission probability.
   argumentRealizationPracticeWeights: { ordinary: 0.8015, subjectOmission: 0.112, objectOmission: 0.0865 },
-  // Initial product-practice prior for the newly legal reviewed verbal-comparative branch.
-  // This is deliberately a curriculum choice, not a claim about corpus frequency.
-  comparativePredicatePracticeWeights: { adjectival: 0.8, verbal: 0.2 },
+  // Conservative product-practice prior for the rebuilt comparative construction.
+  // Half of ordinary product attempts keep comparative inactive; active practice
+  // then splits 80/20 between adjectival and reviewed verbal predicates.
+  // This is a curriculum choice, not a corpus-frequency claim.
+  comparativePracticeWeights: { inactive: 0.5, adjectival: 0.4, verbal: 0.1 },
 };
 
 function nextUnit(random: RandomSource): number {
@@ -209,13 +212,13 @@ export function validateFormalSyntaxSamplingPolicy(policy: FormalSyntaxSamplingP
   if (!(realization.ordinary > 0 || realization.subjectOmission > 0 || realization.objectOmission > 0)) {
     throw new Error("argument realization practice weights require positive mass");
   }
-  const comparative = policy.comparativePredicatePracticeWeights;
-  if ([comparative.adjectival, comparative.verbal]
+  const comparative = policy.comparativePracticeWeights;
+  if ([comparative.inactive, comparative.adjectival, comparative.verbal]
     .some((weight) => !Number.isFinite(weight) || weight < 0)) {
-    throw new Error("comparative predicate practice weights must be finite and non-negative");
+    throw new Error("comparative practice weights must be finite and non-negative");
   }
-  if (!(comparative.adjectival > 0 || comparative.verbal > 0)) {
-    throw new Error("comparative predicate practice weights require positive mass");
+  if (!(comparative.inactive > 0 || comparative.adjectival > 0 || comparative.verbal > 0)) {
+    throw new Error("comparative practice weights require positive mass");
   }
 }
 
@@ -357,31 +360,34 @@ export function argumentRealizationPracticeIntentForTicketUnit(
   return ticketUnit < subjectBoundary ? "subject-omission" : "object-omission";
 }
 
-export const COMPARATIVE_PREDICATE_PRACTICE_TICKET_VERSION =
-  "comparative-predicate-practice-ticket-v1" as const;
+export const COMPARATIVE_PRACTICE_TICKET_VERSION =
+  "comparative-practice-ticket-v2" as const;
 
-export function comparativePredicatePracticeTicketUnitForTerminalUnit(
+export function comparativePracticeTicketUnitForTerminalUnit(
   terminalTicketUnit: number,
 ): number {
   if (!Number.isFinite(terminalTicketUnit) || terminalTicketUnit < 0 || terminalTicketUnit >= 1) {
-    throw new Error("comparative predicate terminal ticket unit must be in [0, 1)");
+    throw new Error("comparative terminal ticket unit must be in [0, 1)");
   }
   const digest = stableRuntimeDigest({
-    version: COMPARATIVE_PREDICATE_PRACTICE_TICKET_VERSION,
+    version: COMPARATIVE_PRACTICE_TICKET_VERSION,
     ticketUnit: terminalTicketUnit,
   });
   return Number.parseInt(digest.slice(0, 12), 16) / 281_474_976_710_656;
 }
 
-export function comparativePredicatePracticeIntentForTicketUnit(
+export function comparativePracticeIntentForTicketUnit(
   terminalTicketUnit: number,
   policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
-): ComparativePredicatePracticeIntent {
+): ComparativePracticeIntent {
   validateFormalSyntaxSamplingPolicy(policy);
-  const ticketUnit = comparativePredicatePracticeTicketUnitForTerminalUnit(terminalTicketUnit);
-  const weights = policy.comparativePredicatePracticeWeights;
-  const total = weights.adjectival + weights.verbal;
-  return ticketUnit < weights.adjectival / total ? "adjectival" : "verbal";
+  const ticketUnit = comparativePracticeTicketUnitForTerminalUnit(terminalTicketUnit);
+  const weights = policy.comparativePracticeWeights;
+  const total = weights.inactive + weights.adjectival + weights.verbal;
+  const inactiveBoundary = weights.inactive / total;
+  if (ticketUnit < inactiveBoundary) return "inactive";
+  const adjectivalBoundary = inactiveBoundary + weights.adjectival / total;
+  return ticketUnit < adjectivalBoundary ? "adjectival" : "verbal";
 }
 
 /**
@@ -395,8 +401,8 @@ export interface SentenceConstructionFamilyPlanSample {
   readonly predicateMarkingTicketUnit: number;
   /** Same inert draw; argument realization domain-separates it without consuming RNG. */
   readonly argumentRealizationTicketUnit: number;
-  /** Same inert draw; comparative predicate practice domain-separates it without consuming RNG. */
-  readonly comparativePredicateTicketUnit: number;
+  /** Same inert draw; comparative practice domain-separates it without consuming RNG. */
+  readonly comparativePracticeTicketUnit: number;
 }
 
 export function createSentenceConstructionFamilyPlanSample(
@@ -443,7 +449,7 @@ export function createSentenceConstructionFamilyPlanSample(
     plan: sampled.values,
     predicateMarkingTicketUnit: sampled.terminalUnit,
     argumentRealizationTicketUnit: sampled.terminalUnit,
-    comparativePredicateTicketUnit: sampled.terminalUnit,
+    comparativePracticeTicketUnit: sampled.terminalUnit,
   };
 }
 
