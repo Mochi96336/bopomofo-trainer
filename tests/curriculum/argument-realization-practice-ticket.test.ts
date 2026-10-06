@@ -56,6 +56,7 @@ describe("argument realization practice ticket", () => {
         createSeededRandom(`argument-realization-terminal-ticket:${round}`),
       );
       expect(sample.argumentRealizationTicketUnit).toBe(sample.predicateMarkingTicketUnit);
+      expect(sample.comparativePredicateTicketUnit).toBe(sample.predicateMarkingTicketUnit);
       const intent = argumentRealizationPracticeIntentForTicketUnit(sample.argumentRealizationTicketUnit);
       if (intent === "subject-omission") subject += 1;
       if (intent === "object-omission") object += 1;
