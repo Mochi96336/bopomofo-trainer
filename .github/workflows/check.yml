@@ -204,6 +204,21 @@ jobs:
             locative-occurrence-capabilities.log
             runtime-locative-occurrence-capabilities-candidate.json
           if-no-files-found: ignore
+      - name: Verify comparative runtime occurrence capability projection
+        id: comparative-occurrence-capabilities
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run grammar:runtime-comparative-occurrence-capabilities -- --output runtime-comparative-occurrence-capabilities-candidate.json 2>&1 | tee comparative-occurrence-capabilities.log
+      - name: Upload comparative runtime occurrence capability verification
+        if: failure() && steps.comparative-occurrence-capabilities.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: comparative-runtime-occurrence-capability-verification
+          path: |
+            comparative-occurrence-capabilities.log
+            runtime-comparative-occurrence-capabilities-candidate.json
+          if-no-files-found: ignore
       - name: Typecheck
         id: typecheck
         shell: bash
