@@ -106,7 +106,7 @@ if (identity.matchedSourceKeys.size !== 7
   throw new Error("verbal comparative runtime identity join drifted from reviewed boundary");
 }
 
-const activatedProfiles = profilesArtifact.profiles.filter((profile, index) => {
+const activatedProfiles = profilesArtifact.profiles.filter((_, index) => {
   const candidate = candidates[index];
   return candidate !== undefined && identity.activatableSourceKeys.has(candidate.sourceKey);
 });
