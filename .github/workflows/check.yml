@@ -266,6 +266,59 @@ jobs:
       # it to CI.
       - name: Bundle size budget
         run: npm run size:check
+      - name: Add rewrite audit-only production path trace
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
+          if text.count(needle) != 1:
+              raise SystemExit("unexpected formal-syntax candidate shape")
+          path.write_text(text.replace(
+              needle,
+              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
+          ))
+          PY
+      - name: Measure rewrite comparative distribution
+        run: npx tsx scripts/audit-comparative-rewrite-distribution.ts --measure rewrite comparative-rewrite-current.json
+      - name: Measure exact production comparative distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin 094b0caa50ea486dd8bbf50e8a006c61a6b05d39
+          git worktree add --detach /tmp/comparative-base FETCH_HEAD
+          ln -s "$GITHUB_WORKSPACE/node_modules" /tmp/comparative-base/node_modules
+          cp scripts/audit-comparative-rewrite-distribution.ts /tmp/comparative-base/scripts/
+          (
+            cd /tmp/comparative-base
+            npm run app:catalog
+            python - <<'PY'
+          from pathlib import Path
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
+          if text.count(needle) != 1:
+              raise SystemExit("unexpected production formal-syntax candidate shape")
+          path.write_text(text.replace(
+              needle,
+              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
+          ))
+          PY
+            npx tsx scripts/audit-comparative-rewrite-distribution.ts --measure production /tmp/comparative-rewrite-legacy.json
+          )
+      - name: Compare comparative rewrite distribution
+        run: npx tsx scripts/audit-comparative-rewrite-distribution.ts --compare comparative-rewrite-current.json /tmp/comparative-rewrite-legacy.json
+      - name: Upload comparative rewrite distribution audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comparative-rewrite-distribution-audit
+          path: |
+            comparative-rewrite-distribution-audit.json
+            comparative-rewrite-distribution-audit.md
+          if-no-files-found: ignore
 
   # Runs alongside `check` rather than after it, and belongs to this workflow
   # rather than one of its own so that the deploy gate -- which waits on this
