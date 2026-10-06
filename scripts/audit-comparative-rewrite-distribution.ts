@@ -1,11 +1,8 @@
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
-import { CORE_ARGUMENT_REALIZATION_RULE_IDS } from "../src/curriculum/argument-realization-practice.js";
 import { createSeededRandom } from "../src/curriculum/random.js";
 import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
 import { sentenceConstructionClassification } from "../src/curriculum/formal-syntax-taxonomy.js";
-import { FORMAL_SYNTAX_RULES } from "../src/syntax/grammar.js";
-import type { ProductionConstituent, ProductionRule } from "../src/syntax/types.js";
 
 const SAMPLE_COUNT = 2048;
 const SEED_NAMESPACE = "comparative-rewrite-distribution-v1";
@@ -46,50 +43,10 @@ interface Row {
   readonly path: string;
 }
 
-function constituent(
-  key: string,
-  category: ProductionConstituent["category"],
-  options: Partial<Pick<
-    ProductionConstituent,
-    "minimum" | "maximum" | "allowedUpos" | "requiredFunctions" | "requiredValencyFrames" | "requiredFeatures"
-  >> = {},
-): ProductionConstituent {
-  return {
-    key,
-    category,
-    minimum: options.minimum ?? 1,
-    maximum: options.maximum ?? 1,
-    recursive: false,
-    allowedUpos: options.allowedUpos ?? [],
-    requiredFunctions: options.requiredFunctions ?? [],
-    requiredValencyFrames: options.requiredValencyFrames ?? [],
-    requiredFeatures: options.requiredFeatures ?? {},
-  };
-}
-
-function legacyComparativeRule(current: ProductionRule): ProductionRule {
-  const constituents: readonly ProductionConstituent[] = [
-    constituent("subject", "Subject"),
-    constituent("marker", "Lexeme", {
-      allowedUpos: ["ADP"],
-      requiredFeatures: { clauseType: "comparative" },
-    }),
-    constituent("standard", "NounPhrase", {
-      requiredFunctions: ["oblique"],
-    }),
-    constituent("predicate", "AdjectivePhrase", {
-      requiredFunctions: ["predicate"],
-    }),
-  ];
-  return {
-    ...current,
-    constituents,
-    surfaceOrders: [{
-      id: "canonical",
-      constituentKeys: ["subject", "marker", "standard", "predicate"],
-    }],
-    positiveFixtureIds: ["clause.comparative:minimum"],
-  };
+interface Measurement {
+  readonly label: string;
+  readonly rows: readonly Row[];
+  readonly summary: ReturnType<typeof summarize>;
 }
 
 function increment(map: Map<string, number>, key: string): void {
@@ -102,7 +59,7 @@ function rootClauseRule(path: readonly string[]): string | null {
   return path.find((id) => id.startsWith("clause.")) ?? null;
 }
 
-function measure(mode: "current" | "legacy"): Row[] {
+function measure(label: string): Row[] {
   const rows: Row[] = [];
   for (let round = 0; round < SAMPLE_COUNT; round += 1) {
     const composition = composeFormalSyntaxUtterances({
@@ -121,13 +78,11 @@ function measure(mode: "current" | "legacy"): Row[] {
     const comparative = path.includes(COMPARATIVE_RULE);
     const comparativeVariant = !comparative
       ? null
-      : mode === "legacy"
-        ? "legacy"
-        : path.includes("comparative-predicate.verbal")
-          ? "verbal"
-          : path.includes("comparative-predicate.adjectival")
-            ? "adjectival"
-            : null;
+      : path.includes("comparative-predicate.verbal")
+        ? "verbal"
+        : path.includes("comparative-predicate.adjectival")
+          ? "adjectival"
+          : "legacy";
     rows.push({
       success: candidate !== null,
       comparative,
@@ -200,103 +155,97 @@ function totalVariation(
   return total / (2 * SAMPLE_COUNT);
 }
 
-const mutableRules = FORMAL_SYNTAX_RULES as ProductionRule[];
-const comparativeIndex = mutableRules.findIndex((rule) => rule.id === COMPARATIVE_RULE);
-if (comparativeIndex < 0) throw new Error(`${COMPARATIVE_RULE} missing from rewrite grammar`);
-const currentComparative = mutableRules[comparativeIndex]!;
-if (!currentComparative.constituents.some((item) => item.category === "ComparativePredicate")) {
-  throw new Error("rewrite branch does not contain ComparativePredicate");
+function compare(current: Measurement, legacy: Measurement): void {
+  if (current.rows.length !== SAMPLE_COUNT || legacy.rows.length !== SAMPLE_COUNT) {
+    throw new Error("comparative audit measurement has unexpected seed count");
+  }
+  const drift = {
+    successDeltaLegacyMinusCurrent: legacy.summary.success - current.summary.success,
+    rootTv: totalVariation(current.summary.roots, legacy.summary.roots),
+    familyTv: totalVariation(current.summary.families, legacy.summary.families),
+    rootClauseRuleTv: totalVariation(current.summary.rootClauseRules, legacy.summary.rootClauseRules),
+    successMismatch: 0,
+    rootChanged: 0,
+    familyChanged: 0,
+    rootClauseRuleChanged: 0,
+    fallbackChanged: 0,
+    derivationChanged: 0,
+    textChanged: 0,
+    profilesChanged: 0,
+    pathChanged: 0,
+  };
+  for (let index = 0; index < SAMPLE_COUNT; index += 1) {
+    const left = current.rows[index]!;
+    const right = legacy.rows[index]!;
+    if (left.success !== right.success) drift.successMismatch += 1;
+    if (left.root !== right.root) drift.rootChanged += 1;
+    if (left.family !== right.family) drift.familyChanged += 1;
+    if (left.rootClauseRule !== right.rootClauseRule) drift.rootClauseRuleChanged += 1;
+    if (left.fallback !== right.fallback) drift.fallbackChanged += 1;
+    if (left.derivation !== right.derivation) drift.derivationChanged += 1;
+    if (left.text !== right.text) drift.textChanged += 1;
+    if (left.profiles !== right.profiles) drift.profilesChanged += 1;
+    if (left.path !== right.path) drift.pathChanged += 1;
+  }
+
+  const report = {
+    schemaVersion: "comparative-rewrite-distribution-audit-v2",
+    baseHead: BASE_HEAD,
+    rewriteHead: REWRITE_HEAD,
+    sampleCount: SAMPLE_COUNT,
+    seedNamespace: SEED_NAMESPACE,
+    current: current.summary,
+    legacy: legacy.summary,
+    drift,
+    caveat: "Each side was measured from its own exact checkout under identical deterministic seeds.",
+  };
+  const pct = (value: number): string => `${(value * 100).toFixed(3)}%`;
+  const markdown = [
+    "# Comparative rewrite distribution audit",
+    "",
+    `- Production base: \`${BASE_HEAD}\``,
+    `- Rewrite head: \`${REWRITE_HEAD}\``,
+    `- Seeds: **${SAMPLE_COUNT}**`,
+    `- Current success: **${current.summary.success}/${SAMPLE_COUNT}**`,
+    `- Legacy success: **${legacy.summary.success}/${SAMPLE_COUNT}**`,
+    `- Current comparative exposure: **${current.summary.comparativeExposure}/${SAMPLE_COUNT} (${pct(current.summary.comparativeShare)})**`,
+    `- Legacy comparative exposure: **${legacy.summary.comparativeExposure}/${SAMPLE_COUNT} (${pct(legacy.summary.comparativeShare)})**`,
+    `- Current split: adjective **${current.summary.adjectiveExposure}**, reviewed verbal **${current.summary.verbalExposure}**, subject omitted **${current.summary.subjectOmittedExposure}**`,
+    `- Legacy: adjective **${legacy.summary.adjectiveExposure}**, subject omitted **${legacy.summary.subjectOmittedExposure}**`,
+    `- Aggregate TV: roots **${pct(drift.rootTv)}**, families **${pct(drift.familyTv)}**, first Clause rules **${pct(drift.rootClauseRuleTv)}**`,
+    `- Per-seed changes: success **${drift.successMismatch}**, root **${drift.rootChanged}**, family **${drift.familyChanged}**, first Clause rule **${drift.rootClauseRuleChanged}**, fallback **${drift.fallbackChanged}**, derivation **${drift.derivationChanged}**, path **${drift.pathChanged}**, text **${drift.textChanged}**, profiles **${drift.profilesChanged}**`,
+    "",
+    `- Current examples: ${current.summary.examples.map((value) => `\`${value}\``).join(", ")}`,
+    `- Legacy examples: ${legacy.summary.examples.map((value) => `\`${value}\``).join(", ")}`,
+    "",
+    "Product distribution only; not a corpus-frequency claim.",
+  ].join("\n");
+
+  writeFileSync("comparative-rewrite-distribution-audit.json", `${JSON.stringify(report, null, 2)}\n`);
+  writeFileSync("comparative-rewrite-distribution-audit.md", `${markdown}\n`);
+  console.log(markdown);
+  console.log(JSON.stringify(report));
 }
-const legacyComparative = legacyComparativeRule(currentComparative);
 
-const currentRows = measure("current");
-mutableRules[comparativeIndex] = legacyComparative;
-
-// Production main did not include clause.comparative in subject-omission
-// eligibility. The rewrite does. Remove only that eligibility while measuring
-// the in-memory legacy rule so the shadow matches the old curriculum contract.
-const mutableArgumentRules = CORE_ARGUMENT_REALIZATION_RULE_IDS as unknown as string[];
-const comparativeArgumentIndex = mutableArgumentRules.indexOf(COMPARATIVE_RULE);
-if (comparativeArgumentIndex < 0) {
-  throw new Error("rewrite argument-realization policy does not own comparative subject");
+const mode = process.argv[2];
+if (mode === "--measure") {
+  const label = process.argv[3];
+  const output = process.argv[4];
+  if (label === undefined || output === undefined) throw new Error("--measure requires label and output");
+  const rows = measure(label);
+  const measurement: Measurement = { label, rows, summary: summarize(rows) };
+  writeFileSync(output, `${JSON.stringify(measurement)}\n`);
+  console.log(JSON.stringify({ label, ...measurement.summary }));
+} else if (mode === "--compare") {
+  const currentPath = process.argv[3];
+  const legacyPath = process.argv[4];
+  if (currentPath === undefined || legacyPath === undefined) {
+    throw new Error("--compare requires current and legacy measurement paths");
+  }
+  compare(
+    JSON.parse(readFileSync(currentPath, "utf8")) as Measurement,
+    JSON.parse(readFileSync(legacyPath, "utf8")) as Measurement,
+  );
+} else {
+  throw new Error("use --measure <label> <output> or --compare <current.json> <legacy.json>");
 }
-mutableArgumentRules.splice(comparativeArgumentIndex, 1);
-
-let legacyRows: Row[];
-try {
-  legacyRows = measure("legacy");
-} finally {
-  mutableArgumentRules.splice(comparativeArgumentIndex, 0, COMPARATIVE_RULE);
-  mutableRules[comparativeIndex] = currentComparative;
-}
-
-const current = summarize(currentRows);
-const legacy = summarize(legacyRows);
-
-const drift = {
-  successDeltaLegacyMinusCurrent: legacy.success - current.success,
-  rootTv: totalVariation(current.roots, legacy.roots),
-  familyTv: totalVariation(current.families, legacy.families),
-  rootClauseRuleTv: totalVariation(current.rootClauseRules, legacy.rootClauseRules),
-  successMismatch: 0,
-  rootChanged: 0,
-  familyChanged: 0,
-  rootClauseRuleChanged: 0,
-  fallbackChanged: 0,
-  derivationChanged: 0,
-  textChanged: 0,
-  profilesChanged: 0,
-  pathChanged: 0,
-};
-for (let index = 0; index < SAMPLE_COUNT; index += 1) {
-  const left = currentRows[index]!;
-  const right = legacyRows[index]!;
-  if (left.success !== right.success) drift.successMismatch += 1;
-  if (left.root !== right.root) drift.rootChanged += 1;
-  if (left.family !== right.family) drift.familyChanged += 1;
-  if (left.rootClauseRule !== right.rootClauseRule) drift.rootClauseRuleChanged += 1;
-  if (left.fallback !== right.fallback) drift.fallbackChanged += 1;
-  if (left.derivation !== right.derivation) drift.derivationChanged += 1;
-  if (left.text !== right.text) drift.textChanged += 1;
-  if (left.profiles !== right.profiles) drift.profilesChanged += 1;
-  if (left.path !== right.path) drift.pathChanged += 1;
-}
-
-const report = {
-  schemaVersion: "comparative-rewrite-distribution-audit-v1",
-  baseHead: BASE_HEAD,
-  rewriteHead: REWRITE_HEAD,
-  sampleCount: SAMPLE_COUNT,
-  seedNamespace: SEED_NAMESPACE,
-  current,
-  legacy,
-  drift,
-  caveat: "Product distribution under identical deterministic seeds; not a natural Mandarin frequency estimate.",
-};
-
-const pct = (value: number): string => `${(value * 100).toFixed(3)}%`;
-const markdown = [
-  "# Comparative rewrite distribution audit",
-  "",
-  `- Production base: \`${BASE_HEAD}\``,
-  `- Rewrite head: \`${REWRITE_HEAD}\``,
-  `- Seeds: **${SAMPLE_COUNT}**`,
-  `- Current success: **${current.success}/${SAMPLE_COUNT}**`,
-  `- Legacy success: **${legacy.success}/${SAMPLE_COUNT}**`,
-  `- Current comparative exposure: **${current.comparativeExposure}/${SAMPLE_COUNT} (${pct(current.comparativeShare)})**`,
-  `- Legacy comparative exposure: **${legacy.comparativeExposure}/${SAMPLE_COUNT} (${pct(legacy.comparativeShare)})**`,
-  `- Current comparative split: adjective **${current.adjectiveExposure}**, reviewed verbal **${current.verbalExposure}**, subject omitted **${current.subjectOmittedExposure}**`,
-  `- Legacy comparative: adjective **${legacy.adjectiveExposure}**, subject omitted **${legacy.subjectOmittedExposure}**`,
-  `- Aggregate TV current↔legacy: roots **${pct(drift.rootTv)}**, families **${pct(drift.familyTv)}**, first Clause rules **${pct(drift.rootClauseRuleTv)}**`,
-  `- Per-seed changes: success **${drift.successMismatch}**, root **${drift.rootChanged}**, family **${drift.familyChanged}**, first Clause rule **${drift.rootClauseRuleChanged}**, fallback **${drift.fallbackChanged}**, derivation **${drift.derivationChanged}**, path **${drift.pathChanged}**, text **${drift.textChanged}**, profiles **${drift.profilesChanged}**`,
-  "",
-  `- Current comparative examples: ${current.examples.map((text) => `\`${text}\``).join(", ")}`,
-  `- Legacy comparative examples: ${legacy.examples.map((text) => `\`${text}\``).join(", ")}`,
-  "",
-  "Product distribution only; not a corpus-frequency claim.",
-].join("\n");
-
-writeFileSync("comparative-rewrite-distribution-audit.json", `${JSON.stringify(report, null, 2)}\n`);
-writeFileSync("comparative-rewrite-distribution-audit.md", `${markdown}\n`);
-console.log(markdown);
-console.log(JSON.stringify(report));
