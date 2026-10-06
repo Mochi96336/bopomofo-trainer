@@ -59,7 +59,7 @@ function rootClauseRule(path: readonly string[]): string | null {
   return path.find((id) => id.startsWith("clause.")) ?? null;
 }
 
-function measure(label: string): Row[] {
+function measure(): Row[] {
   const rows: Row[] = [];
   for (let round = 0; round < SAMPLE_COUNT; round += 1) {
     const composition = composeFormalSyntaxUtterances({
@@ -232,7 +232,7 @@ if (mode === "--measure") {
   const label = process.argv[3];
   const output = process.argv[4];
   if (label === undefined || output === undefined) throw new Error("--measure requires label and output");
-  const rows = measure(label);
+  const rows = measure();
   const measurement: Measurement = { label, rows, summary: summarize(rows) };
   writeFileSync(output, `${JSON.stringify(measurement)}\n`);
   console.log(JSON.stringify({ label, ...measurement.summary }));
