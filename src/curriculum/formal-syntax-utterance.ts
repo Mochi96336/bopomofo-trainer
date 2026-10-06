@@ -33,7 +33,7 @@ import type {
 import { argumentRealizationStructuralPractice } from "./argument-realization-practice.js";
 import {
   argumentRealizationPracticeIntentForTicketUnit,
-  comparativePredicatePracticeIntentForTicketUnit,
+  comparativePracticeIntentForTicketUnit,
   chooseSentenceConstructionVariant,
   createSentenceConstructionFamilyPlanSample,
   PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
@@ -41,7 +41,7 @@ import {
   rootFamilyAttemptBudget,
   validateFormalSyntaxSamplingPolicy,
   type ArgumentRealizationPracticeIntent,
-  type ComparativePredicatePracticeIntent,
+  type ComparativePracticeIntent,
   type FormalSyntaxSamplingPolicy,
   type PredicateMarkingPracticeIntent,
   type SentenceConstructionFamilyPlan,
@@ -417,7 +417,7 @@ export function composeFormalSyntaxUtterances(
     readonly plan: readonly SentenceConstructionFamilyPlan[];
     readonly predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent;
     readonly argumentRealizationPracticeIntent: ArgumentRealizationPracticeIntent;
-    readonly comparativePredicatePracticeIntent: ComparativePredicatePracticeIntent;
+    readonly comparativePracticeIntent: ComparativePracticeIntent;
     readonly availabilityFallbackReserved: boolean;
     readonly argumentRelaxationFallbackReserved: boolean;
     availabilityFallbackActive: boolean;
@@ -432,7 +432,7 @@ export function composeFormalSyntaxUtterances(
     readonly family: SentenceConstructionFamilyPlan;
     readonly predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent;
     readonly argumentRealizationPracticeIntent: ArgumentRealizationPracticeIntent;
-    readonly comparativePredicatePracticeIntent: ComparativePredicatePracticeIntent;
+    readonly comparativePracticeIntent: ComparativePracticeIntent;
     readonly predicateMarkingAvailabilityFallbackActive: boolean;
     readonly argumentRealizationAvailabilityFallbackActive: boolean;
   } | null => {
@@ -452,8 +452,8 @@ export function composeFormalSyntaxUtterances(
         planSample.argumentRealizationTicketUnit,
         samplingPolicy,
       );
-      const comparativePredicatePracticeIntent = comparativePredicatePracticeIntentForTicketUnit(
-        planSample.comparativePredicateTicketUnit,
+      const comparativePracticeIntent = comparativePracticeIntentForTicketUnit(
+        planSample.comparativePracticeTicketUnit,
         samplingPolicy,
       );
       const availabilityFallbackReserved = (predicateMarkingPracticeIntent !== "ordinary"
@@ -472,7 +472,7 @@ export function composeFormalSyntaxUtterances(
         plan,
         predicateMarkingPracticeIntent,
         argumentRealizationPracticeIntent,
-        comparativePredicatePracticeIntent,
+        comparativePracticeIntent,
         availabilityFallbackReserved,
         argumentRelaxationFallbackReserved,
         availabilityFallbackActive: false,
@@ -514,7 +514,7 @@ export function composeFormalSyntaxUtterances(
         || rootFamilySearch.availabilityFallbackActive)
         ? "ordinary"
         : rootFamilySearch.argumentRealizationPracticeIntent,
-      comparativePredicatePracticeIntent: rootFamilySearch.comparativePredicatePracticeIntent,
+      comparativePracticeIntent: rootFamilySearch.comparativePracticeIntent,
       predicateMarkingAvailabilityFallbackActive: rootFamilySearch.availabilityFallbackActive
         && rootFamilySearch.predicateMarkingPracticeIntent !== "ordinary",
       argumentRealizationAvailabilityFallbackActive: (rootFamilySearch.argumentRelaxationFallbackActive
@@ -556,8 +556,8 @@ export function composeFormalSyntaxUtterances(
       rootFamilySelection?.predicateMarkingPracticeIntent ?? "ordinary";
     const argumentRealizationPracticeIntent =
       rootFamilySelection?.argumentRealizationPracticeIntent ?? "ordinary";
-    const comparativePredicatePracticeIntent =
-      rootFamilySelection?.comparativePredicatePracticeIntent ?? "adjectival";
+    const comparativePracticeIntent =
+      rootFamilySelection?.comparativePracticeIntent ?? "adjectival";
     const requiredPredicateMarkingSlot = predicateMarkingPracticeIntent === "negation"
       ? {
           requiredFeatures: { polarity: "negative" as const },
@@ -578,16 +578,20 @@ export function composeFormalSyntaxUtterances(
     const argumentRealizationPractice = useProductFamilyPolicy
       ? argumentRealizationStructuralPractice(argumentRealizationPracticeIntent)
       : null;
-    const comparativePredicatePracticeTarget: NestedProductionTarget | null =
-      useProductFamilyPolicy
+    const comparativePracticeTarget: NestedProductionTarget | null =
+      useProductFamilyPolicy && comparativePracticeIntent !== "inactive"
         ? {
             parentRuleId: "clause.comparative",
             constituentKey: "predicate",
-            childRuleId: comparativePredicatePracticeIntent === "verbal"
+            childRuleId: comparativePracticeIntent === "verbal"
               ? "comparative-predicate.verbal"
               : "comparative-predicate.adjectival",
           }
         : null;
+    const excludedProductionRuleIds = useProductFamilyPolicy
+      && comparativePracticeIntent === "inactive"
+      ? ["clause.comparative"] as const
+      : undefined;
     const requiresArgumentRealizationPractice = argumentRealizationPracticeIntent !== "ordinary";
     if (rootFamilySelection?.predicateMarkingAvailabilityFallbackActive === true) {
       fallbackReasons.add("formal-syntax-predicate-marking-availability-fallback");
@@ -610,6 +614,7 @@ export function composeFormalSyntaxUtterances(
       ...(requiredPredicateMarkingSlot === null
         ? {}
         : { requiredLexicalSlot: requiredPredicateMarkingSlot }),
+      ...(excludedProductionRuleIds === undefined ? {} : { excludedProductionRuleIds }),
       ...(argumentRealizationPractice?.requiredProductionRuleIdsAnyOf === undefined
         ? {}
         : { requiredProductionRuleIdsAnyOf: argumentRealizationPractice.requiredProductionRuleIdsAnyOf }),
@@ -623,7 +628,7 @@ export function composeFormalSyntaxUtterances(
         ? {
             nestedProductionTargets: [
               ...(argumentRealizationPractice?.nestedProductionTargets ?? []),
-              ...(comparativePredicatePracticeTarget === null ? [] : [comparativePredicatePracticeTarget]),
+              ...(comparativePracticeTarget === null ? [] : [comparativePracticeTarget]),
             ],
           }
         : (input.structuralTarget?.nestedProductionTargets === undefined
