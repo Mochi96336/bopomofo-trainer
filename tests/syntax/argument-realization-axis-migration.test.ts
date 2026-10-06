@@ -46,6 +46,36 @@ describe("Clause Model V2 argument realization axis", () => {
     expect(childCategories(shape!.root)).not.toContain("Subject");
   });
 
+  it("keeps comparative subject realization under the shared argument-realization axis", () => {
+    const ordinary = argumentRealizationStructuralPractice("ordinary");
+    const ordinaryShape = sampleStructuralDerivation({
+      rootCategory: "Clause",
+      rules: FORMAL_SYNTAX_RULES,
+      random: ZERO_RANDOM,
+      rootProductionRuleId: "clause.comparative",
+      nestedProductionTargets: ordinary.nestedProductionTargets,
+    });
+    expect(ordinaryShape).not.toBeNull();
+    expect(childCategories(ordinaryShape!.root)).toContain("Subject");
+
+    const omitted = argumentRealizationStructuralPractice("subject-omission");
+    const omittedShape = sampleStructuralDerivation({
+      rootCategory: "Clause",
+      rules: FORMAL_SYNTAX_RULES,
+      random: ZERO_RANDOM,
+      rootProductionRuleId: "clause.comparative",
+      nestedProductionTargets: omitted.nestedProductionTargets,
+      ...(omitted.requiredProductionRuleIdsAnyOf === undefined
+        ? {}
+        : { requiredProductionRuleIdsAnyOf: omitted.requiredProductionRuleIdsAnyOf }),
+    });
+    expect(omittedShape).not.toBeNull();
+    expect(omittedShape!.root.productionRuleId).toBe("clause.comparative");
+    expect(childCategories(omittedShape!.root)).not.toContain("Subject");
+    expect(childCategories(omittedShape!.root)).toContain("ComparativeStandard");
+    expect(childCategories(omittedShape!.root)).toContain("ComparativePredicate");
+  });
+
   it("keeps transitive identity while direct object realization is absent", () => {
     const practice = argumentRealizationStructuralPractice("object-omission");
     const shape = sampleStructuralDerivation({
