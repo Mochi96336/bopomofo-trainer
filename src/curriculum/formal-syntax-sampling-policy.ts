@@ -84,7 +84,7 @@ export const SENTENCE_CONSTRUCTION_FAMILIES: readonly SentenceConstructionFamily
  * activate yet.
  */
 export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy = {
-  version: "formal-syntax-family-sampling-v9",
+  version: "formal-syntax-family-sampling-v10",
   sentenceKindWeights: {
     statement: 0.64,
     question: 0.26,
