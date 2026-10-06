@@ -8,6 +8,7 @@ export const RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS = [
   "same-token-exact-aux-preverbal-v1",
   "same-predicate-aux-pass-bei-v1",
   "same-predicate-verbal-locative-root-subject-object-v1",
+  "same-predicate-bi-standard-verbal-v1",
 ] as const;
 export type RuntimeOccurrenceEvidenceContract =
   (typeof RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS)[number];
@@ -73,6 +74,13 @@ const REVIEWED_PROJECTION_CONTRACTS = new Map<RuntimeOccurrenceCapability, Revie
     // non-predicate identity.
     acceptTargetProfile: (profile) =>
       profile.upos === "VERB" && profile.functions.includes("predicate"),
+  }],
+  ["verbal-comparative-bi-standard-same-occurrence", {
+    evidenceContract: "same-predicate-bi-standard-verbal-v1",
+    // Exact 比/ADP(case) + standard + governing VERB is owned by the pinned
+    // occurrence sidecar. Aggregate function/valency profiles are incomplete
+    // for this frontier, so only the source UPOS is a valid lexical backstop.
+    acceptTargetProfile: (profile) => profile.upos === "VERB",
   }],
 ]);
 

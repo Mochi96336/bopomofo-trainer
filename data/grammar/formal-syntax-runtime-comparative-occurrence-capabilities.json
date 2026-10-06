@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "runtime-occurrence-capability-projection-v1",
+  "sourceProfileArtifactDigest": "a9aff6ea44978876526bac94bcb2b71fad451cca4871f7d117b30f59d3d5d00c",
+  "sourceProvenanceId": "ud:chinese-gsd-r2.18",
+  "sourceVersion": "r2.18",
+  "sourceCommit": "e0d85a020182e264d6384be2a59c0f4879a1cc35",
+  "reviewedCapability": "verbal-comparative-bi-standard-same-occurrence",
+  "evidenceContract": "same-predicate-bi-standard-verbal-v1",
+  "identityPolicy": "unique-active-entry-per-form-upos-v1",
+  "profileCount": 7,
+  "entryCount": 7,
+  "profileIds": [
+    "runtime-syntax-profile:5b2335fdb28df030a1614f09cef5ab144ac4012983d28b577520ce2b12ce0347",
+    "runtime-syntax-profile:5d3155c6105daa1d135b932774efaccec56502581275fbcf7561e00f8948d6d0",
+    "runtime-syntax-profile:7da7110d574aab66a930fa056928dbb4e4b3c39d17fe91c1b486d03e14708335",
+    "runtime-syntax-profile:8e815b1f355363f080fcdc776ca9c47358dcee0d8c0f41a2699b469e1d3a1413",
+    "runtime-syntax-profile:b0e85d7c086a93750405fa87f9604a231dd06753b9f9f105346aaa8bebda8aec",
+    "runtime-syntax-profile:cb56108365615ab5c70aadf90ef9ec57c5c1aa8d365fd2caceadcd410ab5e47f",
+    "runtime-syntax-profile:f6726b5f74b30b9d6978d22d15fcb0f23d7ab51a806281a3c788bd855dd3640a"
+  ],
+  "determinismDigest": "ad2a5afe9f561f206b2c88aca35190e4f741e5246f5bd6a1177a257c4c390969"
+}
