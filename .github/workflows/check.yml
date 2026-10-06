@@ -105,6 +105,8 @@ jobs:
         run: npx tsx scripts/audit-topic-dislocation-source-shapes.ts
       - name: Verify comparative source shapes
         run: npx tsx scripts/audit-comparative-source-evidence.ts --verify
+      - name: Measure comparative runtime identity
+        run: npx tsx scripts/measure-comparative-runtime-identity.ts
       - name: Verify modality source evidence
         id: modality-source-audit
         shell: bash
