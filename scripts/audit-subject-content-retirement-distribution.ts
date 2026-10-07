@@ -151,7 +151,7 @@ function totalVariation(
 
 function compare(current: Measurement, legacy: Measurement): void {
   if (current.rows.length !== SAMPLE_COUNT || legacy.rows.length !== SAMPLE_COUNT) {
-    throw new Error("clausal-subject audit measurement has unexpected seed count");
+    throw new Error("subject-content retirement audit has unexpected seed count");
   }
 
   const drift = {
@@ -202,7 +202,7 @@ function compare(current: Measurement, legacy: Measurement): void {
     "# Subject-content retirement distribution audit",
     "",
     `- Production base: \`${BASE_HEAD}\``,
-    `- Prototype head: \`${RETIREMENT_HEAD}\``,
+    `- Retirement head: \`${RETIREMENT_HEAD}\``,
     `- Seeds: **${SAMPLE_COUNT}**`,
     `- Product maximumClauseNesting: **${PRODUCT_BOUNDS.maximumClauseNesting}**`,
     `- Current success: **${current.summary.success}/${SAMPLE_COUNT}**`,
