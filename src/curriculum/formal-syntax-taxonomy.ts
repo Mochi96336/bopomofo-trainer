@@ -39,7 +39,6 @@ export type ClauseConstructionFamily =
   | "marked.bei"
   | "marked.comparative"
   | "information.topic-comment"
-  | "embedded.subject-content"
   | "embedded.object-content"
   | "embedded.xcomp-control"
   | "embedded.quoted-content";
@@ -83,7 +82,6 @@ const CLAUSE_CLASSIFICATION_BY_RULE_ID: Readonly<Record<string, ClauseConstructi
 
   "clause.topic-comment": { kind: "information-structure", family: "information.topic-comment" },
 
-  "clause.subject-content": { kind: "embedded-content", family: "embedded.subject-content" },
   "clause.object-content": { kind: "embedded-content", family: "embedded.object-content" },
   "clause.xcomp-subject-control": { kind: "embedded-content", family: "embedded.xcomp-control" },
   "clause.xcomp-object-control": { kind: "embedded-content", family: "embedded.xcomp-control" },
