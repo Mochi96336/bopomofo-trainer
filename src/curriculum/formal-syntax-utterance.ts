@@ -588,10 +588,15 @@ export function composeFormalSyntaxUtterances(
               : "comparative-predicate.adjectival",
           }
         : null;
-    const excludedProductionRuleIds = useProductFamilyPolicy
-      && comparativePracticeIntent === "inactive"
-      ? ["clause.comparative"] as const
-      : undefined;
+    const excludedProductionRuleIds = !useProductFamilyPolicy
+      ? undefined
+      : [
+          ...(comparativePracticeIntent === "inactive" ? ["clause.comparative"] : []),
+          // Clausal Subject legality is prototyped separately from product
+          // incidence. Keep it inactive until the migration audit calibrates
+          // an explicit curriculum ticket against legacy subject-content mass.
+          "argument.subject.clause",
+        ];
     const requiresArgumentRealizationPractice = argumentRealizationPracticeIntent !== "ordinary";
     if (rootFamilySelection?.predicateMarkingAvailabilityFallbackActive === true) {
       fallbackReasons.add("formal-syntax-predicate-marking-availability-fallback");
