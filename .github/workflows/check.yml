@@ -278,6 +278,59 @@ jobs:
       # it to CI.
       - name: Bundle size budget
         run: npm run size:check
+      - name: Add subject-content retirement audit-only production path trace
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
+          if text.count(needle) != 1:
+              raise SystemExit("unexpected formal-syntax candidate shape")
+          path.write_text(text.replace(
+              needle,
+              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
+          ))
+          PY
+      - name: Measure subject-content retirement product distribution
+        run: npx tsx scripts/audit-subject-content-retirement-distribution.ts --measure retirement subject-content-retirement-current.json
+      - name: Measure exact production base distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin e2059e20569d1741e65fcc42c54a4734a7572576
+          git worktree add --detach /tmp/subject-content-retirement-base FETCH_HEAD
+          ln -s "$GITHUB_WORKSPACE/node_modules" /tmp/subject-content-retirement-base/node_modules
+          cp scripts/audit-subject-content-retirement-distribution.ts /tmp/subject-content-retirement-base/scripts/
+          (
+            cd /tmp/subject-content-retirement-base
+            npm run app:catalog
+            python - <<'PY'
+          from pathlib import Path
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
+          if text.count(needle) != 1:
+              raise SystemExit("unexpected production formal-syntax candidate shape")
+          path.write_text(text.replace(
+              needle,
+              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
+          ))
+          PY
+            npx tsx scripts/audit-subject-content-retirement-distribution.ts --measure production /tmp/subject-content-retirement-legacy.json
+          )
+      - name: Compare subject-content retirement distribution
+        run: npx tsx scripts/audit-subject-content-retirement-distribution.ts --compare subject-content-retirement-current.json /tmp/subject-content-retirement-legacy.json
+      - name: Upload subject-content retirement distribution audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: subject-content-retirement-distribution-audit
+          path: |
+            subject-content-retirement-distribution-audit.json
+            subject-content-retirement-distribution-audit.md
+          if-no-files-found: ignore
 
   # Runs alongside `check` rather than after it, and belongs to this workflow
   # rather than one of its own so that the deploy gate -- which waits on this
