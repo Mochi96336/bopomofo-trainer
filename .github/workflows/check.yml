@@ -105,6 +105,18 @@ jobs:
         run: npx tsx scripts/audit-topic-dislocation-source-shapes.ts
       - name: Verify comparative source shapes
         run: npx tsx scripts/audit-comparative-source-evidence.ts --verify
+      - name: Measure subject-content source shapes
+        id: subject-content-source-audit
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx scripts/audit-subject-content-source-evidence.ts --verify 2>&1 | tee subject-content-source-audit.log
+      - name: Upload subject-content source audit failure
+        if: failure() && steps.subject-content-source-audit.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: subject-content-source-audit-failure
+          path: subject-content-source-audit.log
       - name: Verify modality source evidence
         id: modality-source-audit
         shell: bash
