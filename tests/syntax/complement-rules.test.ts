@@ -16,7 +16,6 @@ const REQUIRED = [
   "open-clause.intransitive",
   "open-clause.transitive",
   "open-clause.ditransitive",
-  "clause.subject-content",
   "clause.object-content",
   "clause.xcomp-subject-control",
   "clause.xcomp-object-control",
