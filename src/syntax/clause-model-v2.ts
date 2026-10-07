@@ -70,6 +70,11 @@ export const RETIRED_CLAUSE_RULE_V2_DECISIONS = {
     evidenceContract: "pinned-gsd-argument-realization-alternation-v1",
     note: "Direct-object non-realization preserves transitive/ditransitive predicate-frame identity and is practiced through the orthogonal argument-realization ticket.",
   },
+  "clause.subject-content": {
+    targetAxes: ["embedding", "argument-realization"],
+    evidenceContract: "pinned-gsd-csubj-shape-inventory-v1",
+    note: "Clausal subjecthood is realized by the structural Subject role over ContentClause while ordinary matrix Clause predicate frames retain predication ownership; the legacy ContentClause + VerbPhrase peer Clause is retired.",
+  },
   "clause.serial-verb": {
     targetAxes: ["predicate-structure", "embedding"],
     evidenceContract: "pinned-gsd-direct-verb-pair-inventory-v1",
@@ -155,12 +160,6 @@ export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
     note: "Reviewed 比/ADP(case) evidence makes the standard a structural construction role, keeps subject realization orthogonal, preserves adjectival predicates, and gates verbal predicates by same-occurrence capability.",
   },
 
-  "clause.subject-content": {
-    group: "rebuild-embedding-control",
-    targetAxis: "embedding",
-    target: "subject-clause",
-    note: "Rebuild from clausal-subject evidence.",
-  },
   "clause.object-content": {
     group: "rebuild-embedding-control",
     targetAxis: "embedding",
