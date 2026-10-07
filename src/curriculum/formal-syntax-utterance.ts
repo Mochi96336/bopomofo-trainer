@@ -25,6 +25,7 @@ import {
   type NestedProductionTarget,
   type PreparedStructuralSamplingContext,
 } from "../syntax/sample.js";
+import { DEFAULT_DERIVATION_BOUNDS } from "../syntax/features.js";
 import type {
   DerivationBounds,
   ProductionRule,
@@ -400,6 +401,8 @@ export function composeFormalSyntaxUtterances(
     ? input.samplingPolicy ?? PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY
     : null;
   if (samplingPolicy !== null) validateFormalSyntaxSamplingPolicy(samplingPolicy);
+  const effectiveMaximumClauseNesting =
+    input.bounds?.maximumClauseNesting ?? DEFAULT_DERIVATION_BOUNDS.maximumClauseNesting;
   let preparedStructuralSamplingContext = preparedStructuralContext ?? null;
   const structuralSamplingContext = (): PreparedStructuralSamplingContext => {
     preparedStructuralSamplingContext ??= prepareStructuralSamplingContext(rules, input.bounds);
@@ -588,10 +591,16 @@ export function composeFormalSyntaxUtterances(
               : "comparative-predicate.adjectival",
           }
         : null;
+    // Grammar legality and product reachability are separate. A clausal
+    // Subject needs two recursive clause-like edges (Subject -> ContentClause
+    // -> Clause), so while the product nesting budget is below 2 it must not
+    // enter child-rule sampling and perturb otherwise reachable Subject draws.
     const excludedProductionRuleIds = useProductFamilyPolicy
-      && comparativePracticeIntent === "inactive"
-      ? ["clause.comparative"] as const
-      : undefined;
+      ? [
+          ...(comparativePracticeIntent === "inactive" ? ["clause.comparative"] : []),
+          ...(effectiveMaximumClauseNesting < 2 ? ["argument.subject.clause"] : []),
+        ]
+      : [];
     const requiresArgumentRealizationPractice = argumentRealizationPracticeIntent !== "ordinary";
     if (rootFamilySelection?.predicateMarkingAvailabilityFallbackActive === true) {
       fallbackReasons.add("formal-syntax-predicate-marking-availability-fallback");
@@ -614,7 +623,7 @@ export function composeFormalSyntaxUtterances(
       ...(requiredPredicateMarkingSlot === null
         ? {}
         : { requiredLexicalSlot: requiredPredicateMarkingSlot }),
-      ...(excludedProductionRuleIds === undefined ? {} : { excludedProductionRuleIds }),
+      ...(excludedProductionRuleIds.length === 0 ? {} : { excludedProductionRuleIds }),
       ...(argumentRealizationPractice?.requiredProductionRuleIdsAnyOf === undefined
         ? {}
         : { requiredProductionRuleIdsAnyOf: argumentRealizationPractice.requiredProductionRuleIdsAnyOf }),
