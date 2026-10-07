@@ -46,12 +46,15 @@ describe("Clause-model v2 structural nominal argument roles", () => {
   it("represents ordinary and construction-specific argument roles as wrapper categories", () => {
     expect(ARGUMENT_PRODUCTION_RULES.map((rule) => [rule.id, rule.output])).toEqual([
       ["argument.subject.noun", "Subject"],
+      ["argument.subject.clause", "Subject"],
       ["argument.object.noun", "Object"],
       ["argument.indirect-object.noun", "IndirectObject"],
       ["argument.disposal-patient.noun", "DisposalPatient"],
       ["argument.passive-agent.noun", "PassiveAgent"],
     ]);
-    for (const rule of ARGUMENT_PRODUCTION_RULES) {
+    const nominalRules = ARGUMENT_PRODUCTION_RULES
+      .filter((rule) => rule.id !== "argument.subject.clause");
+    for (const rule of nominalRules) {
       expect(rule.constituents).toEqual([
         expect.objectContaining({
           key: "phrase",
@@ -61,6 +64,17 @@ describe("Clause-model v2 structural nominal argument roles", () => {
       ]);
       expect(rule.constituents[0]?.inheritFunctions).toBeUndefined();
     }
+
+    const clausalSubject = ARGUMENT_PRODUCTION_RULES
+      .find((rule) => rule.id === "argument.subject.clause");
+    expect(clausalSubject?.constituents).toEqual([
+      expect.objectContaining({
+        key: "clause",
+        category: "ContentClause",
+        recursive: true,
+        requiredFunctions: [],
+      }),
+    ]);
   });
 
   it("uses structural categories at the canonical transitive Clause boundary", () => {
