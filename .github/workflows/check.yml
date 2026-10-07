@@ -278,6 +278,59 @@ jobs:
       # it to CI.
       - name: Bundle size budget
         run: npm run size:check
+      - name: Add clausal-subject audit-only production path trace
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
+          if text.count(needle) != 1:
+              raise SystemExit("unexpected formal-syntax candidate shape")
+          path.write_text(text.replace(
+              needle,
+              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
+          ))
+          PY
+      - name: Measure clausal-subject prototype product distribution
+        run: npx tsx scripts/audit-clausal-subject-prototype-distribution.ts --measure prototype clausal-subject-current.json
+      - name: Measure exact production base distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin 4c4eaff5aec7d57a3e1a876409bfebaf173ebed2
+          git worktree add --detach /tmp/clausal-subject-base FETCH_HEAD
+          ln -s "$GITHUB_WORKSPACE/node_modules" /tmp/clausal-subject-base/node_modules
+          cp scripts/audit-clausal-subject-prototype-distribution.ts /tmp/clausal-subject-base/scripts/
+          (
+            cd /tmp/clausal-subject-base
+            npm run app:catalog
+            python - <<'PY'
+          from pathlib import Path
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
+          if text.count(needle) != 1:
+              raise SystemExit("unexpected production formal-syntax candidate shape")
+          path.write_text(text.replace(
+              needle,
+              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
+          ))
+          PY
+            npx tsx scripts/audit-clausal-subject-prototype-distribution.ts --measure production /tmp/clausal-subject-legacy.json
+          )
+      - name: Compare clausal-subject prototype distribution
+        run: npx tsx scripts/audit-clausal-subject-prototype-distribution.ts --compare clausal-subject-current.json /tmp/clausal-subject-legacy.json
+      - name: Upload clausal-subject prototype distribution audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clausal-subject-prototype-distribution-audit
+          path: |
+            clausal-subject-prototype-distribution-audit.json
+            clausal-subject-prototype-distribution-audit.md
+          if-no-files-found: ignore
 
   # Runs alongside `check` rather than after it, and belongs to this workflow
   # rather than one of its own so that the deploy gate -- which waits on this
