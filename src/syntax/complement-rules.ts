@@ -268,10 +268,6 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
     constituent("complementizer", "ComplementizerPhrase", { minimum: 0, maximum: 1 }),
     constituent("clause", "Clause", { recursive: true }),
   ]),
-  production("clause.subject-content", "Clause", [
-    constituent("subjectClause", "ContentClause", { recursive: true, requiredFunctions: ["subject"] }),
-    constituent("predicate", "VerbPhrase", { requiredFunctions: ["predicate"] }),
-  ]),
   production("clause.object-content", "Clause", [
     constituent("subject", "NounPhrase", { minimum: 0, maximum: 1 }),
     constituent("predicate", "Predicate", {
