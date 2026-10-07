@@ -6,13 +6,17 @@ import type {
   SyntaxCategory,
 } from "./types.js";
 
-function constituent(key: string, category: SyntaxCategory): ProductionConstituent {
+function constituent(
+  key: string,
+  category: SyntaxCategory,
+  recursive = false,
+): ProductionConstituent {
   return {
     key,
     category,
     minimum: 1,
     maximum: 1,
-    recursive: false,
+    recursive,
     allowedUpos: [],
     requiredFunctions: [],
     requiredValencyFrames: [],
@@ -30,12 +34,18 @@ const ARGUMENT_OUTPUTS = [
 
 type ArgumentOutput = (typeof ARGUMENT_OUTPUTS)[number];
 
-function argumentRule(id: string, output: ArgumentOutput): ProductionRule {
+function argumentRule(
+  id: string,
+  output: ArgumentOutput,
+  childCategory: SyntaxCategory = "NounPhrase",
+  childKey = "phrase",
+  recursive = false,
+): ProductionRule {
   return {
     id,
     grammarVersion: FORMAL_GRAMMAR_VERSION,
     output,
-    constituents: [constituent("phrase", "NounPhrase")],
+    constituents: [constituent(childKey, childCategory, recursive)],
     surfaceOrders: [{ id: "canonical", constituentKeys: ["phrase"] }],
     constraints: [],
     positiveFixtureIds: [`${id}:minimum`],
@@ -44,37 +54,38 @@ function argumentRule(id: string, output: ArgumentOutput): ProductionRule {
 }
 
 function fixtures(rule: ProductionRule): readonly ProductionFixture[] {
+  const child = rule.constituents[0];
+  if (child === undefined) throw new Error(`argument rule ${rule.id} requires one child`);
   return [
     {
       id: `${rule.id}:minimum`,
       ruleId: rule.id,
       expected: "accept",
       surfaceOrderId: "canonical",
-      constituentCounts: { phrase: 1 },
+      constituentCounts: { [child.key]: 1 },
     },
     {
       id: `${rule.id}:overflow`,
       ruleId: rule.id,
       expected: "reject",
       surfaceOrderId: "canonical",
-      constituentCounts: { phrase: 2 },
+      constituentCounts: { [child.key]: 2 },
     },
   ];
 }
 
 /**
- * Structural open-class nominal arguments for Clause-model v2.
+ * Structural arguments for Clause-model v2.
  *
- * The role is represented by the wrapper category itself. The child NounPhrase
- * deliberately does not inherit a corpus-observed dependency-function gate.
- * Subject/Object/IndirectObject are ordinary argument positions; the
- * construction-specific DisposalPatient and PassiveAgent wrappers preserve the
- * formal BA/passive distinction without requiring a noun itself to have been
- * observed as `obl:patient` / `obl:agent` (or generic `obl`) in the finite UD
- * source corpus.
+ * The role is represented by the wrapper category itself. Nominal children
+ * deliberately do not inherit corpus-observed dependency-function gates.
+ * Reviewed csubj evidence adds a clausal Subject alternative while preserving
+ * the embedded ContentClause's own internal Clause frame and argument
+ * realization.
  */
 export const ARGUMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
   argumentRule("argument.subject.noun", "Subject"),
+  argumentRule("argument.subject.clause", "Subject", "ContentClause", "clause", true),
   argumentRule("argument.object.noun", "Object"),
   argumentRule("argument.indirect-object.noun", "IndirectObject"),
   argumentRule("argument.disposal-patient.noun", "DisposalPatient"),
