@@ -7,7 +7,7 @@ import { sentenceConstructionClassification } from "../src/curriculum/formal-syn
 const SAMPLE_COUNT = 2048;
 const SEED_NAMESPACE = "clausal-subject-prototype-distribution-v1";
 const BASE_HEAD = "4c4eaff5aec7d57a3e1a876409bfebaf173ebed2";
-const PROTOTYPE_HEAD = "9fc98192705d39157b080a4fe0701979c89f3e8e";
+const PROTOTYPE_HEAD = "ed4cf403219796e94fa8fd15cd8cb28f7fe7a61e";
 const STRUCTURAL_CLAUSAL_SUBJECT_RULE = "argument.subject.clause";
 const LEGACY_SUBJECT_CONTENT_RULE = "clause.subject-content";
 
