@@ -75,6 +75,11 @@ export const RETIRED_CLAUSE_RULE_V2_DECISIONS = {
     evidenceContract: "pinned-gsd-direct-verb-pair-inventory-v1",
     note: "Pinned direct VERB→VERB evidence does not define one generic serial predicate: unmarked shared-subject candidates split primarily across pre-head advcl and post-head xcomp, with coordination/parataxis separate. Retire arbitrary VP + VP; rebuild advcl and controller-typed xcomp under their own evidence contracts.",
   },
+  "clause.subject-content": {
+    targetAxes: ["argument-realization", "embedding"],
+    evidenceContract: "pinned-gsd-csubj-shape-inventory-v1",
+    note: "Clausal subjecthood is realized structurally by argument.subject.clause -> ContentClause on the shared Subject role; matrix predication remains owned by ordinary Clause predicate frames instead of a separate ContentClause + VerbPhrase peer rule.",
+  },
 } as const satisfies Readonly<Record<string, RetiredClauseRuleV2Decision>>;
 
 /**
@@ -155,12 +160,6 @@ export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
     note: "Reviewed 比/ADP(case) evidence makes the standard a structural construction role, keeps subject realization orthogonal, preserves adjectival predicates, and gates verbal predicates by same-occurrence capability.",
   },
 
-  "clause.subject-content": {
-    group: "rebuild-embedding-control",
-    targetAxis: "embedding",
-    target: "subject-clause",
-    note: "Rebuild from clausal-subject evidence.",
-  },
   "clause.object-content": {
     group: "rebuild-embedding-control",
     targetAxis: "embedding",
