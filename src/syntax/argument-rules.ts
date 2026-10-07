@@ -57,7 +57,7 @@ function argumentRule(
     constituents: [constituent(
       key,
       options.category ?? "NounPhrase",
-      { recursive: options.recursive },
+      options.recursive === undefined ? {} : { recursive: options.recursive },
     )],
     surfaceOrders: [{ id: "canonical", constituentKeys: [key] }],
     constraints: [],
