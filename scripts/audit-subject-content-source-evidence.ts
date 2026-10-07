@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { auditPinnedSubjectContentSourceEvidence } from "./subject-content-source-evidence.js";
 import {
   UD_GSD_PROVENANCE_ID,
@@ -7,9 +8,16 @@ import {
 
 const evidence = await auditPinnedSubjectContentSourceEvidence();
 
-const governingPredicateCounts = Object.fromEntries(
+const governingPredicateEntries = [...evidence.governingPredicateCounts]
+  .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
+const governingPredicateIdentityDigest = createHash("sha256")
+  .update(JSON.stringify(governingPredicateEntries), "utf8")
+  .digest("hex");
+const topGoverningPredicateCounts = Object.fromEntries(
   [...evidence.governingPredicateCounts]
-    .sort(([left], [right]) => left.localeCompare(right, "zh-Hant")),
+    .sort((left, right) => right[1] - left[1]
+      || left[0].localeCompare(right[0], "zh-Hant"))
+    .slice(0, 20),
 );
 
 const summary = {
@@ -26,8 +34,9 @@ const summary = {
   governingPredicateTokenCount: evidence.governingPredicateTokenCount,
   governingPredicateUposCounts: evidence.governingPredicateUposCounts,
   governingPredicateRelationCounts: evidence.governingPredicateRelationCounts,
-  governingPredicateCounts,
-  governingPredicateIdentityCount: Object.keys(governingPredicateCounts).length,
+  governingPredicateIdentityCount: evidence.governingPredicateCounts.size,
+  governingPredicateIdentityDigest,
+  topGoverningPredicateCounts,
   subjectClauseBeforePredicateTokenCount: evidence.subjectClauseBeforePredicateTokenCount,
   subjectClauseAfterPredicateTokenCount: evidence.subjectClauseAfterPredicateTokenCount,
   subjectClauseWithOvertSubjectTokenCount: evidence.subjectClauseWithOvertSubjectTokenCount,
