@@ -46,6 +46,7 @@ describe("formal syntax sampling taxonomy", () => {
       kind: "embedded-content",
       family: "embedded.xcomp-control",
     });
+    expect(clauseConstructionClassification("clause.subject-content")).toBeNull();
     expect(clauseConstructionClassification("clause.causative")).toBeNull();
     expect(clauseConstructionClassification("clause.negative")).toBeNull();
     expect(clauseConstructionClassification("clause.aspect")).toBeNull();
@@ -97,14 +98,14 @@ describe("formal syntax sampling taxonomy", () => {
       .toMatchObject({ ticketCount: 2, rawShare: 0.2 });
 
     expect(audit.clauseKinds).toEqual([
-      expect.objectContaining({ family: "core-predication", ticketCount: 8, rawShare: 8 / 17 }),
-      expect.objectContaining({ family: "embedded-content", ticketCount: 5, rawShare: 5 / 17 }),
-      expect.objectContaining({ family: "information-structure", ticketCount: 1, rawShare: 1 / 17 }),
-      expect.objectContaining({ family: "marked", ticketCount: 3, rawShare: 3 / 17 }),
+      expect.objectContaining({ family: "core-predication", ticketCount: 8, rawShare: 8 / 16 }),
+      expect.objectContaining({ family: "embedded-content", ticketCount: 4, rawShare: 4 / 16 }),
+      expect.objectContaining({ family: "information-structure", ticketCount: 1, rawShare: 1 / 16 }),
+      expect.objectContaining({ family: "marked", ticketCount: 3, rawShare: 3 / 16 }),
     ]);
-    expect(audit.clauseFamilies).toHaveLength(16);
+    expect(audit.clauseFamilies).toHaveLength(15);
     expect(audit.clauseFamilies.find((row) => row.family === "embedded.xcomp-control"))
-      .toMatchObject({ ticketCount: 2, rawShare: 2 / 17 });
+      .toMatchObject({ ticketCount: 2, rawShare: 2 / 16 });
     expect(audit.clauseFamilies
       .filter((row) => row.family !== "embedded.xcomp-control")
       .every((row) => row.ticketCount === 1)).toBe(true);
