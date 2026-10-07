@@ -42,16 +42,20 @@ function canonicalTransitiveSlots() {
   return overt!.lexicalSlots;
 }
 
-describe("Clause-model v2 structural nominal argument roles", () => {
+describe("Clause-model v2 structural argument roles", () => {
   it("represents ordinary and construction-specific argument roles as wrapper categories", () => {
     expect(ARGUMENT_PRODUCTION_RULES.map((rule) => [rule.id, rule.output])).toEqual([
       ["argument.subject.noun", "Subject"],
+      ["argument.subject.clause", "Subject"],
       ["argument.object.noun", "Object"],
       ["argument.indirect-object.noun", "IndirectObject"],
       ["argument.disposal-patient.noun", "DisposalPatient"],
       ["argument.passive-agent.noun", "PassiveAgent"],
     ]);
-    for (const rule of ARGUMENT_PRODUCTION_RULES) {
+
+    const nominalRules = ARGUMENT_PRODUCTION_RULES
+      .filter((rule) => rule.id !== "argument.subject.clause");
+    for (const rule of nominalRules) {
       expect(rule.constituents).toEqual([
         expect.objectContaining({
           key: "phrase",
@@ -61,6 +65,63 @@ describe("Clause-model v2 structural nominal argument roles", () => {
       ]);
       expect(rule.constituents[0]?.inheritFunctions).toBeUndefined();
     }
+  });
+
+  it("adds clausal Subject as a recursive structural role without a corpus-role gate", () => {
+    const clausal = ARGUMENT_PRODUCTION_RULES
+      .find((rule) => rule.id === "argument.subject.clause");
+    expect(clausal?.constituents).toEqual([
+      expect.objectContaining({
+        key: "clause",
+        category: "ContentClause",
+        recursive: true,
+        requiredFunctions: [],
+      }),
+    ]);
+    expect(clausal?.constituents[0]?.inheritFunctions).toBeUndefined();
+  });
+
+  it("uses the shared Subject category across ordinary core predicate frames", () => {
+    const coreWithSubject = [
+      "clause.nominal-predicate",
+      "clause.adjective-predicate",
+      "clause.intransitive",
+      "clause.transitive",
+      "clause.ditransitive",
+      "clause.copular",
+    ] as const;
+    for (const ruleId of coreWithSubject) {
+      const rule = FORMAL_SYNTAX_RULES.find((item) => item.id === ruleId);
+      expect(rule?.constituents.find((item) => item.key === "subject")?.category, ruleId)
+        .toBe("Subject");
+    }
+  });
+
+  it("does not leak the structural Subject role into the embedded predicate", () => {
+    const keep = new Set([
+      "argument.subject.clause",
+      "content.clause",
+      "clause.intransitive",
+      "predicate.verb.lexical",
+    ]);
+    const shapes = [...enumerateStructuralDerivations({
+      rootCategory: "Subject",
+      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
+    })];
+    expect(shapes).toHaveLength(1);
+    expect(shapes[0]?.productionRulePath).toEqual([
+      "argument.subject.clause",
+      "content.clause",
+      "clause.intransitive",
+      "predicate.verb.lexical",
+    ]);
+    expect(shapes[0]?.lexicalSlots).toEqual([
+      expect.objectContaining({
+        allowedUpos: ["VERB"],
+        requiredFunctions: [],
+        requiredValencyFrames: ["ambitransitive", "intransitive"],
+      }),
+    ]);
   });
 
   it("uses structural categories at the canonical transitive Clause boundary", () => {
