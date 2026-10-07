@@ -39,7 +39,7 @@ describe("comparative runtime sidecar integration", () => {
       .toEqual(["來", "接近", "符合", "陷入", "增長", "靠近", "高出"].sort());
   });
 
-  it("does not change executable comparative grammar before the reviewed rewrite", () => {
+  it("is consumed only by the reviewed verbal comparative predicate branch", () => {
     const consumers = FORMAL_SYNTAX_RULES.flatMap((rule) =>
       rule.constituents.filter((constituent) =>
         constituent.requiredOccurrenceCapabilities?.includes(
@@ -47,6 +47,6 @@ describe("comparative runtime sidecar integration", () => {
         ) ?? false,
       ).map((constituent) => `${rule.id}:${constituent.key}`),
     );
-    expect(consumers).toEqual([]);
+    expect(consumers).toEqual(["comparative-predicate.verbal:predicate"]);
   });
 });

@@ -14,6 +14,8 @@ export const SYNTAX_CATEGORIES = [
   "PredicateModalMarking",
   "BAPredicate",
   "LocativePredicate",
+  "ComparativeStandard",
+  "ComparativePredicate",
   "Object",
   "IndirectObject",
   "DisposalPatient",

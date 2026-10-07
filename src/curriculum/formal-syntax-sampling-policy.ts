@@ -28,6 +28,14 @@ export interface ArgumentRealizationPracticeWeights {
   readonly objectOmission: number;
 }
 
+export type ComparativePracticeIntent = "inactive" | "adjectival" | "verbal";
+
+export interface ComparativePracticeWeights {
+  readonly inactive: number;
+  readonly adjectival: number;
+  readonly verbal: number;
+}
+
 export interface FormalSyntaxSamplingPolicy {
   readonly version: string;
   readonly sentenceKindWeights: Readonly<Record<SentenceKind, number>>;
@@ -37,6 +45,8 @@ export interface FormalSyntaxSamplingPolicy {
   readonly predicateMarkingPracticeWeights: PredicateMarkingPracticeWeights;
   /** Product practice intent for overt/absent core arguments, separate from predicate-frame identity. */
   readonly argumentRealizationPracticeWeights: ArgumentRealizationPracticeWeights;
+  /** Product practice prior for comparative incidence and legal predicate branches, separate from grammar legality. */
+  readonly comparativePracticeWeights: ComparativePracticeWeights;
 }
 
 export const SENTENCE_KINDS: readonly SentenceKind[] = [
@@ -74,7 +84,7 @@ export const SENTENCE_CONSTRUCTION_FAMILIES: readonly SentenceConstructionFamily
  * activate yet.
  */
 export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy = {
-  version: "formal-syntax-family-sampling-v8",
+  version: "formal-syntax-family-sampling-v10",
   sentenceKindWeights: {
     statement: 0.64,
     question: 0.26,
@@ -99,6 +109,11 @@ export const PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY: FormalSyntaxSamplingPolicy =
   // Calibrated against the immutable #269 final-namespace 8192-seed structural-surface meter.
   // This is a product-practice prior, not a corpus/linguistic omission probability.
   argumentRealizationPracticeWeights: { ordinary: 0.8015, subjectOmission: 0.112, objectOmission: 0.0865 },
+  // Conservative product-practice prior for the rebuilt comparative construction.
+  // Half of ordinary product attempts keep comparative inactive; active practice
+  // then splits 80/20 between adjectival and reviewed verbal predicates.
+  // This is a curriculum choice, not a corpus-frequency claim.
+  comparativePracticeWeights: { inactive: 0.5, adjectival: 0.4, verbal: 0.1 },
 };
 
 function nextUnit(random: RandomSource): number {
@@ -196,6 +211,14 @@ export function validateFormalSyntaxSamplingPolicy(policy: FormalSyntaxSamplingP
   }
   if (!(realization.ordinary > 0 || realization.subjectOmission > 0 || realization.objectOmission > 0)) {
     throw new Error("argument realization practice weights require positive mass");
+  }
+  const comparative = policy.comparativePracticeWeights;
+  if ([comparative.inactive, comparative.adjectival, comparative.verbal]
+    .some((weight) => !Number.isFinite(weight) || weight < 0)) {
+    throw new Error("comparative practice weights must be finite and non-negative");
+  }
+  if (!(comparative.inactive > 0 || comparative.adjectival > 0 || comparative.verbal > 0)) {
+    throw new Error("comparative practice weights require positive mass");
   }
 }
 
@@ -337,6 +360,36 @@ export function argumentRealizationPracticeIntentForTicketUnit(
   return ticketUnit < subjectBoundary ? "subject-omission" : "object-omission";
 }
 
+export const COMPARATIVE_PRACTICE_TICKET_VERSION =
+  "comparative-practice-ticket-v2" as const;
+
+export function comparativePracticeTicketUnitForTerminalUnit(
+  terminalTicketUnit: number,
+): number {
+  if (!Number.isFinite(terminalTicketUnit) || terminalTicketUnit < 0 || terminalTicketUnit >= 1) {
+    throw new Error("comparative terminal ticket unit must be in [0, 1)");
+  }
+  const digest = stableRuntimeDigest({
+    version: COMPARATIVE_PRACTICE_TICKET_VERSION,
+    ticketUnit: terminalTicketUnit,
+  });
+  return Number.parseInt(digest.slice(0, 12), 16) / 281_474_976_710_656;
+}
+
+export function comparativePracticeIntentForTicketUnit(
+  terminalTicketUnit: number,
+  policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+): ComparativePracticeIntent {
+  validateFormalSyntaxSamplingPolicy(policy);
+  const ticketUnit = comparativePracticeTicketUnitForTerminalUnit(terminalTicketUnit);
+  const weights = policy.comparativePracticeWeights;
+  const total = weights.inactive + weights.adjectival + weights.verbal;
+  const inactiveBoundary = weights.inactive / total;
+  if (ticketUnit < inactiveBoundary) return "inactive";
+  const adjectivalBoundary = inactiveBoundary + weights.adjectival / total;
+  return ticketUnit < adjectivalBoundary ? "adjectival" : "verbal";
+}
+
 /**
  * Build one weighted permutation over active Sentence construction families using
  * the joint family prior P(kind) × P(family | kind). Legal but inactive families
@@ -348,6 +401,8 @@ export interface SentenceConstructionFamilyPlanSample {
   readonly predicateMarkingTicketUnit: number;
   /** Same inert draw; argument realization domain-separates it without consuming RNG. */
   readonly argumentRealizationTicketUnit: number;
+  /** Same inert draw; comparative practice domain-separates it without consuming RNG. */
+  readonly comparativePracticeTicketUnit: number;
 }
 
 export function createSentenceConstructionFamilyPlanSample(
@@ -394,6 +449,7 @@ export function createSentenceConstructionFamilyPlanSample(
     plan: sampled.values,
     predicateMarkingTicketUnit: sampled.terminalUnit,
     argumentRealizationTicketUnit: sampled.terminalUnit,
+    comparativePracticeTicketUnit: sampled.terminalUnit,
   };
 }
 

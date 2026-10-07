@@ -154,6 +154,125 @@ describe("formal clause and question production inventory", () => {
         || item.requiredFeatures.aspect === "marked")).toBe(false);
   });
 
+  it("rebuilds comparative as an optional-subject construction with structural standard and predicate roles", () => {
+    const comparative = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "clause.comparative");
+    expect(comparative?.constituents.map((item) => [item.key, item.category])).toEqual([
+      ["subject", "Subject"],
+      ["marker", "Lexeme"],
+      ["standard", "ComparativeStandard"],
+      ["predicate", "ComparativePredicate"],
+    ]);
+    expect(comparative?.constituents.find((item) => item.key === "subject")).toMatchObject({
+      minimum: 0,
+      maximum: 1,
+    });
+    expect(comparative?.constituents.find((item) => item.key === "marker")).toMatchObject({
+      allowedUpos: ["ADP"],
+      requiredFeatures: { clauseType: "comparative" },
+    });
+    expect(comparative?.constituents.find((item) => item.key === "standard")).toMatchObject({
+      requiredFunctions: [],
+    });
+    expect(comparative?.constituents.find((item) => item.key === "predicate")).toMatchObject({
+      requiredFunctions: ["predicate"],
+    });
+  });
+
+  it("keeps the nominal comparative standard structural instead of corpus-role-gating its noun", () => {
+    const keep = new Set([
+      "clause.comparative",
+      "argument.subject.noun",
+      "comparative-standard.nominal",
+      "comparative-predicate.adjectival",
+      "phrase.noun.bare",
+      "phrase.nominal-head.noun",
+      "phrase.adjective.lexical",
+    ]);
+    const shape = sampleStructuralDerivation({
+      rootCategory: "Clause",
+      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
+      random: { next: () => 0 },
+      maximumAttempts: 1,
+      rootProductionRuleId: "clause.comparative",
+      nestedProductionTargets: [
+        { parentRuleId: "clause.comparative", constituentKey: "subject", exactCount: 0 },
+        {
+          parentRuleId: "clause.comparative",
+          constituentKey: "predicate",
+          childRuleId: "comparative-predicate.adjectival",
+        },
+      ],
+    });
+
+    expect(shape).not.toBeNull();
+    expect(shape?.productionRulePath).toContain("comparative-standard.nominal");
+    expect(shape?.productionRulePath).toContain("comparative-predicate.adjectival");
+    expect(shape?.productionRulePath).not.toContain("argument.subject.noun");
+
+    const nominalSlots = shape?.lexicalSlots.filter((slot) =>
+      slot.allowedUpos.includes("NOUN")) ?? [];
+    expect(nominalSlots).toHaveLength(1);
+    expect(nominalSlots[0]?.requiredFunctions).toEqual([]);
+
+    const adjectiveHead = shape?.lexicalSlots.find((slot) =>
+      slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "ADJ");
+    expect(adjectiveHead?.requiredFunctions).toContain("predicate");
+  });
+
+  it("keeps predicate marking orthogonal while gating verbal comparatives by reviewed same-occurrence evidence", () => {
+    const keep = new Set([
+      "clause.comparative",
+      "comparative-standard.nominal",
+      "comparative-predicate.verbal",
+      "predicate.verb.expanded",
+      "phrase.noun.bare",
+      "phrase.nominal-head.noun",
+    ]);
+    const shape = sampleStructuralDerivation({
+      rootCategory: "Clause",
+      rules: FORMAL_SYNTAX_RULES.filter((rule) => keep.has(rule.id)),
+      random: { next: () => 0 },
+      maximumAttempts: 1,
+      rootProductionRuleId: "clause.comparative",
+      nestedProductionTargets: [
+        { parentRuleId: "clause.comparative", constituentKey: "subject", exactCount: 0 },
+        {
+          parentRuleId: "clause.comparative",
+          constituentKey: "predicate",
+          childRuleId: "comparative-predicate.verbal",
+        },
+        {
+          parentRuleId: "comparative-predicate.verbal",
+          constituentKey: "predicate",
+          childRuleId: "predicate.verb.expanded",
+        },
+        {
+          parentRuleId: "predicate.verb.expanded",
+          constituentKey: "negation",
+          exactCount: 1,
+        },
+      ],
+      requiredLexicalSlot: {
+        requiredFeatures: { polarity: "negative" },
+        enclosingRequiredFunctions: ["predicate"],
+      },
+    });
+
+    expect(shape).not.toBeNull();
+    const negation = shape?.lexicalSlots.find((slot) => slot.constituentKey === "negation");
+    expect(negation?.requiredFeatures).toMatchObject({ polarity: "negative" });
+
+    const verbalHead = shape?.lexicalSlots.find((slot) =>
+      slot.allowedUpos.length === 1
+        && slot.allowedUpos[0] === "VERB"
+        && (slot.requiredOccurrenceCapabilities ?? []).includes(
+          "verbal-comparative-bi-standard-same-occurrence",
+        )
+    );
+    expect(verbalHead).toBeDefined();
+    expect(verbalHead?.requiredFunctions).not.toContain("predicate");
+  });
+
   it("represents BA patient as a construction role with preverbal predicate marking", () => {
     const ba = CLAUSE_PRODUCTION_RULES.find((rule) => rule.id === "clause.ba");
     expect(ba?.constituents.map((item) => [item.key, item.category])).toEqual([
