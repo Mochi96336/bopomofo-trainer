@@ -121,7 +121,13 @@ All 9 interrogative subjects precede their governing head:
 
 No governing head has another subject.
 
-But only **1 / 9** governing heads is root. The other **8 / 9** are embedded:
+But only **1 / 9** governing heads is root. That single root occurrence is
+**何 / PROPN** as nsubj with a **VERB** governing head. Its governing-head
+identity is pinned by SHA-256:
+
+**c8edeb0eff9cff372b614a06796084b9af4ee861375a5087cc041e1ef357f4f6**
+
+The other **8 / 9** are embedded:
 
 - ccomp: **3**
 - csubj: **2**
@@ -131,7 +137,9 @@ But only **1 / 9** governing heads is root. The other **8 / 9** are embedded:
 
 This is the strongest limit on the current evidence. Most reviewed occurrences
 show an interrogative Subject inside a clause; they do not directly license a
-dedicated root-level sentence.constituent-subject-question template.
+dedicated root-level sentence.constituent-subject-question template. The pinned
+root subset alone also does not establish adjectival, nominal, or copular root
+subject-question predication.
 
 ## Migration consequences
 
