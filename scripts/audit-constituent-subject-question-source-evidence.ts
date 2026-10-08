@@ -153,6 +153,15 @@ const EXPECTED_PINNED_BOUNDARY = {
   governingHeadWithClausalComplementTokenCount: 2,
   governingHeadRootTokenCount: 1,
   governingHeadNonRootTokenCount: 8,
+  rootDirectSubjectFormCounts: {
+    "何": 1,
+  },
+  rootGoverningHeadUposCounts: {
+    VERB: 1,
+  },
+  rootGoverningHeadIdentityCount: 1,
+  rootGoverningHeadIdentityDigest:
+    "c8edeb0eff9cff372b614a06796084b9af4ee861375a5087cc041e1ef357f4f6",
 } as const;
 
 if (process.argv.includes("--verify")) {
