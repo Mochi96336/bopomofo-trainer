@@ -68,6 +68,9 @@ export interface ConstituentSubjectQuestionSourceEvidenceSummary {
   readonly governingHeadWithClausalComplementTokenCount: number;
   readonly governingHeadRootTokenCount: number;
   readonly governingHeadNonRootTokenCount: number;
+  readonly rootDirectSubjectFormCounts: Readonly<Record<string, number>>;
+  readonly rootGoverningHeadUposCounts: Readonly<Record<string, number>>;
+  readonly rootGoverningHeadIdentityCounts: ReadonlyMap<string, number>;
 }
 
 export function summarizeConstituentSubjectQuestionSourceEvidence(
@@ -84,6 +87,9 @@ export function summarizeConstituentSubjectQuestionSourceEvidence(
   const governingHeadRelationCounts = new Map<string, number>();
   const governingHeadIdentityCounts = new Map<string, number>();
   const governingHeadChildRelationCounts = new Map<string, number>();
+  const rootDirectSubjectFormCounts = new Map<string, number>();
+  const rootGoverningHeadUposCounts = new Map<string, number>();
+  const rootGoverningHeadIdentityCounts = new Map<string, number>();
 
   let sentenceCount = 0;
   let tokenCount = 0;
@@ -162,8 +168,14 @@ export function summarizeConstituentSubjectQuestionSourceEvidence(
           governingHeadWithClausalComplementTokenCount += 1;
         }
 
-        if (head.head === 0 || head.relation === "root") governingHeadRootTokenCount += 1;
-        else governingHeadNonRootTokenCount += 1;
+        if (head.head === 0 || head.relation === "root") {
+          governingHeadRootTokenCount += 1;
+          increment(rootDirectSubjectFormCounts, token.form);
+          increment(rootGoverningHeadUposCounts, head.upos);
+          increment(rootGoverningHeadIdentityCounts, lexemeUposKey(head.form, head.upos));
+        } else {
+          governingHeadNonRootTokenCount += 1;
+        }
       }
     }
   }
@@ -197,6 +209,9 @@ export function summarizeConstituentSubjectQuestionSourceEvidence(
     governingHeadWithClausalComplementTokenCount,
     governingHeadRootTokenCount,
     governingHeadNonRootTokenCount,
+    rootDirectSubjectFormCounts: sortedRecord(rootDirectSubjectFormCounts),
+    rootGoverningHeadUposCounts: sortedRecord(rootGoverningHeadUposCounts),
+    rootGoverningHeadIdentityCounts,
   };
 }
 
