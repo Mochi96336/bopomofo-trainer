@@ -54,6 +54,10 @@ const summary = {
     evidence.governingHeadWithClausalComplementTokenCount,
   governingHeadRootTokenCount: evidence.governingHeadRootTokenCount,
   governingHeadNonRootTokenCount: evidence.governingHeadNonRootTokenCount,
+  rootDirectSubjectFormCounts: evidence.rootDirectSubjectFormCounts,
+  rootGoverningHeadUposCounts: evidence.rootGoverningHeadUposCounts,
+  rootGoverningHeadIdentityCount: evidence.rootGoverningHeadIdentityCounts.size,
+  rootGoverningHeadIdentityDigest: digestCounts(evidence.rootGoverningHeadIdentityCounts),
 };
 
 console.log(JSON.stringify(summary, null, 2));
