@@ -125,8 +125,7 @@ describe("Clause-model v2 predicate argument ownership", () => {
 
   it("leaves only explicitly deferred live paths on VerbPhrase", () => {
     expect(FORMAL_SYNTAX_RULES.some((item) => item.id === "clause.causative")).toBe(false);
-    expect(rule("clause.subject-content").constituents.find((item) => item.key === "predicate")?.category)
-      .toBe("VerbPhrase");
+    expect(FORMAL_SYNTAX_RULES.some((item) => item.id === "clause.subject-content")).toBe(false);
     expect(rule("clause.topic-comment").constituents.find((item) => item.key === "comment")?.category)
       .toBe("VerbPhrase");
     expect(rule("sentence.constituent-subject-question").constituents.find((item) => item.key === "predicate")?.category)
