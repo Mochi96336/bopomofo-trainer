@@ -61,3 +61,113 @@ const summary = {
 };
 
 console.log(JSON.stringify(summary, null, 2));
+
+
+const EXPECTED_PINNED_BOUNDARY = {
+  sourceCommit: UD_GSD_SOURCE_COMMIT,
+  evidenceContract: "pinned-gsd-licensed-wh-direct-subject-shape-inventory-v1",
+  sentenceCount: 4_997,
+  tokenCount: 123_289,
+  interrogativeTokenCount: 74,
+  interrogativeFormCounts: {
+    "什麼": 13,
+    "多少": 3,
+    "何": 9,
+    "何時": 1,
+    "甚麼": 2,
+    "哪": 1,
+    "哪裡": 2,
+    "幾": 37,
+    "誰": 6,
+  },
+  interrogativeUposCounts: {
+    ADV: 1,
+    DET: 1,
+    NUM: 40,
+    PRON: 25,
+    PROPN: 7,
+  },
+  interrogativeRelationCounts: {
+    advmod: 1,
+    appos: 1,
+    conj: 1,
+    det: 5,
+    nmod: 5,
+    nsubj: 9,
+    nummod: 38,
+    obj: 7,
+    obl: 7,
+  },
+  directSubjectTokenCount: 9,
+  directSubjectFormCounts: {
+    "什麼": 2,
+    "何": 3,
+    "誰": 4,
+  },
+  directSubjectUposCounts: {
+    PRON: 6,
+    PROPN: 3,
+  },
+  directSubjectRelationCounts: {
+    nsubj: 9,
+  },
+  directSubjectIdentityCount: 3,
+  directSubjectIdentityDigest:
+    "06f184453f6219f657136819c0bc5f884e80590511503d211379100e0e183220",
+  governingHeadTokenCount: 9,
+  governingHeadUposCounts: {
+    ADJ: 2,
+    VERB: 7,
+  },
+  governingHeadRelationCounts: {
+    advcl: 1,
+    appos: 1,
+    ccomp: 3,
+    csubj: 2,
+    parataxis: 1,
+    root: 1,
+  },
+  governingHeadIdentityCount: 9,
+  governingHeadIdentityDigest:
+    "5f6d8892c6d7653fe7586af848b2f0da167119386779c1c11d5c9ad13dc452ce",
+  governingHeadChildRelationCounts: {
+    advcl: 1,
+    advmod: 2,
+    aux: 3,
+    ccomp: 2,
+    "discourse:sp": 1,
+    "nmod:tmod": 2,
+    nsubj: 9,
+    obj: 3,
+    obl: 2,
+    punct: 10,
+  },
+  subjectBeforeHeadTokenCount: 9,
+  subjectAfterHeadTokenCount: 0,
+  governingHeadWithAdditionalSubjectTokenCount: 0,
+  governingHeadWithoutAdditionalSubjectTokenCount: 9,
+  governingHeadWithObjectTokenCount: 3,
+  governingHeadWithoutObjectTokenCount: 6,
+  governingHeadWithIndirectObjectTokenCount: 0,
+  governingHeadWithCopulaTokenCount: 0,
+  governingHeadWithClausalComplementTokenCount: 2,
+  governingHeadRootTokenCount: 1,
+  governingHeadNonRootTokenCount: 8,
+} as const;
+
+if (process.argv.includes("--verify")) {
+  const failures: string[] = [];
+  for (const [key, expected] of Object.entries(EXPECTED_PINNED_BOUNDARY)) {
+    const observed = summary[key as keyof typeof summary];
+    if (JSON.stringify(observed) !== JSON.stringify(expected)) {
+      failures.push(`${key}=${JSON.stringify(observed)}`);
+    }
+  }
+  if (failures.length > 0) {
+    throw new Error(
+      `constituent-subject-question source evidence drifted from the pinned reviewed boundary: ${failures.join(", ")}\n`
+      + `expected: ${JSON.stringify(EXPECTED_PINNED_BOUNDARY, null, 2)}\n`
+      + `observed: ${JSON.stringify(summary, null, 2)}`,
+    );
+  }
+}
