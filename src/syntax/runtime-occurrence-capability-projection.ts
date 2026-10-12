@@ -9,6 +9,7 @@ export const RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS = [
   "same-predicate-aux-pass-bei-v1",
   "same-predicate-verbal-locative-root-subject-object-v1",
   "same-predicate-bi-standard-verbal-v1",
+  "same-root-youguan-case-ccomp-v1",
 ] as const;
 export type RuntimeOccurrenceEvidenceContract =
   (typeof RUNTIME_OCCURRENCE_EVIDENCE_CONTRACTS)[number];
@@ -81,6 +82,17 @@ const REVIEWED_PROJECTION_CONTRACTS = new Map<RuntimeOccurrenceCapability, Revie
     // occurrence sidecar. Aggregate function/valency profiles are incomplete
     // for this frontier, so only the source UPOS is a valid lexical backstop.
     acceptTargetProfile: (profile) => profile.upos === "VERB",
+  }],
+  ["relational-adjective-youguan-case-ccomp-same-occurrence", {
+    evidenceContract: "same-root-youguan-case-ccomp-v1",
+    // The sidecar owns the exact root + preposed direct ccomp + 與/和 case
+    // conjunction. 有關 has ADJ, VERB, and ADP runtime profiles, so the
+    // aggregate backstop must also pin the intended active ADJ identity.
+    acceptTargetProfile: (profile) =>
+      profile.entryId === "word:有關:ㄧㄡ3-ㄍㄨㄢ1"
+      && profile.upos === "ADJ"
+      && profile.functions.includes("predicate")
+      && profile.valencyFrames.includes("clausal-complement"),
   }],
 ]);
 
