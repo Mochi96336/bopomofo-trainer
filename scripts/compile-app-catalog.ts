@@ -45,6 +45,7 @@ const [
   preverbalAuxOccurrenceCapabilitiesSource,
   locativeOccurrenceCapabilitiesSource,
   comparativeOccurrenceCapabilitiesSource,
+  youguanRelationalCcompOccurrenceCapabilitiesSource,
   syntaxRuntimeLockSource,
 ] = await Promise.all([
   loadResolvedCatalogSource(),
@@ -58,6 +59,7 @@ const [
   readFile(new URL("../data/grammar/formal-syntax-runtime-preverbal-aux-occurrence-capabilities.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-runtime-locative-occurrence-capabilities.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-runtime-comparative-occurrence-capabilities.json", import.meta.url), "utf8"),
+  readFile(new URL("../data/grammar/formal-syntax-runtime-youguan-relational-ccomp-occurrence-capabilities.json", import.meta.url), "utf8"),
   readFile(new URL("../data/grammar/formal-syntax-runtime-lock.json", import.meta.url), "utf8"),
 ]);
 
@@ -108,6 +110,9 @@ const locativeOccurrenceCapabilitiesArtifact = JSON.parse(
 const comparativeOccurrenceCapabilitiesArtifact = JSON.parse(
   comparativeOccurrenceCapabilitiesSource,
 ) as RuntimeOccurrenceCapabilityProjectionArtifact;
+const youguanRelationalCcompOccurrenceCapabilitiesArtifact = JSON.parse(
+  youguanRelationalCcompOccurrenceCapabilitiesSource,
+) as RuntimeOccurrenceCapabilityProjectionArtifact;
 const sourceSyntaxProfiles = applyRuntimeOccurrenceCapabilityProjections(
   baseSyntaxProfiles,
   syntaxProfilesArtifact.determinismDigest,
@@ -118,6 +123,7 @@ const sourceSyntaxProfiles = applyRuntimeOccurrenceCapabilityProjections(
     preverbalAuxOccurrenceCapabilitiesArtifact,
     locativeOccurrenceCapabilitiesArtifact,
     comparativeOccurrenceCapabilitiesArtifact,
+    youguanRelationalCcompOccurrenceCapabilitiesArtifact,
   ],
 );
 if (syntaxProfilesArtifact.sourceRuleIndexDigest !== sourceSyntaxArtifact.sourceRuleIndexDigest) {
@@ -212,6 +218,7 @@ const moduleSource = [
   `export const SYNTAX_RUNTIME_PREVERBAL_AUX_OCCURRENCE_CAPABILITIES_DIGEST = ${JSON.stringify(preverbalAuxOccurrenceCapabilitiesArtifact.determinismDigest)};`,
   `export const SYNTAX_RUNTIME_LOCATIVE_OCCURRENCE_CAPABILITIES_DIGEST = ${JSON.stringify(locativeOccurrenceCapabilitiesArtifact.determinismDigest)};`,
   `export const SYNTAX_RUNTIME_COMPARATIVE_OCCURRENCE_CAPABILITIES_DIGEST = ${JSON.stringify(comparativeOccurrenceCapabilitiesArtifact.determinismDigest)};`,
+  `export const SYNTAX_RUNTIME_YOUGUAN_RELATIONAL_CCOMP_OCCURRENCE_CAPABILITIES_DIGEST = ${JSON.stringify(youguanRelationalCcompOccurrenceCapabilitiesArtifact.determinismDigest)};`,
   "",
   `const ENCODED_PRACTICE: readonly EncodedCatalogEntry[] = ${JSON.stringify(encodeCatalogEntries(syntaxLegalEntries))};`,
   "const ENCODED_EVALUATION: readonly EncodedCatalogEntry[] = [];",
