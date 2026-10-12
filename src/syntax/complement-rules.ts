@@ -274,7 +274,8 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
       requiredFunctions: ["predicate"],
       requiredValencyFrames: ["clausal-complement"],
     }),
-    constituent("contentClause", "ContentClause", { recursive: true }),
+    // Keep the legacy key for structural-target compatibility; the role is ccomp/complement, not object.
+    constituent("objectClause", "ContentClause", { recursive: true }),
   ]),
   SUBJECT_CONTROL_RULE,
   OBJECT_CONTROL_RULE,
