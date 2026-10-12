@@ -117,6 +117,19 @@ jobs:
         run: |
           set -o pipefail
           npx tsx scripts/audit-constituent-subject-question-source-evidence.ts --verify 2>&1 | tee constituent-subject-question-source-audit.log
+      - name: Measure ccomp source shapes
+        id: ccomp-source-audit
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx scripts/audit-ccomp-source-evidence.ts 2>&1 | tee ccomp-source-audit.log
+      - name: Upload ccomp source audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ccomp-source-audit
+          path: ccomp-source-audit.log
+          if-no-files-found: error
       - name: Upload constituent-subject-question source audit
         if: always()
         uses: actions/upload-artifact@v4
