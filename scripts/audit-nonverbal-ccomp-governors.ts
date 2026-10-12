@@ -42,6 +42,9 @@ const summary = {
   ccompBeforeGovernorUposCounts: evidence.ccompBeforeGovernorUposCounts,
   ccompAfterGovernorUposCounts: evidence.ccompAfterGovernorUposCounts,
   ccompHeadUposByGovernorUposCounts: evidence.ccompHeadUposByGovernorUposCounts,
+  ccompWithMarkerUposCounts: evidence.ccompWithMarkerUposCounts,
+  ccompWithoutMarkerUposCounts: evidence.ccompWithoutMarkerUposCounts,
+  ccompMarkerFormByGovernorUposCounts: evidence.ccompMarkerFormByGovernorUposCounts,
 };
 
 console.log(JSON.stringify({ ...summary, occurrences: evidence.occurrences }, null, 2));
