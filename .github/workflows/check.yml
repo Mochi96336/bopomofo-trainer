@@ -122,7 +122,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          npx tsx scripts/audit-ccomp-source-evidence.ts 2>&1 | tee ccomp-source-audit.log
+          npx tsx scripts/audit-ccomp-source-evidence.ts --verify 2>&1 | tee ccomp-source-audit.log
       - name: Upload ccomp source audit
         if: always()
         uses: actions/upload-artifact@v4
