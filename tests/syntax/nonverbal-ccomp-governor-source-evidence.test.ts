@@ -37,6 +37,8 @@ describe("non-verbal ccomp governor source evidence", () => {
     expect(evidence.governorWithSubjectUposCounts).toEqual({ ADJ: 1 });
     expect(evidence.governorWithoutSubjectUposCounts).toEqual({ NOUN: 1 });
     expect(evidence.governorWithCopulaUposCounts).toEqual({ NOUN: 1 });
+    expect(evidence.ccompWithMarkerUposCounts).toEqual({});
+    expect(evidence.ccompWithoutMarkerUposCounts).toEqual({ ADJ: 1, NOUN: 1 });
   });
 
   it("retains review context without projecting it into grammar", () => {
