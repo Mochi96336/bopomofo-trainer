@@ -45,6 +45,8 @@ const summary = {
   ccompWithMarkerUposCounts: evidence.ccompWithMarkerUposCounts,
   ccompWithoutMarkerUposCounts: evidence.ccompWithoutMarkerUposCounts,
   ccompMarkerFormByGovernorUposCounts: evidence.ccompMarkerFormByGovernorUposCounts,
+  ccompCaseFormByGovernorUposCounts: evidence.ccompCaseFormByGovernorUposCounts,
+  ccompCaseFormByGovernorIdentityCounts: evidence.ccompCaseFormByGovernorIdentityCounts,
 };
 
 console.log(JSON.stringify({ ...summary, occurrences: evidence.occurrences }, null, 2));
