@@ -15,6 +15,8 @@ export const VERBAL_LOCATIVE_ROOT_SUBJECT_OBJECT_SAME_OCCURRENCE_CAPABILITY: Run
   "verbal-locative-root-subject-object-same-occurrence";
 export const VERBAL_COMPARATIVE_BI_STANDARD_SAME_OCCURRENCE_CAPABILITY: RuntimeOccurrenceCapability =
   "verbal-comparative-bi-standard-same-occurrence";
+export const RELATIONAL_ADJECTIVE_YOUGUAN_CASE_CCOMP_SAME_OCCURRENCE_CAPABILITY: RuntimeOccurrenceCapability =
+  "relational-adjective-youguan-case-ccomp-same-occurrence";
 
 const REVIEWED_CAPABILITIES = new Set<string>(RUNTIME_OCCURRENCE_CAPABILITIES);
 
