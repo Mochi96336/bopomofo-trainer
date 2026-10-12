@@ -43,6 +43,7 @@ export const RUNTIME_OCCURRENCE_CAPABILITIES = [
   "short-passive-aux-pass-bei-same-occurrence",
   "verbal-locative-root-subject-object-same-occurrence",
   "verbal-comparative-bi-standard-same-occurrence",
+  "relational-adjective-youguan-case-ccomp-same-occurrence",
 ] as const;
 export type RuntimeOccurrenceCapability = (typeof RUNTIME_OCCURRENCE_CAPABILITIES)[number];
 
