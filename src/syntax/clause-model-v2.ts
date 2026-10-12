@@ -164,7 +164,7 @@ export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
     group: "rebuild-embedding-control",
     targetAxis: "embedding",
     target: "ccomp",
-    note: "Represent a finite content complement through the clausal-complement relation.",
+    note: "Pinned ccomp evidence uses the shared structural Subject role for matrix subject realization and keeps ContentClause as a complement rather than an object-labelled argument; non-verbal matrix governors remain a separate reviewed frontier.",
   },
   "clause.xcomp-subject-control": {
     group: "rebuild-embedding-control",
