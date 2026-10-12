@@ -105,14 +105,22 @@ describe("Clause-model v2 predicate argument ownership", () => {
     ]);
   });
 
-  it("keeps finite ccomp and quoted-content structure while moving only predicate ownership", () => {
+  it("keeps finite ccomp on structural Subject + complement ownership", () => {
     const objectContent = rule("clause.object-content");
+    expect(objectContent.constituents.find((item) => item.key === "subject")).toMatchObject({
+      category: "Subject",
+      minimum: 0,
+      maximum: 1,
+    });
     expect(objectContent.constituents.find((item) => item.key === "predicate")).toMatchObject({
       category: "Predicate",
       requiredValencyFrames: ["clausal-complement"],
     });
-    expect(objectContent.constituents.find((item) => item.key === "objectClause")?.category)
-      .toBe("ContentClause");
+    expect(objectContent.constituents.find((item) => item.key === "objectClause")).toMatchObject({
+      category: "ContentClause",
+      recursive: true,
+      requiredFunctions: [],
+    });
 
     const quotedContent = rule("clause.quoted-content");
     expect(quotedContent.constituents.find((item) => item.key === "predicate")).toMatchObject({
