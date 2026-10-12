@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "runtime-occurrence-capability-projection-v1",
+  "sourceProfileArtifactDigest": "a9aff6ea44978876526bac94bcb2b71fad451cca4871f7d117b30f59d3d5d00c",
+  "sourceProvenanceId": "ud:chinese-gsd-r2.18",
+  "sourceVersion": "r2.18",
+  "sourceCommit": "e0d85a020182e264d6384be2a59c0f4879a1cc35",
+  "reviewedCapability": "relational-adjective-youguan-case-ccomp-same-occurrence",
+  "evidenceContract": "same-root-youguan-case-ccomp-v1",
+  "identityPolicy": "unique-active-entry-per-form-upos-v1",
+  "profileCount": 1,
+  "entryCount": 1,
+  "profileIds": [
+    "runtime-syntax-profile:16e9001d8b2864911505076c64c67f665065ed20f6b76eaaaa6fc543877697d8"
+  ],
+  "determinismDigest": "a668050ca02216a87ee1b6d65fe067b02d4f779c9573528631bde7072abb06fe"
+}
