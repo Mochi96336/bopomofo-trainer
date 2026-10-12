@@ -123,6 +123,19 @@ jobs:
         run: |
           set -o pipefail
           npx tsx scripts/audit-ccomp-source-evidence.ts --verify 2>&1 | tee ccomp-source-audit.log
+      - name: Classify nonverbal ccomp governors
+        id: nonverbal-ccomp-governor-audit
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx scripts/audit-nonverbal-ccomp-governors.ts --verify 2>&1 | tee nonverbal-ccomp-governor-audit.log
+      - name: Upload nonverbal ccomp governor audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nonverbal-ccomp-governor-audit
+          path: nonverbal-ccomp-governor-audit.log
+          if-no-files-found: error
       - name: Upload ccomp source audit
         if: always()
         uses: actions/upload-artifact@v4
