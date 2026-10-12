@@ -51,6 +51,7 @@ export interface NonverbalCcompGovernorOccurrence {
   readonly ccompBeforeGovernor: boolean;
   readonly subjectRelations: readonly string[];
   readonly childRelations: readonly string[];
+  readonly ccompMarkerForms: readonly string[];
   readonly hasCopulaChild: boolean;
   readonly hasObjectChild: boolean;
   readonly hasAdditionalCcompChild: boolean;
@@ -79,6 +80,9 @@ export interface NonverbalCcompGovernorSourceEvidenceSummary {
   readonly ccompBeforeGovernorUposCounts: Readonly<Record<string, number>>;
   readonly ccompAfterGovernorUposCounts: Readonly<Record<string, number>>;
   readonly ccompHeadUposByGovernorUposCounts: Readonly<Record<string, number>>;
+  readonly ccompWithMarkerUposCounts: Readonly<Record<string, number>>;
+  readonly ccompWithoutMarkerUposCounts: Readonly<Record<string, number>>;
+  readonly ccompMarkerFormByGovernorUposCounts: Readonly<Record<string, number>>;
   readonly occurrences: readonly NonverbalCcompGovernorOccurrence[];
 }
 
@@ -100,6 +104,9 @@ export function summarizeNonverbalCcompGovernorSourceEvidence(
   const ccompBeforeGovernorUposCounts = new Map<string, number>();
   const ccompAfterGovernorUposCounts = new Map<string, number>();
   const ccompHeadUposByGovernorUposCounts = new Map<string, number>();
+  const ccompWithMarkerUposCounts = new Map<string, number>();
+  const ccompWithoutMarkerUposCounts = new Map<string, number>();
+  const ccompMarkerFormByGovernorUposCounts = new Map<string, number>();
   const occurrences: NonverbalCcompGovernorOccurrence[] = [];
 
   let sentenceCount = 0;
@@ -138,6 +145,15 @@ export function summarizeNonverbalCcompGovernorSourceEvidence(
         increment(isRoot ? governorRootUposCounts : governorNonRootUposCounts, governor.upos);
 
         const children = childrenByHead.get(governor.id) ?? [];
+        const ccompChildren = childrenByHead.get(ccomp.id) ?? [];
+        const ccompMarkers = ccompChildren.filter((child) => relationBase(child.relation) === "mark");
+        increment(
+          ccompMarkers.length > 0 ? ccompWithMarkerUposCounts : ccompWithoutMarkerUposCounts,
+          governor.upos,
+        );
+        for (const marker of ccompMarkers) {
+          increment(ccompMarkerFormByGovernorUposCounts, `${governor.upos}\u0000${marker.form}`);
+        }
         const subjects = children.filter((child) => child.id !== ccomp.id && isSubjectRelation(child));
         increment(
           subjects.length > 0 ? governorWithSubjectUposCounts : governorWithoutSubjectUposCounts,
@@ -176,6 +192,7 @@ export function summarizeNonverbalCcompGovernorSourceEvidence(
           ccompBeforeGovernor: ccomp.id < governor.id,
           subjectRelations: subjects.map((child) => child.relation).sort(),
           childRelations: children.map((child) => child.relation).sort(),
+          ccompMarkerForms: ccompMarkers.map((child) => child.form).sort(),
           hasCopulaChild: children.some((child) => relationBase(child.relation) === "cop"),
           hasObjectChild: children.some(
             (child) => child.id !== ccomp.id && relationBase(child.relation) === "obj",
@@ -211,6 +228,9 @@ export function summarizeNonverbalCcompGovernorSourceEvidence(
     ccompBeforeGovernorUposCounts: sortedRecord(ccompBeforeGovernorUposCounts),
     ccompAfterGovernorUposCounts: sortedRecord(ccompAfterGovernorUposCounts),
     ccompHeadUposByGovernorUposCounts: sortedRecord(ccompHeadUposByGovernorUposCounts),
+    ccompWithMarkerUposCounts: sortedRecord(ccompWithMarkerUposCounts),
+    ccompWithoutMarkerUposCounts: sortedRecord(ccompWithoutMarkerUposCounts),
+    ccompMarkerFormByGovernorUposCounts: sortedRecord(ccompMarkerFormByGovernorUposCounts),
     occurrences,
   };
 }
