@@ -166,6 +166,12 @@ export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
     target: "ccomp",
     note: "Pinned ccomp evidence uses the shared structural Subject role for matrix subject realization and keeps ContentClause as a complement rather than an object-labelled argument; non-verbal matrix governors remain a separate reviewed frontier.",
   },
+  "clause.relational-adjective-content": {
+    group: "rebuild-embedding-control",
+    targetAxis: "embedding",
+    target: "ccomp.relational-adjective",
+    note: "Narrow reviewed 有關/ADJ embedding: exact 與/和 construction readings introduce a preposed ContentClause, while the predicate is gated by same-occurrence relational-ccomp capability.",
+  },
   "clause.xcomp-subject-control": {
     group: "rebuild-embedding-control",
     targetAxis: "embedding",
