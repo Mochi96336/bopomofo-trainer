@@ -60,5 +60,11 @@ describe("quoted-content source evidence", () => {
       parataxis: 1,
       root: 1,
     });
+    expect(evidence.directQuoteCandidateCount).toBe(2);
+    expect(evidence.directQuoteRelationCounts).toEqual({
+      ccomp: 1,
+      parataxis: 1,
+    });
+    expect(evidence.directQuoteGovernorUposCounts).toEqual({ VERB: 2 });
   });
 });
