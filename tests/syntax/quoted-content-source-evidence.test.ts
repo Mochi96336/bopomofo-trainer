@@ -53,5 +53,12 @@ describe("quoted-content source evidence", () => {
     expect(evidence.governorWithSubjectCount).toBe(2);
     expect(evidence.quotedRootWithSubjectCount).toBe(2);
     expect(evidence.quotedRootWithoutSubjectCount).toBe(1);
+    expect(evidence.clauseLikeQuotedRootCount).toBe(3);
+    expect(evidence.clauseLikeExternallyAttachedCount).toBe(2);
+    expect(evidence.clauseLikeRelationCounts).toEqual({
+      ccomp: 1,
+      parataxis: 1,
+      root: 1,
+    });
   });
 });
