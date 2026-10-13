@@ -72,3 +72,125 @@ const summary = {
 };
 
 console.log(JSON.stringify({ ...summary, occurrences: evidence.occurrences }, null, 2));
+
+
+const EXPECTED_PINNED_BOUNDARY = {
+  sourceCommit: UD_GSD_SOURCE_COMMIT,
+  contract: "pinned-gsd-corner-quote-span-attachment-v1",
+  sentenceCount: 4_997,
+  tokenCount: 123_289,
+  quotePunctuationFormCounts: {
+    "「": 421,
+    "」": 423,
+    "『": 7,
+    "』": 6,
+  },
+  cornerQuoteSpanCount: 418,
+  spanWithNoBoundaryRootCount: 0,
+  spanWithSingleBoundaryRootCount: 415,
+  spanWithMultipleBoundaryRootsCount: 3,
+  standaloneQuotedRootCount: 8,
+  externallyAttachedQuotedRootCount: 407,
+  quotedRootIdentityCount: 379,
+  quotedRootIdentityDigest:
+    "d548a9c502578642416816934192e67fc3b85579ae984f1f166404f3ab16efdd",
+  governorIdentityCount: 288,
+  governorIdentityDigest:
+    "dcaf1f188a2b59a7484d5be7e299fca9da6987f6420d9dd3ac5d6184930cc123",
+  governorRootCount: 128,
+  governorNonRootCount: 279,
+  governorWithSubjectCount: 166,
+  governorWithoutSubjectCount: 241,
+  governorWithNominalSubjectCount: 157,
+  governorWithClausalSubjectCount: 9,
+  governorWithObjectCount: 46,
+  governorWithOtherCcompCount: 17,
+  governorWithXcompCount: 25,
+  governorWithOtherParataxisCount: 31,
+  quotedRootWithSubjectCount: 103,
+  quotedRootWithoutSubjectCount: 312,
+  clauseLikeQuotedRootCount: 132,
+  clauseLikeExternallyAttachedCount: 124,
+  clauseLikeRelationCounts: {
+    acl: 1,
+    "acl:relcl": 10,
+    advcl: 5,
+    amod: 3,
+    appos: 4,
+    ccomp: 54,
+    conj: 3,
+    csubj: 2,
+    "csubj:pass": 2,
+    dislocated: 3,
+    nsubj: 1,
+    obj: 3,
+    parataxis: 16,
+    root: 8,
+    xcomp: 17,
+  },
+  clauseLikeUposCounts: {
+    ADJ: 5,
+    ADP: 1,
+    AUX: 1,
+    NOUN: 36,
+    PART: 7,
+    PROPN: 3,
+    VERB: 78,
+    X: 1,
+  },
+  clauseLikeGovernorUposCounts: {
+    ADJ: 1,
+    ADP: 2,
+    NOUN: 27,
+    PART: 2,
+    VERB: 92,
+  },
+  clauseLikeGovernorWithSubjectCount: 82,
+  clauseLikeGovernorWithObjectCount: 8,
+  clauseLikeGovernorWithOtherCcompCount: 10,
+  clauseLikeGovernorWithXcompCount: 9,
+  clauseLikeGovernorWithOtherParataxisCount: 16,
+  clauseLikeQuoteBeforeGovernorCount: 27,
+  clauseLikeQuoteAfterGovernorCount: 97,
+  directQuoteCandidateCount: 90,
+  directQuoteRelationCounts: {
+    ccomp: 54,
+    obj: 3,
+    parataxis: 16,
+    xcomp: 17,
+  },
+  directQuoteGovernorUposCounts: {
+    ADP: 1,
+    NOUN: 2,
+    PART: 1,
+    VERB: 86,
+  },
+  directQuoteGovernorRootCount: 61,
+  directQuoteGovernorNonRootCount: 29,
+  directQuoteGovernorWithSubjectCount: 76,
+  directQuoteGovernorWithObjectCount: 7,
+  directQuoteGovernorWithOtherCcompCount: 8,
+  directQuoteGovernorWithXcompCount: 8,
+  directQuoteGovernorWithOtherParataxisCount: 14,
+  directQuoteBeforeGovernorCount: 3,
+  directQuoteAfterGovernorCount: 87,
+  quoteBeforeGovernorCount: 153,
+  quoteAfterGovernorCount: 254,
+} as const;
+
+if (process.argv.includes("--verify")) {
+  const failures: string[] = [];
+  for (const [key, expected] of Object.entries(EXPECTED_PINNED_BOUNDARY)) {
+    const observed = summary[key as keyof typeof summary];
+    if (JSON.stringify(observed) !== JSON.stringify(expected)) {
+      failures.push(`${key}=${JSON.stringify(observed)}`);
+    }
+  }
+  if (failures.length > 0) {
+    throw new Error(
+      `quoted-content source evidence drifted from the pinned reviewed boundary: ${failures.join(", ")}\n`
+      + `expected: ${JSON.stringify(EXPECTED_PINNED_BOUNDARY, null, 2)}\n`
+      + `observed: ${JSON.stringify(summary, null, 2)}`,
+    );
+  }
+}
