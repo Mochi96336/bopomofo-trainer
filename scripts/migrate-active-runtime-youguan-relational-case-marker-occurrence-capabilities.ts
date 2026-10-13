@@ -83,6 +83,25 @@ const candidates = profilesArtifact.profiles.map((profile) => {
   return { sourceKey: lexemeUposKey(text, profile.upos), entryId: profile.entryId };
 });
 const identity = classifyRuntimeSourceIdentityMatches(candidates, SOURCE_KEYS);
+const entryIdsBySourceKey = Object.fromEntries(
+  [...SOURCE_KEYS].sort().map((sourceKey) => [
+    sourceKey,
+    [...new Set(
+      candidates
+        .filter((candidate) => candidate.sourceKey === sourceKey)
+        .map((candidate) => candidate.entryId),
+    )].sort(),
+  ]),
+);
+console.log(JSON.stringify({
+  markerIdentityDiagnostic: {
+    sourceKeys: [...SOURCE_KEYS].sort(),
+    matchedSourceKeys: [...identity.matchedSourceKeys].sort(),
+    ambiguousSourceKeys: [...identity.ambiguousSourceKeys].sort(),
+    activatableSourceKeys: [...identity.activatableSourceKeys].sort(),
+    entryIdsBySourceKey,
+  },
+}));
 if (identity.matchedSourceKeys.size !== SOURCE_KEYS.size
   || identity.ambiguousSourceKeys.size !== 0
   || identity.activatableSourceKeys.size !== SOURCE_KEYS.size) {
