@@ -142,6 +142,19 @@ jobs:
           name: youguan-relational-ccomp-audit
           path: youguan-relational-ccomp-audit.log
           if-no-files-found: error
+      - name: Measure quoted-content source shapes
+        id: quoted-content-source-audit
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx scripts/audit-quoted-content-source-evidence.ts 2>&1 | tee quoted-content-source-audit.log
+      - name: Upload quoted-content source audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quoted-content-source-audit
+          path: quoted-content-source-audit.log
+          if-no-files-found: error
       - name: Upload nonverbal ccomp governor audit
         if: always()
         uses: actions/upload-artifact@v4
