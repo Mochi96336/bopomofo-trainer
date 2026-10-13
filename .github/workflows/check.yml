@@ -173,7 +173,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          npx tsx scripts/audit-xcomp-controller-source-evidence.ts 2>&1 | tee xcomp-controller-source-audit.log
+          npx tsx scripts/audit-xcomp-controller-source-evidence.ts --verify 2>&1 | tee xcomp-controller-source-audit.log
       - name: Upload xcomp controller source audit
         if: always()
         uses: actions/upload-artifact@v4
