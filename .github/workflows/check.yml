@@ -371,6 +371,59 @@ jobs:
       # it to CI.
       - name: Bundle size budget
         run: npm run size:check
+      - name: Add quoted-ccomp audit-only production path trace
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
+          if text.count(needle) != 1:
+              raise SystemExit("unexpected formal-syntax candidate shape")
+          path.write_text(text.replace(
+              needle,
+              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
+          ))
+          PY
+      - name: Measure quoted ccomp ownership product distribution
+        run: npx tsx scripts/audit-quoted-ccomp-ownership-distribution.ts --measure prototype quoted-ccomp-current.json
+      - name: Measure exact production base distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin cd054408712cba0ce875444f7a16413c5aaf7687
+          git worktree add --detach /tmp/quoted-ccomp-base FETCH_HEAD
+          ln -s "$GITHUB_WORKSPACE/node_modules" /tmp/quoted-ccomp-base/node_modules
+          cp scripts/audit-quoted-ccomp-ownership-distribution.ts /tmp/quoted-ccomp-base/scripts/
+          (
+            cd /tmp/quoted-ccomp-base
+            npm run app:catalog
+            python - <<'PY'
+          from pathlib import Path
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
+          if text.count(needle) != 1:
+              raise SystemExit("unexpected production formal-syntax candidate shape")
+          path.write_text(text.replace(
+              needle,
+              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
+          ))
+          PY
+            npx tsx scripts/audit-quoted-ccomp-ownership-distribution.ts --measure production /tmp/quoted-ccomp-legacy.json
+          )
+      - name: Compare quoted ccomp ownership distribution
+        run: npx tsx scripts/audit-quoted-ccomp-ownership-distribution.ts --compare quoted-ccomp-current.json /tmp/quoted-ccomp-legacy.json
+      - name: Upload quoted ccomp ownership distribution audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quoted-ccomp-ownership-distribution-audit
+          path: |
+            quoted-ccomp-ownership-distribution-audit.json
+            quoted-ccomp-ownership-distribution-audit.md
+          if-no-files-found: ignore
 
   # Runs alongside `check` rather than after it, and belongs to this workflow
   # rather than one of its own so that the deploy gate -- which waits on this
