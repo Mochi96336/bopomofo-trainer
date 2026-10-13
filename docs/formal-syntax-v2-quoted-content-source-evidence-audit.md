@@ -127,6 +127,11 @@ Order:
 Matrix subject realization:
 
 - governor with overt subject: **76 / 90**
+- nominal subject relation: **75**
+- clausal subject relation: **1**
+
+Even in this narrow 90-item candidate set, a clausal matrix subject is attested,
+so a bare `NounPhrase?` slot is not a complete structural subject type.
 
 The candidate set strongly supports a dominant verbal reporting-head + following
 quotation shape, but it does **not** support collapsing all quote attachments
@@ -146,9 +151,9 @@ broad source inventory. If a quotation embedding rule survives the v2 rebuild,
 its matrix subject should route through the shared `Subject` role rather than
 a bare NounPhrase.
 
-This does not establish the incidence of clausal subjects inside the final
-90-item direct-quote candidate subset; that remains separate from the main
-negative ownership result.
+The final direct-quote candidate subset contains **1** clausal matrix subject,
+so the shared structural `Subject` wrapper is supported even after the broad
+quote inventory is narrowed.
 
 ## Architecture consequences
 
