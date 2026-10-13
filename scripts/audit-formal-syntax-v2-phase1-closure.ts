@@ -15,7 +15,7 @@ import type {
 import {
   FORMAL_SYNTAX_FIXTURES,
   FORMAL_SYNTAX_RULES,
-} from "../src/syntax/rules.js";
+} from "../src/syntax/grammar.js";
 import {
   auditValencyReachability,
 } from "../src/syntax/valency-reachability-audit.js";
