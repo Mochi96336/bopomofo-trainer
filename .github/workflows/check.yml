@@ -160,7 +160,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          npx tsx scripts/audit-direct-quote-attachment-evidence.ts 2>&1 | tee direct-quote-attachment-audit.log
+          npx tsx scripts/audit-direct-quote-attachment-evidence.ts --verify 2>&1 | tee direct-quote-attachment-audit.log
       - name: Upload direct-quote attachment audit
         if: always()
         uses: actions/upload-artifact@v4
