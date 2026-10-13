@@ -112,121 +112,6 @@ function fixtures(rule: ProductionRule): readonly ProductionFixture[] {
   return result;
 }
 
-const SUBJECT_CONTROL_RULE: ProductionRule = {
-  id: "clause.xcomp-subject-control",
-  grammarVersion: FORMAL_GRAMMAR_VERSION,
-  output: "Clause",
-  constituents: [
-    constituent("controller", "Subject", { minimum: 0, maximum: 1 }),
-    constituent("predicate", "Predicate", {
-      requiredFunctions: ["predicate"],
-      requiredValencyFrames: ["subject-controlled-open-complement"],
-    }),
-    constituent("openClause", "OpenClause", {
-      recursive: true,
-      requiredFunctions: ["complement"],
-    }),
-  ],
-  surfaceOrders: [{ id: "canonical", constituentKeys: ["controller", "predicate", "openClause"] }],
-  constraints: [{
-    kind: "requires-constituent",
-    ifPresentKey: "openClause",
-    targetKey: "controller",
-  }],
-  positiveFixtureIds: ["clause.xcomp-subject-control:controlled"],
-  negativeFixtureIds: [
-    "clause.xcomp-subject-control:missing-controller",
-    "clause.xcomp-subject-control:overflow",
-  ],
-};
-
-const OBJECT_CONTROL_RULE: ProductionRule = {
-  id: "clause.xcomp-object-control",
-  grammarVersion: FORMAL_GRAMMAR_VERSION,
-  output: "Clause",
-  constituents: [
-    constituent("subject", "Subject", { minimum: 0, maximum: 1 }),
-    constituent("predicate", "Predicate", {
-      requiredFunctions: ["predicate"],
-      requiredValencyFrames: ["object-controlled-open-complement"],
-    }),
-    constituent("controller", "Object", { minimum: 0, maximum: 1 }),
-    constituent("openClause", "OpenClause", {
-      recursive: true,
-      requiredFunctions: ["complement"],
-    }),
-  ],
-  surfaceOrders: [{
-    id: "canonical",
-    constituentKeys: ["subject", "predicate", "controller", "openClause"],
-  }],
-  constraints: [{
-    kind: "requires-constituent",
-    ifPresentKey: "openClause",
-    targetKey: "controller",
-  }],
-  positiveFixtureIds: [
-    "clause.xcomp-object-control:controlled",
-    "clause.xcomp-object-control:controlled-with-subject",
-  ],
-  negativeFixtureIds: [
-    "clause.xcomp-object-control:missing-controller",
-    "clause.xcomp-object-control:overflow",
-  ],
-};
-
-const CONTROL_FIXTURES: readonly ProductionFixture[] = [
-  {
-    id: "clause.xcomp-subject-control:controlled",
-    ruleId: SUBJECT_CONTROL_RULE.id,
-    expected: "accept",
-    surfaceOrderId: "canonical",
-    constituentCounts: { controller: 1, predicate: 1, openClause: 1 },
-  },
-  {
-    id: "clause.xcomp-subject-control:missing-controller",
-    ruleId: SUBJECT_CONTROL_RULE.id,
-    expected: "reject",
-    surfaceOrderId: "canonical",
-    constituentCounts: { controller: 0, predicate: 1, openClause: 1 },
-  },
-  {
-    id: "clause.xcomp-subject-control:overflow",
-    ruleId: SUBJECT_CONTROL_RULE.id,
-    expected: "reject",
-    surfaceOrderId: "canonical",
-    constituentCounts: { controller: 2, predicate: 1, openClause: 1 },
-  },
-  {
-    id: "clause.xcomp-object-control:controlled",
-    ruleId: OBJECT_CONTROL_RULE.id,
-    expected: "accept",
-    surfaceOrderId: "canonical",
-    constituentCounts: { subject: 0, predicate: 1, controller: 1, openClause: 1 },
-  },
-  {
-    id: "clause.xcomp-object-control:controlled-with-subject",
-    ruleId: OBJECT_CONTROL_RULE.id,
-    expected: "accept",
-    surfaceOrderId: "canonical",
-    constituentCounts: { subject: 1, predicate: 1, controller: 1, openClause: 1 },
-  },
-  {
-    id: "clause.xcomp-object-control:missing-controller",
-    ruleId: OBJECT_CONTROL_RULE.id,
-    expected: "reject",
-    surfaceOrderId: "canonical",
-    constituentCounts: { subject: 0, predicate: 1, controller: 0, openClause: 1 },
-  },
-  {
-    id: "clause.xcomp-object-control:overflow",
-    ruleId: OBJECT_CONTROL_RULE.id,
-    expected: "reject",
-    surfaceOrderId: "canonical",
-    constituentCounts: { subject: 2, predicate: 1, controller: 1, openClause: 1 },
-  },
-];
-
 export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
   production("complement.directional", "Complement", [
     lexical("direction", ["VERB"], { requiredFeatures: { complementType: "directional" } }),
@@ -246,8 +131,8 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
     constituent("duration", "NumeralPhrase", { requiredFunctions: ["complement"] }),
   ]),
 
-  // An OpenClause is a controlled predication with no Subject constituent of its own.
-  // Matrix Clause rules below own the controller explicitly.
+  // An OpenClause is a subjectless predication used by open-clause embedding.
+  // Controller identity is not executable until an approved source can license it.
   production("open-clause.intransitive", "OpenClause", [
     constituent("predicate", "Predicate", {
       requiredFunctions: ["predicate"],
@@ -297,8 +182,6 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
       ],
     }),
   ]),
-  SUBJECT_CONTROL_RULE,
-  OBJECT_CONTROL_RULE,
   production("relative.clause", "RelativeClause", [
     constituent("clause", "Clause", { recursive: true }),
     lexical("marker", ["PART"], { requiredFeatures: { clauseType: "relative" } }),
@@ -328,7 +211,5 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
   ]),
 ];
 
-export const COMPLEMENT_PRODUCTION_FIXTURES: readonly ProductionFixture[] = [
-  ...COMPLEMENT_PRODUCTION_RULES.filter((rule) => rule.constraints.length === 0).flatMap(fixtures),
-  ...CONTROL_FIXTURES,
-];
+export const COMPLEMENT_PRODUCTION_FIXTURES: readonly ProductionFixture[] =
+  COMPLEMENT_PRODUCTION_RULES.flatMap(fixtures);
