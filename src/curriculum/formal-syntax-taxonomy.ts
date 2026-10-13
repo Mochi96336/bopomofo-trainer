@@ -40,6 +40,7 @@ export type ClauseConstructionFamily =
   | "marked.comparative"
   | "information.topic-comment"
   | "embedded.object-content"
+  | "embedded.relational-adjective-content"
   | "embedded.xcomp-control"
   | "embedded.quoted-content";
 
@@ -83,6 +84,10 @@ const CLAUSE_CLASSIFICATION_BY_RULE_ID: Readonly<Record<string, ClauseConstructi
   "clause.topic-comment": { kind: "information-structure", family: "information.topic-comment" },
 
   "clause.object-content": { kind: "embedded-content", family: "embedded.object-content" },
+  "clause.relational-adjective-content": {
+    kind: "embedded-content",
+    family: "embedded.relational-adjective-content",
+  },
   "clause.xcomp-subject-control": { kind: "embedded-content", family: "embedded.xcomp-control" },
   "clause.xcomp-object-control": { kind: "embedded-content", family: "embedded.xcomp-control" },
   "clause.quoted-content": { kind: "embedded-content", family: "embedded.quoted-content" },
