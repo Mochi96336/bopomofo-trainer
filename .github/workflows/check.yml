@@ -298,6 +298,21 @@ jobs:
             youguan-relational-ccomp-occurrence-capabilities.log
             runtime-youguan-relational-ccomp-occurrence-capabilities-candidate.json
           if-no-files-found: ignore
+      - name: Verify 有關 relational case-marker runtime occurrence capability projection
+        id: youguan-relational-case-marker-occurrence-capabilities
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run grammar:runtime-youguan-relational-case-marker-occurrence-capabilities -- --output runtime-youguan-relational-case-marker-occurrence-capabilities-candidate.json 2>&1 | tee youguan-relational-case-marker-occurrence-capabilities.log
+      - name: Upload 有關 relational case-marker runtime occurrence capability verification
+        if: failure() && steps.youguan-relational-case-marker-occurrence-capabilities.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: youguan-relational-case-marker-runtime-occurrence-capability-verification
+          path: |
+            youguan-relational-case-marker-occurrence-capabilities.log
+            runtime-youguan-relational-case-marker-occurrence-capabilities-candidate.json
+          if-no-files-found: ignore
       - name: Typecheck
         id: typecheck
         shell: bash
