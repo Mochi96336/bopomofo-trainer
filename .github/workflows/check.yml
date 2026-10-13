@@ -397,6 +397,30 @@ jobs:
       # it to CI.
       - name: Bundle size budget
         run: npm run size:check
+      - name: Add phase-one baseline audit-only production path trace
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
+          if text.count(needle) != 1:
+              raise SystemExit("unexpected formal-syntax candidate shape")
+          path.write_text(text.replace(
+              needle,
+              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
+          ))
+          PY
+      - name: Measure Formal Syntax V2 phase-one product baseline
+        run: npx tsx scripts/measure-formal-syntax-v2-phase1-product-baseline.ts --measure formal-syntax-v2-phase1-product-baseline-candidate.json
+      - name: Upload Formal Syntax V2 phase-one product baseline
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: formal-syntax-v2-phase1-product-baseline
+          path: formal-syntax-v2-phase1-product-baseline-candidate.json
+          if-no-files-found: ignore
 
   # Runs alongside `check` rather than after it, and belongs to this workflow
   # rather than one of its own so that the deploy gate -- which waits on this
