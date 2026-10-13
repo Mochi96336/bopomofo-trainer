@@ -94,6 +94,14 @@ const REVIEWED_PROJECTION_CONTRACTS = new Map<RuntimeOccurrenceCapability, Revie
       && profile.functions.includes("predicate")
       && profile.valencyFrames.includes("clausal-complement"),
   }],
+  ["relational-adjective-youguan-case-marker-same-occurrence", {
+    evidenceContract: "same-root-youguan-case-ccomp-v1",
+    // Marker licensing is kept separate from predicate licensing. The pinned
+    // sidecar owns the reviewed 與/和 case identities; the aggregate profile
+    // only backstops that the active identity is an adposition.
+    acceptTargetProfile: (profile) =>
+      profile.upos === "ADP" && profile.functions.includes("adposition"),
+  }],
 ]);
 
 function reviewedProjectionContract(
