@@ -155,6 +155,19 @@ jobs:
           name: quoted-content-source-audit
           path: quoted-content-source-audit.log
           if-no-files-found: error
+      - name: Classify direct-quote attachment identities
+        id: direct-quote-attachment-audit
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx scripts/audit-direct-quote-attachment-evidence.ts --verify 2>&1 | tee direct-quote-attachment-audit.log
+      - name: Upload direct-quote attachment audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: direct-quote-attachment-audit
+          path: direct-quote-attachment-audit.log
+          if-no-files-found: error
       - name: Upload nonverbal ccomp governor audit
         if: always()
         uses: actions/upload-artifact@v4
