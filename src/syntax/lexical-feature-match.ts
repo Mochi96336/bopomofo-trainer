@@ -17,6 +17,7 @@ const DISPOSAL_MARKERS = new Set(["把", "將"]);
 const PASSIVE_MARKERS = new Set(["被"]);
 const EXISTENTIAL_PREDICATES = new Set(["有", "存在"]);
 const COMPARATIVE_MARKERS = new Set(["比"]);
+const RELATIONAL_CCOMP_CASE_MARKERS = new Set(["與", "和"]);
 const REQUEST_MARKERS = new Set(["請", "請問"]);
 const POLAR_QUESTION_PARTICLES = new Set(["嗎"]);
 const CONSTITUENT_QUESTION_FORMS = new Set([
@@ -54,6 +55,7 @@ export const LICENSED_CONSTRUCTION_FORMS: ReadonlySet<string> = new Set([
   ...PASSIVE_MARKERS,
   ...EXISTENTIAL_PREDICATES,
   ...COMPARATIVE_MARKERS,
+  ...RELATIONAL_CCOMP_CASE_MARKERS,
   ...REQUEST_MARKERS,
   ...POLAR_QUESTION_PARTICLES,
   ...CONSTITUENT_QUESTION_FORMS,
@@ -108,6 +110,7 @@ const LICENSED_FEATURE_VALUES = new Set([
   "voice:causative",
   "clauseType:existential",
   "clauseType:comparative",
+  "clauseType:relational-ccomp",
   "clauseType:request",
   "clauseType:relative",
   "clauseType:nominalized",
@@ -188,6 +191,10 @@ export function lexicalConstructionFeatureMatches(
       return EXISTENTIAL_PREDICATES.has(text) && profile.functions.includes("predicate");
     case "clauseType:comparative":
       return COMPARATIVE_MARKERS.has(text)
+        && profile.upos === "ADP"
+        && relationSeen(profile, "case");
+    case "clauseType:relational-ccomp":
+      return RELATIONAL_CCOMP_CASE_MARKERS.has(text)
         && profile.upos === "ADP"
         && relationSeen(profile, "case");
     case "clauseType:request":
