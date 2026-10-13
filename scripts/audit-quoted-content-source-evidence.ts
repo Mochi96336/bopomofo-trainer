@@ -168,6 +168,8 @@ const EXPECTED_PINNED_BOUNDARY = {
   directQuoteGovernorRootCount: 61,
   directQuoteGovernorNonRootCount: 29,
   directQuoteGovernorWithSubjectCount: 76,
+  directQuoteGovernorWithNominalSubjectCount: 75,
+  directQuoteGovernorWithClausalSubjectCount: 1,
   directQuoteGovernorWithObjectCount: 7,
   directQuoteGovernorWithOtherCcompCount: 8,
   directQuoteGovernorWithXcompCount: 8,
