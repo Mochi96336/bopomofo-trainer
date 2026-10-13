@@ -1,6 +1,4 @@
-import {
-  SYNTAX_PROFILES,
-} from "../src/app/generated/catalog.js";
+import { readFileSync } from "node:fs";
 import {
   assertFormalSyntaxSamplingTaxonomyCoverage,
 } from "../src/curriculum/formal-syntax-taxonomy.js";
@@ -11,6 +9,9 @@ import {
 import {
   FORMAL_SYNTAX_V2_EVIDENCE_BLOCKED_FRONTIERS,
 } from "../src/syntax/formal-syntax-v2-frontiers.js";
+import type {
+  ActiveCatalogSyntaxProfilesArtifact,
+} from "../src/syntax/runtime-profiles.js";
 import {
   FORMAL_SYNTAX_FIXTURES,
   FORMAL_SYNTAX_RULES,
@@ -80,7 +81,14 @@ const controllerSpecificFrameRequirements = sorted(
         CONTROLLER_SPECIFIC_FRAMES.has(frame))))),
 );
 
-const valency = auditValencyReachability(FORMAL_SYNTAX_RULES, SYNTAX_PROFILES);
+const activeProfilesArtifact = JSON.parse(readFileSync(
+  new URL("../data/grammar/formal-syntax-active-catalog-profiles.json", import.meta.url),
+  "utf8",
+)) as ActiveCatalogSyntaxProfilesArtifact;
+const valency = auditValencyReachability(
+  FORMAL_SYNTAX_RULES,
+  activeProfilesArtifact.profiles,
+);
 const grammarValidationErrors = validateGrammarBundle(
   FORMAL_SYNTAX_RULES,
   FORMAL_SYNTAX_FIXTURES,
