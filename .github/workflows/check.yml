@@ -181,6 +181,19 @@ jobs:
           name: xcomp-controller-source-audit
           path: xcomp-controller-source-audit.log
           if-no-files-found: error
+      - name: Audit Formal Syntax V2 phase-one closure
+        id: formal-syntax-v2-phase1-closure
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx scripts/audit-formal-syntax-v2-phase1-closure.ts 2>&1 | tee formal-syntax-v2-phase1-closure.log
+      - name: Upload Formal Syntax V2 phase-one closure audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: formal-syntax-v2-phase1-closure-audit
+          path: formal-syntax-v2-phase1-closure.log
+          if-no-files-found: error
       - name: Upload nonverbal ccomp governor audit
         if: always()
         uses: actions/upload-artifact@v4
