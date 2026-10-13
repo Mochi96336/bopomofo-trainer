@@ -123,12 +123,20 @@ describe("Clause-model v2 predicate argument ownership", () => {
     });
 
     const quotedContent = rule("clause.quoted-content");
+    expect(quotedContent.constituents.find((item) => item.key === "subject")).toMatchObject({
+      category: "Subject",
+      minimum: 0,
+      maximum: 1,
+    });
     expect(quotedContent.constituents.find((item) => item.key === "predicate")).toMatchObject({
       category: "Predicate",
       requiredValencyFrames: ["clausal-complement"],
     });
-    expect(quotedContent.constituents.find((item) => item.key === "quotation")?.category)
-      .toBe("QuotedClause");
+    expect(quotedContent.constituents.find((item) => item.key === "quotation")).toMatchObject({
+      category: "QuotedClause",
+      recursive: true,
+      requiredFunctions: [],
+    });
   });
 
   it("leaves only explicitly deferred live paths on VerbPhrase", () => {

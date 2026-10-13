@@ -187,8 +187,8 @@ export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
   "clause.quoted-content": {
     group: "rebuild-embedding-control",
     targetAxis: "embedding",
-    target: "quotation",
-    note: "Keep quotation as an embedding shape while reviewing the allowed quoted root categories.",
+    target: "quotation.ccomp",
+    note: "Pinned corner-quote evidence separates quotation packaging from attachment. The live rule now models only the ccomp-like reporting slice: matrix subject uses the shared Subject role, Predicate retains clausal-complement licensing, and QuotedClause carries no permanent object function. xcomp/parataxis quotation remain separate evidence frontiers.",
   },
 
   "clause.locative": {
