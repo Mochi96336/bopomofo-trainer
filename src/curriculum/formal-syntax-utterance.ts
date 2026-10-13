@@ -598,7 +598,9 @@ export function composeFormalSyntaxUtterances(
     const excludedProductionRuleIds = useProductFamilyPolicy
       ? [
           ...(comparativePracticeIntent === "inactive" ? ["clause.comparative"] : []),
-          ...(effectiveMaximumClauseNesting < 2 ? ["argument.subject.clause"] : []),
+          ...(effectiveMaximumClauseNesting < 2
+            ? ["argument.subject.clause", "clause.relational-adjective-content"]
+            : []),
         ]
       : [];
     const requiresArgumentRealizationPractice = argumentRealizationPracticeIntent !== "ordinary";
