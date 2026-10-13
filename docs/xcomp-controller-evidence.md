@@ -48,21 +48,56 @@ Likewise, lexical meaning, hand-written plausibility lists, or surface adjacency
 
 ## Chinese GSD r2.18 boundary
 
-The project pins `UD_Chinese-GSD` release `r2.18`. The pinned train, dev, and test CoNLL-U splits contain basic `xcomp` relations, but inspection finds no `:xsubj` enhanced controller links in those splits.
+The project pins `UD_Chinese-GSD` release `r2.18` at commit
+`e0d85a020182e264d6384be2a59c0f4879a1cc35`.
 
-Consequently, this source can support generic observed `xcomp` capability but cannot currently distinguish subject-control from object-control lexical capability under the evidence rule above.
+The reviewed CI audit measures:
 
-That result is intentional and fail-closed: **zero controller-typed support is better than projecting controller identity from an unsafe basic-tree heuristic.**
+- sentences: **4,997**
+- ordinary syntactic tokens: **123,289**
+- basic `xcomp` occurrences: **1,924**
+- enhanced external-subject `:xsubj` edges: **0**
+- subject-controller occurrences: **0**
+- object-controller occurrences: **0**
+- other accepted controller occurrences: **0**
+- unresolved xcomp occurrences: **1,924**
+- basic matrix `obj + xcomp`: **208**
+- unresolved basic `obj + xcomp`: **208**
+
+Occurrence digest:
+
+`614c21c9fc9b5953337801f26ae8f2a65482f152c8d93be12e543aeb2c72ede3`
+
+So this source can support generic observed `xcomp` capability but cannot
+distinguish subject-control from object-control lexical capability under the
+accepted evidence rule.
+
+The 208 basic `obj + xcomp` cases are especially important: **all 208 remain
+unresolved**. Their coexistence therefore provides no safe shortcut to
+object-control licensing.
+
+That result is intentional and fail-closed: **zero controller-typed support is
+better than projecting controller identity from an unsafe basic-tree heuristic.**
 
 ## Reproducible audit
 
-With the pinned external treebank files present under `data/external/ud/chinese-gsd/r2.18`:
+The canonical CI-backed audit fetches the exact pinned source commit and verifies
+the reviewed aggregate boundary:
+
+```bash
+npx tsx scripts/audit-xcomp-controller-source-evidence.ts --verify
+```
+
+It emits only aggregate counts and a deterministic structural occurrence digest;
+it does not redistribute sentence text or lexical rows.
+
+The older local Python audit remains useful as an implementation cross-check when
+the external treebank is present under
+`data/external/ud/chinese-gsd/r2.18`:
 
 ```bash
 python scripts/audit-xcomp-controller-evidence.py
 ```
-
-The command validates the pinned source file sizes/checksums and emits only aggregate counts plus a determinism digest. It does not redistribute sentence text or lexical rows.
 
 The relevant fields are:
 
@@ -78,6 +113,17 @@ The relevant fields are:
 
 ## Runtime consequence
 
-This audit does not add new runtime valency frames and does not change the active catalog by itself.
+This audit does not add new runtime valency frames and does not change the active
+catalog by itself.
 
-A later runtime-licensing change may consume controller-typed evidence only after an approved source actually provides it. Until then, Clause-model v2 must keep the distinction explicit rather than pretending the current GSD projection knows more than it does.
+Current runtime projection already maps basic `xcomp` only to
+`open-clausal-complement`; it does not project either controller-typed frame.
+The packaged valency-reachability audit likewise reports the predicate slots of
+both live controller-specific Clause rules as zero-support.
+
+Therefore the current GSD evidence does not justify keeping
+`clause.xcomp-subject-control` or `clause.xcomp-object-control` executable
+merely as hypothetical typed paths. Their structural distinction may be
+preserved in migration documentation and reserved wire values, while executable
+controller-specific rules should remain fail-closed until an approved source
+actually provides controller-typed evidence.
