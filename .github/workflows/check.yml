@@ -345,6 +345,59 @@ jobs:
       # it to CI.
       - name: Bundle size budget
         run: npm run size:check
+      - name: Add relational-ccomp audit-only production path trace
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
+          if text.count(needle) != 1:
+              raise SystemExit("unexpected formal-syntax candidate shape")
+          path.write_text(text.replace(
+              needle,
+              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
+          ))
+          PY
+      - name: Measure 有關 relational ccomp product distribution
+        run: npx tsx scripts/audit-youguan-relational-ccomp-distribution.ts --measure prototype youguan-relational-current.json
+      - name: Measure exact production base distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin 838192332a4e8a51d7b40977d769555232070737
+          git worktree add --detach /tmp/youguan-relational-base FETCH_HEAD
+          ln -s "$GITHUB_WORKSPACE/node_modules" /tmp/youguan-relational-base/node_modules
+          cp scripts/audit-youguan-relational-ccomp-distribution.ts /tmp/youguan-relational-base/scripts/
+          (
+            cd /tmp/youguan-relational-base
+            npm run app:catalog
+            python - <<'PY'
+          from pathlib import Path
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
+          if text.count(needle) != 1:
+              raise SystemExit("unexpected production formal-syntax candidate shape")
+          path.write_text(text.replace(
+              needle,
+              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
+          ))
+          PY
+            npx tsx scripts/audit-youguan-relational-ccomp-distribution.ts --measure production /tmp/youguan-relational-legacy.json
+          )
+      - name: Compare 有關 relational ccomp distribution
+        run: npx tsx scripts/audit-youguan-relational-ccomp-distribution.ts --compare youguan-relational-current.json /tmp/youguan-relational-legacy.json
+      - name: Upload 有關 relational ccomp distribution audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: youguan-relational-ccomp-distribution-audit
+          path: |
+            youguan-relational-ccomp-distribution-audit.json
+            youguan-relational-ccomp-distribution-audit.md
+          if-no-files-found: ignore
 
   # Runs alongside `check` rather than after it, and belongs to this workflow
   # rather than one of its own so that the deploy gate -- which waits on this
