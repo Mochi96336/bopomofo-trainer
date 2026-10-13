@@ -65,7 +65,7 @@ describe("Clause model v2 migration inventory", () => {
       "preserve-core": 8,
       "move-to-axis": 1,
       "rebuild-construction": 3,
-      "rebuild-embedding-control": 5,
+      "rebuild-embedding-control": 3,
     });
   });
 
@@ -98,13 +98,15 @@ describe("Clause model v2 migration inventory", () => {
       group: "rebuild-construction",
       target: "passive.short|passive.long",
     });
-    expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.xcomp-subject-control"]).toMatchObject({
-      targetAxis: "embedding",
-      target: "xcomp.subject-control",
+    expect(RETIRED_CLAUSE_RULE_V2_DECISIONS["clause.xcomp-subject-control"]).toMatchObject({
+      targetAxes: ["embedding"],
+      evidenceContract: "pinned-gsd-xcomp-controller-evidence-v1",
     });
-    expect(CURRENT_CLAUSE_RULE_V2_MIGRATION["clause.xcomp-object-control"]).toMatchObject({
-      targetAxis: "embedding",
-      target: "xcomp.object-control",
+    expect(RETIRED_CLAUSE_RULE_V2_DECISIONS["clause.xcomp-object-control"]).toMatchObject({
+      targetAxes: ["embedding"],
+      evidenceContract: "pinned-gsd-xcomp-controller-evidence-v1",
     });
+    expect(FORMAL_SYNTAX_RULES.some((rule) => rule.id === "clause.xcomp-subject-control")).toBe(false);
+    expect(FORMAL_SYNTAX_RULES.some((rule) => rule.id === "clause.xcomp-object-control")).toBe(false);
   });
 });
