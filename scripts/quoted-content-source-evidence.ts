@@ -69,6 +69,8 @@ export interface QuotedContentOccurrence {
   readonly quotedRootUpos: string | null;
   readonly quotedRootRelation: string | null;
   readonly quotedRootSubjectCount: number;
+  readonly quotedRootHasCopula: boolean;
+  readonly quotedRootClauseLike: boolean;
   readonly governorId: number | null;
   readonly governorForm: string | null;
   readonly governorUpos: string | null;
@@ -111,6 +113,18 @@ export interface QuotedContentSourceEvidenceSummary {
   readonly governorWithOtherParataxisCount: number;
   readonly quotedRootWithSubjectCount: number;
   readonly quotedRootWithoutSubjectCount: number;
+  readonly clauseLikeQuotedRootCount: number;
+  readonly clauseLikeExternallyAttachedCount: number;
+  readonly clauseLikeRelationCounts: Readonly<Record<string, number>>;
+  readonly clauseLikeUposCounts: Readonly<Record<string, number>>;
+  readonly clauseLikeGovernorUposCounts: Readonly<Record<string, number>>;
+  readonly clauseLikeGovernorWithSubjectCount: number;
+  readonly clauseLikeGovernorWithObjectCount: number;
+  readonly clauseLikeGovernorWithOtherCcompCount: number;
+  readonly clauseLikeGovernorWithXcompCount: number;
+  readonly clauseLikeGovernorWithOtherParataxisCount: number;
+  readonly clauseLikeQuoteBeforeGovernorCount: number;
+  readonly clauseLikeQuoteAfterGovernorCount: number;
   readonly quoteBeforeGovernorCount: number;
   readonly quoteAfterGovernorCount: number;
   readonly quotedRootIdentityDigest: string;
@@ -128,6 +142,9 @@ export function summarizeQuotedContentSourceEvidence(
   const governorUposCounts = new Map<string, number>();
   const governorRelationCounts = new Map<string, number>();
   const governorIdentityCounts = new Map<string, number>();
+  const clauseLikeRelationCounts = new Map<string, number>();
+  const clauseLikeUposCounts = new Map<string, number>();
+  const clauseLikeGovernorUposCounts = new Map<string, number>();
   const occurrences: QuotedContentOccurrence[] = [];
 
   let sentenceCount = 0;
@@ -150,6 +167,15 @@ export function summarizeQuotedContentSourceEvidence(
   let governorWithOtherParataxisCount = 0;
   let quotedRootWithSubjectCount = 0;
   let quotedRootWithoutSubjectCount = 0;
+  let clauseLikeQuotedRootCount = 0;
+  let clauseLikeExternallyAttachedCount = 0;
+  let clauseLikeGovernorWithSubjectCount = 0;
+  let clauseLikeGovernorWithObjectCount = 0;
+  let clauseLikeGovernorWithOtherCcompCount = 0;
+  let clauseLikeGovernorWithXcompCount = 0;
+  let clauseLikeGovernorWithOtherParataxisCount = 0;
+  let clauseLikeQuoteBeforeGovernorCount = 0;
+  let clauseLikeQuoteAfterGovernorCount = 0;
   let quoteBeforeGovernorCount = 0;
   let quoteAfterGovernorCount = 0;
 
@@ -186,12 +212,31 @@ export function summarizeQuotedContentSourceEvidence(
           ? []
           : childrenByHead.get(quotedRoot.id) ?? [];
         const quotedSubjects = quotedChildren.filter(isSubject);
+        const quotedRootHasCopula = quotedChildren.some(
+          (child) => relationBase(child.relation) === "cop",
+        );
+        // Structural proxy for content the current Clause inventory could
+        // plausibly realize: verbal/adjectival heads, or nominal heads with an
+        // overt subject/copula. This deliberately excludes bare quoted names
+        // and titles without claiming the remaining set is all direct speech.
+        const quotedRootClauseLike = quotedRoot !== null && (
+          quotedRoot.upos === "VERB"
+          || quotedRoot.upos === "AUX"
+          || quotedRoot.upos === "ADJ"
+          || quotedSubjects.length > 0
+          || quotedRootHasCopula
+        );
         if (quotedRoot !== null) {
           increment(quotedRootRelationCounts, quotedRoot.relation);
           increment(quotedRootUposCounts, quotedRoot.upos);
           increment(quotedRootIdentityCounts, lexemeUposKey(quotedRoot.form, quotedRoot.upos));
           if (quotedSubjects.length > 0) quotedRootWithSubjectCount += 1;
           else quotedRootWithoutSubjectCount += 1;
+          if (quotedRootClauseLike) {
+            clauseLikeQuotedRootCount += 1;
+            increment(clauseLikeRelationCounts, quotedRoot.relation);
+            increment(clauseLikeUposCounts, quotedRoot.upos);
+          }
         }
 
         const governor = quotedRoot === null || quotedRoot.head === 0
@@ -209,6 +254,10 @@ export function summarizeQuotedContentSourceEvidence(
           standaloneQuotedRootCount += 1;
         } else if (quotedRoot !== null && governor !== null) {
           externallyAttachedQuotedRootCount += 1;
+          if (quotedRootClauseLike) {
+            clauseLikeExternallyAttachedCount += 1;
+            increment(clauseLikeGovernorUposCounts, governor.upos);
+          }
           increment(governorUposCounts, governor.upos);
           increment(governorRelationCounts, governor.relation);
           increment(governorIdentityCounts, lexemeUposKey(governor.form, governor.upos));
@@ -220,6 +269,7 @@ export function summarizeQuotedContentSourceEvidence(
             child.id !== quotedRoot.id && isSubject(child));
           if (governorSubjects.length > 0) {
             governorWithSubjectCount += 1;
+            if (quotedRootClauseLike) clauseLikeGovernorWithSubjectCount += 1;
             if (governorSubjects.some((child) => relationBase(child.relation) === "nsubj")) {
               governorWithNominalSubjectCount += 1;
             }
@@ -240,10 +290,21 @@ export function summarizeQuotedContentSourceEvidence(
           if (governorHasOtherCcomp) governorWithOtherCcompCount += 1;
           if (governorHasXcomp) governorWithXcompCount += 1;
           if (governorHasOtherParataxis) governorWithOtherParataxisCount += 1;
+          if (quotedRootClauseLike) {
+            if (governorHasObject) clauseLikeGovernorWithObjectCount += 1;
+            if (governorHasOtherCcomp) clauseLikeGovernorWithOtherCcompCount += 1;
+            if (governorHasXcomp) clauseLikeGovernorWithXcompCount += 1;
+            if (governorHasOtherParataxis) clauseLikeGovernorWithOtherParataxisCount += 1;
+          }
 
           quoteBeforeGovernor = span.closeId < governor.id;
-          if (quoteBeforeGovernor) quoteBeforeGovernorCount += 1;
-          else quoteAfterGovernorCount += 1;
+          if (quoteBeforeGovernor) {
+            quoteBeforeGovernorCount += 1;
+            if (quotedRootClauseLike) clauseLikeQuoteBeforeGovernorCount += 1;
+          } else {
+            quoteAfterGovernorCount += 1;
+            if (quotedRootClauseLike) clauseLikeQuoteAfterGovernorCount += 1;
+          }
         }
 
         occurrences.push({
@@ -258,6 +319,8 @@ export function summarizeQuotedContentSourceEvidence(
           quotedRootUpos: quotedRoot?.upos ?? null,
           quotedRootRelation: quotedRoot?.relation ?? null,
           quotedRootSubjectCount: quotedSubjects.length,
+          quotedRootHasCopula,
+          quotedRootClauseLike,
           governorId: governor?.id ?? null,
           governorForm: governor?.form ?? null,
           governorUpos: governor?.upos ?? null,
@@ -305,6 +368,18 @@ export function summarizeQuotedContentSourceEvidence(
     governorWithOtherParataxisCount,
     quotedRootWithSubjectCount,
     quotedRootWithoutSubjectCount,
+    clauseLikeQuotedRootCount,
+    clauseLikeExternallyAttachedCount,
+    clauseLikeRelationCounts: sortedRecord(clauseLikeRelationCounts),
+    clauseLikeUposCounts: sortedRecord(clauseLikeUposCounts),
+    clauseLikeGovernorUposCounts: sortedRecord(clauseLikeGovernorUposCounts),
+    clauseLikeGovernorWithSubjectCount,
+    clauseLikeGovernorWithObjectCount,
+    clauseLikeGovernorWithOtherCcompCount,
+    clauseLikeGovernorWithXcompCount,
+    clauseLikeGovernorWithOtherParataxisCount,
+    clauseLikeQuoteBeforeGovernorCount,
+    clauseLikeQuoteAfterGovernorCount,
     quoteBeforeGovernorCount,
     quoteAfterGovernorCount,
     quotedRootIdentityDigest: digestMap(quotedRootIdentityCounts),
