@@ -17,6 +17,8 @@ export const VERBAL_COMPARATIVE_BI_STANDARD_SAME_OCCURRENCE_CAPABILITY: RuntimeO
   "verbal-comparative-bi-standard-same-occurrence";
 export const RELATIONAL_ADJECTIVE_YOUGUAN_CASE_CCOMP_SAME_OCCURRENCE_CAPABILITY: RuntimeOccurrenceCapability =
   "relational-adjective-youguan-case-ccomp-same-occurrence";
+export const RELATIONAL_ADJECTIVE_YOUGUAN_CASE_MARKER_SAME_OCCURRENCE_CAPABILITY: RuntimeOccurrenceCapability =
+  "relational-adjective-youguan-case-marker-same-occurrence";
 
 const REVIEWED_CAPABILITIES = new Set<string>(RUNTIME_OCCURRENCE_CAPABILITIES);
 
