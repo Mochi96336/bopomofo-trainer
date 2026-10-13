@@ -168,6 +168,19 @@ jobs:
           name: direct-quote-attachment-audit
           path: direct-quote-attachment-audit.log
           if-no-files-found: error
+      - name: Measure xcomp controller source evidence
+        id: xcomp-controller-source-audit
+        shell: bash
+        run: |
+          set -o pipefail
+          npx tsx scripts/audit-xcomp-controller-source-evidence.ts --verify 2>&1 | tee xcomp-controller-source-audit.log
+      - name: Upload xcomp controller source audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcomp-controller-source-audit
+          path: xcomp-controller-source-audit.log
+          if-no-files-found: error
       - name: Upload nonverbal ccomp governor audit
         if: always()
         uses: actions/upload-artifact@v4
