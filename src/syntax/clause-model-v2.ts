@@ -80,6 +80,16 @@ export const RETIRED_CLAUSE_RULE_V2_DECISIONS = {
     evidenceContract: "pinned-gsd-csubj-shape-inventory-v1",
     note: "Clausal subjecthood is realized structurally by argument.subject.clause -> ContentClause on the shared Subject role; matrix predication remains owned by ordinary Clause predicate frames instead of a separate ContentClause + VerbPhrase peer rule.",
   },
+  "clause.xcomp-subject-control": {
+    targetAxes: ["embedding"],
+    evidenceContract: "pinned-gsd-xcomp-controller-evidence-v1",
+    note: "Pinned GSD has 1,924 basic xcomp occurrences but zero enhanced :xsubj controller edges, so none can license subject-control identity. Retire the zero-support live Clause path while retaining generic open-clausal-complement evidence and reserved controller wire values for a future approved source.",
+  },
+  "clause.xcomp-object-control": {
+    targetAxes: ["embedding"],
+    evidenceContract: "pinned-gsd-xcomp-controller-evidence-v1",
+    note: "All 208 basic obj+xcomp occurrences remain controller-unresolved under the accepted enhanced-UD evidence rule. Retire the zero-support object-control Clause path rather than inferring control from co-occurrence.",
+  },
 } as const satisfies Readonly<Record<string, RetiredClauseRuleV2Decision>>;
 
 /**
@@ -171,18 +181,6 @@ export const CURRENT_CLAUSE_RULE_V2_MIGRATION = {
     targetAxis: "embedding",
     target: "ccomp.relational-adjective",
     note: "Narrow reviewed 有關/ADJ embedding: exact 與/和 construction readings introduce a preposed ContentClause, while the predicate is gated by same-occurrence relational-ccomp capability.",
-  },
-  "clause.xcomp-subject-control": {
-    group: "rebuild-embedding-control",
-    targetAxis: "embedding",
-    target: "xcomp.subject-control",
-    note: "Uses a subjectless OpenClause and an executable controller-presence constraint; lexical licensing remains evidence-driven.",
-  },
-  "clause.xcomp-object-control": {
-    group: "rebuild-embedding-control",
-    targetAxis: "embedding",
-    target: "xcomp.object-control",
-    note: "Replaces the legacy pivotal rule with obj + subjectless OpenClause control structure.",
   },
   "clause.quoted-content": {
     group: "rebuild-embedding-control",
