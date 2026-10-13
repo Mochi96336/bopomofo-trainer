@@ -147,7 +147,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          npx tsx scripts/audit-quoted-content-source-evidence.ts 2>&1 | tee quoted-content-source-audit.log
+          npx tsx scripts/audit-quoted-content-source-evidence.ts --verify 2>&1 | tee quoted-content-source-audit.log
       - name: Upload quoted-content source audit
         if: always()
         uses: actions/upload-artifact@v4
