@@ -317,12 +317,14 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
     lexical("closePunctuation", ["PUNCT"], { formalLiteral: "」" }),
   ]),
   production("clause.quoted-content", "Clause", [
-    constituent("subject", "NounPhrase", { minimum: 0, maximum: 1 }),
+    constituent("subject", "Subject", { minimum: 0, maximum: 1 }),
     constituent("predicate", "Predicate", {
       requiredFunctions: ["predicate"],
       requiredValencyFrames: ["clausal-complement"],
     }),
-    constituent("quotation", "QuotedClause", { recursive: true, requiredFunctions: ["object"] }),
+    // This rule models only the reviewed ccomp-like reporting slice.
+    // QuotedClause owns surface quotation packaging, not an object role.
+    constituent("quotation", "QuotedClause", { recursive: true }),
   ]),
 ];
 
