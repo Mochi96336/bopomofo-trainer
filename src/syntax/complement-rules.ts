@@ -1,8 +1,10 @@
 import { FORMAL_GRAMMAR_VERSION } from "./features.js";
+import { RELATIONAL_ADJECTIVE_YOUGUAN_CASE_CCOMP_SAME_OCCURRENCE_CAPABILITY } from "./runtime-occurrence-capabilities.js";
 import type {
   ProductionConstituent,
   ProductionFixture,
   ProductionRule,
+  RuntimeOccurrenceCapability,
   SyntacticFunction,
   SyntaxCategory,
   SyntaxFeatureSet,
@@ -16,6 +18,7 @@ interface Options {
   readonly recursive?: boolean;
   readonly requiredFunctions?: readonly SyntacticFunction[];
   readonly requiredValencyFrames?: readonly ValencyFrame[];
+  readonly requiredOccurrenceCapabilities?: readonly RuntimeOccurrenceCapability[];
   readonly requiredFeatures?: SyntaxFeatureSet;
   readonly inheritFunctions?: boolean;
   readonly inheritValencyFrames?: boolean;
@@ -36,6 +39,9 @@ function constituent(
     allowedUpos: [],
     requiredFunctions: options.requiredFunctions ?? [],
     requiredValencyFrames: options.requiredValencyFrames ?? [],
+    ...(options.requiredOccurrenceCapabilities === undefined
+      ? {}
+      : { requiredOccurrenceCapabilities: options.requiredOccurrenceCapabilities }),
     requiredFeatures: options.requiredFeatures ?? {},
     ...(options.inheritFunctions ? { inheritFunctions: true } : {}),
     ...(options.inheritValencyFrames ? { inheritValencyFrames: true } : {}),
@@ -276,6 +282,20 @@ export const COMPLEMENT_PRODUCTION_RULES: readonly ProductionRule[] = [
     }),
     // Keep the legacy key for structural-target compatibility; the role is ccomp/complement, not object.
     constituent("objectClause", "ContentClause", { recursive: true }),
+  ]),
+  production("clause.relational-adjective-content", "Clause", [
+    constituent("subject", "Subject", { minimum: 0, maximum: 1 }),
+    lexical("marker", ["ADP"], {
+      requiredFeatures: { clauseType: "relational-ccomp" },
+    }),
+    constituent("contentClause", "ContentClause", { recursive: true }),
+    lexical("predicate", ["ADJ"], {
+      requiredFunctions: ["predicate"],
+      requiredValencyFrames: ["clausal-complement"],
+      requiredOccurrenceCapabilities: [
+        RELATIONAL_ADJECTIVE_YOUGUAN_CASE_CCOMP_SAME_OCCURRENCE_CAPABILITY,
+      ],
+    }),
   ]),
   SUBJECT_CONTROL_RULE,
   OBJECT_CONTROL_RULE,
