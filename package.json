@@ -35,6 +35,7 @@
     "grammar:runtime-preverbal-aux-occurrence-capabilities": "tsx scripts/migrate-active-runtime-preverbal-aux-occurrence-capabilities.ts",
     "grammar:runtime-comparative-occurrence-capabilities": "tsx scripts/migrate-active-runtime-comparative-occurrence-capabilities.ts",
     "grammar:runtime-youguan-relational-ccomp-occurrence-capabilities": "tsx scripts/migrate-active-runtime-youguan-relational-ccomp-occurrence-capabilities.ts",
+    "grammar:runtime-youguan-relational-case-marker-occurrence-capabilities": "tsx scripts/migrate-active-runtime-youguan-relational-case-marker-occurrence-capabilities.ts",
     "compatibility:ud-evidence-generation": "python scripts/project-ud-lexical-compatibility-generation.py",
     "readings:moe-concised": "python scripts/project-moe-concised-readings.py",
     "readings:moe-revised": "python scripts/project-moe-revised-readings.py",
