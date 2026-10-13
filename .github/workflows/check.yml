@@ -384,6 +384,59 @@ jobs:
       # it to CI.
       - name: Bundle size budget
         run: npm run size:check
+      - name: Add xcomp-retirement audit-only production path trace
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
+          if text.count(needle) != 1:
+              raise SystemExit("unexpected formal-syntax candidate shape")
+          path.write_text(text.replace(
+              needle,
+              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
+          ))
+          PY
+      - name: Measure xcomp control retirement product distribution
+        run: npx tsx scripts/audit-xcomp-control-retirement-distribution.ts --measure prototype xcomp-retirement-current.json
+      - name: Measure exact production base distribution
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin d66d14d5cf932c16127303cfccf9dec9335df3a8
+          git worktree add --detach /tmp/xcomp-retirement-base FETCH_HEAD
+          ln -s "$GITHUB_WORKSPACE/node_modules" /tmp/xcomp-retirement-base/node_modules
+          cp scripts/audit-xcomp-control-retirement-distribution.ts /tmp/xcomp-retirement-base/scripts/
+          (
+            cd /tmp/xcomp-retirement-base
+            npm run app:catalog
+            python - <<'PY'
+          from pathlib import Path
+          path = Path("src/curriculum/formal-syntax-utterance.ts")
+          text = path.read_text()
+          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
+          if text.count(needle) != 1:
+              raise SystemExit("unexpected production formal-syntax candidate shape")
+          path.write_text(text.replace(
+              needle,
+              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
+          ))
+          PY
+            npx tsx scripts/audit-xcomp-control-retirement-distribution.ts --measure production /tmp/xcomp-retirement-legacy.json
+          )
+      - name: Compare xcomp control retirement distribution
+        run: npx tsx scripts/audit-xcomp-control-retirement-distribution.ts --compare xcomp-retirement-current.json /tmp/xcomp-retirement-legacy.json
+      - name: Upload xcomp control retirement distribution audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcomp-control-retirement-distribution-audit
+          path: |
+            xcomp-control-retirement-distribution-audit.json
+            xcomp-control-retirement-distribution-audit.md
+          if-no-files-found: ignore
 
   # Runs alongside `check` rather than after it, and belongs to this workflow
   # rather than one of its own so that the deploy gate -- which waits on this
