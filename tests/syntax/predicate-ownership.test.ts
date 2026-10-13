@@ -73,8 +73,6 @@ describe("Clause-model v2 predicate argument ownership", () => {
       "clause.bei",
       "clause.object-content",
       "clause.quoted-content",
-      "clause.xcomp-subject-control",
-      "clause.xcomp-object-control",
       "sentence.constituent-question",
     ] as const;
 
@@ -85,6 +83,8 @@ describe("Clause-model v2 predicate argument ownership", () => {
     expect(FORMAL_SYNTAX_RULES.some((item) => item.id === "clause.aspect")).toBe(false);
     expect(FORMAL_SYNTAX_RULES.some((item) => item.id === "clause.subject-omission")).toBe(false);
     expect(FORMAL_SYNTAX_RULES.some((item) => item.id === "clause.object-omission")).toBe(false);
+    expect(FORMAL_SYNTAX_RULES.some((item) => item.id === "clause.xcomp-subject-control")).toBe(false);
+    expect(FORMAL_SYNTAX_RULES.some((item) => item.id === "clause.xcomp-object-control")).toBe(false);
   });
 
   it("lets BA own patient structure at Clause and completion alternatives at BAPredicate", () => {

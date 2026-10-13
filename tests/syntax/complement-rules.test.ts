@@ -17,8 +17,6 @@ const REQUIRED = [
   "open-clause.transitive",
   "open-clause.ditransitive",
   "clause.object-content",
-  "clause.xcomp-subject-control",
-  "clause.xcomp-object-control",
   "relative.clause",
   "phrase.noun.relative",
   "phrase.noun.de-nominalization",
@@ -36,6 +34,8 @@ describe("formal complement and embedded-clause inventory", () => {
     const ids = new Set(COMPLEMENT_PRODUCTION_RULES.map((rule) => rule.id));
     expect(REQUIRED.filter((id) => !ids.has(id))).toEqual([]);
     expect(ids.has("clause.subject-content")).toBe(false);
+    expect(ids.has("clause.xcomp-subject-control")).toBe(false);
+    expect(ids.has("clause.xcomp-object-control")).toBe(false);
     expect(ids.has("complement.result")).toBe(false);
   });
 

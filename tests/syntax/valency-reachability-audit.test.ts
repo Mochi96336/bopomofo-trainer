@@ -89,10 +89,7 @@ describe("valency reachability audit", () => {
       "subject-controlled-open-complement",
       "object-controlled-open-complement",
     ]);
-    expect(audit.zeroSupportSlots.map((slot) => [slot.ruleId, slot.constituentKey])).toEqual([
-      ["clause.xcomp-object-control", "predicate"],
-      ["clause.xcomp-subject-control", "predicate"],
-    ]);
+    expect(audit.zeroSupportSlots).toEqual([]);
     expect(audit.mixedSupportSlots.map((slot) => [slot.ruleId, slot.constituentKey])).toEqual([
       ["ba-predicate.completed.aspect", "head"],
       ["ba-predicate.completed.complement", "head"],
