@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogEntry, RandomSource } from "../../src/core/model.js";
 import { FREQUENCY_FIRST_UTTERANCE_POLICY } from "../../src/curriculum/frequency-first-utterance.js";
-import { selectFrequencyFirstUtterance } from "../../src/curriculum/legacy-frequency-first-utterance.js";
-import { generateSlotWeightedGrammar } from "../../src/curriculum/slot-weighted-grammar.js";
+import { selectFrequencyFirstUtterance } from "../../src/archive/research/curriculum/legacy-frequency-first-utterance.js";
+import { generateSlotWeightedGrammar } from "../../src/archive/research/curriculum/slot-weighted-grammar.js";
 import type {
   GrammarAnnotation,
   GrammarRole,
