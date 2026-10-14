@@ -11,39 +11,19 @@ This document separates current browser behavior from compatibility baggage and 
 - **Archived research**: reproducible experiment infrastructure that is not part of browser behavior.
 - **Retirement candidate**: state or API shape that current product no longer needs once compatibility is isolated.
 
-## 1. Evaluation product shell
+## 1. Evaluation product shell — retired in PR #390
 
-### What current production actually does
+The current browser runtime is now practice-only:
 
-- `scripts/compile-app-catalog.ts` emits `ENCODED_EVALUATION = []`.
-- `selectRound()` in `src/product/session.ts` always creates `kind: "practice"`.
-- The browser selection loop draws only from `environment.catalogs.practice`.
-- There is no automatic evaluation schedule and no held-out browser vocabulary pool.
+- `ProductCatalogs` contains `practice` plus syntax profiles only;
+- `ProductEnvironment` has one `practiceSupport` index;
+- `ProductRound.kind` and the active `ProductRoundSummary` are compile-time `"practice"`;
+- commonness narrowing filters that one practice catalog;
+- `scripts/compile-app-catalog.ts` no longer emits or exports an empty evaluation catalog.
 
-### What still carries evaluation
+The retired `"evaluation"` tag remains only in explicitly historical types and progress / Pilot-history parsing so older local data can still be validated. Legacy Pilot entry IDs must resolve in the current complete practice catalog.
 
-Current product-facing types and setup still include:
-
-- `ProductRoundKind = "practice" | "evaluation"`;
-- `ProductCatalogs.evaluation`;
-- `ProductEnvironment.evaluationSupport`;
-- syntax-profile validation over practice + evaluation;
-- commonness catalog narrowing that preserves `evaluation`;
-- reference validation that treats evaluation entries as known;
-- progress and Pilot-history parsers that accept `kind: "evaluation"`;
-- tests that preserve the old shell.
-
-### Classification
-
-The evaluation branch is **not current runtime behavior**. Parser acceptance is a **migration boundary**; the catalog/environment/type plumbing is a **retirement candidate**.
-
-### Safe end state
-
-1. Make the normal runtime round type practice-only.
-2. Remove evaluation catalog/support from `ProductEnvironment` and browser catalog compilation.
-3. Keep old evaluation records readable only inside explicitly legacy progress / Pilot-history parsing.
-4. Convert accepted legacy records into a current representation or retain them only as historical records that cannot re-enter the active round model.
-5. Do not reintroduce evaluation until a new Measurement V2-era product design actually needs it.
+This closes P1a. A future evaluation feature, if human evidence ever justifies one, should be designed against the current Measurement V2 model rather than reviving the old product shell.
 
 ## 2. Legacy curriculum state inside ProductProgress
 
@@ -122,9 +102,7 @@ The first consolidation PR changes documentation only.
 
 ## 5. Work sequence after documentation alignment
 
-### P1a — retire evaluation from the runtime model
-
-Keep legacy read compatibility at the parser boundary. Remove current catalog/environment/round plumbing only after tests prove old exported data still loads safely.
+### P1a — retire evaluation from the runtime model — done in PR #390
 
 ### P1b — retire legacy curriculum from ProductProgress
 
