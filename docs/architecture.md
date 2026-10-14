@@ -70,7 +70,7 @@ selectFormalSyntaxUtterance(...)
 one deterministic seeded grammar-valid utterance
 ```
 
-Current production selection uses reviewed commonness, expected-token correctness, identifiable binding timing, and recent-entry / recent-utterance penalties. It does not use legacy motor-transition scoring: the current selector module has no Measurement V1 dependency, while transition-aware compatibility lives in `legacy-frequency-first-utterance.ts`.
+Current production selection uses reviewed commonness, expected-token correctness, identifiable binding timing, and recent-entry / recent-utterance penalties. It does not use legacy motor-transition scoring: the current selector module has no Measurement V1 dependency, while transition-aware compatibility lives under `src/archive/research/curriculum/legacy-frequency-first-utterance.ts`.
 
 The browser has one runtime practice catalog. It does not reserve a held-out evaluation catalog or schedule automatic evaluation rounds. The generated browser module no longer exports an empty evaluation catalog; the retired `"evaluation"` tag survives only at explicit progress/Pilot-history compatibility boundaries.
 
@@ -133,7 +133,7 @@ legacy measurement / curriculum paths
 
 Those modules remain reproducible research evidence. They may model held-out evaluation partitions, relation-targeted objectives, variable-length composition, synthetic learners, hidden truth, and strategy comparisons, but none of those systems decides what the current website asks a learner to type.
 
-Archived research should remain callable through explicit research entry points. It should not force current product types, persistence, CI, or root exports to pretend those concepts are still browser features.
+Archived research should remain callable through explicit research entry points. It should not force current product types, persistence, CI, or root exports to pretend those concepts are still browser features. The physical archive is incremental: modules move under `src/archive/research/` only after their non-product consumers are verified and updated.
 
 ## Dependency rules
 
