@@ -34,12 +34,15 @@ jobs:
         run: npm run readings:audit
       - name: Trial closed-class reading eligibility against the same seeds
         run: npm run readings:audit -- --policy reviewed-closed --output data/generated/polyphonic-context-reviewed-closed.json
+      - name: Trial reviewed pronoun/determiner roles against the same seeds
+        run: npm run readings:audit -- --policy reviewed-roles --output data/generated/polyphonic-context-reviewed-roles.json
       - name: Prepare annotated review summary
         run: |
           node --input-type=module <<'NODE'
           import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
           const report = JSON.parse(readFileSync('data/generated/polyphonic-context-exposure.json', 'utf8'));
           const gated = JSON.parse(readFileSync('data/generated/polyphonic-context-reviewed-closed.json', 'utf8'));
+          const roles = JSON.parse(readFileSync('data/generated/polyphonic-context-reviewed-roles.json', 'utf8'));
           const escape = (value) => String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
           const count = Object.entries(report.occurrenceCountByText)
             .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -64,14 +67,14 @@ jobs:
             '',
             '#### Opt-in experiment (not active in the website)',
             '',
-            '| Metric | Original | Closed-class trial |',
-            '|---|---:|---:|',
+            '| Metric | Original | Closed-class trial | + Pronoun/DET trial |',
+            '|---|---:|---:|---:|',
             ...[
-              ['Successfully generated', report.successfulSentences, gated.successfulSentences],
-              ['Sentences containing a multireading form', report.sentencesWithAmbiguousReadings, gated.sentencesWithAmbiguousReadings],
-              ['Multireading occurrences', report.polyphonicOccurrences, gated.polyphonicOccurrences],
-              ['Distinct forms sampled', report.observedAmbiguousTextCount, gated.observedAmbiguousTextCount],
-            ].map(([key, original, trial]) => `| ${key} | ${original} | ${trial} |`),
+              ['Successfully generated', report.successfulSentences, gated.successfulSentences, roles.successfulSentences],
+              ['Sentences containing a multireading form', report.sentencesWithAmbiguousReadings, gated.sentencesWithAmbiguousReadings, roles.sentencesWithAmbiguousReadings],
+              ['Multireading occurrences', report.polyphonicOccurrences, gated.polyphonicOccurrences, roles.polyphonicOccurrences],
+              ['Distinct forms sampled', report.observedAmbiguousTextCount, gated.observedAmbiguousTextCount, roles.observedAmbiguousTextCount],
+            ].map(([key, original, trial, role]) => `| ${key} | ${original} | ${trial} | ${role} |`),
             '',
             'Different generation paths are expected after filtering. Do not interpret fewer multireading hits as higher quality by itself.',
             '',
@@ -112,5 +115,6 @@ jobs:
           path: |
             data/generated/polyphonic-context-exposure.json
             data/generated/polyphonic-context-reviewed-closed.json
+            data/generated/polyphonic-context-reviewed-roles.json
           retention-days: 14
           if-no-files-found: error
