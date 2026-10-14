@@ -3,8 +3,8 @@ import {
   FREQUENCY_FIRST_UTTERANCE_POLICY,
   prepareFrequencyFirstEntries,
   selectFormalSyntaxUtterance,
-  selectFrequencyFirstUtterance,
 } from "../../src/curriculum/frequency-first-utterance.js";
+import { selectFrequencyFirstUtterance } from "../../src/curriculum/legacy-frequency-first-utterance.js";
 import { createSeededRandom } from "../../src/curriculum/random.js";
 import { bindingScopeKey, transitionScopeKey } from "../../src/measurement/aggregate.js";
 import type { MeasurementSummary } from "../../src/measurement/types.js";
@@ -110,9 +110,14 @@ describe("production selection learner-evidence seam", () => {
       profiles: SYNTAX_PROFILES,
     });
 
-    expect(native).toEqual(previous);
-    expect(native.score.transitionBoost).toBe(1);
-    expect(native.score.transitionTrace).toEqual([]);
+    expect(native.utterance).toEqual(previous.utterance);
+    expect(native.score.totalWeight).toBe(previous.score.totalWeight);
+    expect(native.slotSelections.map((slot) => slot.candidates.map((candidate) => candidate.totalWeight)))
+      .toEqual(previous.slotSelections.map((slot) =>
+        slot.candidates.map((candidate) => candidate.totalWeight)
+      ));
+    expect("transitionBoost" in native.score).toBe(false);
+    expect("transitionTrace" in native.score).toBe(false);
   });
 });
 
