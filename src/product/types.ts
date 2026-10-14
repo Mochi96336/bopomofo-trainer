@@ -37,7 +37,7 @@ export interface ProductRound {
 }
 
 export interface ProductRoundSummary {
-  readonly kind: ProductHistoryRoundKind;
+  readonly kind: "practice";
   readonly exerciseId: string;
   readonly completedAt: string;
   readonly entryIds: readonly string[];
@@ -48,6 +48,10 @@ export interface ProductRoundSummary {
   readonly attempts: number;
   readonly errors: number;
   readonly timingSamples: number;
+}
+
+export interface ProductHistoryRoundSummary extends Omit<ProductRoundSummary, "kind"> {
+  readonly kind: ProductHistoryRoundKind;
 }
 
 export interface ProductProgress {
@@ -62,7 +66,7 @@ export interface ProductProgress {
   readonly curriculum: CurriculumProfile;
   readonly selection: FrequencyFirstSelectionState;
   readonly practiceRoundsCompleted: number;
-  readonly recentSummaries: readonly ProductRoundSummary[];
+  readonly recentSummaries: readonly ProductHistoryRoundSummary[];
 }
 
 export interface ProductEnvironment {
