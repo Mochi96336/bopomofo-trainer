@@ -110,7 +110,7 @@ describe("pilot history", () => {
     expect(derived.records[0]?.cleanLatencyMedianMs).toBeNull();
   });
 
-  it("rejects history records that reference the wrong catalog partition", () => {
+  it("accepts the retired evaluation tag only for entries still known to the product", () => {
     const completed = completeRound();
     const record = createPilotRoundRecord(
       1,
@@ -118,11 +118,18 @@ describe("pilot history", () => {
       completed.summary!,
       completed.session.traces,
     );
-    const invalid = {
+    const legacyEvaluation = {
       schemaVersion: PILOT_HISTORY_SCHEMA_VERSION,
       records: [{ ...record, kind: "evaluation", phase: "evaluation" }],
     };
-    expect(parsePilotHistory(JSON.stringify(invalid), environment)).toBeNull();
+    expect(parsePilotHistory(JSON.stringify(legacyEvaluation), environment)).not.toBeNull();
+
+    const unknownEntry = {
+      schemaVersion: PILOT_HISTORY_SCHEMA_VERSION,
+      records: [{ ...record, kind: "evaluation", entryIds: ["retired-evaluation-entry"] }],
+    };
+    expect(parsePilotHistory(JSON.stringify(unknownEntry), environment)).toBeNull();
+
     expect(parsePilotHistory(
       serializePilotHistory({
         schemaVersion: PILOT_HISTORY_SCHEMA_VERSION,
