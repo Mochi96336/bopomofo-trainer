@@ -1,8 +1,9 @@
-# Reviewed pronominal reading roles: small evidence-based trial
+# Reviewed pronominal reading roles: evidence and product activation
 
-This is a **role-scoped experiment**, not a general polyphonic Mandarin
-pronunciation classifier and not the live website selector. It builds on the
-separately merged opt-in closed-class reading policy (#398).
+This began as a **role-scoped experiment**, not a general polyphonic Mandarin
+pronunciation classifier. Following the scoped CI verification, production uses
+these reviewed roles through the optional selector callback. The underlying
+experiment and audits are retained for reproducibility.
 
 ## Why role-scoped evidence matters
 
@@ -59,7 +60,8 @@ fewer multi-reading characters is not an accuracy score.
 
 ## Not claimed / next research
 
-- No online AI model, BERT, or backend; production remains unchanged.
+- No online AI model, BERT, or backend. Production now applies only the
+  reviewed role restrictions; unreviewed word senses remain unchanged.
 - This is neither a reviewed accuracy percentage for every generated sentence
   nor a solution to semantically bizarre phrase combinations.
 - A model trained on artificial examples should not be trusted without held-out
