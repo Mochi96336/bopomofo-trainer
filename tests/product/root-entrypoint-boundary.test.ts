@@ -54,9 +54,9 @@ describe("top-level source entrypoint boundaries", () => {
     const source = readFileSync("src/research.ts", "utf8");
     expect(source).toContain('"./measurement/types.js"');
     expect(source).toContain('"./relations/catalog-report.js"');
-    expect(source).toContain('"./curriculum/legacy-frequency-first-utterance.js"');
+    expect(source).toContain('"./archive/research/curriculum/legacy-frequency-first-utterance.js"');
     expect(source).toContain('"./simulation/strategy-matrix.js"');
-    expect(source).toContain('"./integration/relational-research.js"');
+    expect(source).toContain('"./archive/research/integration/relational-research.js"');
   });
 
   it("keeps the browser product away from the research entrypoint", () => {
