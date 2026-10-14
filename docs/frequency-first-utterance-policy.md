@@ -64,11 +64,13 @@ For an identifiable token timing aggregate, the selector compares current clean 
 
 ## Transition timing boundary
 
-Transition measurements remain available to diagnostics, archived research, and legacy selector compatibility, but they do not influence current browser selection.
+Transition measurements remain available to diagnostics and archived research, but they do not influence current browser selection.
 
-The production entry point is `selectFormalSyntaxUtterance(...)`. It supplies Measurement V2 binding evidence and explicitly sets legacy transition evidence to `null`. Production selections therefore keep a neutral transition contribution (`transitionBoost = 1`, empty transition trace) even though the shared legacy-compatible score shape still contains transition fields.
+The production entry point is `selectFormalSyntaxUtterance(...)` in `frequency-first-utterance.ts`. That module imports no legacy Measurement V1 code and its production score shape contains no transition boost or transition trace fields.
 
-This boundary is intentional: current product selection may react to expected-token correctness and identifiable binding timing, but it must not reinterpret historical canonical-order transition measurements as learner-selection evidence.
+Historical canonical token-pair scoring now lives in `legacy-frequency-first-utterance.ts`. Only compatibility/research callers import that module, where legacy `MeasurementSummary.transitions` is adapted into an additional bounded learner boost.
+
+This boundary is intentional: current product selection may react to expected-token correctness and identifiable binding timing, but it cannot accidentally reinterpret historical canonical-order transition measurements as learner-selection evidence.
 
 ## Grammar boundary
 
@@ -98,11 +100,10 @@ Schemas 1 through 5 are rejected. The browser does not revive their measurement 
 
 ## Explainability
 
-Every selected utterance retains:
+Every production-selected utterance retains:
 
 - frequency base;
 - expected-token traces and boosts;
-- the neutral production transition fields retained by the legacy-compatible score shape;
 - combined learner cap;
 - repetition factors;
 - total weight;
