@@ -20,7 +20,7 @@ export function buildPolyphonicReadingIndex(
     [...readingsByText.entries()]
       .filter(([, ids]) => ids.size > 1)
       .sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
-      .map(([text, ids]) => [text, [...ids].sort()]),
+      .map(([text, ids]): readonly [string, readonly string[]] => [text, [...ids].sort()]),
   );
 }
 
