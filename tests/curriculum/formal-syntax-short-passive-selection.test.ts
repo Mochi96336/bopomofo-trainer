@@ -134,10 +134,10 @@ describe("formal syntax short-passive construction selection", () => {
       entries: [RICE_ENTRY, BEI_ENTRY, EAT_ENTRY],
     });
     expect(selection.score.frequencyBase).toBeGreaterThan(0);
-    expect(selection.score.transitionBoost).toBe(1);
-    expect(selection.score.transitionTrace).toEqual([]);
-    expect(selection.slotSelections).toEqual([]);
-    expect(selection.templateCandidates).toEqual([]);
+    expect("transitionBoost" in selection.score).toBe(false);
+    expect("transitionTrace" in selection.score).toBe(false);
+    expect("slotSelections" in selection).toBe(false);
+    expect("templateCandidates" in selection).toBe(false);
   });
 
   it("fails closed on legacy transitive evidence without the reviewed short-passive capability", () => {
