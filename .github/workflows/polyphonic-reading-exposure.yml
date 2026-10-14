@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/polyphonic-reading-exposure.yml"
       - "scripts/audit-polyphonic-context.ts"
+      - "scripts/audit-same-upos-polyphones.ts"
       - "src/readings/**"
       - "tests/readings/**"
       - "package.json"
@@ -12,7 +13,6 @@ on:
 
 permissions:
   contents: read
-  issues: write
 
 jobs:
   audit:
@@ -43,6 +43,8 @@ jobs:
           data/generated/polyphonic-context-reviewed-closed.json
           data/generated/polyphonic-context-reviewed-roles.json
           data/generated/polyphonic-role-trial-comparison.json
+      - name: Extract ranked same-UPOS pronunciation review queue
+        run: npx tsx scripts/audit-same-upos-polyphones.ts
       - name: Prepare annotated review summary
         run: |
           node --input-type=module <<'NODE'
@@ -51,6 +53,7 @@ jobs:
           const gated = JSON.parse(readFileSync('data/generated/polyphonic-context-reviewed-closed.json', 'utf8'));
           const roles = JSON.parse(readFileSync('data/generated/polyphonic-context-reviewed-roles.json', 'utf8'));
           const comparison = JSON.parse(readFileSync('data/generated/polyphonic-role-trial-comparison.json', 'utf8'));
+          const queue = JSON.parse(readFileSync('data/generated/same-upos-polyphone-review.json', 'utf8'));
           const escape = (value) => String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
           const count = Object.entries(report.occurrenceCountByText)
             .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -73,7 +76,7 @@ jobs:
               ['Total sampled multireading occurrences', report.polyphonicOccurrences],
             ].map(([key,val]) => `| ${key} | ${val} |`),
             '',
-            '#### Opt-in experiment (not active in the website)',
+            '#### Deterministic controls (reviewed-roles is active in the product)',
             '',
             '| Metric | Original | Closed-class trial | + Pronoun/DET trial |',
             '|---|---:|---:|---:|',
@@ -93,6 +96,15 @@ jobs:
             '| Role | Before | After reviewed-role trial |',
             '|---|---:|---:|',
             ...['哪/PRON', '那/DET'].map(key => `| ${key} | ${comparison.reviewedRoleMismatchCountByRole.closedClassOnly[key] ?? 0} | ${comparison.reviewedRoleMismatchCountByRole.reviewedRoles[key] ?? 0} |`),
+            '',
+            '#### Same-UPOS sense-review queue (not error labels)',
+            '',
+            `Observed ${queue.unreviewedGroups} unreviewed multi-reading text/UPOS groups, ${queue.unreviewedOccurrences} occurrences; examples need human review.`,
+            '',
+            '| Written form / UPOS | Occurrences | Observed reading identities |',
+            '|---|---:|---:|',
+            ...queue.groups.filter(g => g.kind === 'unreviewed-role-variation')
+              .slice(0, 12).map(g => `| ${escape(g.text)} / ${g.upos} | ${g.occurrences} | ${g.selectedReadingEntryIds.length} |`),
             '',
             '#### Most exposed written forms',
             '',
@@ -133,5 +145,6 @@ jobs:
             data/generated/polyphonic-context-reviewed-closed.json
             data/generated/polyphonic-context-reviewed-roles.json
             data/generated/polyphonic-role-trial-comparison.json
+            data/generated/same-upos-polyphone-review.json
           retention-days: 14
           if-no-files-found: error
