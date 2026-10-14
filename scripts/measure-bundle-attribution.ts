@@ -100,39 +100,28 @@ const config: InlineConfig = {
   logLevel: "silent",
   build: {
     write: false,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          return categoryForModule(id);
-        },
-      },
-    },
   },
 };
 
 const built = await build(config);
 const outputs = Array.isArray(built) ? built : [built];
-const categorySizes = new Map<AttributionCategory, { raw: number; gzip: number; files: string[] }>();
+const categoryRendered = new Map<AttributionCategory, number>();
 
 for (const output of outputs) {
   if (!("output" in output)) continue;
   for (const item of output.output) {
     if (item.type !== "chunk") continue;
-    const category = CATEGORY_ORDER.includes(item.name as AttributionCategory)
-      ? item.name as AttributionCategory
-      : "bootstrap-shared";
-    const current = categorySizes.get(category) ?? { raw: 0, gzip: 0, files: [] };
-    current.raw += Buffer.byteLength(item.code);
-    current.gzip += gzipSync(item.code).byteLength;
-    current.files.push(item.fileName);
-    categorySizes.set(category, current);
+    for (const [id, module] of Object.entries(item.modules)) {
+      const category = categoryForModule(id) ?? "bootstrap-shared";
+      categoryRendered.set(
+        category,
+        (categoryRendered.get(category) ?? 0) + module.renderedLength,
+      );
+    }
   }
 }
 
-const splitTotal = [...categorySizes.values()].reduce(
-  (total, item) => ({ raw: total.raw + item.raw, gzip: total.gzip + item.gzip }),
-  { raw: 0, gzip: 0 },
-);
+const renderedTotal = [...categoryRendered.values()].reduce((sum, bytes) => sum + bytes, 0);
 
 const generatedSource = await readFile(
   new URL("../src/app/generated/catalog.ts", import.meta.url),
@@ -150,22 +139,20 @@ const syntaxPayload = payloadSize(generatedSource, [
 console.log("bundle attribution");
 console.log("normal production JS: " + kilobytes(normal.gzip) + " gzip / " + kilobytes(normal.raw) + " raw");
 console.log("");
-console.log("split analysis build (gzip is directional; chunk boundaries reduce shared compression)");
+console.log("Rollup rendered module ownership (use shares; final minifier/compression happen later)");
 for (const category of CATEGORY_ORDER) {
-  const size = categorySizes.get(category);
-  if (size === undefined) continue;
-  const rawShare = splitTotal.raw === 0 ? 0 : (size.raw / splitTotal.raw) * 100;
+  const bytes = categoryRendered.get(category);
+  if (bytes === undefined) continue;
+  const share = renderedTotal === 0 ? 0 : (bytes / renderedTotal) * 100;
   console.log(
     "  " + category.padEnd(24)
-    + kilobytes(size.gzip).padStart(10) + " gzip / "
-    + kilobytes(size.raw).padStart(10) + " raw  "
-    + rawShare.toFixed(1).padStart(5) + "% raw",
+    + kilobytes(bytes).padStart(10) + " rendered  "
+    + share.toFixed(1).padStart(5) + "%",
   );
 }
 console.log(
-  "  " + "split-total".padEnd(24)
-  + kilobytes(splitTotal.gzip).padStart(10) + " gzip / "
-  + kilobytes(splitTotal.raw).padStart(10) + " raw",
+  "  " + "rendered-total".padEnd(24)
+  + kilobytes(renderedTotal).padStart(10) + " rendered",
 );
 console.log("");
 console.log("generated catalog literal payloads (isolated gzip)");
