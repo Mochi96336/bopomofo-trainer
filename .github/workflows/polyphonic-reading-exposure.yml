@@ -36,6 +36,13 @@ jobs:
         run: npm run readings:audit -- --policy reviewed-closed --output data/generated/polyphonic-context-reviewed-closed.json
       - name: Trial reviewed pronoun/determiner roles against the same seeds
         run: npm run readings:audit -- --policy reviewed-roles --output data/generated/polyphonic-context-reviewed-roles.json
+      - name: Verify exact-seed changes and reviewed-role rejection counts
+        run: >-
+          npx tsx scripts/compare-polyphonic-role-trial.ts
+          data/generated/polyphonic-context-exposure.json
+          data/generated/polyphonic-context-reviewed-closed.json
+          data/generated/polyphonic-context-reviewed-roles.json
+          data/generated/polyphonic-role-trial-comparison.json
       - name: Prepare annotated review summary
         run: |
           node --input-type=module <<'NODE'
@@ -43,6 +50,7 @@ jobs:
           const report = JSON.parse(readFileSync('data/generated/polyphonic-context-exposure.json', 'utf8'));
           const gated = JSON.parse(readFileSync('data/generated/polyphonic-context-reviewed-closed.json', 'utf8'));
           const roles = JSON.parse(readFileSync('data/generated/polyphonic-context-reviewed-roles.json', 'utf8'));
+          const comparison = JSON.parse(readFileSync('data/generated/polyphonic-role-trial-comparison.json', 'utf8'));
           const escape = (value) => String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
           const count = Object.entries(report.occurrenceCountByText)
             .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -77,6 +85,14 @@ jobs:
             ].map(([key, original, trial, role]) => `| ${key} | ${original} | ${trial} | ${role} |`),
             '',
             'Different generation paths are expected after filtering. Do not interpret fewer multireading hits as higher quality by itself.',
+            '',
+            `Exact seeds with changed candidate identities: closed-class ${comparison.changedSentenceCount.reviewedClosed}; reviewed roles ${comparison.changedSentenceCount.reviewedRoles}.`,
+            '',
+            '#### Reviewed role rejections (eligible syntactic roles only)',
+            '',
+            '| Role | Before | After reviewed-role trial |',
+            '|---|---:|---:|',
+            ...['哪/PRON', '那/DET'].map(key => `| ${key} | ${comparison.reviewedRoleMismatchCountByRole.closedClassOnly[key] ?? 0} | ${comparison.reviewedRoleMismatchCountByRole.reviewedRoles[key] ?? 0} |`),
             '',
             '#### Most exposed written forms',
             '',
@@ -116,5 +132,6 @@ jobs:
             data/generated/polyphonic-context-exposure.json
             data/generated/polyphonic-context-reviewed-closed.json
             data/generated/polyphonic-context-reviewed-roles.json
+            data/generated/polyphonic-role-trial-comparison.json
           retention-days: 14
           if-no-files-found: error
