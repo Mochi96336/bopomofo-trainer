@@ -7,7 +7,6 @@ import {
 } from "../../src/product/session.js";
 import {
   COMMONNESS_TIER_THRESHOLDS,
-  EVALUATION_CATALOG,
   PRACTICE_CATALOG,
   SYNTAX_PROFILES,
 } from "../../src/app/generated/catalog.js";
@@ -18,13 +17,11 @@ import {
 import { catalogsForCommonnessTiers } from "../../src/product/commonness-access.js";
 
 describe("frequency-first product real catalog integration", () => {
-  it("packages the complete runtime catalog as practice and never schedules evaluation", () => {
+  it("packages one complete runtime practice catalog", () => {
     expect(PRACTICE_CATALOG.length).toBeGreaterThan(0);
-    expect(EVALUATION_CATALOG).toEqual([]);
 
     const environment = createProductEnvironment({
       practice: PRACTICE_CATALOG,
-      evaluation: EVALUATION_CATALOG,
       syntaxProfiles: SYNTAX_PROFILES,
     });
     const progress = createFreshProgressForEnvironment(
@@ -60,7 +57,6 @@ describe("frequency-first product real catalog integration", () => {
   it.each([...COMMONNESS_TIERS])("practises the whole keyboard at level %i alone", (tier) => {
     const whole = {
       practice: PRACTICE_CATALOG,
-      evaluation: EVALUATION_CATALOG,
       syntaxProfiles: SYNTAX_PROFILES,
     };
     const narrowed = catalogsForCommonnessTiers(whole, COMMONNESS_TIER_THRESHOLDS, [tier]);
