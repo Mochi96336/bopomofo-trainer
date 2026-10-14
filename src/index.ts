@@ -12,6 +12,8 @@ export * from "./scheme/parse-reading.js";
 
 export * from "./practice/interaction-session.js";
 
+export * from "./syntax/types.js";
+
 export * from "./measurement-v2/types.js";
 export * from "./measurement-v2/aggregate.js";
 export * from "./measurement-v2/derive-observations.js";
