@@ -21,23 +21,23 @@ import type { RuntimeSyntaxProfile } from "../syntax/types.js";
 export const PRODUCT_PROGRESS_SCHEMA_VERSION = 7 as const;
 export const PRODUCT_MEASUREMENT_EPOCH = "coordination-v1" as const;
 
-export type ProductRoundKind = "practice" | "evaluation";
+/** Historical persistence may still contain retired evaluation records. */
+export type ProductHistoryRoundKind = "practice" | "evaluation";
 
 export interface ProductCatalogs {
   readonly practice: readonly CatalogEntry[];
-  readonly evaluation: readonly CatalogEntry[];
   readonly syntaxProfiles: readonly RuntimeSyntaxProfile[];
 }
 
 export interface ProductRound {
-  readonly kind: ProductRoundKind;
+  readonly kind: "practice";
   readonly exercise: Exercise;
   readonly focus: FocusSelection | null;
   readonly selection: FrequencyFirstUtteranceSelection;
 }
 
 export interface ProductRoundSummary {
-  readonly kind: ProductRoundKind;
+  readonly kind: "practice";
   readonly exerciseId: string;
   readonly completedAt: string;
   readonly entryIds: readonly string[];
@@ -48,6 +48,10 @@ export interface ProductRoundSummary {
   readonly attempts: number;
   readonly errors: number;
   readonly timingSamples: number;
+}
+
+export interface ProductHistoryRoundSummary extends Omit<ProductRoundSummary, "kind"> {
+  readonly kind: ProductHistoryRoundKind;
 }
 
 export interface ProductProgress {
@@ -62,13 +66,12 @@ export interface ProductProgress {
   readonly curriculum: CurriculumProfile;
   readonly selection: FrequencyFirstSelectionState;
   readonly practiceRoundsCompleted: number;
-  readonly recentSummaries: readonly ProductRoundSummary[];
+  readonly recentSummaries: readonly ProductHistoryRoundSummary[];
 }
 
 export interface ProductEnvironment {
   readonly catalogs: ProductCatalogs;
   readonly practiceSupport: CatalogSupportIndex;
-  readonly evaluationSupport: CatalogSupportIndex;
   readonly curriculumPolicy: CurriculumPolicy;
   readonly utterancePolicy: FrequencyFirstUtterancePolicy;
   readonly preparedPracticeLexicon: PreparedFormalSyntaxLexicon;

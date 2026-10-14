@@ -16,6 +16,7 @@ import { parseMeasurementSummaryV2 } from "../measurement-v2/serialize.js";
 import {
   PRODUCT_MEASUREMENT_EPOCH,
   PRODUCT_PROGRESS_SCHEMA_VERSION,
+  type ProductHistoryRoundSummary,
   type ProductProgress,
   type ProductRoundSummary,
 } from "./types.js";
@@ -31,7 +32,7 @@ function isNonNegativeInteger(value: unknown): value is number {
   return Number.isInteger(value) && (value as number) >= 0;
 }
 
-function parseSummary(value: unknown): ProductRoundSummary | null {
+function parseSummary(value: unknown): ProductHistoryRoundSummary | null {
   if (!isRecord(value) || !Array.isArray(value.entryIds)) return null;
   const kind = value.kind;
   const focusEvidence = value.focusEvidence;
@@ -309,13 +310,13 @@ export function parseProductProgress(
     practiceRoundsCompleted: envelope.completedRounds,
     recentSummaries: migratedFromLegacy
       ? []
-      : (summaries as ProductRoundSummary[]).slice(-RECENT_SUMMARY_LIMIT),
+      : (summaries as ProductHistoryRoundSummary[]).slice(-RECENT_SUMMARY_LIMIT),
   };
 }
 
 export function appendRecentSummary(
   progress: ProductProgress,
   summary: ProductRoundSummary,
-): readonly ProductRoundSummary[] {
+): readonly ProductHistoryRoundSummary[] {
   return [...progress.recentSummaries, summary].slice(-RECENT_SUMMARY_LIMIT);
 }

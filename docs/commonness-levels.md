@@ -71,9 +71,8 @@ speed cannot leave 0 ms best times behind.
 
 ## Boundaries
 
-- The evaluation catalog is never narrowed. It is the fixed yardstick, and
-  filtering it by a practice preference would make its readings mean different
-  things at different settings.
+- Commonness filtering narrows the one current practice catalog; there is no
+  second browser evaluation catalog.
 - Syntax profiles are filtered alongside the practice entries, because the
   product environment rejects a profile pointing at an entry it does not have.
 - An entry with no reviewed frequency evidence has no level to be filtered by,

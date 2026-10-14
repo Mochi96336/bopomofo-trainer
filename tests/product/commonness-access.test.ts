@@ -161,16 +161,9 @@ describe("catalogs for commonness levels", () => {
     };
     const narrowed = catalogsForCommonnessTiers(catalogs, thresholds, [1]);
     expect(narrowed.practice.map((entry) => entry.id)).toEqual(kept.map((entry) => entry.id));
-    const entryIds = new Set([
-      ...narrowed.practice.map((entry) => entry.id),
-      ...narrowed.evaluation.map((entry) => entry.id),
-    ]);
+    const entryIds = new Set(narrowed.practice.map((entry) => entry.id));
     expect(narrowed.syntaxProfiles.every((profile) => entryIds.has(profile.entryId))).toBe(true);
     expect(narrowed.syntaxProfiles.length).toBeLessThan(catalogs.syntaxProfiles.length);
   });
 
-  it("leaves the evaluation yardstick whole", () => {
-    const narrowed = catalogsForCommonnessTiers(PRODUCT_CATALOGS, thresholds, [1]);
-    expect(narrowed.evaluation).toBe(PRODUCT_CATALOGS.evaluation);
-  });
 });

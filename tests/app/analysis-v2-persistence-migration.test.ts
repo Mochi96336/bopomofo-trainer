@@ -18,7 +18,6 @@ import {
 } from "../../src/product/session.js";
 import { STANDARD_BOPOMOFO_LAYOUT } from "../../src/scheme/standard-layout.js";
 import {
-  EVALUATION_CATALOG,
   PRACTICE_CATALOG,
   SYNTAX_PROFILES,
 } from "../../src/app/generated/catalog.js";
@@ -44,7 +43,6 @@ describe("Analysis V2 persisted migration smoke", () => {
   it("loads legacy motor identities through app startup and preserves word-structure history", () => {
     const environment = createProductEnvironment({
       practice: PRACTICE_CATALOG,
-      evaluation: EVALUATION_CATALOG,
       syntaxProfiles: SYNTAX_PROFILES,
     });
     const fresh = createFreshProgressForEnvironment(

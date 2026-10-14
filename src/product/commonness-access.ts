@@ -81,13 +81,9 @@ export function catalogsForCommonnessTiers(
     const tier = catalogEntryCommonnessTier(entry, thresholds);
     return tier === null || tiers.includes(tier);
   });
-  const entryIds = new Set([
-    ...practice.map((entry) => entry.id),
-    ...catalogs.evaluation.map((entry) => entry.id),
-  ]);
+  const entryIds = new Set(practice.map((entry) => entry.id));
   return {
     practice,
-    evaluation: catalogs.evaluation,
     syntaxProfiles: catalogs.syntaxProfiles.filter((profile) => entryIds.has(profile.entryId)),
   };
 }

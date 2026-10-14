@@ -48,7 +48,6 @@ import type {
 import { STANDARD_BOPOMOFO_LAYOUT } from "../scheme/standard-layout.js";
 import {
   COMMONNESS_TIER_THRESHOLDS,
-  EVALUATION_CATALOG,
   PRACTICE_CATALOG,
   SYNTAX_PROFILES,
 } from "./generated/catalog.js";
@@ -150,7 +149,6 @@ export function createApp(deps: AppDependencies): App {
 
   const catalogs = {
     practice: PRACTICE_CATALOG,
-    evaluation: EVALUATION_CATALOG,
     syntaxProfiles: SYNTAX_PROFILES,
   } as const;
 

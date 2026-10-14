@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Exercise } from "../../src/core/model.js";
-import {
-  EVALUATION_CATALOG,
-  PRACTICE_CATALOG,
-} from "../../src/app/generated/catalog.js";
+import { PRACTICE_CATALOG } from "../../src/app/generated/catalog.js";
 import {
   buildPracticeEntries,
   buildPracticeGlyphs,
@@ -99,7 +96,7 @@ describe("continuous practice presentation", () => {
   });
 
   it("keeps every active catalog entry character-aligned", () => {
-    for (const entry of [...PRACTICE_CATALOG, ...EVALUATION_CATALOG]) {
+    for (const entry of PRACTICE_CATALOG) {
       expect(
         Array.from(entry.prompt.text).length,
         entry.id,
@@ -109,7 +106,7 @@ describe("continuous practice presentation", () => {
 
   it("keeps each displayed syllable within four symbols including its tone", () => {
     let maximumTokenCount = 0;
-    for (const entry of [...PRACTICE_CATALOG, ...EVALUATION_CATALOG]) {
+    for (const entry of PRACTICE_CATALOG) {
       for (const syllable of entry.syllables) {
         maximumTokenCount = Math.max(maximumTokenCount, syllable.tokens.length);
         expect(syllable.tokens.length, entry.id).toBeGreaterThan(0);

@@ -7,7 +7,6 @@ import {
 } from "../../src/product/session.js";
 import { STANDARD_BOPOMOFO_LAYOUT } from "../../src/scheme/standard-layout.js";
 import {
-  EVALUATION_CATALOG,
   PRACTICE_CATALOG,
   SYNTAX_PROFILES,
 } from "../../src/app/generated/catalog.js";
@@ -26,7 +25,6 @@ const THREE_PART_ORDER = {
 function seededTrajectoryProgress(): string {
   const environment = createProductEnvironment({
     practice: PRACTICE_CATALOG,
-    evaluation: EVALUATION_CATALOG,
     syntaxProfiles: SYNTAX_PROFILES,
   });
   const fresh = createFreshProgressForEnvironment(

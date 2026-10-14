@@ -3,6 +3,7 @@ import { deriveMeasurementObservationsV2 } from "../measurement-v2/derive-observ
 import type { InteractionTraceV2 } from "../practice/interaction-session-v2.js";
 import type {
   ProductEnvironment,
+  ProductHistoryRoundSummary,
   ProductProgress,
   ProductRound,
   ProductRoundSummary,
@@ -16,7 +17,7 @@ export const PILOT_HISTORY_LIMIT = 24;
 
 export interface PilotRoundRecord {
   readonly roundNumber: number;
-  readonly kind: ProductRoundSummary["kind"];
+  readonly kind: ProductHistoryRoundSummary["kind"];
   readonly exerciseId: string;
   readonly completedAt: string;
   readonly entryIds: readonly string[];
@@ -52,7 +53,7 @@ function median(values: readonly number[]): number | null {
 }
 
 function recordFromSummary(
-  summary: ProductRoundSummary,
+  summary: ProductHistoryRoundSummary,
   roundNumber: number,
 ): PilotRoundRecord {
   return {
@@ -173,9 +174,9 @@ function parsePilotRoundRecord(
       && (typeof latency !== "number" || !Number.isFinite(latency) || latency < 0))
   ) return null;
 
-  const support = kind === "practice"
-    ? environment.practiceSupport
-    : environment.evaluationSupport;
+  // Evaluation is a retired runtime concept. Legacy history may still carry
+  // the tag, but every surviving entry must resolve in the current practice catalog.
+  const support = environment.practiceSupport;
   if (value.entryIds.some((entryId) => support.entriesById[entryId as string] === undefined)) {
     return null;
   }
