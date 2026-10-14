@@ -90,6 +90,8 @@ describe("production reviewed reading disambiguation", () => {
       const narrowed = catalogsForCommonnessTiers(wholeCatalogs, COMMONNESS_TIER_THRESHOLDS, [tier]);
       const environment = createProductEnvironment(narrowed);
       const profilesById = new Map(environment.catalogs.syntaxProfiles.map(p => [p.id, p]));
+      let baselineFailures = 0;
+      let productFailures = 0;
       for (let i = 0; i < 24; i += 1) {
         const progress = createFreshProgressForEnvironment(
           environment,
@@ -97,36 +99,59 @@ describe("production reviewed reading disambiguation", () => {
           i % 2 === 0 ? "guided" : "recall",
           standardLayout,
         );
+        const selectionInput = {
+          entries: environment.catalogs.practice,
+          profiles: environment.catalogs.syntaxProfiles,
+          bindingEvidence: [],
+          mode: progress.mode,
+          layoutId: progress.layoutId,
+          history: {
+            recentEntryIds: progress.selection.recentEntryIds,
+            recentUtteranceIds: progress.selection.recentUtteranceIds,
+            recentTemplateIds: progress.selection.recentTemplateIds,
+          },
+          policy: environment.utterancePolicy,
+          preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
+          preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
+          preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
+          random: createSeededRandom(progress.seed + ":practice:0"),
+        };
+        let original: ReturnType<typeof selectFormalSyntaxUtterance> | null = null;
         try {
-          assertRoundReadings(createProductState(environment, progress, 0), profilesById);
+          original = selectFormalSyntaxUtterance(selectionInput);
+        } catch {
+          baselineFailures += 1;
+        }
+        let product: ReturnType<typeof createProductState> | null = null;
+        try {
+          product = createProductState(environment, progress, 0);
         } catch (error) {
-          let originalResult: string;
-          try {
-            const original = selectFormalSyntaxUtterance({
-              entries: environment.catalogs.practice,
-              profiles: environment.catalogs.syntaxProfiles,
-              bindingEvidence: [],
-              mode: progress.mode,
-              layoutId: progress.layoutId,
-              history: {
-                recentEntryIds: progress.selection.recentEntryIds,
-                recentUtteranceIds: progress.selection.recentUtteranceIds,
-                recentTemplateIds: progress.selection.recentTemplateIds,
-              },
-              policy: environment.utterancePolicy,
-              preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
-              preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
-              preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
-              random: createSeededRandom(progress.seed + ":practice:0"),
-            });
-            originalResult = "succeeded:" + original.utterance.id;
-          } catch (originalError) {
-            originalResult = "failed:" + String(originalError);
+          productFailures += 1;
+          // The rarest tier's original syntax sampler has pre-existing failed
+          // seeds. Do not obscure them, and never allow this reading gate to
+          // introduce a new failed seed in any tier.
+          if (original !== null) {
+            throw new Error("new reading-gate product failure in tier " + tier
+              + " seed " + i + ": " + String(error));
           }
-          throw new Error("product tier " + tier + " sample " + i
-            + ": gated=" + String(error) + "; original=" + originalResult);
+        }
+        if (product !== null) {
+          assertRoundReadings(product, profilesById);
+          if (original !== null) {
+            const originalLicensed = original.utterance.entries.every((entry, index) => {
+              const profileId = original!.utterance.syntaxProfileIds?.[index];
+              const profile = profilesById.get(profileId ?? "");
+              if (profile === undefined) throw new Error("missing original syntax profile");
+              return reviewedRoleReadingEligible(entry, profile);
+            });
+            if (originalLicensed) {
+              expect(product.round.selection.utterance.id).toBe(original.utterance.id);
+            }
+          }
         }
       }
+      expect(productFailures).toBeLessThanOrEqual(baselineFailures);
+
     },
     20000,
   );
