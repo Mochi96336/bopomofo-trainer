@@ -14,7 +14,8 @@ import { renderAnalysisV2Summary } from "./analysis-v2-summary.js";
 function analysisModelFrom(snapshot: AnalysisV2Snapshot) {
   const semantic = buildAnalysisV2SemanticModel({
     measurements: snapshot.progress.measurements,
-    curriculum: snapshot.progress.curriculum,
+    mode: snapshot.progress.mode,
+    layoutId: snapshot.progress.layoutId,
     support: snapshot.practiceSupport,
     layout: STANDARD_BOPOMOFO_LAYOUT,
     progressHistory: snapshot.progressHistory,

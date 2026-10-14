@@ -90,7 +90,7 @@ The old curriculum envelope is still physically present in `ProductProgress`, bu
 
 Analysis V2 is a projection over current measurements and bounded progress history. It does not alter selection or learner state.
 
-Although the current Analysis V2 semantic builder receives `CurriculumProfile`, it only uses the duplicated `mode` and `layoutId` fields to address Measurement V2 binding aggregates. It does not depend on legacy focus/cooldown decisions. This dependency is therefore a consolidation target rather than a reason to keep the full legacy curriculum model in production progress.
+Analysis V2 receives `mode` and `layoutId` directly from `ProductProgress` alongside Measurement V2 and support data. It no longer depends on `CurriculumProfile`, so legacy focus/cooldown state is not part of the analysis boundary.
 
 ## Data-generation boundary
 

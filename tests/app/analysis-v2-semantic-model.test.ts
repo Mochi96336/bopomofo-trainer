@@ -3,7 +3,6 @@ import type { InputLayout, TokenId } from "../../src/core/model.js";
 import type {
   CatalogSupportIndex,
   CatalogTokenSupport,
-  CurriculumProfile,
 } from "../../src/curriculum/types.js";
 import { buildAnalysisV2SemanticModel } from "../../src/app/analysis-v2-semantic-model.js";
 import { aggregateMeasurementObservationsV2 } from "../../src/measurement-v2/aggregate.js";
@@ -20,15 +19,6 @@ const LAYOUT: InputLayout = {
     KeyQ: "zhuyin:ㄆ",
     KeyA: "zhuyin:ㄇ",
   },
-};
-
-const CURRICULUM: CurriculumProfile = {
-  mode: "guided",
-  layoutId: LAYOUT.id,
-  round: 0,
-  bindings: {},
-  recentEntryIds: [],
-  recentTokenIds: [],
 };
 
 function tokenSupport(tokenId: TokenId, motorEntryCount: number): CatalogTokenSupport {
@@ -90,7 +80,8 @@ describe("Analysis V2 native semantic model", () => {
 
     const model = buildAnalysisV2SemanticModel({
       measurements,
-      curriculum: CURRICULUM,
+      mode: "guided",
+      layoutId: LAYOUT.id,
       support: SUPPORT,
       layout: LAYOUT,
     });
@@ -143,7 +134,8 @@ describe("Analysis V2 native semantic model", () => {
 
     const model = buildAnalysisV2SemanticModel({
       measurements,
-      curriculum: CURRICULUM,
+      mode: "guided",
+      layoutId: LAYOUT.id,
       support: SUPPORT,
       layout: LAYOUT,
     });
@@ -202,7 +194,8 @@ describe("Analysis V2 native semantic model", () => {
 
     const model = buildAnalysisV2SemanticModel({
       measurements,
-      curriculum: CURRICULUM,
+      mode: "guided",
+      layoutId: LAYOUT.id,
       support: SUPPORT,
       layout: LAYOUT,
       progressHistory: history,

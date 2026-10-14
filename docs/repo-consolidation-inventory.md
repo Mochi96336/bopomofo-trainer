@@ -46,11 +46,11 @@ That recency is current product state, but it does not conceptually require the 
 - `curriculumPolicyVersion`: gates progress loading even though the Phase 4 focus curriculum no longer decides browser rounds.
 - `ProductEnvironment.curriculumPolicy`: currently supplies that legacy policy/version boundary.
 
-### Analysis V2 dependency
+### Analysis V2 dependency — removed
 
-Analysis V2 currently receives the whole `CurriculumProfile`, but the semantic projection uses only `curriculum.mode` and `curriculum.layoutId` when addressing Measurement V2 aggregates. Those values already exist directly on `ProductProgress`.
+Analysis V2 now receives `mode` and `layoutId` directly from `ProductProgress`. The semantic projection no longer accepts `CurriculumProfile`.
 
-Therefore Analysis V2 does **not** require legacy focus state, binding records, cooldown state, `recentTokenIds`, or `lastFocusedRound`.
+Therefore legacy focus state, binding records, cooldown state, `recentTokenIds`, and `lastFocusedRound` have no Analysis V2 consumer. Remaining production curriculum usage is now concentrated in progress persistence/update and `recentEntryIds` selection recency.
 
 ### Classification
 
