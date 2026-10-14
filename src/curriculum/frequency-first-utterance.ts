@@ -6,9 +6,7 @@ import type {
 } from "../core/model.js";
 import { catalogEntryFrequencyWeight } from "../commonness/catalog-projection.js";
 import type {
-  GrammarAnnotation,
-  GrammarRole,
-  GrammarTemplate,
+  GrammarCompositionResult,
   GrammarUtteranceCandidate,
 } from "../grammar/types.js";
 import { countStructuralDerivationShapes } from "../syntax/count.js";
@@ -25,11 +23,6 @@ import {
   type FormalSyntaxUtteranceInput,
   type PreparedFormalSyntaxLexicon,
 } from "./formal-syntax-utterance.js";
-import {
-  generateSlotWeightedGrammar,
-  type GrammarSlotSelectionTrace,
-  type SlotWeightedGrammarGeneration,
-} from "./slot-weighted-grammar.js";
 import type { LearnerBindingEvidence } from "./types.js";
 
 const MAXIMUM_RECENT_UTTERANCE_ATTEMPTS = 4;
@@ -97,39 +90,10 @@ export interface EntrySelectionScore {
   readonly expectedTokenTrace: readonly ExpectedTokenBoostTrace[];
 }
 
-export interface TemplateSelectionScore {
-  readonly templateId: string;
-  readonly recentTemplateFactor: number;
-  readonly totalWeight: number;
-}
-
-export interface SlotSelectionScore {
-  readonly slotKey: string;
-  readonly role: GrammarRole;
-  readonly selectedEntryId: string;
-  readonly candidates: readonly EntrySelectionScore[];
-}
-
-export interface UtteranceCandidateScore {
-  readonly utteranceId: string;
-  readonly templateId: string | null;
-  readonly entryIds: readonly string[];
-  readonly frequencyBase: number;
-  readonly expectedTokenBoost: number;
-  readonly combinedLearnerBoost: number;
-  readonly recentEntryFactor: number;
-  readonly recentUtteranceFactor: number;
-  readonly recentTemplateFactor: number;
-  readonly totalWeight: number;
-  readonly expectedTokenTrace: readonly ExpectedTokenBoostTrace[];
-}
-
 export interface FrequencyFirstUtteranceSelection {
   readonly policyVersion: string;
   readonly utterance: GrammarUtteranceCandidate;
   readonly score: UtteranceCandidateScore;
-  readonly templateCandidates: readonly TemplateSelectionScore[];
-  readonly slotSelections: readonly SlotSelectionScore[];
   readonly generationAttempts: number;
   readonly grammarFallbackReasons: readonly string[];
 }
@@ -152,42 +116,42 @@ export interface PreparedFormalSyntaxExecution {
   readonly structuralSamplingContext: PreparedStructuralSamplingContext;
 }
 
-export interface FrequencyFirstSelectionEvidenceInput {
+export interface FrequencyFirstScoringEvidenceInput {
   readonly entries: readonly CatalogEntry[];
-  readonly annotations: Readonly<Record<string, GrammarAnnotation>>;
   /** Binding evidence may come from current Measurement V2 or an isolated legacy adapter. */
   readonly bindingEvidence: readonly LearnerBindingEvidence[];
   readonly mode: PracticeMode;
   readonly layoutId: string;
   readonly history: UtteranceSelectionHistory;
   readonly policy: FrequencyFirstUtterancePolicy;
-  readonly random: RandomSource;
-  readonly profiles?: readonly RuntimeSyntaxProfile[];
-  readonly formalSyntaxComposition?: FormalSyntaxCompositionOverride;
-  readonly templates?: readonly GrammarTemplate[];
   /**
-   * Compatibility extension for archived selectors. Current production leaves
-   * this absent and therefore compiles without legacy transition measurement code.
+   * Generic compatibility extension used only by explicit archived adapters.
+   * Current browser production leaves this absent.
    */
   readonly additionalLearnerBoost?: (entries: readonly CatalogEntry[]) => number;
-  readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
   readonly preparedFrequencyFirstEntries?: PreparedFrequencyFirstEntries;
+}
+
+export interface FormalSyntaxUtteranceSelectionInput
+  extends FrequencyFirstScoringEvidenceInput {
+  readonly random: RandomSource;
+  readonly profiles: readonly RuntimeSyntaxProfile[];
+  readonly formalSyntaxComposition?: FormalSyntaxCompositionOverride;
+  readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
   readonly preparedFormalSyntaxExecution?: PreparedFormalSyntaxExecution;
 }
 
-export type FormalSyntaxUtteranceSelectionInput = Omit<
-  FrequencyFirstSelectionEvidenceInput,
-  "annotations" | "profiles" | "templates" | "additionalLearnerBoost"
-> & {
-  readonly profiles: readonly RuntimeSyntaxProfile[];
-};
-
 type FrequencyFirstScoringInput = Omit<
-  FrequencyFirstSelectionEvidenceInput,
+  FrequencyFirstScoringEvidenceInput,
   "bindingEvidence"
 > & {
   readonly bindingsByToken: Readonly<Record<string, LearnerBindingEvidence>>;
 };
+
+type FormalSyntaxScoringInput = FrequencyFirstScoringInput & Omit<
+  FormalSyntaxUtteranceSelectionInput,
+  keyof FrequencyFirstScoringEvidenceInput
+>;
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -375,20 +339,6 @@ function scoreEntry(
   };
 }
 
-function scoreTemplate(
-  template: GrammarTemplate,
-  input: FrequencyFirstScoringInput,
-): TemplateSelectionScore {
-  const recentTemplateFactor = input.history.recentTemplateIds.includes(template.id)
-    ? input.policy.recentTemplatePenalty
-    : 1;
-  return {
-    templateId: template.id,
-    recentTemplateFactor,
-    totalWeight: recentTemplateFactor,
-  };
-}
-
 function scoreCandidate(
   candidate: GrammarUtteranceCandidate,
   input: FrequencyFirstScoringInput,
@@ -460,7 +410,7 @@ export function prepareFormalSyntaxExecution(
 }
 
 function derivedConstructionClauseNesting(
-  input: FrequencyFirstScoringInput,
+  input: FormalSyntaxScoringInput,
 ): number {
   const composition = input.formalSyntaxComposition;
   const target = composition?.structuralTarget;
@@ -491,7 +441,7 @@ function derivedConstructionClauseNesting(
 }
 
 function composerCompositionOverride(
-  input: FrequencyFirstScoringInput,
+  input: FormalSyntaxScoringInput,
 ): Pick<FormalSyntaxUtteranceInput, "rules" | "samplingMode" | "structuralTarget"> {
   const composition = input.formalSyntaxComposition;
   if (composition === undefined) return {};
@@ -504,104 +454,55 @@ function composerCompositionOverride(
   };
 }
 
-function enrichSlotSelections(
-  traces: readonly GrammarSlotSelectionTrace[],
-  entriesById: ReadonlyMap<string, CatalogEntry>,
-  input: FrequencyFirstScoringInput,
-): readonly SlotSelectionScore[] {
-  return traces.map((trace) => ({
-    slotKey: trace.slotKey,
-    role: trace.role,
-    selectedEntryId: trace.selectedEntryId,
-    candidates: trace.candidates.map((candidate) => {
-      const entry = entriesById.get(candidate.entryId);
-      if (entry === undefined) throw new Error(`slot candidate disappeared: ${candidate.entryId}`);
-      const score = scoreEntry(entry, input);
-      if (score.totalWeight !== candidate.weight) {
-        throw new Error(`slot candidate weight drift: ${candidate.entryId}`);
-      }
-      return score;
-    }),
-  }));
-}
-
 function generateOnce(
   eligibleEntries: readonly CatalogEntry[],
-  input: FrequencyFirstScoringInput,
+  input: FormalSyntaxScoringInput,
   maximumClauseNesting: number,
   preparedFormalSyntaxLexicon: PreparedFormalSyntaxLexicon | null,
   preparedFormalSyntaxExecution: PreparedFormalSyntaxExecution | null,
-): SlotWeightedGrammarGeneration {
+): GrammarCompositionResult {
   // Without scoped binding evidence every expected-token boost is exactly 1.
   // Avoid rescanning each candidate entry's token list in that common fresh-user path.
   const hasBindingEvidence = Object.keys(input.bindingsByToken).length !== 0;
-  const useStaticFormalEntryWeight = input.profiles !== undefined
-    && input.additionalLearnerBoost === undefined
+  const useStaticFormalEntryWeight = input.additionalLearnerBoost === undefined
     && !hasBindingEvidence
     && input.history.recentEntryIds.length === 0;
   const entryWeights = new Map<string, number>();
   const entryWeight = (entry: CatalogEntry): number => {
     const existing = entryWeights.get(entry.id);
     if (existing !== undefined) return existing;
-    const weight = input.profiles !== undefined && input.additionalLearnerBoost === undefined
+    const weight = input.additionalLearnerBoost === undefined
       ? formalEntryTotalWeight(entry, input, hasBindingEvidence)
       : scoreEntry(entry, input).totalWeight;
     entryWeights.set(entry.id, weight);
     return weight;
   };
-  if (input.profiles !== undefined) {
-    if (preparedFormalSyntaxLexicon === null) {
-      throw new Error("formal syntax profiles require prepared lexical context");
-    }
-    const compositionOverride = composerCompositionOverride(input);
-    const executionRules = compositionOverride.rules ?? FORMAL_SYNTAX_RULES;
-    if (preparedFormalSyntaxExecution !== null) {
-      if (preparedFormalSyntaxExecution.maximumClauseNesting !== maximumClauseNesting) {
-        throw new Error("prepared formal syntax execution clause nesting mismatch");
-      }
-      if (preparedFormalSyntaxExecution.structuralSamplingContext.rules !== executionRules) {
-        throw new Error("prepared formal syntax execution rules identity mismatch");
-      }
-    }
-    const executionBounds = preparedFormalSyntaxExecution?.bounds
-      ?? formalSyntaxExecutionBounds(maximumClauseNesting);
-    const composition = composeFormalSyntaxUtterances({
-      eligibleEntries,
-      profiles: input.profiles,
-      random: input.random,
-      ...(useStaticFormalEntryWeight ? {} : { entryWeight }),
-      minimumLexicalEntries: 2,
-      maximumCandidates: 1,
-      maximumAttempts: 64,
-      ...compositionOverride,
-      bounds: executionBounds,
-    }, preparedFormalSyntaxLexicon, preparedFormalSyntaxExecution?.structuralSamplingContext);
-    return {
-      candidate: composition.candidates[0] ?? null,
-      templateCandidates: [],
-      slotSelections: [],
-      slotAttempts: 0,
-      fallbackReasons: composition.fallbackReasons,
-    };
+  if (preparedFormalSyntaxLexicon === null) {
+    throw new Error("formal syntax profiles require prepared lexical context");
   }
-  if (input.formalSyntaxComposition !== undefined) {
-    throw new Error("formalSyntaxComposition requires formal syntax profiles");
+  const compositionOverride = composerCompositionOverride(input);
+  const executionRules = compositionOverride.rules ?? FORMAL_SYNTAX_RULES;
+  if (preparedFormalSyntaxExecution !== null) {
+    if (preparedFormalSyntaxExecution.maximumClauseNesting !== maximumClauseNesting) {
+      throw new Error("prepared formal syntax execution clause nesting mismatch");
+    }
+    if (preparedFormalSyntaxExecution.structuralSamplingContext.rules !== executionRules) {
+      throw new Error("prepared formal syntax execution rules identity mismatch");
+    }
   }
-  const templateScores = new Map<string, TemplateSelectionScore>();
-  return generateSlotWeightedGrammar({
-    entries: eligibleEntries,
-    annotations: input.annotations,
-    ...(input.templates === undefined ? {} : { templates: input.templates }),
+  const executionBounds = preparedFormalSyntaxExecution?.bounds
+    ?? formalSyntaxExecutionBounds(maximumClauseNesting);
+  return composeFormalSyntaxUtterances({
+    eligibleEntries,
+    profiles: input.profiles,
     random: input.random,
-    entryWeight,
-    templateWeight: (template) => {
-      const existing = templateScores.get(template.id);
-      if (existing !== undefined) return existing.totalWeight;
-      const score = scoreTemplate(template, input);
-      templateScores.set(template.id, score);
-      return score.totalWeight;
-    },
-  });
+    ...(useStaticFormalEntryWeight ? {} : { entryWeight }),
+    minimumLexicalEntries: 2,
+    maximumCandidates: 1,
+    maximumAttempts: 64,
+    ...compositionOverride,
+    bounds: executionBounds,
+  }, preparedFormalSyntaxLexicon, preparedFormalSyntaxExecution?.structuralSamplingContext);
 }
 
 export function validateFrequencyFirstUtterancePolicy(
@@ -648,8 +549,8 @@ export function createFrequencyFirstSelectionState(
   };
 }
 
-function selectFrequencyFirstUtteranceFromScoring(
-  input: FrequencyFirstScoringInput,
+function selectFormalSyntaxUtteranceFromScoring(
+  input: FormalSyntaxScoringInput,
 ): FrequencyFirstUtteranceSelection {
   validateFrequencyFirstUtterancePolicy(input.policy);
   const eligibleEntries = input.entries;
@@ -657,23 +558,15 @@ function selectFrequencyFirstUtteranceFromScoring(
   if (preparedEntries !== undefined && preparedEntries.entries !== eligibleEntries) {
     throw new Error("prepared frequency-first entries input identity mismatch");
   }
-  const entriesById = preparedEntries?.entriesById
-    ?? new Map(eligibleEntries.map((entry) => [entry.id, entry]));
-  const maximumClauseNesting = input.profiles === undefined
-    ? 1
-    : derivedConstructionClauseNesting(input);
-  const preparedFormalSyntaxLexicon = input.profiles === undefined
-    ? null
-    : input.preparedFormalSyntaxLexicon
-      ?? prepareFormalSyntaxLexicon(eligibleEntries, input.profiles);
-  const preparedFormalSyntaxExecution = input.profiles === undefined
-    ? null
-    : input.preparedFormalSyntaxExecution ?? null;
+  const maximumClauseNesting = derivedConstructionClauseNesting(input);
+  const preparedFormalSyntaxLexicon = input.preparedFormalSyntaxLexicon
+    ?? prepareFormalSyntaxLexicon(eligibleEntries, input.profiles);
+  const preparedFormalSyntaxExecution = input.preparedFormalSyntaxExecution ?? null;
   if (preparedFormalSyntaxExecution !== null
     && preparedFormalSyntaxExecution.maximumClauseNesting !== maximumClauseNesting) {
     throw new Error("prepared formal syntax execution clause nesting mismatch");
   }
-  let generation: SlotWeightedGrammarGeneration | null = null;
+  let generation: GrammarCompositionResult | null = null;
   let score: UtteranceCandidateScore | null = null;
   let generationAttempts = 0;
 
@@ -686,10 +579,11 @@ function selectFrequencyFirstUtteranceFromScoring(
       preparedFormalSyntaxLexicon,
       preparedFormalSyntaxExecution,
     );
-    if (generation.candidate === null) {
+    const candidate = generation.candidates[0] ?? null;
+    if (candidate === null) {
       throw new Error(`no grammar-valid utterance candidate: ${generation.fallbackReasons.join(",")}`);
     }
-    score = scoreCandidate(generation.candidate, input);
+    score = scoreCandidate(candidate, input);
     if (score.recentUtteranceFactor === 1
       || generationAttempts >= MAXIMUM_RECENT_UTTERANCE_ATTEMPTS
       || input.random.next() < score.recentUtteranceFactor) {
@@ -697,44 +591,43 @@ function selectFrequencyFirstUtteranceFromScoring(
     }
   }
 
-  if (generation?.candidate === null || generation === null || score === null) {
-    throw new Error("slot-weighted utterance generation did not produce a candidate");
+  const candidate = generation?.candidates[0] ?? null;
+  if (candidate === null || generation === null || score === null) {
+    throw new Error("formal syntax generation did not produce a candidate");
   }
   return {
     policyVersion: input.policy.version,
-    utterance: generation.candidate,
+    utterance: candidate,
     score,
-    templateCandidates: generation.templateCandidates.map((candidate) => {
-      const template: GrammarTemplate = {
-        id: candidate.templateId,
-        slots: [],
-        punctuation: null,
-      };
-      const templateScore = scoreTemplate(template, input);
-      if (templateScore.totalWeight !== candidate.weight) {
-        throw new Error(`template candidate weight drift: ${candidate.templateId}`);
-      }
-      return templateScore;
-    }),
-    slotSelections: enrichSlotSelections(generation.slotSelections, entriesById, input),
     generationAttempts,
     grammarFallbackReasons: generation.fallbackReasons,
   };
 }
 
-/**
- * Shared evidence-driven selector seam. Archived compatibility adapters may
- * supply an additional bounded learner boost without importing their evidence
- * types into the current production module.
- */
-export function selectFrequencyFirstUtteranceFromEvidence(
-  input: FrequencyFirstSelectionEvidenceInput,
-): FrequencyFirstUtteranceSelection {
-  const { bindingEvidence, ...selectionInput } = input;
-  return selectFrequencyFirstUtteranceFromScoring({
-    ...selectionInput,
+function scopedScoringInput(
+  input: FrequencyFirstScoringEvidenceInput,
+): FrequencyFirstScoringInput {
+  const { bindingEvidence, ...scoring } = input;
+  return {
+    ...scoring,
     bindingsByToken: scopedBindingEvidence(bindingEvidence, input.mode, input.layoutId),
-  });
+  };
+}
+
+/** Shared scoring primitive used by the isolated legacy compatibility module. */
+export function scoreFrequencyFirstEntry(
+  entry: CatalogEntry,
+  input: FrequencyFirstScoringEvidenceInput,
+): EntrySelectionScore {
+  return scoreEntry(entry, scopedScoringInput(input));
+}
+
+/** Shared candidate scoring primitive used by the isolated legacy compatibility module. */
+export function scoreFrequencyFirstCandidate(
+  candidate: GrammarUtteranceCandidate,
+  input: FrequencyFirstScoringEvidenceInput,
+): UtteranceCandidateScore {
+  return scoreCandidate(candidate, scopedScoringInput(input));
 }
 
 /**
@@ -744,9 +637,10 @@ export function selectFrequencyFirstUtteranceFromEvidence(
 export function selectFormalSyntaxUtterance(
   input: FormalSyntaxUtteranceSelectionInput,
 ): FrequencyFirstUtteranceSelection {
-  return selectFrequencyFirstUtteranceFromEvidence({
-    ...input,
-    annotations: {},
+  const { bindingEvidence, ...selectionInput } = input;
+  return selectFormalSyntaxUtteranceFromScoring({
+    ...selectionInput,
+    bindingsByToken: scopedBindingEvidence(bindingEvidence, input.mode, input.layoutId),
   });
 }
 
