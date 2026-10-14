@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "formal-syntax-v2-phase1-product-baseline-v1",
+  "phase1ClosureCommit": "b77e2bc643baaa91fdd9fb42df14cbfcdffd4e5f",
+  "sampleCount": 2048,
+  "seedNamespace": "formal-syntax-v2-phase1-product-baseline-v1",
+  "productBounds": {
+    "maximumPhraseDepth": 3,
+    "maximumClauseNesting": 1,
+    "maximumClausesPerSentence": 2,
+    "maximumCoordinationItems": 2,
+    "maximumConsecutiveModifiers": 2,
+    "maximumComplementsPerPredicate": 1,
+    "maximumLexicalEntriesPerUtterance": 6
+  },
+  "success": 2048,
+  "failure": 0,
+  "roots": {
+    "sentence.a-not-a-question": 53,
+    "sentence.a-not-a-transitive-question": 35,
+    "sentence.alternative-question": 45,
+    "sentence.constituent-question": 65,
+    "sentence.constituent-subject-question": 88,
+    "sentence.declarative": 1452,
+    "sentence.polar-question": 194,
+    "sentence.request": 116
+  },
+  "families": {
+    "question.a-not-a": 88,
+    "question.alternative": 45,
+    "question.constituent": 153,
+    "question.polar": 194,
+    "request": 116,
+    "statement.declarative": 1452
+  },
+  "firstClauseRules": {
+    "clause.adjective-predicate": 128,
+    "clause.ba": 76,
+    "clause.bei": 142,
+    "clause.comparative": 54,
+    "clause.copular": 110,
+    "clause.ditransitive": 180,
+    "clause.existential": 128,
+    "clause.intransitive": 264,
+    "clause.locative": 129,
+    "clause.nominal-predicate": 143,
+    "clause.topic-comment": 154,
+    "clause.transitive": 299
+  },
+  "fallbacks": {
+    "formal-syntax-argument-realization-search-exhausted": 143,
+    "formal-syntax-predicate-marking-search-exhausted": 173,
+    "formal-syntax-structural-sampling-exhausted": 334,
+    "formal-syntax-under-minimum-lexical-entries": 27
+  },
+  "rowsDigest": "79cf63b759d41dc457e0c0cd1bd555a74ba9a30518fe98c3ba63d72dcc10b89f",
+  "textDigest": "ccf881b1336b7f5c15f3e741026789c5534755d4d245ede00e6cb7e21dd90ea1",
+  "derivationDigest": "bd4693e41805e3abd9a378e9ec4eaaa4ba2b609119690efc3917d5695ec35c0b",
+  "pathDigest": "505a53a593b8e553f12380d09e4b36888bb8256cb6dc981909180e4904faeeec",
+  "profileDigest": "5bd9172f38cdab4c22b616c18c69f48e1708a19aacfe281da9ceb7dd9160e863"
+}
