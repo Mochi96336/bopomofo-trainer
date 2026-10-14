@@ -33,22 +33,24 @@ exposure audit, not a replay of user histories or proof of pronunciation
 errors.** The 2,048 samples may not cover every reading; unseen words remain
 explicitly listed. A suspected error needs contextual review.
 
-## Reading eligibility boundary (next implementation, not active yet)
+## Reading eligibility boundary (implemented for reviewed roles)
 
-Add an independent reading-context evidence layer between syntactic
-realization and accepting a candidate. This layer must not redefine syntax
-legality or rewrite a persisted catalog entry ID.
+The selector now passes the existing reviewed role gate through formal-syntax
+selection to lexical realization. It keeps the originally drawn entry whenever
+that entry is permitted, and redraws only after a documented role mismatch.
+The gate does not redefine syntax legality or rewrite a persisted catalog
+entry ID. Broader sense and lexical-collocation validation remains future work.
 
 - Exact reviewed lexical readings and existing licensed constructions win.
 - For ambiguous readings, evidence can include reviewed phrases, syntactic
   construction usage, or reviewed contextual collocations.
 - An unknown reading-in-context remains **unreviewed**, not **incorrect**.
-- In an enforcing mode, reject unsupported candidates and let the current
-  bounded composer search continue; never invent another pronunciation.
+- The active gate rejects only a reading disallowed by a *reviewed* role. It
+  then resamples from licensed entries without inventing a pronunciation.
 - Ensure legitimate rare readings remain usable through evidenced contexts or
   a separately designed targeted practice route. Avoid a blind global ban.
-- Count rejections, candidate exhaustion, coverage, and distribution drift
-  against the pinned baseline before enabling enforcement.
+- Keep measuring rejections, candidate exhaustion, coverage, and distribution
+  drift against the pinned baseline as new role evidence is added.
 
 Suggested review artifact fields are: text, exact catalog entry ID, permitted
 context or construction, evidence source, review status, and stable version.

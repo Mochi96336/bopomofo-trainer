@@ -150,6 +150,8 @@ export interface FormalSyntaxUtteranceSelectionInput
   extends FrequencyFirstScoringEvidenceInput {
   readonly random: RandomSource;
   readonly profiles: readonly RuntimeSyntaxProfile[];
+  /** Optional reading permission policy, independent of research/grammar overrides. */
+  readonly readingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
   readonly formalSyntaxComposition?: FormalSyntaxCompositionOverride;
   readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
   readonly preparedFormalSyntaxExecution?: PreparedFormalSyntaxExecution;
@@ -511,6 +513,7 @@ function generateOnce(
     profiles: input.profiles,
     random: input.random,
     ...(useStaticFormalEntryWeight ? {} : { entryWeight }),
+    ...(input.readingEligibility === undefined ? {} : { readingEligibility: input.readingEligibility }),
     minimumLexicalEntries: 2,
     maximumCandidates: 1,
     maximumAttempts: 64,

@@ -59,7 +59,7 @@ const rule: ProductionRule = {
   negativeFixtureIds: ["fixture:no"],
 };
 
-describe("reviewed closed-class reading eligibility (not production enabled)", () => {
+describe("reviewed closed-class reading eligibility (used in production via combined gate)", () => {
   it("uses already-pinned conjunction readings without removing homograph lexical identities", () => {
     const approved = entry("和", "ㄏㄜ2");
     const alternative = entry("和", "ㄏㄨㄛ4");

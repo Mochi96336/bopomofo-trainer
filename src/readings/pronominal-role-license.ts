@@ -17,9 +17,9 @@ import { reviewedClosedClassReadingEligible } from "./closed-class-license.js";
  *   outside this precise role.
  *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=2930
  *
- * These reviewed roles are a small evidence-backed trial. The product does
- * not pass the optional composer policy; unused/unknown contexts remain
- * eligible rather than being silently converted to a default pronunciation.
+ * These reviewed roles now gate production selection, only when the selected
+ * lexical profile has the specific reviewed role. Unreviewed contexts remain
+ * eligible rather than being converted to a default pronunciation.
  */
 const REVIEWED_ROLE_READINGS: Readonly<
   Record<string, Readonly<Partial<Record<Upos, readonly string[]>>>>
@@ -52,7 +52,7 @@ export function reviewedPronominalReadingEligible(
   return approved === undefined || approved.has(entry.id);
 }
 
-/** Combined experimental policy; the shipping product never invokes this. */
+/** Combined reviewed policy used by the product selector and audit. */
 export function reviewedRoleReadingEligible(
   entry: CatalogEntry,
   profile: RuntimeSyntaxProfile,
