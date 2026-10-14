@@ -118,6 +118,45 @@ describe("reviewed closed-class reading eligibility (not production enabled)", (
     )).toThrow("actually selected catalog identity");
   });
 
+  it("does not consume extra randomness or change a valid original selection", () => {
+    const subject = entry("我", "ㄨㄛ3");
+    const correct = entry("和", "ㄏㄜ2");
+    const wrong = entry("和", "ㄏㄨㄛ4");
+    const entries = [subject, correct, wrong];
+    const profiles = [
+      profile(subject.id, "PRON", ["subject"]),
+      profile(correct.id, "CCONJ", ["coordinator"]),
+      profile(wrong.id, "CCONJ", ["coordinator"]),
+    ];
+    class CountedRandom implements RandomSource {
+      public calls = 0;
+      public next(): number { this.calls += 1; return 0; }
+    }
+    const ordinaryRandom = new CountedRandom();
+    const trialRandom = new CountedRandom();
+    const common = {
+      eligibleEntries: entries,
+      profiles,
+      rules: [rule],
+      samplingMode: "raw" as const,
+      minimumLexicalEntries: 2,
+      maximumCandidates: 1,
+      maximumAttempts: 8,
+    };
+    const original = composeFormalSyntaxUtterances({
+      ...common,
+      random: ordinaryRandom,
+    });
+    const trial = composeFormalSyntaxUtterances({
+      ...common,
+      random: trialRandom,
+      readingEligibility: reviewedClosedClassReadingEligible,
+    });
+    expect(original.candidates).toHaveLength(1);
+    expect(trial.candidates).toEqual(original.candidates);
+    expect(trialRandom.calls).toBe(ordinaryRandom.calls);
+  });
+
   it("filters general lexical slots when explicitly opted in", () => {
     const subject = entry("我", "ㄨㄛ3");
     const correct = entry("和", "ㄏㄜ2");

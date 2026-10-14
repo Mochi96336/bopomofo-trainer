@@ -4,6 +4,7 @@ import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.
 import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
 import { createSeededRandom } from "../src/curriculum/random.js";
 import { reviewedClosedClassReadingEligible } from "../src/readings/closed-class-license.js";
+import { reviewedRoleReadingEligible } from "../src/readings/pronominal-role-license.js";
 import {
   auditPolyphonicCandidate,
   buildPolyphonicReadingIndex,
@@ -29,10 +30,12 @@ const PRODUCT_BOUNDS = {
   maximumLexicalEntriesPerUtterance: 6,
 } as const;
 
-function argumentsFromCli(): { samples: number; output: string; policy: "none" | "reviewed-closed" } {
+type ReadingAuditPolicy = "none" | "reviewed-closed" | "reviewed-roles";
+
+function argumentsFromCli(): { samples: number; output: string; policy: ReadingAuditPolicy } {
   let samples = 2048;
   let output = "data/generated/polyphonic-context-exposure.json";
-  let policy: "none" | "reviewed-closed" = "none";
+  let policy: ReadingAuditPolicy = "none";
   for (let i = 2; i < process.argv.length; i += 1) {
     const name = process.argv[i];
     const value = process.argv[++i];
@@ -45,8 +48,8 @@ function argumentsFromCli(): { samples: number; output: string; policy: "none" |
     } else if (name === "--output") {
       output = value;
     } else if (name === "--policy") {
-      if (value !== "none" && value !== "reviewed-closed") {
-        throw new Error("--policy accepts none or reviewed-closed");
+      if (value !== "none" && value !== "reviewed-closed" && value !== "reviewed-roles") {
+        throw new Error("--policy accepts none, reviewed-closed or reviewed-roles");
       }
       policy = value;
     } else {
@@ -70,6 +73,12 @@ const { samples, output, policy } = argumentsFromCli();
 const ambiguous = buildPolyphonicReadingIndex(PRACTICE_CATALOG);
 const profilesById = new Map(SYNTAX_PROFILES.map((profile) => [profile.id, profile]));
 const hits: PolyphonicContextHit[] = [];
+const sentences: Array<{
+  readonly seedIndex: number;
+  readonly text: string | null;
+  readonly entryIds: readonly string[];
+  readonly root: string | null;
+}> = [];
 const perText = new Map<string, number>();
 const perEntryId = new Map<string, number>();
 const perTextAndUpos = new Map<string, number>();
@@ -89,10 +98,18 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
     bounds: PRODUCT_BOUNDS,
     ...(policy === "reviewed-closed"
       ? { readingEligibility: reviewedClosedClassReadingEligible }
-      : {}),
+      : policy === "reviewed-roles"
+        ? { readingEligibility: reviewedRoleReadingEligible }
+        : {}),
   });
   for (const reason of composition.fallbackReasons) increment(fallbacks, reason);
   const candidate = composition.candidates[0];
+  sentences.push({
+    seedIndex,
+    text: candidate?.text ?? null,
+    entryIds: candidate?.entries.map((entry) => entry.id) ?? [],
+    root: candidate?.syntaxRootRuleId ?? null,
+  });
   if (candidate === undefined) continue;
   successfulSentences += 1;
   const sentenceHits = auditPolyphonicCandidate(seedIndex, candidate, ambiguous, profilesById);
@@ -128,6 +145,7 @@ const report = {
   occurrenceCountByEntryId: sortedCounts(perEntryId),
   occurrenceCountByTextAndUpos: sortedCounts(perTextAndUpos),
   fallbacks: sortedCounts(fallbacks),
+  sentences,
   hits,
 };
 await mkdir(dirname(output), { recursive: true });

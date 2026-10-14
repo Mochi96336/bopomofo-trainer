@@ -687,18 +687,12 @@ export function composeFormalSyntaxUtterances(
       const boundCompatible = boundEntryId === undefined
         ? allCompatible
         : allCompatible.filter((profile) => profile.entryId === boundEntryId);
-      const readingEligibility = input.readingEligibility;
-      const compatible = readingEligibility === undefined
-        ? boundCompatible
-        : boundCompatible.filter((profile) => {
-            const entry = entriesById.get(profile.entryId);
-            if (entry === undefined) {
-              throw new Error("formal syntax reading policy references a missing catalog entry");
-            }
-            return readingEligibility(entry, profile, slot);
-          });
-      const selectedProfile = selectCompatibleProfile(
-        compatible,
+      // Preserve the pre-policy random selection whenever it already has an
+      // appropriate reading. Pre-filtering the complete lexical frontier
+      // perturbs many unrelated seeded sentences even when the original
+      // selected identity is valid. Only a rejected selection is resampled.
+      const draw = (choices: readonly RuntimeSyntaxProfile[]) => selectCompatibleProfile(
+        choices,
         usedEntryIds,
         boundEntryId,
         entriesById,
@@ -709,6 +703,24 @@ export function composeFormalSyntaxUtterances(
         compatibilityMaximumBoost,
         input.random,
       );
+      const readingEligibility = input.readingEligibility;
+      let selectedProfile = draw(boundCompatible);
+      if (selectedProfile !== null && readingEligibility !== undefined) {
+        const initiallySelected = entriesById.get(selectedProfile.entryId);
+        if (initiallySelected === undefined) {
+          throw new Error("formal syntax reading policy references a missing catalog entry");
+        }
+        if (!readingEligibility(initiallySelected, selectedProfile, slot)) {
+          const licensed = boundCompatible.filter((profile) => {
+            const entry = entriesById.get(profile.entryId);
+            if (entry === undefined) {
+              throw new Error("formal syntax reading policy references a missing catalog entry");
+            }
+            return readingEligibility(entry, profile, slot);
+          });
+          selectedProfile = draw(licensed);
+        }
+      }
       if (selectedProfile === null) {
         unrealizable = true;
         break;
