@@ -1,8 +1,5 @@
-import type { InputLayout, TokenId } from "../core/model.js";
-import type {
-  CatalogSupportIndex,
-  CurriculumProfile,
-} from "../curriculum/types.js";
+import type { InputLayout, PracticeMode, TokenId } from "../core/model.js";
+import type { CatalogSupportIndex } from "../curriculum/types.js";
 import {
   bindingAggregateKey,
   type BindingAggregateV2,
@@ -28,7 +25,8 @@ import type { AnalysisV2SemanticModel } from "./analysis-v2-model.js";
 
 export interface BuildAnalysisV2SemanticModelInput {
   readonly measurements: MeasurementSummaryV2;
-  readonly curriculum: CurriculumProfile;
+  readonly mode: PracticeMode;
+  readonly layoutId: string;
   readonly support: CatalogSupportIndex;
   readonly layout: InputLayout;
   readonly progressHistory?: ProgressHistory | null;
@@ -51,8 +49,8 @@ function bindingFor(
   tokenId: TokenId,
 ): BindingAggregateV2 | undefined {
   return input.measurements.semantic.bindings[bindingAggregateKey({
-    mode: input.curriculum.mode,
-    layoutId: input.curriculum.layoutId,
+    mode: input.mode,
+    layoutId: input.layoutId,
     tokenId,
   })];
 }
@@ -100,8 +98,8 @@ function buildConfusions(
   codeByToken: ReadonlyMap<TokenId, string>,
 ): readonly ConfusionDiagnostic[] {
   const aggregates = Object.values(input.measurements.semantic.confusions)
-    .filter((aggregate) => aggregate.mode === input.curriculum.mode
-      && aggregate.layoutId === input.curriculum.layoutId);
+    .filter((aggregate) => aggregate.mode === input.mode
+      && aggregate.layoutId === input.layoutId);
   const totals = new Map<TokenId, number>();
   for (const aggregate of aggregates) {
     totals.set(
