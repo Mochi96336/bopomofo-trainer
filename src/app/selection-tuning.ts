@@ -81,7 +81,5 @@ export function policyForSelectionTuning(
       FREQUENCY_FIRST_UTTERANCE_POLICY.errorBoostScale * tuning.errorInfluence,
     timingBoostScale:
       FREQUENCY_FIRST_UTTERANCE_POLICY.timingBoostScale * tuning.timingInfluence,
-    transitionBoostScale:
-      FREQUENCY_FIRST_UTTERANCE_POLICY.transitionBoostScale * tuning.timingInfluence,
   };
 }
