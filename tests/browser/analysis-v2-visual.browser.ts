@@ -8,7 +8,6 @@ import {
 import { serializeProductProgress } from "../../src/product/progress.js";
 import { STANDARD_BOPOMOFO_LAYOUT } from "../../src/scheme/standard-layout.js";
 import {
-  EVALUATION_CATALOG,
   PRACTICE_CATALOG,
   SYNTAX_PROFILES,
 } from "../../src/app/generated/catalog.js";
@@ -45,7 +44,6 @@ function speedPairs(count: number): readonly [TokenId, TokenId][] {
 function seededSpeedProgress(edgeCount = 1): string {
   const environment = createProductEnvironment({
     practice: PRACTICE_CATALOG,
-    evaluation: EVALUATION_CATALOG,
     syntaxProfiles: SYNTAX_PROFILES,
   });
   const fresh = createFreshProgressForEnvironment(
