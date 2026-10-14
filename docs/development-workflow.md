@@ -27,13 +27,18 @@ This command runs:
 5. the production build;
 6. the bundle size budget.
 
-The compiled catalog is almost the whole JavaScript bundle — around 450 kB of the
-460 kB a visitor downloads — so the download grows with every entry added, and
-the plan is to keep adding entries. `bundle-budget.json` holds the gzipped limit
-per asset kind, plus a limit on the total. Going over is not a bug and the
-failure does not read as one: it asks for the increase to be a decision, taken
-and recorded in the same change, rather than absorbed quietly. Raise the limit
-deliberately and say in the commit what grew.
+The generated catalog is the dominant JavaScript cost. At the current P1d baseline,
+Rollup assigns 87.0% of rendered module bytes to the generated catalog; its two
+large payloads are 304.1 kB isolated-gzip practice entries and 94.5 kB
+isolated-gzip runtime syntax profiles plus compact dictionaries. See
+[bundle attribution](./bundle-attribution.md) and run `npm run size:attribution`
+when a change materially grows the lexicon or runtime profiles.
+
+`bundle-budget.json` holds the gzipped limit per asset kind, plus a limit on
+the total. Going over is not a bug and the failure does not read as one: it asks
+for the increase to be a decision, taken and recorded in the same change,
+rather than absorbed quietly. Raise the limit deliberately and say in the
+commit what grew.
 
 An asset kind the build emits with no limit against it fails the check too. A
 gate that only guards the kinds it already knows about would hold right up until

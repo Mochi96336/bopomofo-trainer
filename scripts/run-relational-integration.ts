@@ -4,7 +4,7 @@ import {
   runRelationalResearchIntegration,
   serializeRelationalResearchIntegrationReport,
   type RelationalResearchIntegrationFixture,
-} from "../src/integration/relational-research.js";
+} from "../src/archive/research/integration/relational-research.js";
 
 const fixtureUrl = new URL(
   "../data/fixtures/integration/relational-research.json",
