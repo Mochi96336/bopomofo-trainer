@@ -19,13 +19,8 @@ import {
   type FrequencyFirstUtterancePolicy,
 } from "../curriculum/frequency-first-utterance.js";
 import { prepareFormalSyntaxLexicon } from "../curriculum/formal-syntax-utterance.js";
-import { PHASE_4_CURRICULUM_POLICY } from "../curriculum/policy.js";
 import { createSeededRandom } from "../curriculum/random.js";
-import { createCatalogSupportIndex, entryTokenSet } from "../curriculum/support.js";
-import type {
-  CurriculumBindingRecord,
-  CurriculumProfile,
-} from "../curriculum/types.js";
+import { createCatalogSupportIndex } from "../curriculum/support.js";
 import {
   appendRecentSummary,
   createFreshProductProgress,
@@ -75,7 +70,6 @@ export function createProductEnvironment(
   return {
     catalogs,
     practiceSupport: createCatalogSupportIndex(catalogs.practice),
-    curriculumPolicy: PHASE_4_CURRICULUM_POLICY,
     utterancePolicy,
     preparedPracticeLexicon: prepareFormalSyntaxLexicon(
       catalogs.practice,
@@ -93,11 +87,9 @@ export function createFreshProgressForEnvironment(
   layoutId: string,
 ): ProductProgress {
   return createFreshProductProgress(
-    environment.practiceSupport,
     seed,
     mode,
     layoutId,
-    environment.curriculumPolicy.version,
     environment.utterancePolicy,
   );
 }
@@ -112,7 +104,7 @@ function selectRound(
     mode: progress.mode,
     layoutId: progress.layoutId,
     history: {
-      recentEntryIds: progress.curriculum.recentEntryIds,
+      recentEntryIds: progress.selection.recentEntryIds,
       recentUtteranceIds: progress.selection.recentUtteranceIds,
       recentTemplateIds: progress.selection.recentTemplateIds,
     },
@@ -133,7 +125,6 @@ function selectRound(
       layoutId: progress.layoutId,
       entries: selection.utterance.entries,
     },
-    focus: null,
     selection,
   };
 }
@@ -182,36 +173,6 @@ function sumSessionMetrics(
   return { attempts, errors, timingSamples };
 }
 
-function updateCurriculumAfterPractice(
-  profile: CurriculumProfile,
-  cumulativeMeasurements: ProductProgress["measurements"],
-  round: ProductRound,
-): CurriculumProfile {
-  const aggregates = new Map(
-    Object.values(cumulativeMeasurements.semantic.bindings).map((aggregate) => [
-      aggregate.scope.tokenId,
-      aggregate,
-    ]),
-  );
-  const bindings: Record<string, CurriculumBindingRecord> = {};
-  for (const [tokenId, record] of Object.entries(profile.bindings)) {
-    bindings[tokenId] = {
-      ...record,
-      aggregate: aggregates.get(tokenId) ?? record.aggregate,
-    };
-  }
-  const recentTokenIds = [
-    ...new Set(round.exercise.entries.flatMap((entry) => [...entryTokenSet(entry)])),
-  ];
-  return {
-    ...profile,
-    round: profile.round + 1,
-    bindings,
-    recentEntryIds: round.exercise.entries.map((entry) => entry.id),
-    recentTokenIds,
-  };
-}
-
 function finalizeRound(
   environment: ProductEnvironment,
   state: ProductState,
@@ -239,11 +200,6 @@ function finalizeRound(
     observations,
     state.progress.measurements,
   );
-  const curriculum = updateCurriculumAfterPractice(
-    state.progress.curriculum,
-    measurements,
-    state.round,
-  );
   const selection = updateFrequencyFirstSelectionState(
     state.progress.selection,
     state.round.selection,
@@ -252,7 +208,6 @@ function finalizeRound(
   const progress: ProductProgress = {
     ...state.progress,
     measurements,
-    curriculum,
     selection,
     practiceRoundsCompleted: state.progress.practiceRoundsCompleted + 1,
     recentSummaries: appendRecentSummary(state.progress, summary),

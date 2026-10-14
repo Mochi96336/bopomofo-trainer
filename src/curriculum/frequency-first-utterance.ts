@@ -74,6 +74,7 @@ export const FREQUENCY_FIRST_UTTERANCE_POLICY: FrequencyFirstUtterancePolicy = {
 
 export interface FrequencyFirstSelectionState {
   readonly policyVersion: string;
+  readonly recentEntryIds: readonly string[];
   readonly recentUtteranceIds: readonly string[];
   readonly recentTemplateIds: readonly string[];
 }
@@ -740,6 +741,7 @@ export function createFrequencyFirstSelectionState(
   validateFrequencyFirstUtterancePolicy(policy);
   return {
     policyVersion: policy.version,
+    recentEntryIds: [],
     recentUtteranceIds: [],
     recentTemplateIds: [],
   };
@@ -873,6 +875,7 @@ export function updateFrequencyFirstSelectionState(
   }
   return {
     policyVersion: policy.version,
+    recentEntryIds: selection.utterance.entries.map((entry) => entry.id),
     recentUtteranceIds: appendRecent(
       state.recentUtteranceIds,
       selection.utterance.id,

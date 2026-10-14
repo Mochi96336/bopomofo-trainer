@@ -46,7 +46,7 @@ The maximum combined learner boost is `1.50`. Level eligibility is absolute: no 
 
 A mapped incorrect input updates the binding aggregate of the expected token. The selector may raise utterances containing that expected token after the minimum sample gate.
 
-The actual wrong token is deliberately ignored by curriculum scoring.
+The actual wrong token is deliberately ignored by product selection scoring.
 
 Example:
 
@@ -88,9 +88,11 @@ Every syntax-legal runtime entry belongs to the ordinary practice catalog. The b
 
 ## Persistence boundary
 
-Current product progress uses schema 7 and measurement epoch `coordination-v1`. It persists Measurement V2 data, selection recency, round count, recent summaries, and the still-present legacy curriculum envelope.
+Current product progress uses schema 8 and measurement epoch `coordination-v1`. It persists Measurement V2 data, frequency-first recency (`recentEntryIds`, recent utterances, and recent templates), completed-round count, and recent summaries. It does not persist a runtime `CurriculumProfile`.
 
-Schema 6 is accepted only at the migration boundary. Its measurement-derived records are discarded because they were gathered under incompatible strict canonical-input semantics; the loader preserves identity, completed-round count, curriculum recency, and frequency-first selection continuity, then starts a fresh Measurement V2 epoch and clears migrated recent summaries.
+Schema 7 is accepted as a structural migration. Its Measurement V2 data and recent summaries are preserved, while `curriculum.recentEntryIds` is moved into the current selection state; legacy focus/cooldown fields are discarded.
+
+Schema 6 is accepted only across the older measurement-epoch boundary. Its measurement-derived records are discarded because they were gathered under incompatible strict canonical-input semantics; identity, completed-round count, recent-entry recency, and frequency-first selection continuity are retained, then a fresh Measurement V2 epoch starts and migrated recent summaries are cleared.
 
 Schemas 1 through 5 are rejected. The browser does not revive their measurement or selection state.
 

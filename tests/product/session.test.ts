@@ -148,7 +148,7 @@ describe("frequency-first grammatical product session loop", () => {
     expect(bindingObservationCount(completed)).toBeLessThan(completed.summary!.attempts);
   });
 
-  it("updates practice measurements and curriculum exactly once", () => {
+  it("updates practice measurements and selection state exactly once", () => {
     const progress = createFreshProgressForEnvironment(
       environment,
       "seed",
@@ -158,7 +158,6 @@ describe("frequency-first grammatical product session loop", () => {
     const completed = complete(createProductState(environment, progress, 0));
     expect(completed.round.kind).toBe("practice");
     expect(completed.progress.practiceRoundsCompleted).toBe(1);
-    expect(completed.progress.curriculum.round).toBe(1);
     expect(bindingObservationCount(completed)).toBeGreaterThan(0);
 
     const unchanged = applyProductInput(environment, completed, {
@@ -181,7 +180,6 @@ describe("frequency-first grammatical product session loop", () => {
       environment.practiceSupport,
       "guided",
       "standard",
-      environment.curriculumPolicy.version,
       environment.utterancePolicy,
     )!;
     const reloaded = createProductState(environment, restored, 700);
@@ -198,7 +196,6 @@ describe("frequency-first grammatical product session loop", () => {
     const progress = {
       ...fresh,
       practiceRoundsCompleted: 5,
-      curriculum: { ...fresh.curriculum, round: 5 },
     };
     const state = createProductState(environment, progress, 0);
     expect(state.round.kind).toBe("practice");
@@ -207,7 +204,6 @@ describe("frequency-first grammatical product session loop", () => {
     const beforeMeasurements = bindingObservationCount(state);
     const completed = complete(state);
     expect(completed.progress.practiceRoundsCompleted).toBe(6);
-    expect(completed.progress.curriculum.round).toBe(6);
     expect(bindingObservationCount(completed)).toBeGreaterThan(beforeMeasurements);
   });
 });

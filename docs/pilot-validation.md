@@ -1,16 +1,16 @@
 # Pilot evidence and interface hierarchy
 
-This describes the per-round evidence the browser keeps and the interface rules that evidence is read through. It does not change curriculum thresholds and does not claim validated learning effectiveness.
+This describes the per-round evidence the browser keeps and the interface rules that evidence is read through. It does not change selection or diagnostic thresholds and does not claim validated learning effectiveness.
 
 ## Storage boundary
 
-Product progress remains the source of truth for cumulative measurement and curriculum state. Pilot history uses a separate schema-versioned localStorage key:
+Product progress remains the source of truth for cumulative Measurement V2, frequency-first selection recency, and completed-round state. Pilot history uses the separate localStorage key:
 
 ```text
 bopomofo-trainer.pilot-history.v3
 ```
 
-A payload whose schema version is not the current one is rejected outright rather than migrated, and the learner restarts from a fresh generation. Pilot-history schema 3 accompanies product-progress schema 6 and measurement policy `phase-3-v2`.
+The key name is stable, while the payload currently uses Pilot-history schema 4. Older or malformed Pilot payloads are rejected and rebuilt from valid current progress summaries where possible. Product progress itself has explicit schema 7 and schema 6 migration paths into current schema 8; only schema 6 crosses an incompatible measurement epoch and therefore resets measurement-derived evidence.
 
 Bounded per-key progress trends are a third, independent record — see [progress history](./diagnostic-progress-history.md).
 
@@ -21,7 +21,6 @@ When the Pilot key is absent, progress summaries can derive a bounded fallback h
 The latest 24 completed rounds retain:
 
 - sequential round number;
-- coverage or adaptive phase;
 - mapped-key attempts, errors, and accuracy;
 - eligible timing-sample count;
 - median clean latency;
@@ -85,4 +84,4 @@ There are no success bursts, card scaling, staggered character entrances, animat
 11. Confirm a four-symbol syllable including its tone stays visibly separated, and that shorter syllables do not change Chinese character spacing.
 12. Export a backup, reset progress, re-import, and confirm progress, history, and trends all return.
 
-Curriculum thresholds should change only after a repeatable failure mode appears. UI changes should likewise respond to observed task friction rather than decoration alone.
+Selection and diagnostic thresholds should change only after a repeatable failure mode appears. UI changes should likewise respond to observed task friction rather than decoration alone.

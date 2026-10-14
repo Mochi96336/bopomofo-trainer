@@ -74,7 +74,6 @@ export function parseProductBackup(
     environment.practiceSupport,
     mode,
     layoutId,
-    environment.curriculumPolicy.version,
     environment.utterancePolicy,
   );
   const selectionTuning = parseSelectionTuning(JSON.stringify(parsed.selectionTuning));

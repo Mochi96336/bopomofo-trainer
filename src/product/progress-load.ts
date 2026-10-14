@@ -7,7 +7,11 @@ import {
   type ProductProgress,
 } from "./types.js";
 
-export type ProductProgressParseStatus = "loaded" | "migrated" | "invalid";
+export type ProductProgressParseStatus =
+  | "loaded"
+  | "migrated"
+  | "measurement-reset"
+  | "invalid";
 
 export interface ProductProgressParseResult {
   readonly progress: ProductProgress | null;
@@ -36,7 +40,6 @@ export function parseProductProgressForLoad(
   support: CatalogSupportIndex,
   expectedMode: PracticeMode,
   expectedLayoutId: string,
-  expectedCurriculumPolicyVersion: string,
   utterancePolicy: FrequencyFirstUtterancePolicy,
 ): ProductProgressParseResult {
   const progress = parseProductProgress(
@@ -44,14 +47,16 @@ export function parseProductProgressForLoad(
     support,
     expectedMode,
     expectedLayoutId,
-    expectedCurriculumPolicyVersion,
     utterancePolicy,
   );
   if (progress === null) return { progress: null, status: "invalid" };
+  const version = sourceSchemaVersion(source);
   return {
     progress,
-    status: sourceSchemaVersion(source) === PRODUCT_PROGRESS_SCHEMA_VERSION
+    status: version === PRODUCT_PROGRESS_SCHEMA_VERSION
       ? "loaded"
-      : "migrated",
+      : version === 6
+        ? "measurement-reset"
+        : "migrated",
   };
 }

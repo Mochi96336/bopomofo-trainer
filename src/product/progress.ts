@@ -1,10 +1,5 @@
 import type { PracticeMode } from "../core/model.js";
-import { createEmptyCurriculumProfile, profileFromAggregates } from "../curriculum/simulator.js";
-import type {
-  CatalogSupportIndex,
-  CurriculumBindingRecord,
-  CurriculumProfile,
-} from "../curriculum/types.js";
+import type { CatalogSupportIndex } from "../curriculum/types.js";
 import {
   createFrequencyFirstSelectionState,
   validateFrequencyFirstUtterancePolicy,
@@ -22,7 +17,8 @@ import {
 } from "./types.js";
 
 const RECENT_SUMMARY_LIMIT = 12;
-const LEGACY_PRODUCT_PROGRESS_SCHEMA_VERSION = 6;
+const LEGACY_PRODUCT_PROGRESS_SCHEMA_VERSION = 7;
+const LEGACY_MEASUREMENT_EPOCH_SCHEMA_VERSION = 6;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -75,9 +71,36 @@ function parseSummary(value: unknown): ProductHistoryRoundSummary | null {
   };
 }
 
+function parseKnownEntryIds(
+  value: unknown,
+  support: CatalogSupportIndex,
+): readonly string[] | null {
+  if (
+    !Array.isArray(value)
+    || value.some((entryId) =>
+      typeof entryId !== "string" || support.entriesById[entryId] === undefined)
+  ) return null;
+  return value as string[];
+}
+
+function parseLegacyRecentEntryIds(
+  parsed: Record<string, unknown>,
+  support: CatalogSupportIndex,
+  completedRounds: number,
+): readonly string[] | null {
+  if (!isRecord(parsed.curriculum)) return null;
+  if (
+    !isNonNegativeInteger(parsed.curriculum.round)
+    || parsed.curriculum.round !== completedRounds
+  ) return null;
+  return parseKnownEntryIds(parsed.curriculum.recentEntryIds, support);
+}
+
 function parseSelectionState(
   value: unknown,
   policy: FrequencyFirstUtterancePolicy,
+  support: CatalogSupportIndex,
+  legacyRecentEntryIds: readonly string[] | null,
 ): FrequencyFirstSelectionState | null {
   if (
     !isRecord(value)
@@ -89,8 +112,14 @@ function parseSelectionState(
     || value.recentUtteranceIds.length > policy.recentUtteranceLimit
     || value.recentTemplateIds.length > policy.recentTemplateLimit
   ) return null;
+
+  const recentEntryIds = legacyRecentEntryIds
+    ?? parseKnownEntryIds(value.recentEntryIds, support);
+  if (recentEntryIds === null) return null;
+
   return {
     policyVersion: policy.version,
+    recentEntryIds,
     recentUtteranceIds: value.recentUtteranceIds as string[],
     recentTemplateIds: value.recentTemplateIds as string[],
   };
@@ -101,87 +130,29 @@ function validSharedEnvelope(
   support: CatalogSupportIndex,
   expectedMode: PracticeMode,
   expectedLayoutId: string,
-  expectedCurriculumPolicyVersion: string,
 ): {
   readonly validTokens: ReadonlySet<string>;
   readonly completedRounds: number;
-  readonly recentEntryIds: readonly string[];
-  readonly recentTokenIds: readonly string[];
 } | null {
   if (
     typeof parsed.seed !== "string"
     || parsed.seed.length === 0
     || parsed.mode !== expectedMode
     || parsed.layoutId !== expectedLayoutId
-    || parsed.curriculumPolicyVersion !== expectedCurriculumPolicyVersion
     || !isNonNegativeInteger(parsed.practiceRoundsCompleted)
     || !Array.isArray(parsed.recentSummaries)
-    || !isRecord(parsed.curriculum)
-    || !isNonNegativeInteger(parsed.curriculum.round)
-    || parsed.curriculum.round !== parsed.practiceRoundsCompleted
-    || !isRecord(parsed.curriculum.lastFocusedRounds)
-    || !Array.isArray(parsed.curriculum.recentEntryIds)
-    || !Array.isArray(parsed.curriculum.recentTokenIds)
   ) return null;
 
-  const validTokens = new Set(Object.keys(support.byToken));
-  const recentEntryIds = parsed.curriculum.recentEntryIds;
-  const recentTokenIds = parsed.curriculum.recentTokenIds;
-  if (
-    recentEntryIds.some((entryId) =>
-      typeof entryId !== "string" || support.entriesById[entryId] === undefined,
-    )
-    || recentTokenIds.some((tokenId) => typeof tokenId !== "string" || !validTokens.has(tokenId))
-  ) return null;
   return {
-    validTokens,
+    validTokens: new Set(Object.keys(support.byToken)),
     completedRounds: parsed.practiceRoundsCompleted as number,
-    recentEntryIds: recentEntryIds as string[],
-    recentTokenIds: recentTokenIds as string[],
-  };
-}
-
-function rebuildCurriculum(
-  parsed: Record<string, unknown>,
-  support: CatalogSupportIndex,
-  mode: PracticeMode,
-  layoutId: string,
-  progress: Pick<ProductProgress, "measurements" | "practiceRoundsCompleted">,
-  recentEntryIds: readonly string[],
-  recentTokenIds: readonly string[],
-): CurriculumProfile | null {
-  if (!isRecord(parsed.curriculum) || !isRecord(parsed.curriculum.lastFocusedRounds)) return null;
-  const base = profileFromAggregates(
-    support,
-    mode,
-    layoutId,
-    Object.values(progress.measurements.semantic.bindings),
-    progress.practiceRoundsCompleted,
-  );
-  const bindings: Record<string, CurriculumBindingRecord> = {};
-  for (const [tokenId, record] of Object.entries(base.bindings)) {
-    const value = parsed.curriculum.lastFocusedRounds[tokenId];
-    if (value !== null && value !== undefined
-      && (!isNonNegativeInteger(value) || (value as number) > base.round)) return null;
-    bindings[tokenId] = {
-      ...record,
-      lastFocusedRound: value === undefined ? null : value as number | null,
-    };
-  }
-  return {
-    ...base,
-    bindings,
-    recentEntryIds,
-    recentTokenIds,
   };
 }
 
 export function createFreshProductProgress(
-  support: CatalogSupportIndex,
   seed: string,
   mode: PracticeMode,
   layoutId: string,
-  curriculumPolicyVersion: string,
   utterancePolicy: FrequencyFirstUtterancePolicy,
 ): ProductProgress {
   if (seed.length === 0) throw new Error("product seed must not be empty");
@@ -193,8 +164,6 @@ export function createFreshProductProgress(
     mode,
     layoutId,
     measurements: createEmptyMeasurementSummaryV2(),
-    curriculumPolicyVersion,
-    curriculum: createEmptyCurriculumProfile(support, mode, layoutId),
     selection: createFrequencyFirstSelectionState(utterancePolicy),
     practiceRoundsCompleted: 0,
     recentSummaries: [],
@@ -202,12 +171,6 @@ export function createFreshProductProgress(
 }
 
 export function serializeProductProgress(progress: ProductProgress): string {
-  const lastFocusedRounds = Object.fromEntries(
-    Object.entries(progress.curriculum.bindings).map(([tokenId, record]) => [
-      tokenId,
-      record.lastFocusedRound,
-    ]),
-  );
   return JSON.stringify({
     schemaVersion: progress.schemaVersion,
     measurementEpoch: progress.measurementEpoch,
@@ -215,13 +178,6 @@ export function serializeProductProgress(progress: ProductProgress): string {
     mode: progress.mode,
     layoutId: progress.layoutId,
     measurements: progress.measurements,
-    curriculumPolicyVersion: progress.curriculumPolicyVersion,
-    curriculum: {
-      round: progress.curriculum.round,
-      lastFocusedRounds,
-      recentEntryIds: progress.curriculum.recentEntryIds,
-      recentTokenIds: progress.curriculum.recentTokenIds,
-    },
     selection: progress.selection,
     practiceRoundsCompleted: progress.practiceRoundsCompleted,
     recentSummaries: progress.recentSummaries,
@@ -233,7 +189,6 @@ export function parseProductProgress(
   support: CatalogSupportIndex,
   expectedMode: PracticeMode,
   expectedLayoutId: string,
-  expectedCurriculumPolicyVersion: string,
   utterancePolicy: FrequencyFirstUtterancePolicy,
 ): ProductProgress | null {
   let parsedUnknown: unknown;
@@ -245,9 +200,11 @@ export function parseProductProgress(
   if (!isRecord(parsedUnknown)) return null;
   const parsed = parsedUnknown;
   const version = parsed.schemaVersion;
-  if (version !== PRODUCT_PROGRESS_SCHEMA_VERSION && version !== LEGACY_PRODUCT_PROGRESS_SCHEMA_VERSION) {
-    return null;
-  }
+  if (
+    version !== PRODUCT_PROGRESS_SCHEMA_VERSION
+    && version !== LEGACY_PRODUCT_PROGRESS_SCHEMA_VERSION
+    && version !== LEGACY_MEASUREMENT_EPOCH_SCHEMA_VERSION
+  ) return null;
 
   validateFrequencyFirstUtterancePolicy(utterancePolicy);
   const envelope = validSharedEnvelope(
@@ -255,22 +212,27 @@ export function parseProductProgress(
     support,
     expectedMode,
     expectedLayoutId,
-    expectedCurriculumPolicyVersion,
   );
   if (envelope === null) return null;
 
-  const summaries = (parsed.recentSummaries as unknown[]).map(parseSummary);
-  if (summaries.some((summary) => summary === null)) return null;
-  const selection = parseSelectionState(parsed.selection, utterancePolicy);
+  const legacyRecentEntryIds = version === PRODUCT_PROGRESS_SCHEMA_VERSION
+    ? null
+    : parseLegacyRecentEntryIds(parsed, support, envelope.completedRounds);
+  if (version !== PRODUCT_PROGRESS_SCHEMA_VERSION && legacyRecentEntryIds === null) {
+    return null;
+  }
+
+  const selection = parseSelectionState(
+    parsed.selection,
+    utterancePolicy,
+    support,
+    legacyRecentEntryIds,
+  );
   if (selection === null) return null;
 
-  // Schema 6 evidence was gathered under strict canonical input order. Carrying
-  // any measurement-derived record into the unordered model would preserve false
-  // errors/confusions and fake timing. The migration therefore starts a complete
-  // measurement epoch while retaining identity, round count, curriculum recency,
-  // and selection continuity only.
-  const migratedFromLegacy = version === LEGACY_PRODUCT_PROGRESS_SCHEMA_VERSION;
-  const measurements = migratedFromLegacy
+  const migratedFromOldMeasurementEpoch =
+    version === LEGACY_MEASUREMENT_EPOCH_SCHEMA_VERSION;
+  const measurements = migratedFromOldMeasurementEpoch
     ? createEmptyMeasurementSummaryV2()
     : parsed.measurementEpoch === PRODUCT_MEASUREMENT_EPOCH
       ? parseMeasurementSummaryV2(
@@ -282,20 +244,8 @@ export function parseProductProgress(
       : null;
   if (measurements === null) return null;
 
-  const progressBase = {
-    measurements,
-    practiceRoundsCompleted: envelope.completedRounds,
-  };
-  const curriculum = rebuildCurriculum(
-    parsed,
-    support,
-    expectedMode,
-    expectedLayoutId,
-    progressBase,
-    envelope.recentEntryIds,
-    envelope.recentTokenIds,
-  );
-  if (curriculum === null) return null;
+  const summaries = (parsed.recentSummaries as unknown[]).map(parseSummary);
+  if (summaries.some((summary) => summary === null)) return null;
 
   return {
     schemaVersion: PRODUCT_PROGRESS_SCHEMA_VERSION,
@@ -304,11 +254,9 @@ export function parseProductProgress(
     mode: expectedMode,
     layoutId: expectedLayoutId,
     measurements,
-    curriculumPolicyVersion: expectedCurriculumPolicyVersion,
-    curriculum,
     selection,
     practiceRoundsCompleted: envelope.completedRounds,
-    recentSummaries: migratedFromLegacy
+    recentSummaries: migratedFromOldMeasurementEpoch
       ? []
       : (summaries as ProductHistoryRoundSummary[]).slice(-RECENT_SUMMARY_LIMIT),
   };

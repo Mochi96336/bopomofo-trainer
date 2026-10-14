@@ -82,9 +82,9 @@ Current browser interaction uses `InteractionSessionV2` and Measurement V2. A co
 4. appends bounded recent summaries, Pilot history, and progress-history observations;
 5. persists the schema-versioned local state.
 
-Product progress is currently schema 7 with measurement epoch `coordination-v1`. Schema 6 is accepted only as a migration boundary: incompatible legacy measurement-derived evidence is cleared before entering the current epoch.
+Product progress is currently schema 8 with measurement epoch `coordination-v1`. Schema 7 is accepted as a structural migration: Measurement V2 and recent summaries are preserved while recent-entry recency moves into the current frequency-first selection state. Schema 6 is also accepted, but its incompatible strict-order measurement evidence is cleared before entering the current epoch.
 
-The old curriculum envelope is still physically present in `ProductProgress`, but most of it no longer controls product selection. The exact retirement boundary is tracked in [Repo consolidation inventory](./repo-consolidation-inventory.md).
+`ProductProgress` no longer contains the legacy `CurriculumProfile` or Phase 4 curriculum policy/version. Current recency lives with the frequency-first selection state; legacy curriculum fields are read only while migrating older stored payloads.
 
 ## Analysis boundary
 

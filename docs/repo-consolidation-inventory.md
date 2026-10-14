@@ -25,56 +25,22 @@ The retired `"evaluation"` tag remains only in explicitly historical types and p
 
 This closes P1a. A future evaluation feature, if human evidence ever justifies one, should be designed against the current Measurement V2 model rather than reviving the old product shell.
 
-## 2. Legacy curriculum state inside ProductProgress
+## 2. Legacy curriculum state inside ProductProgress — retired in schema 8
 
-`ProductProgress` currently stores both current Measurement V2 state and a full `CurriculumProfile`.
+Current `ProductProgress` no longer stores `CurriculumProfile`, `curriculumPolicyVersion`, focus/cooldown state, duplicated binding aggregates, `lastFocusedRound`, or `recentTokenIds`.
 
-### Fields that still affect current product behavior
+The one product behavior that was still hidden inside that envelope — `recentEntryIds` for repetition penalty — now belongs to `FrequencyFirstSelectionState` beside recent utterance and template IDs.
 
-Only one curriculum field directly affects current selection:
+Analysis V2 already receives `mode` and `layoutId` directly from `ProductProgress`, so it has no curriculum dependency.
 
-- `curriculum.recentEntryIds` feeds the recent-entry penalty in `selectFormalSyntaxUtterance(...)`.
+Migration boundaries are explicit:
 
-That recency is current product state, but it does not conceptually require the legacy curriculum model and can move beside `recentUtteranceIds` / `recentTemplateIds`.
+- schema 8: current runtime format;
+- schema 7: preserve Measurement V2 and recent summaries, move `curriculum.recentEntryIds` into selection state, discard dead curriculum fields;
+- schema 6: preserve identity/round/selection recency, but reset incompatible strict-order measurements and recent summaries;
+- schemas 1–5: rejected.
 
-### Fields maintained by production but not used for current selection
-
-- `curriculum.round`: mirrors `practiceRoundsCompleted`.
-- `curriculum.bindings[*].aggregate`: rebuilt from Measurement V2 bindings after each round.
-- `curriculum.bindings[*].lastFocusedRound`: parsed and serialized, but current product never selects a focus and never updates it.
-- `curriculum.recentTokenIds`: recomputed after each round but not consumed by the current formal-syntax selector.
-- `curriculumPolicyVersion`: gates progress loading even though the Phase 4 focus curriculum no longer decides browser rounds.
-- `ProductEnvironment.curriculumPolicy`: currently supplies that legacy policy/version boundary.
-
-### Analysis V2 dependency — removed
-
-Analysis V2 now receives `mode` and `layoutId` directly from `ProductProgress`. The semantic projection no longer accepts `CurriculumProfile`.
-
-Therefore legacy focus state, binding records, cooldown state, `recentTokenIds`, and `lastFocusedRound` have no Analysis V2 consumer. Remaining production curriculum usage is now concentrated in progress persistence/update and `recentEntryIds` selection recency.
-
-### Classification
-
-- `recentEntryIds`: **current product**, misplaced inside the legacy envelope.
-- duplicated `mode`, `layoutId`, and `round`: **retirement candidates**.
-- binding-record copies, `lastFocusedRound`, `recentTokenIds`, Phase 4 policy/version: **retirement candidates from the current runtime model**, while schema migration may still need to read them.
-
-### Safe end state
-
-A later schema bump should make current progress closer to:
-
-```text
-ProductProgress
-├─ seed / mode / layout
-├─ Measurement V2
-├─ selection state
-│  ├─ recentEntryIds
-│  ├─ recentUtteranceIds
-│  └─ recentTemplateIds
-├─ practiceRoundsCompleted
-└─ recentSummaries
-```
-
-The loader should accept schema 7 as a migration input, extract only current evidence/recency, and stop reconstructing a `CurriculumProfile` for normal runtime use.
+This closes P1b: legacy curriculum remains available to archived research/simulation modules, but is no longer product runtime or persistence state.
 
 ## 3. Transition scoring boundary
 
@@ -104,9 +70,9 @@ The first consolidation PR changes documentation only.
 
 ### P1a — retire evaluation from the runtime model — done in PR #390
 
-### P1b — retire legacy curriculum from ProductProgress
+### P1b — retire legacy curriculum from ProductProgress — done in schema 8
 
-Move `recentEntryIds` into current selection state, pass `mode` / `layoutId` directly to Analysis V2, then introduce a new progress schema that migrates schema 7 without carrying focus/cooldown state forward.
+`recentEntryIds` now belongs to frequency-first selection state, Analysis V2 is independent of `CurriculumProfile`, and schemas 7/6 migrate through explicit compatibility paths.
 
 ### P1c — split current and legacy frequency-first selectors
 

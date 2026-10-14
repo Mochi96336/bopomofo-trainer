@@ -228,14 +228,15 @@ describe("frequency-first grammatical utterance policy", () => {
   });
 
   // The selection state carries only what the next round needs: what was just
-  // practiced. There is no stage to unlock and no per-stage tally to keep.
-  it("remembers only the recent utterance and template", () => {
+  // practised. There is no stage to unlock and no per-stage tally to keep.
+  it("remembers recent entries, utterance, and template", () => {
     const policy = FREQUENCY_FIRST_UTTERANCE_POLICY;
     const selection = selectFrequencyFirstUtterance(input());
     let state = createFrequencyFirstSelectionState(policy);
     state = updateFrequencyFirstSelectionState(state, selection, policy);
     expect(state).toEqual({
       policyVersion: policy.version,
+      recentEntryIds: selection.utterance.entries.map((entry) => entry.id),
       recentUtteranceIds: [selection.utterance.id],
       recentTemplateIds: selection.utterance.templateId === null
         ? []

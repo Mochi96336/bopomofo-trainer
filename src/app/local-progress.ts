@@ -34,7 +34,6 @@ export function loadLocalProductProgress(
     environment.practiceSupport,
     mode,
     layoutId,
-    environment.curriculumPolicy.version,
     environment.utterancePolicy,
   );
   if (parsed.progress === null) return { progress: null, status: "invalid" };

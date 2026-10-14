@@ -139,7 +139,6 @@ function seededMovementState(): { progress: string; history: string } {
     ...fresh,
     measurements,
     practiceRoundsCompleted: 2,
-    curriculum: { ...fresh.curriculum, round: 2 },
   };
 
   const threeScope: CoordinationAggregateScope = { bodyShape: "initial-medial-final" };

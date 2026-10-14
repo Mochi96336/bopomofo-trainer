@@ -14,6 +14,7 @@ import {
 import { createEmptyProgressHistory } from "../../src/progress-history/update.js";
 import type { ProgressHistory } from "../../src/progress-history/types.js";
 import { PRODUCT_CATALOGS } from "../product/fixtures.js";
+import { legacyProgressDraft } from "../product/legacy-progress-fixture.js";
 
 const environment = createProductEnvironment(PRODUCT_CATALOGS);
 const freshProgress = createFreshProgressForEnvironment(
@@ -25,7 +26,6 @@ const freshProgress = createFreshProgressForEnvironment(
 const progress = {
   ...freshProgress,
   practiceRoundsCompleted: 2,
-  curriculum: { ...freshProgress.curriculum, round: 2 },
 };
 const pilotHistory = pilotHistoryFromProgress(progress);
 const token = Object.keys(environment.practiceSupport.byToken)[0]!;
@@ -120,8 +120,7 @@ describe("product backup with progress history", () => {
       progressHistory,
       DEFAULT_SELECTION_TUNING,
     )) as Record<string, any>;
-    draft.progress.schemaVersion = 6;
-    delete draft.progress.measurementEpoch;
+    draft.progress = legacyProgressDraft(progress, 6);
     draft.progress.measurements = { policyVersion: "phase-3-v2", legacy: true };
     draft.progress.recentSummaries = [{
       kind: "practice",
