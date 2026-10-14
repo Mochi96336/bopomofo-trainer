@@ -13,10 +13,8 @@ import {
   serializeProductProgress,
 } from "../../src/product/progress.js";
 import {
-  EVALUATION,
   PRACTICE,
   PRODUCT_CATALOGS,
-  SYNTAX_PROFILES,
 } from "./fixtures.js";
 
 const environment = createProductEnvironment(PRODUCT_CATALOGS);
@@ -52,30 +50,15 @@ function bindingObservationCount(state: ReturnType<typeof createProductState>): 
 }
 
 describe("frequency-first grammatical product session loop", () => {
-  it("requires unique disjoint syntax-profiled catalogs and allows no evaluation entries", () => {
-    expect(() => createProductEnvironment({
-      ...PRODUCT_CATALOGS,
-      practice: PRACTICE,
-      evaluation: [PRACTICE[0]!, ...EVALUATION],
-    })).toThrow(/disjoint/);
+  it("requires a unique syntax-profiled practice catalog", () => {
     expect(() => createProductEnvironment({
       ...PRODUCT_CATALOGS,
       practice: [PRACTICE[0]!, PRACTICE[0]!, ...PRACTICE.slice(1)],
-      evaluation: EVALUATION,
     })).toThrow(/duplicate/);
     expect(() => createProductEnvironment({
       practice: PRACTICE,
-      evaluation: EVALUATION,
       syntaxProfiles: [],
     })).toThrow(/missing syntax profiles/);
-
-    const practiceIds = new Set(PRACTICE.map((entry) => entry.id));
-    const practiceOnly = createProductEnvironment({
-      practice: PRACTICE,
-      evaluation: [],
-      syntaxProfiles: SYNTAX_PROFILES.filter((profile) => practiceIds.has(profile.entryId)),
-    });
-    expect(practiceOnly.catalogs.evaluation).toEqual([]);
   });
 
   it("owns one prepared formal-syntax execution context per product environment", () => {
