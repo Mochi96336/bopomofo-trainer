@@ -91,9 +91,23 @@ The baseline at `main@9bf4c599476ce38c4f50b004cc587f6db86dae79` is now reproduci
 
 The practical conclusion is that future broad lexicon growth must account for both entry payload and syntax-profile payload. Analysis V2 is not the dominant bundle cost. Full measurement notes live in `docs/bundle-attribution.md`.
 
-### P2 — physical archive and CI boundary
+### P2a — split top-level entrypoints — done
 
-Move archived research out of the active mental surface, reduce root exports, and stop legacy simulation from gating unrelated browser/UI changes once equivalent research verification remains available manually.
+The source root is now intentionally three-way:
+
+- `src/index.ts`: current browser/product runtime only;
+- `src/tooling.ts`: active catalog, reference, and syntax build/review APIs;
+- `src/research.ts`: archived Measurement V1, relations, legacy curriculum/selector, composition, simulation, and relational integration.
+
+A product boundary test prevents archived research exports from leaking back into the default root or browser session.
+
+### P2b — physical archive
+
+Move archived research files out of the active mental surface without breaking explicit research reproduction. This should be primarily path/ownership cleanup, not a behavior rewrite.
+
+### P2c — CI boundary
+
+Stop legacy simulation from gating unrelated browser/UI changes once equivalent research verification remains available through the explicit research check.
 
 ## Stop condition
 
