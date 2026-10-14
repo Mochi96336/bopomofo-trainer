@@ -8,6 +8,9 @@ describe("production selector boundary", () => {
     expect(source).not.toContain("transitionScopeKey");
     expect(source).not.toContain("MeasurementSummary");
     expect(source).not.toContain("legacyTransitions");
+    expect(source).not.toContain("generateSlotWeightedGrammar");
+    expect(source).not.toContain("GrammarTemplate");
+    expect(source).not.toContain("GrammarAnnotation");
   });
 
   it("keeps the browser product on the current selector module", () => {
