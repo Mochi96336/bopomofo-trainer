@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CatalogEntry, RandomSource } from "../../src/core/model.js";
-import {
-  FREQUENCY_FIRST_UTTERANCE_POLICY,
-  selectFrequencyFirstUtterance,
-} from "../../src/curriculum/frequency-first-utterance.js";
+import { FREQUENCY_FIRST_UTTERANCE_POLICY } from "../../src/curriculum/frequency-first-utterance.js";
+import { selectFrequencyFirstUtterance } from "../../src/curriculum/legacy-frequency-first-utterance.js";
 import type { GrammarAnnotation } from "../../src/grammar/types.js";
 import type { MeasurementSummary } from "../../src/measurement/types.js";
 

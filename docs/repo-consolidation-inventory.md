@@ -42,18 +42,16 @@ Migration boundaries are explicit:
 
 This closes P1b: legacy curriculum remains available to archived research/simulation modules, but is no longer product runtime or persistence state.
 
-## 3. Transition scoring boundary
+## 3. Transition scoring boundary — split in P1c
 
-The shared frequency-first implementation still contains legacy transition score fields and compatibility APIs. Current production is narrower:
+Current production and legacy transition selection now have separate modules:
 
-- `product/session.ts` calls `selectFormalSyntaxUtterance(...)`.
-- that entry point scopes Measurement V2 binding evidence;
-- it explicitly supplies `legacyTransitions: null`;
-- product tests assert neutral transition output: boost `1`, empty trace.
+- `frequency-first-utterance.ts`: current product policy, binding evidence, grammar generation, selection recency, formal-syntax selection;
+- `legacy-frequency-first-utterance.ts`: archived Measurement V1 adapter and canonical token-pair transition scoring.
 
-Therefore exact motor-transition timing is **not current product selection evidence**. It remains useful for diagnostics / research and legacy selector tests, but active product documentation must not describe it as a browser weighting signal.
+The production selector imports no `src/measurement/` module and exposes no transition score/trace fields. `product/session.ts` imports only the current module. A source-boundary test locks both conditions in CI.
 
-A later code split should make the compile-time boundary match the runtime boundary so the production selector no longer imports or exposes legacy transition machinery except through an isolated compatibility layer.
+Legacy/research callers can still reproduce historical transition-aware weighting through the explicit compatibility module without making those semantics part of the browser product.
 
 ## 4. Documentation mismatches fixed by the first consolidation PR
 
@@ -74,9 +72,9 @@ The first consolidation PR changes documentation only.
 
 `recentEntryIds` now belongs to frequency-first selection state, Analysis V2 is independent of `CurriculumProfile`, and schemas 7/6 migrate through explicit compatibility paths.
 
-### P1c — split current and legacy frequency-first selectors
+### P1c — split current and legacy frequency-first selectors — done
 
-The production formal-syntax selector should compile without legacy Measurement V1 / transition / template dependencies. Archived tests and research can import a separate compatibility selector.
+The production selector now compiles without legacy Measurement V1 / transition dependencies. Archived template/transition tests import the explicit legacy compatibility module.
 
 ### P1d — bundle attribution before lexicon growth
 

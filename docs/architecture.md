@@ -60,7 +60,7 @@ selectFormalSyntaxUtterance(...)
 one deterministic seeded grammar-valid utterance
 ```
 
-Current production selection uses reviewed commonness, expected-token correctness, identifiable binding timing, and recent-entry / recent-utterance penalties. It does not use legacy motor-transition scoring: the formal-syntax production entry point explicitly supplies no legacy transition evidence.
+Current production selection uses reviewed commonness, expected-token correctness, identifiable binding timing, and recent-entry / recent-utterance penalties. It does not use legacy motor-transition scoring: the current selector module has no Measurement V1 dependency, while transition-aware compatibility lives in `legacy-frequency-first-utterance.ts`.
 
 The browser has one runtime practice catalog. It does not reserve a held-out evaluation catalog or schedule automatic evaluation rounds. The generated browser module no longer exports an empty evaluation catalog; the retired `"evaluation"` tag survives only at explicit progress/Pilot-history compatibility boundaries.
 

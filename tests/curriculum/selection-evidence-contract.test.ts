@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   FREQUENCY_FIRST_UTTERANCE_POLICY,
   prepareFrequencyFirstEntries,
+  scoreFrequencyFirstCandidate,
   selectFormalSyntaxUtterance,
-  selectFrequencyFirstUtterance,
 } from "../../src/curriculum/frequency-first-utterance.js";
 import { createSeededRandom } from "../../src/curriculum/random.js";
 import { bindingScopeKey, transitionScopeKey } from "../../src/measurement/aggregate.js";
@@ -83,22 +83,10 @@ function evidencePair(): {
 }
 
 describe("production selection learner-evidence seam", () => {
-  it("selects identically from V2 binding evidence and the former legacy binding-only path", () => {
+  it("scores identically from V2 binding evidence and equivalent legacy binding aggregates", () => {
     const { v2, legacy } = evidencePair();
     const seed = "selection-evidence-contract";
 
-    const previous = selectFrequencyFirstUtterance({
-      entries: PRACTICE,
-      annotations: {},
-      measurement: legacy,
-      mode,
-      layoutId,
-      history,
-      policy: FREQUENCY_FIRST_UTTERANCE_POLICY,
-      random: createSeededRandom(seed),
-      learnerEvidenceMode: "binding-only",
-      profiles: SYNTAX_PROFILES,
-    });
     const native = selectFormalSyntaxUtterance({
       entries: PRACTICE,
       bindingEvidence: Object.values(v2.semantic.bindings),
@@ -110,9 +98,18 @@ describe("production selection learner-evidence seam", () => {
       profiles: SYNTAX_PROFILES,
     });
 
-    expect(native).toEqual(previous);
-    expect(native.score.transitionBoost).toBe(1);
-    expect(native.score.transitionTrace).toEqual([]);
+    const legacyBindingScore = scoreFrequencyFirstCandidate(native.utterance, {
+      entries: PRACTICE,
+      bindingEvidence: Object.values(legacy.bindings),
+      mode,
+      layoutId,
+      history,
+      policy: FREQUENCY_FIRST_UTTERANCE_POLICY,
+    });
+
+    expect(native.score).toEqual(legacyBindingScore);
+    expect("transitionBoost" in native.score).toBe(false);
+    expect("transitionTrace" in native.score).toBe(false);
   });
 });
 

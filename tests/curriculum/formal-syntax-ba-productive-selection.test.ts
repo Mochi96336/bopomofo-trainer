@@ -171,10 +171,10 @@ describe("productive BA construction selection", () => {
         : [BOOK.id, BA.id, HE.id, TAKE.id, COME.id],
     );
     expect(selection.score.frequencyBase).toBeGreaterThan(0);
-    expect(selection.score.transitionBoost).toBe(1);
-    expect(selection.score.transitionTrace).toEqual([]);
-    expect(selection.slotSelections).toEqual([]);
-    expect(selection.templateCandidates).toEqual([]);
+    expect("transitionBoost" in selection.score).toBe(false);
+    expect("transitionTrace" in selection.score).toBe(false);
+    expect("slotSelections" in selection).toBe(false);
+    expect("templateCandidates" in selection).toBe(false);
   });
 
   it("does not let the selector override the productive BA patient-taking gate", () => {

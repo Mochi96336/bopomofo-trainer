@@ -5,12 +5,8 @@ import type {
   TokenId,
 } from "../core/model.js";
 import { catalogEntryFrequencyWeight } from "../commonness/catalog-projection.js";
-import { transitionScopeKey } from "../measurement/aggregate.js";
-import type { MeasurementSummary } from "../measurement/types.js";
 import type {
-  GrammarAnnotation,
-  GrammarRole,
-  GrammarTemplate,
+  GrammarCompositionResult,
   GrammarUtteranceCandidate,
 } from "../grammar/types.js";
 import { countStructuralDerivationShapes } from "../syntax/count.js";
@@ -27,11 +23,6 @@ import {
   type FormalSyntaxUtteranceInput,
   type PreparedFormalSyntaxLexicon,
 } from "./formal-syntax-utterance.js";
-import {
-  generateSlotWeightedGrammar,
-  type GrammarSlotSelectionTrace,
-  type SlotWeightedGrammarGeneration,
-} from "./slot-weighted-grammar.js";
 import type { LearnerBindingEvidence } from "./types.js";
 
 const MAXIMUM_RECENT_UTTERANCE_ATTEMPTS = 4;
@@ -40,13 +31,10 @@ export interface FrequencyFirstUtterancePolicy {
   readonly version: string;
   readonly minimumBindingAttempts: number;
   readonly minimumBindingTimingSamples: number;
-  readonly minimumTransitionTimingSamples: number;
   readonly maximumExpectedTokenBoost: number;
-  readonly maximumTransitionBoost: number;
   readonly maximumCombinedLearnerBoost: number;
   readonly errorBoostScale: number;
   readonly timingBoostScale: number;
-  readonly transitionBoostScale: number;
   readonly recentEntryPenalty: number;
   readonly recentUtterancePenalty: number;
   readonly recentTemplatePenalty: number;
@@ -58,13 +46,10 @@ export const FREQUENCY_FIRST_UTTERANCE_POLICY: FrequencyFirstUtterancePolicy = {
   version: "frequency-first-utterance-v1",
   minimumBindingAttempts: 4,
   minimumBindingTimingSamples: 3,
-  minimumTransitionTimingSamples: 3,
   maximumExpectedTokenBoost: 1.45,
-  maximumTransitionBoost: 1.25,
   maximumCombinedLearnerBoost: 1.5,
   errorBoostScale: 1.5,
   timingBoostScale: 0.35,
-  transitionBoostScale: 0.3,
   recentEntryPenalty: 0.72,
   recentUtterancePenalty: 0.3,
   recentTemplatePenalty: 0.78,
@@ -95,37 +80,14 @@ export interface ExpectedTokenBoostTrace {
   readonly boost: number;
 }
 
-export interface TransitionBoostTrace {
-  readonly fromToken: TokenId;
-  readonly toToken: TokenId;
-  readonly timingSamples: number;
-  readonly timingRatio: number | null;
-  readonly boost: number;
-}
-
 export interface EntrySelectionScore {
   readonly entryId: string;
   readonly frequencyBase: number;
   readonly expectedTokenBoost: number;
-  readonly transitionBoost: number;
   readonly combinedLearnerBoost: number;
   readonly recentEntryFactor: number;
   readonly totalWeight: number;
   readonly expectedTokenTrace: readonly ExpectedTokenBoostTrace[];
-  readonly transitionTrace: readonly TransitionBoostTrace[];
-}
-
-export interface TemplateSelectionScore {
-  readonly templateId: string;
-  readonly recentTemplateFactor: number;
-  readonly totalWeight: number;
-}
-
-export interface SlotSelectionScore {
-  readonly slotKey: string;
-  readonly role: GrammarRole;
-  readonly selectedEntryId: string;
-  readonly candidates: readonly EntrySelectionScore[];
 }
 
 export interface UtteranceCandidateScore {
@@ -134,27 +96,21 @@ export interface UtteranceCandidateScore {
   readonly entryIds: readonly string[];
   readonly frequencyBase: number;
   readonly expectedTokenBoost: number;
-  readonly transitionBoost: number;
   readonly combinedLearnerBoost: number;
   readonly recentEntryFactor: number;
   readonly recentUtteranceFactor: number;
   readonly recentTemplateFactor: number;
   readonly totalWeight: number;
   readonly expectedTokenTrace: readonly ExpectedTokenBoostTrace[];
-  readonly transitionTrace: readonly TransitionBoostTrace[];
 }
 
 export interface FrequencyFirstUtteranceSelection {
   readonly policyVersion: string;
   readonly utterance: GrammarUtteranceCandidate;
   readonly score: UtteranceCandidateScore;
-  readonly templateCandidates: readonly TemplateSelectionScore[];
-  readonly slotSelections: readonly SlotSelectionScore[];
   readonly generationAttempts: number;
   readonly grammarFallbackReasons: readonly string[];
 }
-
-export type LearnerEvidenceMode = "binding-only" | "legacy-binding-transition";
 
 export type FormalSyntaxCompositionOverride = Pick<
   FormalSyntaxUtteranceInput,
@@ -174,52 +130,42 @@ export interface PreparedFormalSyntaxExecution {
   readonly structuralSamplingContext: PreparedStructuralSamplingContext;
 }
 
-export interface FrequencyFirstUtteranceInput {
+export interface FrequencyFirstScoringEvidenceInput {
   readonly entries: readonly CatalogEntry[];
-  readonly annotations: Readonly<Record<string, GrammarAnnotation>>;
-  readonly measurement: MeasurementSummary;
+  /** Binding evidence may come from current Measurement V2 or an isolated legacy adapter. */
+  readonly bindingEvidence: readonly LearnerBindingEvidence[];
   readonly mode: PracticeMode;
   readonly layoutId: string;
   readonly history: UtteranceSelectionHistory;
   readonly policy: FrequencyFirstUtterancePolicy;
-  readonly random: RandomSource;
-  /** Legacy/research callers opt into canonical token-pair scoring by omission or explicitly. */
-  readonly learnerEvidenceMode?: LearnerEvidenceMode;
-  /** Production path: compact profiles admitted by the formal syntax gate. */
-  readonly profiles?: readonly RuntimeSyntaxProfile[];
   /**
-   * Optional construction-specific formal-syntax search space. This may narrow
-   * grammar composition only; frequency/learner/history scoring stays owned by
-   * this selector. It is meaningful only when runtime syntax profiles are used.
+   * Generic compatibility extension used only by explicit archived adapters.
+   * Current browser production leaves this absent.
    */
-  readonly formalSyntaxComposition?: FormalSyntaxCompositionOverride;
-  /** Explicit compatibility-only templates. Production has no built-in list. */
-  readonly templates?: readonly GrammarTemplate[];
+  readonly additionalLearnerBoost?: (entries: readonly CatalogEntry[]) => number;
+  readonly preparedFrequencyFirstEntries?: PreparedFrequencyFirstEntries;
 }
 
-export type FormalSyntaxUtteranceSelectionInput = Omit<
-  FrequencyFirstUtteranceInput,
-  "annotations" | "measurement" | "profiles" | "templates" | "learnerEvidenceMode"
-> & {
-  /** Measurement V2 semantic binding aggregates satisfy this contract directly. */
-  readonly bindingEvidence: readonly LearnerBindingEvidence[];
+export interface FormalSyntaxUtteranceSelectionInput
+  extends FrequencyFirstScoringEvidenceInput {
+  readonly random: RandomSource;
   readonly profiles: readonly RuntimeSyntaxProfile[];
+  readonly formalSyntaxComposition?: FormalSyntaxCompositionOverride;
   readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
-  readonly preparedFrequencyFirstEntries?: PreparedFrequencyFirstEntries;
   readonly preparedFormalSyntaxExecution?: PreparedFormalSyntaxExecution;
-};
+}
 
 type FrequencyFirstScoringInput = Omit<
-  FrequencyFirstUtteranceInput,
-  "measurement" | "learnerEvidenceMode"
+  FrequencyFirstScoringEvidenceInput,
+  "bindingEvidence"
 > & {
   readonly bindingsByToken: Readonly<Record<string, LearnerBindingEvidence>>;
-  /** Canonical transition evidence exists only on the legacy/research path. */
-  readonly legacyTransitions: MeasurementSummary["transitions"] | null;
-  readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
-  readonly preparedFrequencyFirstEntries?: PreparedFrequencyFirstEntries;
-  readonly preparedFormalSyntaxExecution?: PreparedFormalSyntaxExecution;
 };
+
+type FormalSyntaxScoringInput = FrequencyFirstScoringInput & Omit<
+  FormalSyntaxUtteranceSelectionInput,
+  keyof FrequencyFirstScoringEvidenceInput
+>;
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -283,25 +229,6 @@ function scopedBindingEvidence(
     bindings[aggregate.scope.tokenId] = aggregate;
   }
   return bindings;
-}
-
-function exactTransitions(
-  entries: readonly CatalogEntry[],
-): readonly { readonly fromToken: TokenId; readonly toToken: TokenId }[] {
-  const keys = new Map<string, { fromToken: TokenId; toToken: TokenId }>();
-  for (const entry of entries) {
-    for (const syllable of entry.syllables) {
-      for (let index = 1; index < syllable.tokens.length; index += 1) {
-        const fromToken = syllable.tokens[index - 1]!;
-        const toToken = syllable.tokens[index]!;
-        keys.set(`${fromToken}\u0000${toToken}`, { fromToken, toToken });
-      }
-    }
-  }
-  return [...keys.values()].sort((left, right) =>
-    compareText(left.fromToken, right.fromToken)
-    || compareText(left.toToken, right.toToken)
-  );
 }
 
 const expectedTokenTraceCache = new WeakMap<
@@ -374,47 +301,7 @@ function expectedTokenTrace(
   );
 }
 
-function transitionTrace(
-  entries: readonly CatalogEntry[],
-  input: FrequencyFirstScoringInput,
-): readonly TransitionBoostTrace[] {
-  if (input.legacyTransitions === null) return [];
-  return exactTransitions(entries).map(({ fromToken, toToken }) => {
-    const aggregate = input.legacyTransitions![transitionScopeKey({
-      mode: input.mode,
-      layoutId: input.layoutId,
-      fromToken,
-      toToken,
-    })];
-    const timingRatio = aggregate !== undefined
-      && aggregate.timingSamples >= input.policy.minimumTransitionTimingSamples
-      && aggregate.bestTimeToTypeMs > 0
-      ? aggregate.currentTimeToTypeMs / aggregate.bestTimeToTypeMs
-      : null;
-    return {
-      fromToken,
-      toToken,
-      timingSamples: aggregate?.timingSamples ?? 0,
-      timingRatio,
-      boost: clamp(
-        1 + (timingRatio === null
-          ? 0
-          : Math.max(0, timingRatio - 1) * input.policy.transitionBoostScale),
-        1,
-        input.policy.maximumTransitionBoost,
-      ),
-    };
-  });
-}
-
-function learnerTransitionTrace(
-  entries: readonly CatalogEntry[],
-  input: FrequencyFirstScoringInput,
-): readonly TransitionBoostTrace[] {
-  return input.legacyTransitions === null ? [] : transitionTrace(entries, input);
-}
-
-function bindingOnlyFormalEntryTotalWeight(
+function formalEntryTotalWeight(
   entry: CatalogEntry,
   input: FrequencyFirstScoringInput,
   hasBindingEvidence: boolean,
@@ -429,10 +316,10 @@ function bindingOnlyFormalEntryTotalWeight(
       );
     }
   }
-  const transitionBoost = 1;
+  const additionalLearnerBoost = input.additionalLearnerBoost?.([entry]) ?? 1;
   const combinedLearnerBoost = Math.min(
     input.policy.maximumCombinedLearnerBoost,
-    expectedTokenBoost * transitionBoost,
+    expectedTokenBoost * additionalLearnerBoost,
   );
   const recentEntryFactor = input.history.recentEntryIds.includes(entry.id)
     ? input.policy.recentEntryPenalty
@@ -446,12 +333,11 @@ function scoreEntry(
 ): EntrySelectionScore {
   const frequencyBase = catalogEntryFrequencyWeight(entry);
   const expectedTrace = expectedTokenTrace([entry], input);
-  const transitions = learnerTransitionTrace([entry], input);
   const expectedTokenBoost = Math.max(1, ...expectedTrace.map((item) => item.boost));
-  const transitionBoost = Math.max(1, ...transitions.map((item) => item.boost));
+  const additionalLearnerBoost = input.additionalLearnerBoost?.([entry]) ?? 1;
   const combinedLearnerBoost = Math.min(
     input.policy.maximumCombinedLearnerBoost,
-    expectedTokenBoost * transitionBoost,
+    expectedTokenBoost * additionalLearnerBoost,
   );
   const recentEntryFactor = input.history.recentEntryIds.includes(entry.id)
     ? input.policy.recentEntryPenalty
@@ -460,26 +346,10 @@ function scoreEntry(
     entryId: entry.id,
     frequencyBase,
     expectedTokenBoost,
-    transitionBoost,
     combinedLearnerBoost,
     recentEntryFactor,
     totalWeight: frequencyBase * combinedLearnerBoost * recentEntryFactor,
     expectedTokenTrace: expectedTrace,
-    transitionTrace: transitions,
-  };
-}
-
-function scoreTemplate(
-  template: GrammarTemplate,
-  input: FrequencyFirstScoringInput,
-): TemplateSelectionScore {
-  const recentTemplateFactor = input.history.recentTemplateIds.includes(template.id)
-    ? input.policy.recentTemplatePenalty
-    : 1;
-  return {
-    templateId: template.id,
-    recentTemplateFactor,
-    totalWeight: recentTemplateFactor,
   };
 }
 
@@ -491,12 +361,11 @@ function scoreCandidate(
     candidate.entries.map((entry) => catalogEntryFrequencyWeight(entry)),
   );
   const expectedTrace = expectedTokenTrace(candidate.entries, input);
-  const transitions = learnerTransitionTrace(candidate.entries, input);
   const expectedTokenBoost = Math.max(1, ...expectedTrace.map((item) => item.boost));
-  const transitionBoost = Math.max(1, ...transitions.map((item) => item.boost));
+  const additionalLearnerBoost = input.additionalLearnerBoost?.(candidate.entries) ?? 1;
   const combinedLearnerBoost = Math.min(
     input.policy.maximumCombinedLearnerBoost,
-    expectedTokenBoost * transitionBoost,
+    expectedTokenBoost * additionalLearnerBoost,
   );
   const recentEntrySet = new Set(input.history.recentEntryIds);
   const recentEntryCount = candidate.entries.reduce(
@@ -517,7 +386,6 @@ function scoreCandidate(
     entryIds: candidate.entries.map((entry) => entry.id),
     frequencyBase,
     expectedTokenBoost,
-    transitionBoost,
     combinedLearnerBoost,
     recentEntryFactor,
     recentUtteranceFactor,
@@ -528,7 +396,6 @@ function scoreCandidate(
       * recentUtteranceFactor
       * recentTemplateFactor,
     expectedTokenTrace: expectedTrace,
-    transitionTrace: transitions,
   };
 }
 
@@ -557,7 +424,7 @@ export function prepareFormalSyntaxExecution(
 }
 
 function derivedConstructionClauseNesting(
-  input: FrequencyFirstScoringInput,
+  input: FormalSyntaxScoringInput,
 ): number {
   const composition = input.formalSyntaxComposition;
   const target = composition?.structuralTarget;
@@ -588,7 +455,7 @@ function derivedConstructionClauseNesting(
 }
 
 function composerCompositionOverride(
-  input: FrequencyFirstScoringInput,
+  input: FormalSyntaxScoringInput,
 ): Pick<FormalSyntaxUtteranceInput, "rules" | "samplingMode" | "structuralTarget"> {
   const composition = input.formalSyntaxComposition;
   if (composition === undefined) return {};
@@ -601,104 +468,55 @@ function composerCompositionOverride(
   };
 }
 
-function enrichSlotSelections(
-  traces: readonly GrammarSlotSelectionTrace[],
-  entriesById: ReadonlyMap<string, CatalogEntry>,
-  input: FrequencyFirstScoringInput,
-): readonly SlotSelectionScore[] {
-  return traces.map((trace) => ({
-    slotKey: trace.slotKey,
-    role: trace.role,
-    selectedEntryId: trace.selectedEntryId,
-    candidates: trace.candidates.map((candidate) => {
-      const entry = entriesById.get(candidate.entryId);
-      if (entry === undefined) throw new Error(`slot candidate disappeared: ${candidate.entryId}`);
-      const score = scoreEntry(entry, input);
-      if (score.totalWeight !== candidate.weight) {
-        throw new Error(`slot candidate weight drift: ${candidate.entryId}`);
-      }
-      return score;
-    }),
-  }));
-}
-
 function generateOnce(
   eligibleEntries: readonly CatalogEntry[],
-  input: FrequencyFirstScoringInput,
+  input: FormalSyntaxScoringInput,
   maximumClauseNesting: number,
   preparedFormalSyntaxLexicon: PreparedFormalSyntaxLexicon | null,
   preparedFormalSyntaxExecution: PreparedFormalSyntaxExecution | null,
-): SlotWeightedGrammarGeneration {
+): GrammarCompositionResult {
   // Without scoped binding evidence every expected-token boost is exactly 1.
   // Avoid rescanning each candidate entry's token list in that common fresh-user path.
   const hasBindingEvidence = Object.keys(input.bindingsByToken).length !== 0;
-  const useStaticFormalEntryWeight = input.profiles !== undefined
-    && input.legacyTransitions === null
+  const useStaticFormalEntryWeight = input.additionalLearnerBoost === undefined
     && !hasBindingEvidence
     && input.history.recentEntryIds.length === 0;
   const entryWeights = new Map<string, number>();
   const entryWeight = (entry: CatalogEntry): number => {
     const existing = entryWeights.get(entry.id);
     if (existing !== undefined) return existing;
-    const weight = input.profiles !== undefined && input.legacyTransitions === null
-      ? bindingOnlyFormalEntryTotalWeight(entry, input, hasBindingEvidence)
+    const weight = input.additionalLearnerBoost === undefined
+      ? formalEntryTotalWeight(entry, input, hasBindingEvidence)
       : scoreEntry(entry, input).totalWeight;
     entryWeights.set(entry.id, weight);
     return weight;
   };
-  if (input.profiles !== undefined) {
-    if (preparedFormalSyntaxLexicon === null) {
-      throw new Error("formal syntax profiles require prepared lexical context");
-    }
-    const compositionOverride = composerCompositionOverride(input);
-    const executionRules = compositionOverride.rules ?? FORMAL_SYNTAX_RULES;
-    if (preparedFormalSyntaxExecution !== null) {
-      if (preparedFormalSyntaxExecution.maximumClauseNesting !== maximumClauseNesting) {
-        throw new Error("prepared formal syntax execution clause nesting mismatch");
-      }
-      if (preparedFormalSyntaxExecution.structuralSamplingContext.rules !== executionRules) {
-        throw new Error("prepared formal syntax execution rules identity mismatch");
-      }
-    }
-    const executionBounds = preparedFormalSyntaxExecution?.bounds
-      ?? formalSyntaxExecutionBounds(maximumClauseNesting);
-    const composition = composeFormalSyntaxUtterances({
-      eligibleEntries,
-      profiles: input.profiles,
-      random: input.random,
-      ...(useStaticFormalEntryWeight ? {} : { entryWeight }),
-      minimumLexicalEntries: 2,
-      maximumCandidates: 1,
-      maximumAttempts: 64,
-      ...compositionOverride,
-      bounds: executionBounds,
-    }, preparedFormalSyntaxLexicon, preparedFormalSyntaxExecution?.structuralSamplingContext);
-    return {
-      candidate: composition.candidates[0] ?? null,
-      templateCandidates: [],
-      slotSelections: [],
-      slotAttempts: 0,
-      fallbackReasons: composition.fallbackReasons,
-    };
+  if (preparedFormalSyntaxLexicon === null) {
+    throw new Error("formal syntax profiles require prepared lexical context");
   }
-  if (input.formalSyntaxComposition !== undefined) {
-    throw new Error("formalSyntaxComposition requires formal syntax profiles");
+  const compositionOverride = composerCompositionOverride(input);
+  const executionRules = compositionOverride.rules ?? FORMAL_SYNTAX_RULES;
+  if (preparedFormalSyntaxExecution !== null) {
+    if (preparedFormalSyntaxExecution.maximumClauseNesting !== maximumClauseNesting) {
+      throw new Error("prepared formal syntax execution clause nesting mismatch");
+    }
+    if (preparedFormalSyntaxExecution.structuralSamplingContext.rules !== executionRules) {
+      throw new Error("prepared formal syntax execution rules identity mismatch");
+    }
   }
-  const templateScores = new Map<string, TemplateSelectionScore>();
-  return generateSlotWeightedGrammar({
-    entries: eligibleEntries,
-    annotations: input.annotations,
-    ...(input.templates === undefined ? {} : { templates: input.templates }),
+  const executionBounds = preparedFormalSyntaxExecution?.bounds
+    ?? formalSyntaxExecutionBounds(maximumClauseNesting);
+  return composeFormalSyntaxUtterances({
+    eligibleEntries,
+    profiles: input.profiles,
     random: input.random,
-    entryWeight,
-    templateWeight: (template) => {
-      const existing = templateScores.get(template.id);
-      if (existing !== undefined) return existing.totalWeight;
-      const score = scoreTemplate(template, input);
-      templateScores.set(template.id, score);
-      return score.totalWeight;
-    },
-  });
+    ...(useStaticFormalEntryWeight ? {} : { entryWeight }),
+    minimumLexicalEntries: 2,
+    maximumCandidates: 1,
+    maximumAttempts: 64,
+    ...compositionOverride,
+    bounds: executionBounds,
+  }, preparedFormalSyntaxLexicon, preparedFormalSyntaxExecution?.structuralSamplingContext);
 }
 
 export function validateFrequencyFirstUtterancePolicy(
@@ -708,7 +526,6 @@ export function validateFrequencyFirstUtterancePolicy(
   const positiveIntegers = [
     policy.minimumBindingAttempts,
     policy.minimumBindingTimingSamples,
-    policy.minimumTransitionTimingSamples,
     policy.recentUtteranceLimit,
     policy.recentTemplateLimit,
   ];
@@ -726,7 +543,6 @@ export function validateFrequencyFirstUtterancePolicy(
   }
   for (const boost of [
     policy.maximumExpectedTokenBoost,
-    policy.maximumTransitionBoost,
     policy.maximumCombinedLearnerBoost,
   ]) {
     if (!Number.isFinite(boost) || boost < 1) {
@@ -747,8 +563,8 @@ export function createFrequencyFirstSelectionState(
   };
 }
 
-function selectFrequencyFirstUtteranceFromEvidence(
-  input: FrequencyFirstScoringInput,
+function selectFormalSyntaxUtteranceFromScoring(
+  input: FormalSyntaxScoringInput,
 ): FrequencyFirstUtteranceSelection {
   validateFrequencyFirstUtterancePolicy(input.policy);
   const eligibleEntries = input.entries;
@@ -756,23 +572,15 @@ function selectFrequencyFirstUtteranceFromEvidence(
   if (preparedEntries !== undefined && preparedEntries.entries !== eligibleEntries) {
     throw new Error("prepared frequency-first entries input identity mismatch");
   }
-  const entriesById = preparedEntries?.entriesById
-    ?? new Map(eligibleEntries.map((entry) => [entry.id, entry]));
-  const maximumClauseNesting = input.profiles === undefined
-    ? 1
-    : derivedConstructionClauseNesting(input);
-  const preparedFormalSyntaxLexicon = input.profiles === undefined
-    ? null
-    : input.preparedFormalSyntaxLexicon
-      ?? prepareFormalSyntaxLexicon(eligibleEntries, input.profiles);
-  const preparedFormalSyntaxExecution = input.profiles === undefined
-    ? null
-    : input.preparedFormalSyntaxExecution ?? null;
+  const maximumClauseNesting = derivedConstructionClauseNesting(input);
+  const preparedFormalSyntaxLexicon = input.preparedFormalSyntaxLexicon
+    ?? prepareFormalSyntaxLexicon(eligibleEntries, input.profiles);
+  const preparedFormalSyntaxExecution = input.preparedFormalSyntaxExecution ?? null;
   if (preparedFormalSyntaxExecution !== null
     && preparedFormalSyntaxExecution.maximumClauseNesting !== maximumClauseNesting) {
     throw new Error("prepared formal syntax execution clause nesting mismatch");
   }
-  let generation: SlotWeightedGrammarGeneration | null = null;
+  let generation: GrammarCompositionResult | null = null;
   let score: UtteranceCandidateScore | null = null;
   let generationAttempts = 0;
 
@@ -785,10 +593,11 @@ function selectFrequencyFirstUtteranceFromEvidence(
       preparedFormalSyntaxLexicon,
       preparedFormalSyntaxExecution,
     );
-    if (generation.candidate === null) {
+    const candidate = generation.candidates[0] ?? null;
+    if (candidate === null) {
       throw new Error(`no grammar-valid utterance candidate: ${generation.fallbackReasons.join(",")}`);
     }
-    score = scoreCandidate(generation.candidate, input);
+    score = scoreCandidate(candidate, input);
     if (score.recentUtteranceFactor === 1
       || generationAttempts >= MAXIMUM_RECENT_UTTERANCE_ATTEMPTS
       || input.random.next() < score.recentUtteranceFactor) {
@@ -796,63 +605,56 @@ function selectFrequencyFirstUtteranceFromEvidence(
     }
   }
 
-  if (generation?.candidate === null || generation === null || score === null) {
-    throw new Error("slot-weighted utterance generation did not produce a candidate");
+  const candidate = generation?.candidates[0] ?? null;
+  if (candidate === null || generation === null || score === null) {
+    throw new Error("formal syntax generation did not produce a candidate");
   }
   return {
     policyVersion: input.policy.version,
-    utterance: generation.candidate,
+    utterance: candidate,
     score,
-    templateCandidates: generation.templateCandidates.map((candidate) => {
-      const template: GrammarTemplate = {
-        id: candidate.templateId,
-        slots: [],
-        punctuation: null,
-      };
-      const templateScore = scoreTemplate(template, input);
-      if (templateScore.totalWeight !== candidate.weight) {
-        throw new Error(`template candidate weight drift: ${candidate.templateId}`);
-      }
-      return templateScore;
-    }),
-    slotSelections: enrichSlotSelections(generation.slotSelections, entriesById, input),
     generationAttempts,
     grammarFallbackReasons: generation.fallbackReasons,
   };
 }
 
-/** Legacy/research selector retaining canonical transition semantics. */
-export function selectFrequencyFirstUtterance(
-  input: FrequencyFirstUtteranceInput,
-): FrequencyFirstUtteranceSelection {
-  const { measurement, learnerEvidenceMode, ...selectionInput } = input;
-  return selectFrequencyFirstUtteranceFromEvidence({
-    ...selectionInput,
-    bindingsByToken: scopedBindingEvidence(
-      Object.values(measurement.bindings),
-      input.mode,
-      input.layoutId,
-    ),
-    legacyTransitions: learnerEvidenceMode === "binding-only"
-      ? null
-      : measurement.transitions,
-  });
+function scopedScoringInput(
+  input: FrequencyFirstScoringEvidenceInput,
+): FrequencyFirstScoringInput {
+  const { bindingEvidence, ...scoring } = input;
+  return {
+    ...scoring,
+    bindingsByToken: scopedBindingEvidence(bindingEvidence, input.mode, input.layoutId),
+  };
+}
+
+/** Shared scoring primitive used by the isolated legacy compatibility module. */
+export function scoreFrequencyFirstEntry(
+  entry: CatalogEntry,
+  input: FrequencyFirstScoringEvidenceInput,
+): EntrySelectionScore {
+  return scoreEntry(entry, scopedScoringInput(input));
+}
+
+/** Shared candidate scoring primitive used by the isolated legacy compatibility module. */
+export function scoreFrequencyFirstCandidate(
+  candidate: GrammarUtteranceCandidate,
+  input: FrequencyFirstScoringEvidenceInput,
+): UtteranceCandidateScore {
+  return scoreCandidate(candidate, scopedScoringInput(input));
 }
 
 /**
- * Production selector. It accepts only binding evidence, so Measurement V2 motor
- * transitions cannot be reinterpreted as canonical curriculum transitions by
- * accident. Legacy/research transition scoring remains isolated above.
+ * Production selector. It accepts only current binding evidence and formal
+ * syntax profiles. Legacy/research evidence adapters live in a separate module.
  */
 export function selectFormalSyntaxUtterance(
   input: FormalSyntaxUtteranceSelectionInput,
 ): FrequencyFirstUtteranceSelection {
   const { bindingEvidence, ...selectionInput } = input;
-  return selectFrequencyFirstUtteranceFromEvidence({
+  return selectFormalSyntaxUtteranceFromScoring({
     ...selectionInput,
-    annotations: {},
     bindingsByToken: scopedBindingEvidence(bindingEvidence, input.mode, input.layoutId),
-    legacyTransitions: null,
   });
 }
 

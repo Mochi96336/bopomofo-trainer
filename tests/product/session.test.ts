@@ -97,8 +97,8 @@ describe("frequency-first grammatical product session loop", () => {
     );
     expect(state.round.exercise.entries.length).toBeGreaterThan(1);
     expect(state.round.selection.utterance.kind).toBe("formal-syntax");
-    expect(state.round.selection.score.transitionBoost).toBe(1);
-    expect(state.round.selection.score.transitionTrace).toEqual([]);
+    expect("transitionBoost" in state.round.selection.score).toBe(false);
+    expect("transitionTrace" in state.round.selection.score).toBe(false);
   });
 
   it("reports interaction accuracy without counting browser noise", () => {
