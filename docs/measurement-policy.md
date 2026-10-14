@@ -174,21 +174,23 @@ The first sequence is structural evidence. The second is observed motor order. T
 
 ## Persistence
 
-Product progress schema 7 uses measurement epoch `coordination-v1`.
+Product progress schema 8 uses measurement epoch `coordination-v1`.
 
-Schema 6 progress may retain compatible identity, completed-round count, curriculum recency, and selection continuity during migration, but measurement-derived evidence does not cross the strict-order → unordered-input epoch boundary. Cumulative measurements and recent round measurement summaries reset.
+Schema 7 is a structural migration: current Measurement V2 evidence and recent summaries remain intact while recent-entry recency moves from the retired curriculum envelope into frequency-first selection state.
+
+Schema 6 may retain compatible identity, completed-round count, recent-entry recency, and selection continuity during migration, but measurement-derived evidence does not cross the strict-order → unordered-input epoch boundary. Cumulative measurements and recent round measurement summaries reset.
 
 Measurement V2 aggregate migrations validate old identities before preserving, transforming, or deliberately discarding evidence whose semantics changed. Current persistence accepts the historical aggregate generations needed for migration but always returns the current `input-order-v2-aggregate-5` shape.
 
 Progress-history schema 8 stores bounded semantic timing/correctness history and bounded motor history, including exact accepted-token transition history. Historical points are never manufactured from a cumulative aggregate.
 
-## Curriculum boundary
+## Selection boundary
 
-Production formal-syntax selection consumes Measurement V2 **semantic binding aggregates directly** through the curriculum-owned `LearnerBindingEvidence` contract. It has no Measurement V2 motor-transition input and does not rebuild a legacy `MeasurementSummary`.
+Production formal-syntax selection consumes Measurement V2 **semantic binding aggregates directly** through the selector's `LearnerBindingEvidence` contract. It has no Measurement V2 motor-transition input and does not rebuild a legacy `MeasurementSummary`.
 
 Legacy/research selection may still use the old `src/measurement/` transition semantics through its separate API. That compatibility path is not a production Measurement V2 adapter.
 
-Motor evidence is diagnostic-only in the current production curriculum. A future motor-driven curriculum must explicitly define how an exercise causes or encourages a motor objective; canonical occurrence of `A → B` is not evidence that free-order input will physically execute `A → B`.
+Motor evidence is diagnostic-only in current production selection. A future motor-driven selection policy must explicitly define how an exercise causes or encourages a motor objective; canonical occurrence of `A → B` is not evidence that free-order input will physically execute `A → B`.
 
 ## What the model can claim
 
@@ -212,4 +214,4 @@ It does **not** claim:
 - that a boundary-crossing interval equals pure hand or finger movement time;
 - that conventional keyboard-side assignment detects the learner's actual physical hand;
 - that heterogeneous motor families can be ranked together by raw milliseconds;
-- that motor aggregates should already drive curriculum selection.
+- that motor aggregates should already drive production selection.

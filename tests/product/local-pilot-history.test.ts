@@ -59,7 +59,6 @@ function progressWithSummaries(count: number): ProductProgress {
   return {
     ...fresh,
     practiceRoundsCompleted: count,
-    curriculum: { ...fresh.curriculum, round: count },
     recentSummaries: Array.from({ length: count }, (_, index) => summary(index + 1)),
   };
 }

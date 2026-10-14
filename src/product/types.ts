@@ -2,9 +2,6 @@ import type { CatalogEntry, Exercise, PracticeMode, TokenId } from "../core/mode
 import type {
   CatalogSupportIndex,
   CurriculumEvidence,
-  CurriculumPolicy,
-  CurriculumProfile,
-  FocusSelection,
 } from "../curriculum/types.js";
 import type {
   FrequencyFirstSelectionState,
@@ -18,7 +15,7 @@ import type { MeasurementSummaryV2 } from "../measurement-v2/aggregate.js";
 import type { InteractionSessionStateV2 } from "../practice/interaction-session-v2.js";
 import type { RuntimeSyntaxProfile } from "../syntax/types.js";
 
-export const PRODUCT_PROGRESS_SCHEMA_VERSION = 7 as const;
+export const PRODUCT_PROGRESS_SCHEMA_VERSION = 8 as const;
 export const PRODUCT_MEASUREMENT_EPOCH = "coordination-v1" as const;
 
 /** Historical persistence may still contain retired evaluation records. */
@@ -32,7 +29,6 @@ export interface ProductCatalogs {
 export interface ProductRound {
   readonly kind: "practice";
   readonly exercise: Exercise;
-  readonly focus: FocusSelection | null;
   readonly selection: FrequencyFirstUtteranceSelection;
 }
 
@@ -62,8 +58,6 @@ export interface ProductProgress {
   readonly mode: PracticeMode;
   readonly layoutId: string;
   readonly measurements: MeasurementSummaryV2;
-  readonly curriculumPolicyVersion: string;
-  readonly curriculum: CurriculumProfile;
   readonly selection: FrequencyFirstSelectionState;
   readonly practiceRoundsCompleted: number;
   readonly recentSummaries: readonly ProductHistoryRoundSummary[];
@@ -72,7 +66,6 @@ export interface ProductProgress {
 export interface ProductEnvironment {
   readonly catalogs: ProductCatalogs;
   readonly practiceSupport: CatalogSupportIndex;
-  readonly curriculumPolicy: CurriculumPolicy;
   readonly utterancePolicy: FrequencyFirstUtterancePolicy;
   readonly preparedPracticeLexicon: PreparedFormalSyntaxLexicon;
   readonly preparedPracticeEntries: PreparedFrequencyFirstEntries;

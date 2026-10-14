@@ -41,7 +41,6 @@ describe("frequency-first product real catalog integration", () => {
     const formerBoundaryProgress = {
       ...progress,
       practiceRoundsCompleted: 5,
-      curriculum: { ...progress.curriculum, round: 5 },
     };
     const nextState = createProductState(environment, formerBoundaryProgress, 1);
     expect(nextState.round.kind).toBe("practice");

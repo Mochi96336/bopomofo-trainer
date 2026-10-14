@@ -15,16 +15,15 @@ import {
   PRODUCT_PROGRESS_SCHEMA_VERSION,
 } from "../../src/product/types.js";
 import { PRACTICE } from "./fixtures.js";
+import { legacyProgressDraft } from "./legacy-progress-fixture.js";
 
 const support = createCatalogSupportIndex(PRACTICE);
 
 function createProgress() {
   return createFreshProductProgress(
-    support,
     "seed",
     "guided",
     "standard",
-    "phase-4-v1",
     FREQUENCY_FIRST_UTTERANCE_POLICY,
   );
 }
@@ -35,13 +34,28 @@ function parse(source: string, layoutId = "standard") {
     support,
     "guided",
     layoutId,
-    "phase-4-v1",
     FREQUENCY_FIRST_UTTERANCE_POLICY,
   );
 }
 
+function summary() {
+  return {
+    kind: "practice" as const,
+    exerciseId: "practice-1",
+    completedAt: "2026-08-01T00:00:00.000Z",
+    entryIds: [PRACTICE[0]!.id],
+    utteranceId: "utterance:practice-1",
+    templateId: null,
+    focusTokenId: null,
+    focusEvidence: null,
+    attempts: 9,
+    errors: 2,
+    timingSamples: 6,
+  };
+}
+
 describe("product progress codec", () => {
-  it("round-trips schema 7 with an explicit measurement epoch", () => {
+  it("round-trips schema 8 with current selection recency", () => {
     const progress = createProgress();
     const parsed = parse(serializeProductProgress(progress));
     expect(parsed).toEqual(progress);
@@ -49,6 +63,7 @@ describe("product progress codec", () => {
     expect(parsed!.measurementEpoch).toBe(PRODUCT_MEASUREMENT_EPOCH);
     expect(parsed!.selection).toEqual({
       policyVersion: "frequency-first-utterance-v1",
+      recentEntryIds: [],
       recentUtteranceIds: [],
       recentTemplateIds: [],
     });
@@ -85,26 +100,43 @@ describe("product progress codec", () => {
     expect(parse(serializeProductProgress(withConfusion))).toEqual(withConfusion);
   });
 
+  it("migrates schema 7 by moving recent entries out of the legacy curriculum envelope", () => {
+    const current = {
+      ...createProgress(),
+      selection: {
+        ...createProgress().selection,
+        recentEntryIds: [PRACTICE[0]!.id],
+        recentUtteranceIds: ["utterance:practice-1"],
+      },
+      practiceRoundsCompleted: 1,
+      recentSummaries: [summary()],
+    };
+    const legacy = legacyProgressDraft(current, 7);
+
+    const migrated = parse(JSON.stringify(legacy));
+    expect(migrated).not.toBeNull();
+    expect(migrated!.schemaVersion).toBe(PRODUCT_PROGRESS_SCHEMA_VERSION);
+    expect(migrated!.measurements).toEqual(current.measurements);
+    expect(migrated!.selection.recentEntryIds).toEqual([PRACTICE[0]!.id]);
+    expect(migrated!.selection.recentUtteranceIds).toEqual(["utterance:practice-1"]);
+    expect(migrated!.recentSummaries).toEqual(current.recentSummaries);
+    expect("curriculum" in migrated!).toBe(false);
+    expect("curriculumPolicyVersion" in migrated!).toBe(false);
+  });
+
   it("migrates schema 6 identity/selection but starts a complete fresh measurement epoch", () => {
-    const current = JSON.parse(serializeProductProgress(createProgress())) as Record<string, any>;
-    current.schemaVersion = 6;
-    delete current.measurementEpoch;
-    current.practiceRoundsCompleted = 1;
-    current.curriculum.round = 1;
-    current.recentSummaries = [{
-      kind: "practice",
-      exerciseId: "legacy-round",
-      completedAt: "2026-08-01T00:00:00.000Z",
-      entryIds: [PRACTICE[0]!.id],
-      utteranceId: "legacy-round",
-      templateId: null,
-      focusTokenId: null,
-      focusEvidence: null,
-      attempts: 9,
-      errors: 2,
-      timingSamples: 6,
-    }];
-    current.measurements = {
+    const current = {
+      ...createProgress(),
+      selection: {
+        ...createProgress().selection,
+        recentEntryIds: [PRACTICE[0]!.id],
+        recentUtteranceIds: ["legacy-round"],
+      },
+      practiceRoundsCompleted: 1,
+      recentSummaries: [summary()],
+    };
+    const legacy = legacyProgressDraft(current, 6);
+    legacy.measurements = {
       policyVersion: "phase-3-v2",
       traceCount: 99,
       bindingObservationCount: 99,
@@ -115,7 +147,7 @@ describe("product progress codec", () => {
       transitions: { legacy: { anything: true } },
     };
 
-    const migrated = parse(JSON.stringify(current));
+    const migrated = parse(JSON.stringify(legacy));
     expect(migrated).not.toBeNull();
     expect(migrated!.schemaVersion).toBe(PRODUCT_PROGRESS_SCHEMA_VERSION);
     expect(migrated!.measurementEpoch).toBe(PRODUCT_MEASUREMENT_EPOCH);
@@ -123,6 +155,7 @@ describe("product progress codec", () => {
     expect(migrated!.recentSummaries).toEqual([]);
     expect(migrated!.practiceRoundsCompleted).toBe(1);
     expect(migrated!.seed).toBe("seed");
+    expect(migrated!.selection.recentEntryIds).toEqual([PRACTICE[0]!.id]);
   });
 
   it("rejects every older progress schema without a safe migration", () => {
@@ -147,14 +180,20 @@ describe("product progress codec", () => {
     staleEpoch.measurementEpoch = "other-epoch";
     expect(parse(JSON.stringify(staleEpoch))).toBeNull();
 
-    const stalePolicy = JSON.parse(serializeProductProgress(progress)) as Record<string, unknown>;
-    stalePolicy.curriculumPolicyVersion = "phase-4-v0";
-    expect(parse(JSON.stringify(stalePolicy))).toBeNull();
+    const missingRecentEntries = JSON.parse(serializeProductProgress(progress)) as {
+      selection: Record<string, unknown>;
+    };
+    delete missingRecentEntries.selection.recentEntryIds;
+    expect(parse(JSON.stringify(missingRecentEntries))).toBeNull();
 
     const staleSelection = JSON.parse(serializeProductProgress(progress)) as {
       selection: Record<string, unknown>;
     };
     staleSelection.selection.policyVersion = "frequency-first-utterance-v0";
     expect(parse(JSON.stringify(staleSelection))).toBeNull();
+
+    const malformedLegacy = legacyProgressDraft(progress, 7);
+    delete malformedLegacy.curriculum.recentEntryIds;
+    expect(parse(JSON.stringify(malformedLegacy))).toBeNull();
   });
 });

@@ -8,8 +8,8 @@ import {
   createFreshProgressForEnvironment,
   createProductEnvironment,
 } from "../../src/product/session.js";
-import { PRODUCT_PROGRESS_SCHEMA_VERSION } from "../../src/product/types.js";
 import { PRODUCT_CATALOGS } from "../product/fixtures.js";
+import { legacyProgressDraft } from "../product/legacy-progress-fixture.js";
 
 class MemoryStorage implements StorageLike {
   private readonly values = new Map<string, string>();
@@ -65,20 +65,36 @@ describe("app boot state", () => {
     expect(boot.storageWarning).toBe("");
   });
 
-  it("reports a successful legacy measurement-epoch migration as needing current-schema writeback", () => {
+  it("reports schema 7 structural migration as needing current-schema writeback", () => {
     const storage = new MemoryStorage();
     const current = createFreshProgressForEnvironment(environment, "legacy", "guided", "standard");
-    const stored = JSON.parse(serializeProductProgress(current)) as Record<string, unknown>;
-    stored.schemaVersion = PRODUCT_PROGRESS_SCHEMA_VERSION - 1;
-    delete stored.measurementEpoch;
-    stored.measurements = { policyVersion: "phase-3-v2", legacy: true };
-    storage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(stored));
+    storage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(legacyProgressDraft(current, 7)));
 
     const boot = load(storage);
     expect(boot.progressLoadStatus).toBe("migrated");
     expect(boot.loadedExistingProgress).toBe(false);
     expect(boot.progress.seed).toBe("legacy");
-    expect(boot.progress.practiceRoundsCompleted).toBe(0);
+    expect(boot.progress.measurements).toEqual(current.measurements);
+    expect(boot.storageWarning).toBe("");
+  });
+
+  it("reports schema 6 migration as a measurement reset", () => {
+    const storage = new MemoryStorage();
+    const current = createFreshProgressForEnvironment(
+      environment,
+      "legacy-measurement",
+      "guided",
+      "standard",
+    );
+    const stored = legacyProgressDraft(current, 6);
+    stored.measurements = { policyVersion: "phase-3-v2", legacy: true };
+    storage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(stored));
+
+    const boot = load(storage);
+    expect(boot.progressLoadStatus).toBe("measurement-reset");
+    expect(boot.loadedExistingProgress).toBe(false);
+    expect(boot.progress.seed).toBe("legacy-measurement");
+    expect(boot.progress.measurements.semantic.bindings).toEqual({});
     expect(boot.storageWarning).toBe("");
   });
 
@@ -93,12 +109,12 @@ describe("app boot state", () => {
     expect(boot.progress.practiceRoundsCompleted).toBe(0);
   });
 
-  it("rejects progress that is internally inconsistent", () => {
+  it("rejects progress whose current selection references an unknown entry", () => {
     const storage = new MemoryStorage();
     const forged = JSON.parse(serializeProductProgress(
       createFreshProgressForEnvironment(environment, "stored", "guided", "standard"),
-    )) as Record<string, unknown>;
-    forged.practiceRoundsCompleted = 7;
+    )) as { selection: { recentEntryIds: string[] } };
+    forged.selection.recentEntryIds = ["entry:not-known"];
     storage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(forged));
 
     const boot = load(storage);

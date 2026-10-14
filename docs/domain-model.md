@@ -265,15 +265,15 @@ This keeps sample density meaningful and prevents combinatorial skill-state grow
 
 ## Product persistence
 
-Product progress schema 7 uses measurement epoch:
+Product progress schema 8 uses measurement epoch:
 
 ```text
 coordination-v1
 ```
 
-Legacy schema 6 identity/history may migrate, but old strict-order measurement evidence is reset because it may contain false errors, false confusions, and canonical token-pair transitions that are not valid under the new semantics.
+Schema 7 migrates structurally without resetting Measurement V2: recent-entry recency moves from the retired curriculum envelope into frequency-first selection state. Schema 6 may also migrate identity and selection recency, but old strict-order measurement evidence is reset because it may contain false errors, false confusions, and canonical token-pair transitions that are not valid under the new semantics.
 
-## Curriculum boundary
+## Selection boundary
 
 Current adaptive selection may use semantic binding evidence. Motor aggregates are diagnostic-only.
 

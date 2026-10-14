@@ -54,7 +54,6 @@ describe("Analysis V2 persisted migration smoke", () => {
     const currentWithRounds = {
       ...fresh,
       practiceRoundsCompleted: 2,
-      curriculum: { ...fresh.curriculum, round: 2 },
     };
     const persisted = JSON.parse(serializeProductProgress(currentWithRounds)) as Record<string, any>;
 
