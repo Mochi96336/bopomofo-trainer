@@ -99,18 +99,40 @@ if (baseline.failedSentences !== 0 || closed.failedSentences !== 0 || roles.fail
 }
 const closedPins = closedClassLicenses();
 const rolePins = reviewedRoleLicenses();
-const countChanges = (other: Report) =>
-  baseline.sentences.filter((sentence, i) => {
+const changedSeeds = (other: Report): readonly number[] =>
+  baseline.sentences.flatMap((sentence, i) => {
     const after = other.sentences[i]!;
-    return sentence.text !== after.text
+    const changed = sentence.text !== after.text
       || sentence.root !== after.root
-      || sentence.entryIds.join("\u0000") !== after.entryIds.join("\u0000");
-  }).length;
+      || sentence.entryIds.join("\\u0000") !== after.entryIds.join("\\u0000");
+    return changed ? [sentence.seedIndex] : [];
+  });
+
+const potentiallyAffectedSeeds = (allowed: AllowedReadings): ReadonlySet<number> =>
+  new Set(baseline.hits.filter(hit => {
+    const key = hit.text + "/" + (hit.selectedUpos ?? "unknown");
+    const ids = allowed.get(key);
+    return ids !== undefined && !ids.has(hit.selectedEntryId);
+  }).map(hit => hit.seedIndex));
+
+function assertNoUnrelatedSeedDrift(changed: readonly number[], allowed: AllowedReadings, policy: string) {
+  const affected = potentiallyAffectedSeeds(allowed);
+  const unrelated = changed.filter(seed => !affected.has(seed));
+  if (unrelated.length > 0) {
+    throw new Error(policy + " changed originally licensed/untargeted seeds: "
+      + unrelated.slice(0, 20).join(", "));
+  }
+  return affected.size;
+}
 
 const baseClosed = tally(baseline, closedPins);
 const trialClosed = tally(closed, closedPins);
 const baseRoles = tally(closed, rolePins);
 const trialRoles = tally(roles, rolePins);
+const closedChanges = changedSeeds(closed);
+const roleChanges = changedSeeds(roles);
+const closedAffectedSeeds = assertNoUnrelatedSeedDrift(closedChanges, closedPins, "reviewed-closed");
+const roleAffectedSeeds = assertNoUnrelatedSeedDrift(roleChanges, rolePins, "reviewed-roles");
 const disallowedClosed = Object.values(trialClosed.mismatched).reduce((a, b) => a + b, 0);
 const disallowedRoles = Object.values(trialRoles.mismatched).reduce((a, b) => a + b, 0);
 if (disallowedClosed !== 0 || disallowedRoles !== 0) {
@@ -126,9 +148,14 @@ const report = {
     reviewedRoles: roles.successfulSentences,
   },
   changedSentenceCount: {
-    reviewedClosed: countChanges(closed),
-    reviewedRoles: countChanges(roles),
+    reviewedClosed: closedChanges.length,
+    reviewedRoles: roleChanges.length,
   },
+  originalSeedsContainingDisallowedIdentity: {
+    reviewedClosed: closedAffectedSeeds,
+    reviewedRoles: roleAffectedSeeds,
+  },
+  unrelatedSeedChanges: 0,
   reviewedClosedMismatchCountByRole: {
     original: baseClosed.mismatched,
     reviewedClosed: trialClosed.mismatched,
