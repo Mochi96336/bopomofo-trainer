@@ -74,4 +74,4 @@ export type {
   SyntheticTraceBatch,
 } from "./simulation/learner/types.js";
 
-export * from "./integration/relational-research.js";
+export * from "./archive/research/integration/relational-research.js";
