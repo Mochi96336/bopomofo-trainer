@@ -96,18 +96,3 @@ jobs:
           path: data/generated/polyphonic-context-exposure.json
           retention-days: 14
           if-no-files-found: error
-      - name: Publish repeatable report on pull request
-        if: github.event_name == 'pull_request'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          marker='<!-- polyphonic-reading-exposure-report-v1 -->'
-          old_id=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" --jq '.[] | select(.body | contains("<!-- polyphonic-reading-exposure-report-v1 -->")) | .id' | head -n 1 || true)
-          if [ -n "$old_id" ]; then
-            gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${old_id}" -X PATCH -F body=@polyphonic-audit-comment.md >/dev/null
-          else
-            gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -X POST -F body=@polyphonic-audit-comment.md >/dev/null
-          fi
