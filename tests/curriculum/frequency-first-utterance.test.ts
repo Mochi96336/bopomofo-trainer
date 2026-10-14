@@ -3,11 +3,13 @@ import type { CatalogEntry, RandomSource } from "../../src/core/model.js";
 import {
   FREQUENCY_FIRST_UTTERANCE_POLICY,
   createFrequencyFirstSelectionState,
-  selectFrequencyFirstUtterance,
   updateFrequencyFirstSelectionState,
-  type EntrySelectionScore,
-  type FrequencyFirstUtteranceSelection,
 } from "../../src/curriculum/frequency-first-utterance.js";
+import {
+  selectFrequencyFirstUtterance,
+  type LegacyEntrySelectionScore,
+  type LegacyFrequencyFirstUtteranceSelection,
+} from "../../src/curriculum/legacy-frequency-first-utterance.js";
 import { bindingScopeKey, confusionScopeKey, transitionScopeKey } from "../../src/measurement/aggregate.js";
 import type { MeasurementSummary } from "../../src/measurement/types.js";
 import type { GrammarAnnotation } from "../../src/grammar/types.js";
@@ -102,9 +104,9 @@ function input(
 }
 
 function slotCandidate(
-  selection: FrequencyFirstUtteranceSelection,
+  selection: LegacyFrequencyFirstUtteranceSelection,
   entryId: string,
-): EntrySelectionScore {
+): LegacyEntrySelectionScore {
   const candidate = selection.slotSelections
     .flatMap((slot) => slot.candidates)
     .find((item) => item.entryId === entryId);
@@ -172,7 +174,7 @@ describe("frequency-first grammatical utterance policy", () => {
     expect(weakScore.totalWeight).toBeLessThan(commonScore.totalWeight);
   });
 
-  it("does not read expected-to-actual confusion aggregates for curriculum scoring", () => {
+  it("does not read expected-to-actual confusion aggregates for legacy selection scoring", () => {
     const measurement = weakLessCommonMeasurement();
     const confusionKey = confusionScopeKey({
       mode,
