@@ -1,5 +1,20 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+
+
+function tsFilesUnder(root: string): readonly string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) {
+      found.push(...tsFilesUnder(path));
+    } else if (entry.isFile() && entry.name.endsWith(".ts")) {
+      found.push(path);
+    }
+  }
+  return found;
+}
 
 describe("top-level source entrypoint boundaries", () => {
   it("keeps the default root on current product/runtime modules", () => {
@@ -50,5 +65,21 @@ describe("top-level source entrypoint boundaries", () => {
     expect(browser).not.toContain("research.js");
     expect(session).not.toContain("research.js");
     expect(session).not.toContain("legacy-frequency-first-utterance");
+  });
+
+  it("prevents active runtime trees from importing archived research", () => {
+    const activeRoots = [
+      "src/app",
+      "src/product",
+      "src/measurement-v2",
+      "src/progress-history",
+      "src/curriculum",
+    ];
+    for (const root of activeRoots) {
+      for (const path of tsFilesUnder(root)) {
+        const source = readFileSync(path, "utf8");
+        expect(source, path).not.toContain("archive/research");
+      }
+    }
   });
 });
