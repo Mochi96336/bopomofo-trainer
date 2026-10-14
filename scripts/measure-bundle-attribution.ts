@@ -102,7 +102,6 @@ const config: InlineConfig = {
     write: false,
     rollupOptions: {
       output: {
-        onlyExplicitManualChunks: true,
         manualChunks(id) {
           return categoryForModule(id);
         },
