@@ -113,9 +113,11 @@ Their research scripts/tests now import the archived paths explicitly, while `sr
 
 Relations and the broader simulation tree are intentionally not moved yet because current reference/ranking tooling still imports relational report types. Those dependencies should be separated before the next physical archive batch.
 
-### P2c — CI boundary
+### P2c — CI boundary — done
 
-Stop legacy simulation from gating unrelated browser/UI changes once equivalent research verification remains available through the explicit research check.
+Ordinary `check:pr` and GitHub product CI no longer execute `tests/simulation/**`. Focused simulation remains available through `npm run test:simulation`, while manual `npm run check:research` begins with full `npm test` and therefore retains simulation coverage before the relational research pipeline runs.
+
+This removes archived simulation latency from unrelated browser/UI/product changes without deleting or weakening the research verification path.
 
 ## Stop condition
 

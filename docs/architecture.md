@@ -150,7 +150,7 @@ Archived research should remain callable through explicit research entry points.
 
 General pull-request CI currently protects more than `npm run check`: it includes syntax source-evidence audits, Formal Syntax Phase 1 closure and product-baseline verification, the product/build checks, bundle budget, and browser smoke tests.
 
-Archived relational research has a separate manual `check:research` path, but legacy simulation tests still run in the ordinary product check. CI separation is therefore incomplete and remains a consolidation task.
+Archived simulation and relational research are excluded from the ordinary product check. They remain explicitly verifiable through `npm run test:simulation` or the manual `check:research` path, whose full `npm test` coverage includes the simulation suite before the relational research commands run.
 
 ## Deferred product work
 

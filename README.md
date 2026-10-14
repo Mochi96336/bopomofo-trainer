@@ -62,9 +62,9 @@ Vite 啟動後，開啟終端顯示的本機網址即可。
 npm run check
 ```
 
-本機 `npm run check` 會跑 active runtime morphology / occurrence-capability projections、TypeScript typecheck、Vitest（快速與 simulation）、Python source-adapter 測試、catalog 驗證、production build 與 bundle size budget。
+本機 `npm run check` 會跑 active runtime morphology / occurrence-capability projections、TypeScript typecheck、快速 Vitest、Python source-adapter 測試、catalog 驗證、production build 與 bundle size budget；archived simulation 不再屬於一般產品 gate。
 
-Pull request CI 比這個本機入口更完整：另外會跑 Formal Syntax 的 source-evidence audits、Phase 1 closure / product-baseline 驗證，以及獨立的 Playwright browser smoke tests。Archived relational research 則只在手動要求時跑 `npm run check:research`；`npm run test:slow` 也不屬於一般 PR gate。
+Pull request CI 比這個本機入口更完整：另外會跑 Formal Syntax 的 source-evidence audits、Phase 1 closure / product-baseline 驗證，以及獨立的 Playwright browser smoke tests。完整 archived simulation / relational research 則只在明確執行 `npm run check:research` 時跑；`npm run test:simulation` 仍可單獨驗證 simulation，`npm run test:slow` 也不屬於一般 PR gate。
 
 ## 主要目錄
 

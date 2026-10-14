@@ -21,7 +21,7 @@ npm run check:pr
 This command runs:
 
 1. catalog generation and TypeScript typecheck;
-2. every Vitest test except `tests/relations/partition/real-catalog-policy.test.ts` (`test:fast` then `test:simulation`);
+2. the ordinary product/tooling Vitest surface through `test:fast` (excluding archived `tests/simulation/**` and the slow real-catalog relational policy test);
 3. the Python source-adapter tests;
 4. catalog validation;
 5. the production build;
@@ -59,13 +59,19 @@ The one excluded file runs all five relational partition strategies over the com
 npm run test:slow
 ```
 
-Run the full archived research verification only when a change touches the simulation or canonical research surface, including `src/simulation/**`, `tests/simulation/**`, relational experiment scripts, experiment fixtures, or committed research findings:
+Run focused archived simulation tests directly when changing only that surface:
+
+```bash
+npm run test:simulation
+```
+
+Run the full archived research verification when a change touches simulation or the canonical research surface, including `src/simulation/**`, `tests/simulation/**`, relational experiment scripts, experiment fixtures, or committed research findings:
 
 ```bash
 npm run check:research
 ```
 
-The research command is intentionally expensive. It is not a routine product merge gate.
+`check:research` begins with full `npm test`, so archived simulation remains covered there before the relational integration / experiment / analysis / confirmation commands run. The research command is intentionally expensive and is not a routine product merge gate.
 
 ## Browser tests
 
@@ -80,7 +86,7 @@ It builds first and runs against the production build, since that is the artifac
 
 ## GitHub Actions policy
 
-- Pull requests run the fast `check` job and the `browser` job.
+- Pull requests run the product/tooling `check` job and the `browser` job; archived simulation is intentionally excluded from both ordinary gates.
 - Pushes to `main` run the same two jobs.
 - Both belong to the `check` workflow, so the deploy gate — which waits on that workflow concluding successfully — covers the browser suite too.
 - The `research` job runs only through `workflow_dispatch` with `run_research=true`.
