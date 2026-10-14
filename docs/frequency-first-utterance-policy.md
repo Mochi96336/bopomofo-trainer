@@ -9,7 +9,7 @@ Selection order is:
 1. sample a bounded derivation rooted at the formal `Sentence` category;
 2. fill each lexical slot only from compatible admitted syntax profiles;
 3. give compatible entries and the completed utterance a frequency base;
-4. add bounded learner-specific weight from expected-token errors, identifiable binding timing, and exact within-syllable transition timing;
+4. add bounded learner-specific weight from expected-token errors and identifiable binding timing;
 5. apply recent entry and utterance penalties;
 6. make one deterministic seeded weighted selection.
 
@@ -62,11 +62,13 @@ Only timing already accepted by the Phase 3 measurement policy can affect select
 
 For an identifiable token timing aggregate, the selector compares current clean timing to that token's own best clean timing. The contribution is sample-gated and capped.
 
-## Exact transition timing
+## Transition timing boundary
 
-Transition weight is read only for exact adjacent tokens inside one syllable. No transition is formed across syllable or entry boundaries.
+Transition measurements remain available to diagnostics, archived research, and legacy selector compatibility, but they do not influence current browser selection.
 
-For example, a slow clean `ㄓ → ㄨ` aggregate may raise a grammar-valid utterance containing that exact ordered pair. It does not independently raise every utterance containing `ㄓ` or `ㄨ`.
+The production entry point is `selectFormalSyntaxUtterance(...)`. It supplies Measurement V2 binding evidence and explicitly sets legacy transition evidence to `null`. Production selections therefore keep a neutral transition contribution (`transitionBoost = 1`, empty transition trace) even though the shared legacy-compatible score shape still contains transition fields.
+
+This boundary is intentional: current product selection may react to expected-token correctness and identifiable binding timing, but it must not reinterpret historical canonical-order transition measurements as learner-selection evidence.
 
 ## Grammar boundary
 
@@ -86,14 +88,11 @@ Every syntax-legal runtime entry belongs to the ordinary practice catalog. The b
 
 ## Persistence boundary
 
-Product progress schema 6 stores:
+Current product progress uses schema 7 and measurement epoch `coordination-v1`. It persists Measurement V2 data, selection recency, round count, recent summaries, and the still-present legacy curriculum envelope.
 
-- recent utterance IDs;
-- recent template IDs;
-- utterance and template fields in recent summaries;
-- binding, directional confusion, and exact transition aggregates under measurement policy `phase-3-v2`.
+Schema 6 is accepted only at the migration boundary. Its measurement-derived records are discarded because they were gathered under incompatible strict canonical-input semantics; the loader preserves identity, completed-round count, curriculum recency, and frequency-first selection continuity, then starts a fresh Measurement V2 epoch and clears migrated recent summaries.
 
-Schemas 1 through 5 are not accepted. A stored payload declaring any of them is rejected on load, and the learner starts with fresh measurements, counters, summaries, and selection state. No legacy payload contributes to product or Pilot state, and no migration path is kept for one.
+Schemas 1 through 5 are rejected. The browser does not revive their measurement or selection state.
 
 ## Explainability
 
@@ -101,7 +100,7 @@ Every selected utterance retains:
 
 - frequency base;
 - expected-token traces and boosts;
-- exact-transition traces and boosts;
+- the neutral production transition fields retained by the legacy-compatible score shape;
 - combined learner cap;
 - repetition factors;
 - total weight;
