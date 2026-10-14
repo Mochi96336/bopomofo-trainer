@@ -6,6 +6,7 @@ on:
       - ".github/workflows/polyphonic-reading-exposure.yml"
       - "scripts/audit-polyphonic-context.ts"
       - "scripts/audit-same-upos-polyphones.ts"
+      - "scripts/audit-targeted-polyphonic-identities.ts"
       - "src/readings/**"
       - "tests/readings/**"
       - "package.json"
@@ -45,6 +46,8 @@ jobs:
           data/generated/polyphonic-role-trial-comparison.json
       - name: Extract ranked same-UPOS pronunciation review queue
         run: npx tsx scripts/audit-same-upos-polyphones.ts
+      - name: Probe missing reading identities in bounded biased generation
+        run: npx tsx scripts/audit-targeted-polyphonic-identities.ts --probes 3
       - name: Prepare annotated review summary
         run: |
           node --input-type=module <<'NODE'
@@ -54,6 +57,7 @@ jobs:
           const roles = JSON.parse(readFileSync('data/generated/polyphonic-context-reviewed-roles.json', 'utf8'));
           const comparison = JSON.parse(readFileSync('data/generated/polyphonic-role-trial-comparison.json', 'utf8'));
           const queue = JSON.parse(readFileSync('data/generated/same-upos-polyphone-review.json', 'utf8'));
+          const targets = JSON.parse(readFileSync('data/generated/polyphonic-targeted-identity-coverage.json', 'utf8'));
           const escape = (value) => String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
           const count = Object.entries(report.occurrenceCountByText)
             .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -96,6 +100,16 @@ jobs:
             '| Role | Before | After reviewed-role trial |',
             '|---|---:|---:|',
             ...['哪/PRON', '那/DET'].map(key => `| ${key} | ${comparison.reviewedRoleMismatchCountByRole.closedClassOnly[key] ?? 0} | ${comparison.reviewedRoleMismatchCountByRole.reviewedRoles[key] ?? 0} |`),
+            '',
+            '#### Exact reading identity coverage (not correctness)',
+            '',
+            `Total ambiguous catalog reading identities: ${targets.ambiguousReadingIdentityCount}; unbiased vs biased sampling are intentionally separated.`,
+            '',
+            '| Coverage label | Identities |',
+            '|---|---:|',
+            ...Object.entries(targets.statusCounts).map(([key, count]) => `| ${key} | ${count} |`),
+            '',
+            'Targets not seen in bounded probes remain UNKNOWN, not unreachable. Biased samples are not pronunciation-validity evidence.',
             '',
             '#### Same-UPOS sense-review queue (not error labels)',
             '',
@@ -146,5 +160,6 @@ jobs:
             data/generated/polyphonic-context-reviewed-roles.json
             data/generated/polyphonic-role-trial-comparison.json
             data/generated/same-upos-polyphone-review.json
+            data/generated/polyphonic-targeted-identity-coverage.json
           retention-days: 14
           if-no-files-found: error
