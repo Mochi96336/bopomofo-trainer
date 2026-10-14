@@ -57,6 +57,7 @@ export * from "./curriculum/scenarios.js";
 export * from "./curriculum/objectives.js";
 export * from "./curriculum/relational-objective-strategies.js";
 export * from "./curriculum/frequency-first-utterance.js";
+export * from "./curriculum/legacy-frequency-first-utterance.js";
 export * from "./curriculum/formal-syntax-utterance.js";
 export * from "./composition/types.js";
 export * from "./composition/composer.js";
