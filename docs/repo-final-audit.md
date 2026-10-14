@@ -95,7 +95,9 @@ research
    → relational research pipeline
 ```
 
-Research coverage is therefore retained without adding archived simulation latency to unrelated browser/product changes.
+Research coverage is therefore retained without adding the heavy `tests/simulation/**` latency to unrelated browser/product changes.
+
+`test:fast` is still intentionally broad: a few small compatibility/research unit tests remain outside `tests/simulation/**` and therefore still run in ordinary CI. The consolidation goal here is to remove the expensive simulation harness from the product gate, not to duplicate or physically reclassify every fast historical unit test.
 
 ## Bundle ownership
 
