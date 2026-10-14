@@ -76,9 +76,20 @@ The first consolidation PR changes documentation only.
 
 The production selector now compiles without legacy Measurement V1 / transition dependencies. Archived template/transition tests import the explicit legacy compatibility module.
 
-### P1d — bundle attribution before lexicon growth
+### P1d — bundle attribution before lexicon growth — done
 
-The current bundle is already near its budget. Attribute bytes among catalog entries, runtime syntax profiles, grammar/runtime tables, Analysis V2, and app code before accepting another broad lexicon expansion.
+The baseline at `main@9bf4c599476ce38c4f50b004cc587f6db86dae79` is now reproducible with `npm run size:attribution`.
+
+- production JS: 467.3 kB gzip / 2,193.4 kB raw;
+- generated catalog: 87.0% of Rollup rendered module bytes;
+- formal syntax / selection: 5.3%;
+- product runtime: 3.0%;
+- app shell: 2.3%;
+- Analysis V2: 2.3%;
+- practice-entry payload: 304.1 kB isolated gzip / 1,479.2 kB raw;
+- runtime syntax-profile payload plus compact dictionaries: 94.5 kB isolated gzip / 487.8 kB raw.
+
+The practical conclusion is that future broad lexicon growth must account for both entry payload and syntax-profile payload. Analysis V2 is not the dominant bundle cost. Full measurement notes live in `docs/bundle-attribution.md`.
 
 ### P2 — physical archive and CI boundary
 
