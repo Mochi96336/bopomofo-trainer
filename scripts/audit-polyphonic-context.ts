@@ -73,6 +73,12 @@ const { samples, output, policy } = argumentsFromCli();
 const ambiguous = buildPolyphonicReadingIndex(PRACTICE_CATALOG);
 const profilesById = new Map(SYNTAX_PROFILES.map((profile) => [profile.id, profile]));
 const hits: PolyphonicContextHit[] = [];
+const sentences: Array<{
+  readonly seedIndex: number;
+  readonly text: string | null;
+  readonly entryIds: readonly string[];
+  readonly root: string | null;
+}> = [];
 const perText = new Map<string, number>();
 const perEntryId = new Map<string, number>();
 const perTextAndUpos = new Map<string, number>();
@@ -98,6 +104,12 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
   });
   for (const reason of composition.fallbackReasons) increment(fallbacks, reason);
   const candidate = composition.candidates[0];
+  sentences.push({
+    seedIndex,
+    text: candidate?.text ?? null,
+    entryIds: candidate?.entries.map((entry) => entry.id) ?? [],
+    root: candidate?.syntaxRootRuleId ?? null,
+  });
   if (candidate === undefined) continue;
   successfulSentences += 1;
   const sentenceHits = auditPolyphonicCandidate(seedIndex, candidate, ambiguous, profilesById);
@@ -133,6 +145,7 @@ const report = {
   occurrenceCountByEntryId: sortedCounts(perEntryId),
   occurrenceCountByTextAndUpos: sortedCounts(perTextAndUpos),
   fallbacks: sortedCounts(fallbacks),
+  sentences,
   hits,
 };
 await mkdir(dirname(output), { recursive: true });
