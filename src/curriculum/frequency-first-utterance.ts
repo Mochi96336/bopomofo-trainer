@@ -90,6 +90,20 @@ export interface EntrySelectionScore {
   readonly expectedTokenTrace: readonly ExpectedTokenBoostTrace[];
 }
 
+export interface UtteranceCandidateScore {
+  readonly utteranceId: string;
+  readonly templateId: string | null;
+  readonly entryIds: readonly string[];
+  readonly frequencyBase: number;
+  readonly expectedTokenBoost: number;
+  readonly combinedLearnerBoost: number;
+  readonly recentEntryFactor: number;
+  readonly recentUtteranceFactor: number;
+  readonly recentTemplateFactor: number;
+  readonly totalWeight: number;
+  readonly expectedTokenTrace: readonly ExpectedTokenBoostTrace[];
+}
+
 export interface FrequencyFirstUtteranceSelection {
   readonly policyVersion: string;
   readonly utterance: GrammarUtteranceCandidate;
