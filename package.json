@@ -59,7 +59,8 @@
     "qa:catalog-sample": "tsx scripts/sample-catalog-qa.ts",
     "qa:catalog-score": "tsx scripts/sample-catalog-qa.ts --score",
     "size:check": "tsx scripts/check-bundle-size.ts",
-    "grammar:runtime-locative-occurrence-capabilities": "tsx scripts/migrate-active-runtime-locative-occurrence-capabilities.ts"
+    "grammar:runtime-locative-occurrence-capabilities": "tsx scripts/migrate-active-runtime-locative-occurrence-capabilities.ts",
+    "size:attribution": "npm run app:catalog && tsx scripts/measure-bundle-attribution.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
