@@ -42,6 +42,16 @@ src/scheme/              Bopomofo tokens and physical layouts
 
 The main maintenance rule is that current browser behavior must be understandable from these modules without requiring the archived relational research stack.
 
+Top-level source imports follow the same boundary:
+
+```text
+src/index.ts      current browser/product runtime
+src/tooling.ts    active catalog/reference/syntax build and review tooling
+src/research.ts   archived Measurement V1 / relations / simulation compatibility
+```
+
+The default root deliberately does not re-export the archived research stack. Research remains reproducible through an explicit opt-in entrypoint instead of appearing as ordinary product API.
+
 ## Product selection boundary
 
 The browser selects complete grammar-valid utterances from the practice catalog after commonness-level filtering.
