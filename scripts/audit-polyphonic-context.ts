@@ -1,0 +1,133 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
+import { createSeededRandom } from "../src/curriculum/random.js";
+import {
+  auditPolyphonicCandidate,
+  buildPolyphonicReadingIndex,
+  type PolyphonicContextHit,
+} from "../src/readings/polyphonic-audit.js";
+
+/**
+ * Runs the same deterministic grammar inputs as the pinned phase-one product
+ * baseline, without changing composer logic or production selection weights.
+ *
+ * npm run app:catalog
+ * npx tsx scripts/audit-polyphonic-context.ts
+ * npx tsx scripts/audit-polyphonic-context.ts --samples 100
+ */
+const SEED_NAMESPACE = "formal-syntax-v2-phase1-product-baseline-v1";
+const PRODUCT_BOUNDS = {
+  maximumPhraseDepth: 3,
+  maximumClauseNesting: 1,
+  maximumClausesPerSentence: 2,
+  maximumCoordinationItems: 2,
+  maximumConsecutiveModifiers: 2,
+  maximumComplementsPerPredicate: 1,
+  maximumLexicalEntriesPerUtterance: 6,
+} as const;
+
+function argumentsFromCli(): { samples: number; output: string } {
+  let samples = 2048;
+  let output = "data/generated/polyphonic-context-exposure.json";
+  for (let i = 2; i < process.argv.length; i += 1) {
+    const name = process.argv[i];
+    const value = process.argv[++i];
+    if (value === undefined) throw new Error("missing value for " + name);
+    if (name === "--samples") {
+      samples = Number(value);
+      if (!Number.isSafeInteger(samples) || samples < 1 || samples > 100_000) {
+        throw new Error("--samples must be an integer from 1 to 100000");
+      }
+    } else if (name === "--output") {
+      output = value;
+    } else {
+      throw new Error("unknown option: " + name);
+    }
+  }
+  return { samples, output };
+}
+
+function increment(map: Map<string, number>, key: string): void {
+  map.set(key, (map.get(key) ?? 0) + 1);
+}
+
+function sortedCounts(map: ReadonlyMap<string, number>): Readonly<Record<string, number>> {
+  return Object.fromEntries(
+    [...map].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0),
+  );
+}
+
+const { samples, output } = argumentsFromCli();
+const ambiguous = buildPolyphonicReadingIndex(PRACTICE_CATALOG);
+const profilesById = new Map(SYNTAX_PROFILES.map((profile) => [profile.id, profile]));
+const hits: PolyphonicContextHit[] = [];
+const perText = new Map<string, number>();
+const perEntryId = new Map<string, number>();
+const perTextAndUpos = new Map<string, number>();
+const fallbacks = new Map<string, number>();
+let successfulSentences = 0;
+let sentencesWithAmbiguousReadings = 0;
+
+for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
+  const composition = composeFormalSyntaxUtterances({
+    eligibleEntries: PRACTICE_CATALOG,
+    profiles: SYNTAX_PROFILES,
+    random: createSeededRandom(SEED_NAMESPACE + ":" + seedIndex),
+    samplingMode: "product-family",
+    minimumLexicalEntries: 2,
+    maximumCandidates: 1,
+    maximumAttempts: 64,
+    bounds: PRODUCT_BOUNDS,
+  });
+  for (const reason of composition.fallbackReasons) increment(fallbacks, reason);
+  const candidate = composition.candidates[0];
+  if (candidate === undefined) continue;
+  successfulSentences += 1;
+  const sentenceHits = auditPolyphonicCandidate(seedIndex, candidate, ambiguous, profilesById);
+  if (sentenceHits.length > 0) sentencesWithAmbiguousReadings += 1;
+  hits.push(...sentenceHits);
+  for (const hit of sentenceHits) {
+    increment(perText, hit.text);
+    increment(perEntryId, hit.selectedEntryId);
+    increment(perTextAndUpos, hit.text + "/" + (hit.selectedUpos ?? "unknown"));
+  }
+}
+
+const unsampledTexts = [...ambiguous.keys()].filter((text) => !perText.has(text));
+const report = {
+  schemaVersion: "polyphonic-context-exposure-v1",
+  purpose: "Read-only exposure audit; no judgement of reading correctness.",
+  seedNamespace: SEED_NAMESPACE,
+  productBounds: PRODUCT_BOUNDS,
+  sampleCount: samples,
+  catalogEntryCount: PRACTICE_CATALOG.length,
+  ambiguousTextCount: ambiguous.size,
+  ambiguousSingleCharacterTextCount: [...ambiguous.keys()].filter(
+    (text) => [...text].length === 1,
+  ).length,
+  successfulSentences,
+  failedSentences: samples - successfulSentences,
+  sentencesWithAmbiguousReadings,
+  polyphonicOccurrences: hits.length,
+  observedAmbiguousTextCount: perText.size,
+  unsampledAmbiguousTexts: unsampledTexts,
+  occurrenceCountByText: sortedCounts(perText),
+  occurrenceCountByEntryId: sortedCounts(perEntryId),
+  occurrenceCountByTextAndUpos: sortedCounts(perTextAndUpos),
+  fallbacks: sortedCounts(fallbacks),
+  hits,
+};
+await mkdir(dirname(output), { recursive: true });
+await writeFile(output, JSON.stringify(report, null, 2) + "\n", "utf8");
+console.log(JSON.stringify({
+  output,
+  samples,
+  successfulSentences,
+  ambiguousTextCount: ambiguous.size,
+  observedAmbiguousTextCount: perText.size,
+  polyphonicOccurrences: hits.length,
+  sentencesWithAmbiguousReadings,
+  warning: "Exposure is not evidence of an incorrect pronunciation.",
+}, null, 2));
