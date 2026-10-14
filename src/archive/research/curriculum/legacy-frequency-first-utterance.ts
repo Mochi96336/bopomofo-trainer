@@ -3,15 +3,15 @@ import type {
   PracticeMode,
   RandomSource,
   TokenId,
-} from "../core/model.js";
+} from "../../../core/model.js";
 import type {
   GrammarAnnotation,
   GrammarRole,
   GrammarTemplate,
   GrammarUtteranceCandidate,
-} from "../grammar/types.js";
-import { transitionScopeKey } from "../measurement/aggregate.js";
-import type { MeasurementSummary } from "../measurement/types.js";
+} from "../../../grammar/types.js";
+import { transitionScopeKey } from "../../../measurement/aggregate.js";
+import type { MeasurementSummary } from "../../../measurement/types.js";
 import {
   scoreFrequencyFirstCandidate,
   scoreFrequencyFirstEntry,
@@ -19,7 +19,7 @@ import {
   type FrequencyFirstUtterancePolicy,
   type UtteranceCandidateScore,
   type UtteranceSelectionHistory,
-} from "./frequency-first-utterance.js";
+} from "../../../curriculum/frequency-first-utterance.js";
 import {
   generateSlotWeightedGrammar,
   type GrammarSlotSelectionTrace,

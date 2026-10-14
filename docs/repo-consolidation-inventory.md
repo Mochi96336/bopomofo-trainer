@@ -101,9 +101,17 @@ The source root is now intentionally three-way:
 
 A product boundary test prevents archived research exports from leaking back into the default root or browser session.
 
-### P2b — physical archive
+### P2b — physical archive — in progress
 
-Move archived research files out of the active mental surface without breaking explicit research reproduction. This should be primarily path/ownership cleanup, not a behavior rewrite.
+The first low-risk batch is physically archived under `src/archive/research/`:
+
+- relational research integration;
+- legacy transition-aware frequency-first selector;
+- legacy slot-weighted/template grammar.
+
+Their research scripts/tests now import the archived paths explicitly, while `src/research.ts` remains the stable opt-in research entrypoint. A source-boundary test prevents active runtime trees from importing `src/archive/research/**`.
+
+Relations and the broader simulation tree are intentionally not moved yet because current reference/ranking tooling still imports relational report types. Those dependencies should be separated before the next physical archive batch.
 
 ### P2c — CI boundary
 

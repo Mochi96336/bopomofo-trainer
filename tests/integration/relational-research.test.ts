@@ -7,7 +7,7 @@ import {
   runRelationalResearchIntegration,
   serializeRelationalResearchIntegrationReport,
   type RelationalResearchIntegrationFixture,
-} from "../../src/integration/relational-research.js";
+} from "../../src/archive/research/integration/relational-research.js";
 import { createRelationalCatalogReport } from "../../src/relations/catalog-report.js";
 import { partitionRelationSupportPreserving } from "../../src/relations/partition/strategies.js";
 

@@ -1,12 +1,12 @@
-import type { CatalogEntry, RandomSource } from "../core/model.js";
+import type { CatalogEntry, RandomSource } from "../../../core/model.js";
 import type {
   GrammarAnnotation,
   GrammarSlotAssignment,
   GrammarTemplate,
   GrammarTemplateSlot,
   GrammarUtteranceCandidate,
-} from "../grammar/types.js";
-import { weightedPick } from "./random.js";
+} from "../../../grammar/types.js";
+import { weightedPick } from "../../../curriculum/random.js";
 
 const MAXIMUM_SLOT_ATTEMPTS = 64;
 

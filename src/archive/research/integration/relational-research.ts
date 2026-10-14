@@ -2,46 +2,46 @@ import type {
   CatalogEntry,
   Exercise,
   PracticeMode,
-} from "../core/model.js";
-import { composePracticeSequence } from "../composition/composer.js";
-import { stableDigest, stableStringify } from "../composition/stable.js";
+} from "../../../core/model.js";
+import { composePracticeSequence } from "../../../composition/composer.js";
+import { stableDigest, stableStringify } from "../../../composition/stable.js";
 import type {
   CompositionPolicy,
   PracticeBudget,
   PracticeSequence,
   RecentSequenceHistory,
-} from "../composition/types.js";
-import type { RelationObjective } from "../curriculum/objectives.js";
-import { createSeededRandom } from "../curriculum/random.js";
-import { semanticReferenceIdentity } from "../reference/identity.js";
-import { importReferenceSource } from "../reference/importers/import-reference-source.js";
-import { createTabularReferenceSourceAdapter } from "../reference/importers/tabular-adapter.js";
+} from "../../../composition/types.js";
+import type { RelationObjective } from "../../../curriculum/objectives.js";
+import { createSeededRandom } from "../../../curriculum/random.js";
+import { semanticReferenceIdentity } from "../../../reference/identity.js";
+import { importReferenceSource } from "../../../reference/importers/import-reference-source.js";
+import { createTabularReferenceSourceAdapter } from "../../../reference/importers/tabular-adapter.js";
 import type {
   ReferenceImportResult,
   TabularReferenceAdapterConfig,
-} from "../reference/importers/types.js";
-import { buildReferenceReviewQueue } from "../reference/ranking.js";
+} from "../../../reference/importers/types.js";
+import { buildReferenceReviewQueue } from "../../../reference/ranking.js";
 import type {
   ReferenceRankingProfile,
   ReferenceReviewQueue,
-} from "../reference/ranking-types.js";
-import type { ReferenceSourceManifest } from "../reference/types.js";
+} from "../../../reference/ranking-types.js";
+import type { ReferenceSourceManifest } from "../../../reference/types.js";
 import {
   createRelationalCatalogReport,
   type RelationalCatalogReport,
-} from "../relations/catalog-report.js";
-import { partitionRelationSupportPreserving } from "../relations/partition/strategies.js";
+} from "../../../relations/catalog-report.js";
+import { partitionRelationSupportPreserving } from "../../../relations/partition/strategies.js";
 import type {
   PartitionDecision,
   PartitionPolicyOptions,
-} from "../relations/partition/types.js";
-import type { CatalogPartition } from "../relations/types.js";
-import { getSyntheticScenario } from "../simulation/learner/scenarios.js";
+} from "../../../relations/partition/types.js";
+import type { CatalogPartition } from "../../../relations/types.js";
+import { getSyntheticScenario } from "../../../simulation/learner/scenarios.js";
 import type {
   SyntheticScenario,
   SyntheticTraceBatch,
-} from "../simulation/learner/types.js";
-import { generateSyntheticTraceBatch } from "../simulation/trace-generator/generate.js";
+} from "../../../simulation/learner/types.js";
+import { generateSyntheticTraceBatch } from "../../../simulation/trace-generator/generate.js";
 
 export interface RelationalResearchIntegrationFixture {
   readonly id: string;

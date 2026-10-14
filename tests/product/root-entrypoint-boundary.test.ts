@@ -1,5 +1,20 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+
+
+function tsFilesUnder(root: string): readonly string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(root, { withFileTypes: true })) {
+    const path = join(root, entry.name);
+    if (entry.isDirectory()) {
+      found.push(...tsFilesUnder(path));
+    } else if (entry.isFile() && entry.name.endsWith(".ts")) {
+      found.push(path);
+    }
+  }
+  return found;
+}
 
 describe("top-level source entrypoint boundaries", () => {
   it("keeps the default root on current product/runtime modules", () => {
@@ -39,9 +54,9 @@ describe("top-level source entrypoint boundaries", () => {
     const source = readFileSync("src/research.ts", "utf8");
     expect(source).toContain('"./measurement/types.js"');
     expect(source).toContain('"./relations/catalog-report.js"');
-    expect(source).toContain('"./curriculum/legacy-frequency-first-utterance.js"');
+    expect(source).toContain('"./archive/research/curriculum/legacy-frequency-first-utterance.js"');
     expect(source).toContain('"./simulation/strategy-matrix.js"');
-    expect(source).toContain('"./integration/relational-research.js"');
+    expect(source).toContain('"./archive/research/integration/relational-research.js"');
   });
 
   it("keeps the browser product away from the research entrypoint", () => {
@@ -50,5 +65,21 @@ describe("top-level source entrypoint boundaries", () => {
     expect(browser).not.toContain("research.js");
     expect(session).not.toContain("research.js");
     expect(session).not.toContain("legacy-frequency-first-utterance");
+  });
+
+  it("prevents active runtime trees from importing archived research", () => {
+    const activeRoots = [
+      "src/app",
+      "src/product",
+      "src/measurement-v2",
+      "src/progress-history",
+      "src/curriculum",
+    ];
+    for (const root of activeRoots) {
+      for (const path of tsFilesUnder(root)) {
+        const source = readFileSync(path, "utf8");
+        expect(source, path).not.toContain("archive/research");
+      }
+    }
   });
 });
