@@ -3,6 +3,7 @@ import { dirname } from "node:path";
 import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
 import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
 import { createSeededRandom } from "../src/curriculum/random.js";
+import { reviewedClosedClassReadingEligible } from "../src/readings/closed-class-license.js";
 import {
   auditPolyphonicCandidate,
   buildPolyphonicReadingIndex,
@@ -28,9 +29,10 @@ const PRODUCT_BOUNDS = {
   maximumLexicalEntriesPerUtterance: 6,
 } as const;
 
-function argumentsFromCli(): { samples: number; output: string } {
+function argumentsFromCli(): { samples: number; output: string; policy: "none" | "reviewed-closed" } {
   let samples = 2048;
   let output = "data/generated/polyphonic-context-exposure.json";
+  let policy: "none" | "reviewed-closed" = "none";
   for (let i = 2; i < process.argv.length; i += 1) {
     const name = process.argv[i];
     const value = process.argv[++i];
@@ -42,11 +44,16 @@ function argumentsFromCli(): { samples: number; output: string } {
       }
     } else if (name === "--output") {
       output = value;
+    } else if (name === "--policy") {
+      if (value !== "none" && value !== "reviewed-closed") {
+        throw new Error("--policy accepts none or reviewed-closed");
+      }
+      policy = value;
     } else {
       throw new Error("unknown option: " + name);
     }
   }
-  return { samples, output };
+  return { samples, output, policy };
 }
 
 function increment(map: Map<string, number>, key: string): void {
@@ -59,7 +66,7 @@ function sortedCounts(map: ReadonlyMap<string, number>): Readonly<Record<string,
   );
 }
 
-const { samples, output } = argumentsFromCli();
+const { samples, output, policy } = argumentsFromCli();
 const ambiguous = buildPolyphonicReadingIndex(PRACTICE_CATALOG);
 const profilesById = new Map(SYNTAX_PROFILES.map((profile) => [profile.id, profile]));
 const hits: PolyphonicContextHit[] = [];
@@ -80,6 +87,9 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
     maximumCandidates: 1,
     maximumAttempts: 64,
     bounds: PRODUCT_BOUNDS,
+    ...(policy === "reviewed-closed"
+      ? { readingEligibility: reviewedClosedClassReadingEligible }
+      : {}),
   });
   for (const reason of composition.fallbackReasons) increment(fallbacks, reason);
   const candidate = composition.candidates[0];
@@ -99,6 +109,7 @@ const unsampledTexts = [...ambiguous.keys()].filter((text) => !perText.has(text)
 const report = {
   schemaVersion: "polyphonic-context-exposure-v1",
   purpose: "Read-only exposure audit; no judgement of reading correctness.",
+  readingEligibilityPolicy: policy,
   seedNamespace: SEED_NAMESPACE,
   productBounds: PRODUCT_BOUNDS,
   sampleCount: samples,
@@ -124,6 +135,7 @@ await writeFile(output, JSON.stringify(report, null, 2) + "\n", "utf8");
 console.log(JSON.stringify({
   output,
   samples,
+  policy,
   successfulSentences,
   ambiguousTextCount: ambiguous.size,
   observedAmbiguousTextCount: perText.size,

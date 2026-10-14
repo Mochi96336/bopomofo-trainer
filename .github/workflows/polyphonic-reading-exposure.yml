@@ -32,11 +32,14 @@ jobs:
         run: npm run app:catalog
       - name: Audit 2048 deterministic generated sentences
         run: npm run readings:audit
+      - name: Trial closed-class reading eligibility against the same seeds
+        run: npm run readings:audit -- --policy reviewed-closed --output data/generated/polyphonic-context-reviewed-closed.json
       - name: Prepare annotated review summary
         run: |
           node --input-type=module <<'NODE'
           import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
           const report = JSON.parse(readFileSync('data/generated/polyphonic-context-exposure.json', 'utf8'));
+          const gated = JSON.parse(readFileSync('data/generated/polyphonic-context-reviewed-closed.json', 'utf8'));
           const escape = (value) => String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
           const count = Object.entries(report.occurrenceCountByText)
             .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -58,6 +61,19 @@ jobs:
               ['Sentences containing a multireading form', report.sentencesWithAmbiguousReadings],
               ['Total sampled multireading occurrences', report.polyphonicOccurrences],
             ].map(([key,val]) => `| ${key} | ${val} |`),
+            '',
+            '#### Opt-in experiment (not active in the website)',
+            '',
+            '| Metric | Original | Closed-class trial |',
+            '|---|---:|---:|',
+            ...[
+              ['Successfully generated', report.successfulSentences, gated.successfulSentences],
+              ['Sentences containing a multireading form', report.sentencesWithAmbiguousReadings, gated.sentencesWithAmbiguousReadings],
+              ['Multireading occurrences', report.polyphonicOccurrences, gated.polyphonicOccurrences],
+              ['Distinct forms sampled', report.observedAmbiguousTextCount, gated.observedAmbiguousTextCount],
+            ].map(([key, original, trial]) => `| ${key} | ${original} | ${trial} |`),
+            '',
+            'Different generation paths are expected after filtering. Do not interpret fewer multireading hits as higher quality by itself.',
             '',
             '#### Most exposed written forms',
             '',
@@ -93,6 +109,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: polyphonic-reading-exposure-json
-          path: data/generated/polyphonic-context-exposure.json
+          path: |
+            data/generated/polyphonic-context-exposure.json
+            data/generated/polyphonic-context-reviewed-closed.json
           retention-days: 14
           if-no-files-found: error

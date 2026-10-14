@@ -63,6 +63,12 @@ export interface FormalSyntaxUtteranceInput {
   /** Lazy equivalent used when scoring only the compatible lexical frontier. */
   readonly entryWeight?: (entry: CatalogEntry) => number;
   readonly lexicalCompatibility?: LexicalCompatibilityIndex;
+  /** Optional experimental reading policy. Omitted in the shipping product. */
+  readonly readingEligibility?: (
+    entry: CatalogEntry,
+    profile: RuntimeSyntaxProfile,
+    slot: StructuralLexicalSlot,
+  ) => boolean;
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
@@ -678,9 +684,19 @@ export function composeFormalSyntaxUtterances(
       const boundEntryId = slot.entryBindingId === undefined
         ? undefined
         : entryIdByBinding.get(slot.entryBindingId);
-      const compatible = boundEntryId === undefined
+      const boundCompatible = boundEntryId === undefined
         ? allCompatible
         : allCompatible.filter((profile) => profile.entryId === boundEntryId);
+      const readingEligibility = input.readingEligibility;
+      const compatible = readingEligibility === undefined
+        ? boundCompatible
+        : boundCompatible.filter((profile) => {
+            const entry = entriesById.get(profile.entryId);
+            if (entry === undefined) {
+              throw new Error("formal syntax reading policy references a missing catalog entry");
+            }
+            return readingEligibility(entry, profile, slot);
+          });
       const selectedProfile = selectCompatibleProfile(
         compatible,
         usedEntryIds,
