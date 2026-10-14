@@ -1,0 +1,113 @@
+name: Polyphonic reading exposure
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/polyphonic-reading-exposure.yml"
+      - "scripts/audit-polyphonic-context.ts"
+      - "src/readings/**"
+      - "tests/readings/**"
+      - "package.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  audit:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Generate the product catalog
+        run: npm run app:catalog
+      - name: Audit 2048 deterministic generated sentences
+        run: npm run readings:audit
+      - name: Prepare annotated review summary
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
+          const report = JSON.parse(readFileSync('data/generated/polyphonic-context-exposure.json', 'utf8'));
+          const escape = (value) => String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
+          const count = Object.entries(report.occurrenceCountByText)
+            .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+          const lines = [
+            '<!-- polyphonic-reading-exposure-report-v1 -->',
+            '### Polyphonic reading exposure: 2,048 deterministic seeds',
+            '',
+            '**Diagnostic only:** a sampled multireading entry is not necessarily a wrong pronunciation.',
+            'Numbers are from generated sentences, not actual user sessions.',
+            '',
+            '| Measure | Result |',
+            '|---|---:|',
+            ...[
+              ['Sampled seeds', report.sampleCount],
+              ['Successful sentences', report.successfulSentences],
+              ['Failed sentences', report.failedSentences],
+              ['Multireading forms in practice catalog', report.ambiguousTextCount],
+              ['Multireading forms actually sampled', report.observedAmbiguousTextCount],
+              ['Sentences containing a multireading form', report.sentencesWithAmbiguousReadings],
+              ['Total sampled multireading occurrences', report.polyphonicOccurrences],
+            ].map(([key,val]) => `| ${key} | ${val} |`),
+            '',
+            '#### Most exposed written forms',
+            '',
+            '| Text | Occurrences | Distinct readings sampled |',
+            '|---|---:|---:|',
+            ...count.slice(0,25).map(([text,num]) => {
+              const ids = new Set(report.hits.filter(hit => hit.text === text).map(hit => hit.selectedEntryId));
+              return `| ${escape(text)} | ${num} | ${ids.size} |`;
+            }),
+            '',
+            '#### Representative contexts (not labeled incorrect)',
+            '',
+            '| Seed | Sentence | Selected reading identity | Previous / next entry |',
+            '|---:|---|---|---|',
+          ];
+          for (const [text] of count.slice(0,12)) {
+            const examples = report.hits.filter(hit => hit.text === text);
+            const byReading = new Map();
+            for (const hit of examples) {
+              if (!byReading.has(hit.selectedEntryId)) byReading.set(hit.selectedEntryId, hit);
+            }
+            for (const hit of [...byReading.values()].slice(0,3)) {
+              lines.push(`| ${hit.seedIndex} | ${escape(hit.sentence)} | ${escape(hit.selectedEntryId)} | ${escape(hit.previousEntryText ?? '∅')} / ${escape(hit.nextEntryText ?? '∅')} |`);
+            }
+          }
+          lines.push('', `Full per-hit JSON is attached to the workflow run; ${report.unsampledAmbiguousTexts.length} multireading written forms were not observed in this finite sample.`, '');
+          const markdown = lines.join('\n');
+          writeFileSync('polyphonic-audit-comment.md', markdown + '\n');
+          if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, markdown + '\n');
+          console.log(markdown);
+          NODE
+      - name: Upload complete reading audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: polyphonic-reading-exposure-json
+          path: data/generated/polyphonic-context-exposure.json
+          retention-days: 14
+          if-no-files-found: error
+      - name: Publish repeatable report on pull request
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          marker='<!-- polyphonic-reading-exposure-report-v1 -->'
+          old_id=$(gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments?per_page=100" --jq '.[] | select(.body | contains("<!-- polyphonic-reading-exposure-report-v1 -->")) | .id' | head -n 1 || true)
+          if [ -n "$old_id" ]; then
+            gh api "repos/${GITHUB_REPOSITORY}/issues/comments/${old_id}" -X PATCH -F body=@polyphonic-audit-comment.md >/dev/null
+          else
+            gh api "repos/${GITHUB_REPOSITORY}/issues/${PR_NUMBER}/comments" -X POST -F body=@polyphonic-audit-comment.md >/dev/null
+          fi
