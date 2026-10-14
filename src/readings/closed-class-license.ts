@@ -4,7 +4,7 @@ import { CONSTRUCTION_READINGS } from "../syntax/lexical-feature-match.js";
 import type { RuntimeSyntaxProfile, Upos } from "../syntax/types.js";
 
 /**
- * Narrow trial: enforce already-reviewed construction readings *only* when a
+ * Conservative production gate: enforce reviewed construction readings *only* when a
  * lexical profile is playing the corresponding closed-class part of speech.
  *
  * Crucially, this does NOT choose a dominant reading for the written word.
@@ -29,7 +29,7 @@ const APPROVED_IDS: ReadonlyMap<string, ReadonlySet<string>> = new Map(
   Object.entries(CLOSED_CLASS_POSITIONS).map(([text]) => {
     const readings = CONSTRUCTION_READINGS[text];
     if (readings === undefined || readings.length === 0) {
-      throw new Error("closed-class reading trial lacks reviewed construction identity: " + text);
+      throw new Error("closed-class reading gate lacks reviewed construction identity: " + text);
     }
     return [text, new Set(readings.map((reading) => catalogEntryId(text, reading)))];
   }),
@@ -47,5 +47,5 @@ export function reviewedClosedClassReadingEligible(
   return APPROVED_IDS.get(entry.prompt.text)?.has(entry.id) ?? false;
 }
 
-/** Exposed for tests and auditing; no automatic production activation. */
+/** Exposed for tests and auditing. */
 export const REVIEWED_CLOSED_CLASS_POSITIONS = CLOSED_CLASS_POSITIONS;
