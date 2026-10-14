@@ -63,10 +63,34 @@ describe("polyphonic reading exposure audit", () => {
       entryIndex: 2,
       text: "種",
       selectedEntryId: "word:種:ㄓㄨㄥ4",
+      selectedProfileId: null,
+      selectedUpos: null,
+      selectedFunctions: [],
       alternativeEntryIds: ["word:種:ㄓㄨㄥ3"],
       previousEntryText: "想",
       nextEntryText: "花",
     }]);
+  });
+
+  it("joins the actual selected syntax profile, not merely the written form", () => {
+    const index = buildPolyphonicReadingIndex(catalog);
+    const chosen = utterance([catalog[0]!, catalog[3]!]);
+    const annotated = { ...chosen, syntaxProfileIds: ["profile:pronoun", "profile:verb"] };
+    const profiles = new Map([
+      ["profile:verb", {
+        id: "profile:verb",
+        entryId: "word:種:ㄓㄨㄥ4",
+        upos: "VERB" as const,
+        functions: ["predicate" as const],
+        valencyFrames: ["transitive" as const],
+        dependencyEvidence: { dependencyRelationCounts: {}, surfacePositionCounts: {} },
+        provenanceIds: [],
+      }],
+    ]);
+    const hits = auditPolyphonicCandidate(4, annotated, index, profiles);
+    expect(hits[0]?.selectedProfileId).toBe("profile:verb");
+    expect(hits[0]?.selectedUpos).toBe("VERB");
+    expect(hits[0]?.selectedFunctions).toEqual(["predicate"]);
   });
 
   it("keeps multi-character words atomic instead of matching individual characters", () => {
