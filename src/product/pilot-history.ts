@@ -173,9 +173,9 @@ function parsePilotRoundRecord(
       && (typeof latency !== "number" || !Number.isFinite(latency) || latency < 0))
   ) return null;
 
-  const support = kind === "practice"
-    ? environment.practiceSupport
-    : environment.evaluationSupport;
+  // Evaluation is a retired runtime concept. Legacy history may still carry
+  // the tag, but every surviving entry must resolve in the current practice catalog.
+  const support = environment.practiceSupport;
   if (value.entryIds.some((entryId) => support.entriesById[entryId as string] === undefined)) {
     return null;
   }
