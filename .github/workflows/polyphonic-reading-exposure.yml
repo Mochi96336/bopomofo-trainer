@@ -70,8 +70,8 @@ jobs:
             '',
             '#### Representative contexts (not labeled incorrect)',
             '',
-            '| Seed | Sentence | Selected reading identity | Previous / next entry |',
-            '|---:|---|---|---|',
+            '| Seed | Sentence | Reading identity | UPOS / functions | Previous / next entry |',
+            '|---:|---|---|---|---|',
           ];
           for (const [text] of count.slice(0,12)) {
             const examples = report.hits.filter(hit => hit.text === text);
@@ -80,7 +80,7 @@ jobs:
               if (!byReading.has(hit.selectedEntryId)) byReading.set(hit.selectedEntryId, hit);
             }
             for (const hit of [...byReading.values()].slice(0,3)) {
-              lines.push(`| ${hit.seedIndex} | ${escape(hit.sentence)} | ${escape(hit.selectedEntryId)} | ${escape(hit.previousEntryText ?? '∅')} / ${escape(hit.nextEntryText ?? '∅')} |`);
+              lines.push(`| ${hit.seedIndex} | ${escape(hit.sentence)} |  ${escape(hit.selectedEntryId)} | ${escape(hit.selectedUpos ?? '∅')} / ${escape(hit.selectedFunctions.join(','))} | ${escape(hit.previousEntryText ?? '∅')} / ${escape(hit.nextEntryText ?? '∅')} |`);
             }
           }
           lines.push('', `Full per-hit JSON is attached to the workflow run; ${report.unsampledAmbiguousTexts.length} multireading written forms were not observed in this finite sample.`, '');
