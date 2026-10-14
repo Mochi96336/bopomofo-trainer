@@ -9,7 +9,7 @@ import {
   selectFrequencyFirstUtterance,
   type LegacyEntrySelectionScore,
   type LegacyFrequencyFirstUtteranceSelection,
-} from "../../src/curriculum/legacy-frequency-first-utterance.js";
+} from "../../src/archive/research/curriculum/legacy-frequency-first-utterance.js";
 import { bindingScopeKey, confusionScopeKey, transitionScopeKey } from "../../src/measurement/aggregate.js";
 import type { MeasurementSummary } from "../../src/measurement/types.js";
 import type { GrammarAnnotation } from "../../src/grammar/types.js";
