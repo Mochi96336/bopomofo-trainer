@@ -97,7 +97,35 @@ describe("production reviewed reading disambiguation", () => {
           i % 2 === 0 ? "guided" : "recall",
           standardLayout,
         );
-        assertRoundReadings(createProductState(environment, progress, 0), profilesById);
+        try {
+          assertRoundReadings(createProductState(environment, progress, 0), profilesById);
+        } catch (error) {
+          let originalResult: string;
+          try {
+            const original = selectFormalSyntaxUtterance({
+              entries: environment.catalogs.practice,
+              profiles: environment.catalogs.syntaxProfiles,
+              bindingEvidence: [],
+              mode: progress.mode,
+              layoutId: progress.layoutId,
+              history: {
+                recentEntryIds: progress.selection.recentEntryIds,
+                recentUtteranceIds: progress.selection.recentUtteranceIds,
+                recentTemplateIds: progress.selection.recentTemplateIds,
+              },
+              policy: environment.utterancePolicy,
+              preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
+              preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
+              preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
+              random: createSeededRandom(progress.seed + ":practice:0"),
+            });
+            originalResult = "succeeded:" + original.utterance.id;
+          } catch (originalError) {
+            originalResult = "failed:" + String(originalError);
+          }
+          throw new Error("product tier " + tier + " sample " + i
+            + ": gated=" + String(error) + "; original=" + originalResult);
+        }
       }
     },
     20000,
