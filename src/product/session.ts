@@ -40,9 +40,7 @@ import type {
 } from "./types.js";
 
 function validateSyntaxProfileCoverage(catalogs: ProductCatalogs): void {
-  const entryIds = new Set(
-    [...catalogs.practice, ...catalogs.evaluation].map((entry) => entry.id),
-  );
+  const entryIds = new Set(catalogs.practice.map((entry) => entry.id));
   const profileIds = new Set<string>();
   const profiledEntryIds = new Set<string>();
   for (const profile of catalogs.syntaxProfiles) {
@@ -69,22 +67,14 @@ export function createProductEnvironment(
     throw new Error("product requires practice catalog entries");
   }
   const practiceIds = new Set(catalogs.practice.map((entry) => entry.id));
-  const evaluationIds = new Set(catalogs.evaluation.map((entry) => entry.id));
   if (practiceIds.size !== catalogs.practice.length) {
     throw new Error("practice catalog contains duplicate entry IDs");
-  }
-  if (evaluationIds.size !== catalogs.evaluation.length) {
-    throw new Error("evaluation catalog contains duplicate entry IDs");
-  }
-  if ([...evaluationIds].some((entryId) => practiceIds.has(entryId))) {
-    throw new Error("practice and evaluation catalogs must be disjoint");
   }
   validateSyntaxProfileCoverage(catalogs);
   validateFrequencyFirstUtterancePolicy(utterancePolicy);
   return {
     catalogs,
     practiceSupport: createCatalogSupportIndex(catalogs.practice),
-    evaluationSupport: createCatalogSupportIndex(catalogs.evaluation),
     curriculumPolicy: PHASE_4_CURRICULUM_POLICY,
     utterancePolicy,
     preparedPracticeLexicon: prepareFormalSyntaxLexicon(
