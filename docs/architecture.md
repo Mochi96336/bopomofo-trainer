@@ -1,199 +1,155 @@
 # Architecture
 
-## Style
+## Current product first
 
-Use one TypeScript repository and a lightweight modular monolith. Domain logic remains framework-independent. No backend, telemetry, or product framework migration is required for the current research phase.
-
-## Modules
+This repository is a browser Bopomofo typing trainer with a substantial archived research history. The production path is intentionally smaller than the repository as a whole.
 
 ```text
-src/
-  core/          Semantic types, identities, invariants.
-  scheme/        Bopomofo grammar, tokens, physical layouts.
-  catalog/       Source parsing, provenance, validation, compiled entries.
-  reference/     External-source normalization, contribution, manual review queue.
-  relations/     Ordered occurrence indexes, support analysis, partitions.
-  practice/      Existing sessions, boundaries, and normalized traces.
-  measurement/   Binding, transition, confusion, boundary estimators.
-  progress-history/ Bounded per-key observation buckets accumulated per round.
-  curriculum/    Objective policies and historical binding-only baseline.
-  diagnostics/   Pure user-facing projections, data states, and selectors.
-  composition/   Retrieval, candidate costs, ordering, variable sequences.
-  simulation/    Synthetic learners, trace generation, experiment contracts.
-  integration/   Cross-module replay proof; no strategy selection logic.
-  product/       Existing persistence and browser-product coordination.
-  app/           Existing browser observation adapter and UI.
+browser / app
+    ↓
+product session + local progress
+    ↓
+commonness-level catalog filter
+    ↓
+formal-syntax utterance selection
+    ↓
+InteractionSessionV2
+    ↓
+Measurement V2
+    ↓
+ProductProgress + PilotHistory + ProgressHistory
+    ↓
+Analysis V2 / diagnostics
 ```
 
-Directories may be introduced incrementally. Dependency boundaries matter more than exact names.
+The browser has no backend, account system, telemetry, or cloud learner state. Product state remains local and schema-versioned.
 
-## Dependency direction
+## Current production modules
 
 ```text
-external reference bytes → importer → contribution/ranking → manual review queue
-                                                    ✕ no automatic approval
-reviewed catalog → relation index → partition → objective + composer
-                                                   ↓
-latent scenario → synthetic learner ← practice sequence
-                         ↓
-                 ordinary raw traces
-                         ↓
-                 Phase 3 measurement
-                         ↓
-             estimate versus hidden truth
+src/app/                 Browser UI, keyboard input, persistence integration, Analysis V2
+src/product/             Product session, progress, Pilot history, product coordination
+src/commonness/          Commonness levels and product catalog access
+src/curriculum/          Current utterance selector plus legacy curriculum/research compatibility
+src/syntax/              Formal syntax derivation, runtime profiles, legality checks
+src/practice/            InteractionSessionV2 and normalized input traces
+src/measurement-v2/      Current measurement aggregation and serialization
+src/progress-history/    Bounded per-key observation history
+src/diagnostics/         Pure user-facing measurement projections
+src/catalog/             Reviewed catalog parsing/validation/compilation support
+src/scheme/              Bopomofo tokens and physical layouts
 ```
 
-The browser follows the same trace-to-measurement path as a trace source, but is not required by simulation.
+The main maintenance rule is that current browser behavior must be understandable from these modules without requiring the archived relational research stack.
 
-Rules:
+## Product selection boundary
 
-1. semantic catalog paths never contain physical key codes;
-2. external reference candidates stop at a manual review queue and never mutate the reviewed catalog automatically;
-3. relation indexing depends on ordered syllable paths, not UI exercises;
-4. partitions expose training/evaluation support loss, constraints, fallbacks, and metrics;
-5. measurement consumes traces and does not know which strategy selected the text;
-6. objective policies do not directly pick entries;
-7. composition resolves an objective against exact occurrence references and excludes evaluation occurrences;
-8. synthetic learners emit normal traces and never expose hidden truth to estimators or curricula;
-9. experiment reports may read hidden truth only after a run for evaluation;
-10. integration code orchestrates public module APIs and does not reimplement importer, partition, composition, learner, or measurement rules;
-11. product and app modules contain no research selection algorithm;
-12. diagnostics project existing measurements and current product policy into display data, but never mutate learner state or recompute practice selection;
-13. progress history accumulates only observations the measurement policy already accepted, is bounded by an explicit policy, is written once per completed round, and never reconstructs past points from cumulative aggregates.
-
-## Evidence flow
-
-For each attempted token:
+The browser selects complete grammar-valid utterances from the practice catalog after commonness-level filtering.
 
 ```text
-expected token + actual token
-          ↓
-binding correctness and directional confusion
-
-previous token + expected token + clean interval
-          ↓
-directional transition latency
-
-entry/syllable/exercise boundary interval
-          ↓
-separate boundary evidence
+reviewed practice catalog
+        +
+runtime syntax profiles
+        +
+Measurement V2 binding evidence
+        +
+frequency-first recency state
+        ↓
+selectFormalSyntaxUtterance(...)
+        ↓
+one deterministic seeded grammar-valid utterance
 ```
 
-The existing destination-token timing aggregate is a historical baseline. New relational estimators must not count one interval as independently identified token speed and transition speed.
+Current production selection uses reviewed commonness, expected-token correctness, identifiable binding timing, and recent-entry / recent-utterance penalties. It does not use legacy motor-transition scoring: the formal-syntax production entry point explicitly supplies no legacy transition evidence.
 
-## Relational catalog flow
+The browser does not reserve a held-out evaluation catalog and does not schedule automatic evaluation rounds. Build output currently encodes an empty evaluation catalog; remaining evaluation types and parser branches are compatibility debt, not active product behavior.
+
+## Syntax boundary
+
+Formal syntax determines which derivations and lexical realizations are legal. Selection cannot bypass that boundary to obtain a better learner score.
+
+The runtime ships only profiles admitted by the current formal-syntax allowlist. A stale or digest-mismatched allowlist fails compilation. The selector fails closed if no complete `Sentence` derivation can be realized; it does not fall back to arbitrary word lists.
+
+Word meaning and world knowledge are outside the formal architecture boundary. Catalog and syntax tooling may use form, pronunciation, frequency, morphosyntactic tags, dependency evidence, surface distribution, valency, and declared formal production rules, but must not silently substitute semantic plausibility judgments for explicit evidence.
+
+## Measurement and persistence boundary
+
+Current browser interaction uses `InteractionSessionV2` and Measurement V2. A completed practice round:
+
+1. derives Measurement V2 observations from accepted browser traces;
+2. updates cumulative Measurement V2 aggregates;
+3. updates frequency-first selection recency;
+4. appends bounded recent summaries, Pilot history, and progress-history observations;
+5. persists the schema-versioned local state.
+
+Product progress is currently schema 7 with measurement epoch `coordination-v1`. Schema 6 is accepted only as a migration boundary: incompatible legacy measurement-derived evidence is cleared before entering the current epoch.
+
+The old curriculum envelope is still physically present in `ProductProgress`, but most of it no longer controls product selection. The exact retirement boundary is tracked in [Repo consolidation inventory](./repo-consolidation-inventory.md).
+
+## Analysis boundary
+
+Analysis V2 is a projection over current measurements and bounded progress history. It does not alter selection or learner state.
+
+Although the current Analysis V2 semantic builder receives `CurriculumProfile`, it only uses the duplicated `mode` and `layoutId` fields to address Measurement V2 binding aggregates. It does not depend on legacy focus/cooldown decisions. This dependency is therefore a consolidation target rather than a reason to keep the full legacy curriculum model in production progress.
+
+## Data-generation boundary
+
+Source import, lexicon generation, reading projection, syntax evidence, and runtime-profile compilation remain review-gated build-time work. External sources do not automatically mutate the reviewed browser catalog.
 
 ```text
-reviewed text and pronunciation
-          ↓
-ordered syllable paths
-          ↓
-exact binding and transition occurrences
-          ↓
-support, frequency, concentration, provenance, partition reports
-          ↓
-objective-specific candidate retrieval
+source bytes
+  → source-specific projection / audit
+  → generated candidate evidence
+  → explicit review
+  → reviewed catalog / runtime syntax data
+  → compact browser artifact
 ```
 
-Catalog expansion is driven by measured blind spots. New entries must state which unsupported or concentrated relations they improve.
+Only reviewed product artifacts reach the browser bundle.
 
-External sources follow a separate path:
+## Archived research architecture
+
+The repository also preserves the earlier relational research stack:
 
 ```text
-local source bytes
-  → source-specific adapter
-  → normalized candidate or structured row error
-  → contribution ranking
-  → manual review queue
+reference
+relations / partition
+composition
+simulation
+integration
+relational experiment + confirmation harnesses
+legacy measurement / curriculum paths
 ```
 
-Approval into the reviewed catalog remains an explicit human/review workflow outside the importer and integration harness.
+Those modules remain reproducible research evidence. They may model held-out evaluation partitions, relation-targeted objectives, variable-length composition, synthetic learners, hidden truth, and strategy comparisons, but none of those systems decides what the current website asks a learner to type.
 
-## Selection pipeline
+Archived research should remain callable through explicit research entry points. It should not force current product types, persistence, CI, or root exports to pretend those concepts are still browser features.
 
-### Objective policy
+## Dependency rules
 
-Chooses coverage, binding, transition, confusion, or combined demands. It reports scores, eligibility, support, cooldown, and fallback.
+1. Product selection must consume only current product evidence contracts.
+2. Formal syntax legality is checked before learner weighting.
+3. Measurement code does not know which selection strategy produced the exercise.
+4. Diagnostics and Analysis V2 are read-only projections.
+5. External-source generation cannot automatically approve catalog content.
+6. Archived research may depend on its own legacy abstractions; current product code should not depend on them unless a documented migration boundary requires it.
+7. Compatibility parsing belongs at persistence/import boundaries, not in the normal runtime model.
+8. Simulation evidence cannot be presented as proof of real learning effectiveness.
 
-### Partition policy
+## CI boundary
 
-Chooses evaluation entries while preserving declared training support. It reports every selected/rejected candidate, constraint result, fallback, stability input, and deterministic metrics.
+General pull-request CI currently protects more than `npm run check`: it includes syntax source-evidence audits, Formal Syntax Phase 1 closure and product-baseline verification, the product/build checks, bundle budget, and browser smoke tests.
 
-### Composer
+Archived relational research has a separate manual `check:research` path, but legacy simulation tests still run in the ordinary product check. CI separation is therefore incomplete and remains a consolidation task.
 
-Retrieves and orders exact supporting entries under exposure, token, syllable, boundary, common-word, repetition, concentration, and history budgets. It reports candidate costs, occurrence references, sequence length, selection trace, fallback, and stop reason.
+## Deferred product work
 
-The fixed six-entry builder is retained as one baseline composer only.
-
-## Synthetic experiment flow
-
-1. instantiate latent learner truth and a reviewed catalog partition;
-2. choose an objective and composition policy;
-3. build a variable-length practice sequence from training occurrences;
-4. generate deterministic traces through a real layout;
-5. aggregate measurements through the existing Phase 3 pipeline;
-6. update latent skill using the declared learning model;
-7. compare estimates with the pre-exposure hidden truth;
-8. serialize deterministic reports.
-
-The integration checkpoint executes one fixed instance of this flow and verifies byte-for-byte replay. Multi-policy, multi-seed, and cohort comparison belongs to the later experiment harness.
-
-## Integration report
-
-The integration module records four connected artifacts without flattening them:
-
-- importer result and manual review queue;
-- partition decision and partitioned relational report;
-- `PracticeSequence` with retrieval, selection, budget, fallback, and stop data;
-- synthetic trace batch with raw traces, Phase 3 measurement, latent updates, estimation error, and digest.
-
-The outer report adds one deterministic digest over the complete canonical structure. The committed fixture is synthetic and does not contain official source rows.
-
-## Extension seams
-
-Only explicit experimental seams are preserved:
-
-- layout;
-- external reference adapter and version;
-- reviewed catalog source and partition;
-- relation index version;
-- estimator policy;
-- objective policy;
-- composition policy;
-- synthetic learner model;
-- experiment metric set;
-- optional progress or browser adapter.
-
-## Current artifacts
-
-The browser product now composes complete grammar-valid utterances from the syntax-legal practice catalog narrowed to the learner's practised commonness levels, selects them with reviewed commonness plus bounded learner evidence, persists schema-versioned local progress, Pilot history, and bounded progress-trend history, exports and re-imports all three as one local backup, and presents a full-page weakness analysis over binding, transition, and confusion aggregates with per-key progress trends. The browser does not reserve held-out vocabulary or schedule automatic evaluation rounds. Archived relational importers, partition policies, variable-length composers, synthetic learners, strategy matrices, cohort experiments, and confirmation harnesses remain reproducible research evidence rather than the production selection path.
-
-The data pipeline pins the active-catalog commonness and reading projections.
-Lexicon expansion runs in a disposable, manifest-linked generation workspace;
-only reviewed catalog mutations and current active-catalog evidence are
-committed. Product compilation additionally verifies a compact allowlist
-derived from the full formal-syntax rule index and packages only identities
-that reach a `Sentence` production. A stale, incomplete, or digest-mismatched
-allowlist fails the build. Pronunciation, lexical identity, grammar role,
-valency, and provenance remain review-gated before an entry reaches the browser
-catalog.
-
-Word meaning and semantics are outside the architecture boundary. Catalog
-processing, annotation, composition, selection, validation, and evaluation may
-use form, pronunciation records, frequency, morphosyntactic tags, dependency
-evidence, surface distribution, valency, and declared formal production rules, but must not
-consume or infer definitions, senses, semantic roles, plausibility, world
-knowledge, embeddings, language-model judgments, or semantic proxies. An
-unresolved case must retain every otherwise valid form or fail closed; semantic
-interpretation must never decide it.
-
-## Deferred
-
-- broader runtime expansion beyond the current reviewed catalog;
-- resolution of ambiguous or unmatched identities surfaced by a current generation;
-- human pilot validation and evidence-based threshold changes;
-- sentence-variety refinement after the reviewed lexicon grows;
-- recall curriculum;
+- human pilot validation with non-developers;
+- broader reviewed lexicon expansion after bundle runway is restored;
+- evidence-driven sentence-variety refinement;
+- any new recall/evaluation design, if human evidence justifies one;
 - alternate layouts;
 - accounts, cloud sync, or telemetry;
 - claims about real learning effectiveness.
+
+Formal Syntax Phase 2 should not be treated as the automatic next product milestone merely because Phase 1 is complete.
