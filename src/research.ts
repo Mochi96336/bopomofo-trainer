@@ -31,7 +31,7 @@ export * from "./curriculum/simulator.js";
 export * from "./curriculum/scenarios.js";
 export * from "./curriculum/objectives.js";
 export * from "./curriculum/relational-objective-strategies.js";
-export * from "./curriculum/legacy-frequency-first-utterance.js";
+export * from "./archive/research/curriculum/legacy-frequency-first-utterance.js";
 
 export * from "./composition/types.js";
 export * from "./composition/composer.js";
