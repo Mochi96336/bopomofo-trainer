@@ -4,7 +4,7 @@ import type {
   RelationKind,
   RelationRef,
   TransitionRelationRef,
-} from "../relations/types.js";
+} from "../../../relations/types.js";
 
 export interface RelationDemand {
   readonly relation: RelationRef;

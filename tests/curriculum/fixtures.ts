@@ -3,7 +3,7 @@ import type { BindingAggregate } from "../../src/measurement/types.js";
 import {
   createEmptyCurriculumProfile,
   profileFromAggregates,
-} from "../../src/curriculum/simulator.js";
+} from "../../src/archive/research/curriculum/phase4/simulator.js";
 import { createCatalogSupportIndex } from "../../src/curriculum/support.js";
 import type { CurriculumProfile } from "../../src/curriculum/types.js";
 

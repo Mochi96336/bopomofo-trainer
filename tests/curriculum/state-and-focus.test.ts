@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { selectCurriculumFocus } from "../../src/curriculum/focus.js";
+import { selectCurriculumFocus } from "../../src/archive/research/curriculum/phase4/focus.js";
 import {
   PHASE_4_CURRICULUM_POLICY,
   validateCurriculumPolicy,
-} from "../../src/curriculum/policy.js";
+} from "../../src/archive/research/curriculum/phase4/policy.js";
 import {
   createEmptyCurriculumProfile,
   profileFromAggregates,
-} from "../../src/curriculum/simulator.js";
-import { classifyBindingStates } from "../../src/curriculum/state.js";
+} from "../../src/archive/research/curriculum/phase4/simulator.js";
+import { classifyBindingStates } from "../../src/archive/research/curriculum/phase4/state.js";
 import type { CurriculumBindingRecord } from "../../src/curriculum/types.js";
 import { aggregate, eligibleProfile, support } from "./fixtures.js";
 

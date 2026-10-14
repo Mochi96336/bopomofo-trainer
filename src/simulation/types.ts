@@ -3,7 +3,7 @@ import type {
   CompositionStrategyId,
   PracticeSequence,
 } from "../composition/types.js";
-import type { ObjectiveStrategyId } from "../curriculum/objectives.js";
+import type { ObjectiveStrategyId } from "../archive/research/curriculum/objectives.js";
 import type { PartitionPolicyId } from "../relations/partition/types.js";
 import type { RelationalLearnerModelId } from "./strategy-matrix.js";
 

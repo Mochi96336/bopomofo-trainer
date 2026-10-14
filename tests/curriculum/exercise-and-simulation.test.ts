@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildCurriculumExercise } from "../../src/curriculum/exercise-builder.js";
-import { PHASE_4_CURRICULUM_POLICY } from "../../src/curriculum/policy.js";
+import { buildCurriculumExercise } from "../../src/archive/research/curriculum/phase4/exercise-builder.js";
+import { PHASE_4_CURRICULUM_POLICY } from "../../src/archive/research/curriculum/phase4/policy.js";
 import { createSeededRandom } from "../../src/curriculum/random.js";
-import { createStandardSimulationScenarios } from "../../src/curriculum/scenarios.js";
-import { runCurriculumSimulation } from "../../src/curriculum/simulator.js";
+import { createStandardSimulationScenarios } from "../../src/archive/research/curriculum/phase4/scenarios.js";
+import { runCurriculumSimulation } from "../../src/archive/research/curriculum/phase4/simulator.js";
 import { eligibleProfile, support } from "./fixtures.js";
 
 describe("exercise builder and simulator", () => {

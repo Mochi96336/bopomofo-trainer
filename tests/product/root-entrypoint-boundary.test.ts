@@ -35,6 +35,8 @@ describe("top-level source entrypoint boundaries", () => {
       expect(source).not.toContain(retiredPath);
     }
 
+    expect(source).toContain('"./practice/interaction-session-v2.js"');
+    expect(source).not.toContain('"./practice/interaction-session.js"');
     expect(source).toContain('"./measurement-v2/types.js"');
     expect(source).toContain('"./progress-history/types.js"');
     expect(source).toContain('"./curriculum/frequency-first-utterance.js"');
@@ -52,7 +54,9 @@ describe("top-level source entrypoint boundaries", () => {
 
   it("keeps archived research reachable only through the explicit research surface", () => {
     const source = readFileSync("src/research.ts", "utf8");
+    expect(source).toContain('"./practice/interaction-session.js"');
     expect(source).toContain('"./measurement/types.js"');
+    expect(source).toContain('"./archive/research/curriculum/phase4/policy.js"');
     expect(source).toContain('"./relations/catalog-report.js"');
     expect(source).toContain('"./archive/research/curriculum/legacy-frequency-first-utterance.js"');
     expect(source).toContain('"./simulation/strategy-matrix.js"');
@@ -71,8 +75,14 @@ describe("top-level source entrypoint boundaries", () => {
     const activeRoots = [
       "src/app",
       "src/product",
+      "src/practice",
       "src/measurement-v2",
       "src/progress-history",
+      "src/diagnostics",
+      "src/commonness",
+      "src/readings",
+      "src/compatibility",
+      "src/syntax",
       "src/curriculum",
     ];
     for (const root of activeRoots) {

@@ -1,7 +1,7 @@
-import { catalogEntryFrequencyWeight } from "../commonness/catalog-projection.js";
-import type { CatalogEntry, RandomSource, TokenId } from "../core/model.js";
-import { weightedPick } from "./random.js";
-import { entryTokenSet } from "./support.js";
+import { catalogEntryFrequencyWeight } from "../../../../commonness/catalog-projection.js";
+import type { CatalogEntry, RandomSource, TokenId } from "../../../../core/model.js";
+import { weightedPick } from "../../../../curriculum/random.js";
+import { entryTokenSet } from "../../../../curriculum/support.js";
 import type {
   BuiltCurriculumExercise,
   CatalogSupportIndex,
@@ -10,7 +10,7 @@ import type {
   CurriculumProfile,
   ExerciseCandidateWeight,
   ExercisePickTrace,
-} from "./types.js";
+} from "../../../../curriculum/types.js";
 
 function codeUnitCompare(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;

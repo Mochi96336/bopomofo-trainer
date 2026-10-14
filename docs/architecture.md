@@ -30,7 +30,7 @@ The browser has no backend, account system, telemetry, or cloud learner state. P
 src/app/                 Browser UI, keyboard input, persistence integration, Analysis V2
 src/product/             Product session, progress, Pilot history, product coordination
 src/commonness/          Commonness levels and product catalog access
-src/curriculum/          Current utterance selector plus legacy curriculum/research compatibility
+src/curriculum/          Current utterance selection, formal-syntax sampling, shared support/random contracts
 src/syntax/              Formal syntax derivation, runtime profiles, legality checks
 src/practice/            InteractionSessionV2 and normalized input traces
 src/measurement-v2/      Current measurement aggregation and serialization
@@ -129,6 +129,7 @@ simulation
 integration
 relational experiment + confirmation harnesses
 legacy measurement / curriculum paths
+  └─ isolated Phase 4 focus/simulation stack under src/archive/research/
 ```
 
 Those modules remain reproducible research evidence. They may model held-out evaluation partitions, relation-targeted objectives, variable-length composition, synthetic learners, hidden truth, and strategy comparisons, but none of those systems decides what the current website asks a learner to type.
@@ -150,7 +151,7 @@ Archived research should remain callable through explicit research entry points.
 
 General pull-request CI currently protects more than `npm run check`: it includes syntax source-evidence audits, Formal Syntax Phase 1 closure and product-baseline verification, the product/build checks, bundle budget, and browser smoke tests.
 
-Archived relational research has a separate manual `check:research` path, but legacy simulation tests still run in the ordinary product check. CI separation is therefore incomplete and remains a consolidation task.
+Archived simulation and relational research are excluded from the ordinary product check. They remain explicitly verifiable through `npm run test:simulation` or the manual `check:research` path, whose full `npm test` coverage includes the simulation suite before the relational research commands run.
 
 ## Deferred product work
 

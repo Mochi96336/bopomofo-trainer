@@ -1,5 +1,5 @@
 import type { PracticeMode } from "../core/model.js";
-import type { RelationObjective } from "../curriculum/objectives.js";
+import type { RelationObjective } from "../archive/research/curriculum/objectives.js";
 import type { RelationRef } from "../relations/types.js";
 import type { ExposureBudget, FallbackReason, PracticeBudget } from "./types.js";
 import { stableStringify } from "./stable.js";

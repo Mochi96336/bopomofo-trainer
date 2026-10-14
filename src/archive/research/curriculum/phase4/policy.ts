@@ -1,4 +1,4 @@
-import type { CurriculumPolicy } from "./types.js";
+import type { CurriculumPolicy } from "../../../../curriculum/types.js";
 
 export const PHASE_4_CURRICULUM_POLICY: CurriculumPolicy = {
   version: "phase-4-v1",
