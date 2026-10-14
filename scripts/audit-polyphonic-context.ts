@@ -61,9 +61,11 @@ function sortedCounts(map: ReadonlyMap<string, number>): Readonly<Record<string,
 
 const { samples, output } = argumentsFromCli();
 const ambiguous = buildPolyphonicReadingIndex(PRACTICE_CATALOG);
+const profilesById = new Map(SYNTAX_PROFILES.map((profile) => [profile.id, profile]));
 const hits: PolyphonicContextHit[] = [];
 const perText = new Map<string, number>();
 const perEntryId = new Map<string, number>();
+const perTextAndUpos = new Map<string, number>();
 const fallbacks = new Map<string, number>();
 let successfulSentences = 0;
 let sentencesWithAmbiguousReadings = 0;
@@ -83,12 +85,13 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
   const candidate = composition.candidates[0];
   if (candidate === undefined) continue;
   successfulSentences += 1;
-  const sentenceHits = auditPolyphonicCandidate(seedIndex, candidate, ambiguous);
+  const sentenceHits = auditPolyphonicCandidate(seedIndex, candidate, ambiguous, profilesById);
   if (sentenceHits.length > 0) sentencesWithAmbiguousReadings += 1;
   hits.push(...sentenceHits);
   for (const hit of sentenceHits) {
     increment(perText, hit.text);
     increment(perEntryId, hit.selectedEntryId);
+    increment(perTextAndUpos, hit.text + "/" + (hit.selectedUpos ?? "unknown"));
   }
 }
 
@@ -112,6 +115,7 @@ const report = {
   unsampledAmbiguousTexts: unsampledTexts,
   occurrenceCountByText: sortedCounts(perText),
   occurrenceCountByEntryId: sortedCounts(perEntryId),
+  occurrenceCountByTextAndUpos: sortedCounts(perTextAndUpos),
   fallbacks: sortedCounts(fallbacks),
   hits,
 };
