@@ -182,10 +182,10 @@ describe("formal syntax construction selection", () => {
       entries: [LET_ENTRY, HE_ENTRY, WALK_ENTRY],
     });
     expect(selection.score.frequencyBase).toBeGreaterThan(0);
-    expect(selection.score.transitionBoost).toBe(1);
-    expect(selection.score.transitionTrace).toEqual([]);
-    expect(selection.slotSelections).toEqual([]);
-    expect(selection.templateCandidates).toEqual([]);
+    expect("transitionBoost" in selection.score).toBe(false);
+    expect("transitionTrace" in selection.score).toBe(false);
+    expect("slotSelections" in selection).toBe(false);
+    expect("templateCandidates" in selection).toBe(false);
   });
 
   it("still rejects aggregate Voice=Cau + ccomp without same-occurrence capability", () => {
