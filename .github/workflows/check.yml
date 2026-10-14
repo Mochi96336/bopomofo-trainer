@@ -397,8 +397,6 @@ jobs:
       # it to CI.
       - name: Bundle size budget
         run: npm run size:check
-      - name: Bundle attribution report
-        run: npm run size:attribution
       - name: Add phase-one baseline audit-only production path trace
         shell: bash
         run: |
