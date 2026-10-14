@@ -1,0 +1,77 @@
+/**
+ * Archived research / compatibility entry point.
+ *
+ * Current browser code must not import this module. It keeps historical
+ * Measurement V1, relational, curriculum, simulation, and experiment surfaces
+ * reproducible without presenting them as product runtime APIs.
+ */
+export * from "./measurement/types.js";
+export * from "./measurement/policy.js";
+export * from "./measurement/derive-observations.js";
+export * from "./measurement/aggregate.js";
+
+export * from "./relations/types.js";
+export * from "./relations/catalog-occurrences.js";
+export * from "./relations/relation-universe.js";
+export * from "./relations/support-summary.js";
+export * from "./relations/catalog-index.js";
+export * from "./relations/catalog-report.js";
+export * from "./relations/catalog-report-text.js";
+export * from "./relations/partition/types.js";
+export * from "./relations/partition/strategies.js";
+export * from "./relations/partition/binding-baseline.js";
+export * from "./relations/partition/commonness-stratified.js";
+
+export * from "./curriculum/types.js";
+export * from "./curriculum/policy.js";
+export * from "./curriculum/state.js";
+export * from "./curriculum/focus.js";
+export * from "./curriculum/exercise-builder.js";
+export * from "./curriculum/simulator.js";
+export * from "./curriculum/scenarios.js";
+export * from "./curriculum/objectives.js";
+export * from "./curriculum/relational-objective-strategies.js";
+export * from "./curriculum/legacy-frequency-first-utterance.js";
+
+export * from "./composition/types.js";
+export * from "./composition/composer.js";
+
+export * from "./simulation/types.js";
+export * from "./simulation/strategy-matrix.js";
+export * from "./simulation/experiment/types.js";
+export * from "./simulation/experiment/plan.js";
+export * from "./simulation/experiment/report.js";
+export * from "./simulation/experiment/serialize.js";
+export * from "./simulation/analysis/types.js";
+export * from "./simulation/analysis/report-types.js";
+export * from "./simulation/analysis/policy.js";
+export * from "./simulation/analysis/report.js";
+export * from "./simulation/analysis/serialize.js";
+export * from "./simulation/confirmation/types.js";
+export * from "./simulation/confirmation/candidates.js";
+export * from "./simulation/confirmation/plan.js";
+export * from "./simulation/confirmation/policy.js";
+export * from "./simulation/confirmation/report.js";
+export * from "./simulation/confirmation/serialize.js";
+
+export {
+  SYNTHETIC_EXERCISE,
+  SYNTHETIC_LAYOUT,
+  SYNTHETIC_SCENARIO_IDS,
+  SYNTHETIC_TOKEN_IDS,
+  createSyntheticScenarios,
+  getSyntheticScenario,
+} from "./simulation/learner/scenarios.js";
+export {
+  generateSyntheticTraceBatch,
+  namedConfusionProbability,
+} from "./simulation/trace-generator/generate.js";
+export type {
+  EstimationErrorReport,
+  MeasurementEstimate as SyntheticMeasurementEstimate,
+  SyntheticLearnerState,
+  SyntheticScenario as RelationalSyntheticScenario,
+  SyntheticTraceBatch,
+} from "./simulation/learner/types.js";
+
+export * from "./integration/relational-research.js";
