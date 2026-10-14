@@ -4,10 +4,7 @@ export function productProgressReferencesAreKnown(
   progress: ProductProgress,
   environment: ProductEnvironment,
 ): boolean {
-  const knownEntries = new Set([
-    ...Object.keys(environment.practiceSupport.entriesById),
-    ...Object.keys(environment.evaluationSupport.entriesById),
-  ]);
+  const knownEntries = new Set(Object.keys(environment.practiceSupport.entriesById));
   const knownFocusTokens = new Set(Object.keys(environment.practiceSupport.byToken));
 
   return progress.recentSummaries.every((summary) => {
