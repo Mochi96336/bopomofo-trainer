@@ -23,9 +23,6 @@ export function entry(id: string, tone: 1 | 2 = 1): CatalogEntry {
 export const PRACTICE = Array.from({ length: 8 }, (_, index) =>
   entry(`practice-${index + 1}`, index % 2 === 0 ? 1 : 2),
 );
-export const EVALUATION = Array.from({ length: 4 }, (_, index) =>
-  entry(`evaluation-${index + 1}`, index % 2 === 0 ? 1 : 2),
-);
 
 function profile(
   candidate: CatalogEntry,
@@ -53,7 +50,7 @@ function profile(
 }
 
 export const SYNTAX_PROFILES: readonly RuntimeSyntaxProfile[] =
-  [...PRACTICE, ...EVALUATION].flatMap((candidate) => [
+  PRACTICE.flatMap((candidate) => [
     profile(candidate, "PRON", ["subject", "object", "indirect-object"], ["avalent"]),
     profile(candidate, "NOUN", ["subject", "object", "oblique", "modifier"], ["avalent"]),
     profile(candidate, "VERB", ["predicate", "complement", "modifier", "adverbial"], [
@@ -73,6 +70,5 @@ export const SYNTAX_PROFILES: readonly RuntimeSyntaxProfile[] =
 
 export const PRODUCT_CATALOGS: ProductCatalogs = {
   practice: PRACTICE,
-  evaluation: EVALUATION,
   syntaxProfiles: SYNTAX_PROFILES,
 };
