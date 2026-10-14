@@ -1,14 +1,31 @@
-import type { CatalogEntry, TokenId } from "../core/model.js";
+import type {
+  CatalogEntry,
+  PracticeMode,
+  RandomSource,
+  TokenId,
+} from "../core/model.js";
+import type {
+  GrammarAnnotation,
+  GrammarRole,
+  GrammarTemplate,
+  GrammarUtteranceCandidate,
+} from "../grammar/types.js";
 import { transitionScopeKey } from "../measurement/aggregate.js";
 import type { MeasurementSummary } from "../measurement/types.js";
 import {
-  selectFrequencyFirstUtteranceFromEvidence,
+  scoreFrequencyFirstCandidate,
+  scoreFrequencyFirstEntry,
   type EntrySelectionScore,
-  type FrequencyFirstSelectionEvidenceInput,
-  type FrequencyFirstUtteranceSelection,
-  type SlotSelectionScore,
+  type FrequencyFirstUtterancePolicy,
   type UtteranceCandidateScore,
+  type UtteranceSelectionHistory,
 } from "./frequency-first-utterance.js";
+import {
+  generateSlotWeightedGrammar,
+  type GrammarSlotSelectionTrace,
+} from "./slot-weighted-grammar.js";
+
+const MAXIMUM_RECENT_UTTERANCE_ATTEMPTS = 4;
 
 export type LearnerEvidenceMode = "binding-only" | "legacy-binding-transition";
 
@@ -37,7 +54,16 @@ export interface LegacyEntrySelectionScore extends EntrySelectionScore {
   readonly transitionTrace: readonly TransitionBoostTrace[];
 }
 
-export interface LegacySlotSelectionScore extends Omit<SlotSelectionScore, "candidates"> {
+export interface LegacyTemplateSelectionScore {
+  readonly templateId: string;
+  readonly recentTemplateFactor: number;
+  readonly totalWeight: number;
+}
+
+export interface LegacySlotSelectionScore {
+  readonly slotKey: string;
+  readonly role: GrammarRole;
+  readonly selectedEntryId: string;
   readonly candidates: readonly LegacyEntrySelectionScore[];
 }
 
@@ -46,21 +72,27 @@ export interface LegacyUtteranceCandidateScore extends UtteranceCandidateScore {
   readonly transitionTrace: readonly TransitionBoostTrace[];
 }
 
-export interface LegacyFrequencyFirstUtteranceSelection extends Omit<
-  FrequencyFirstUtteranceSelection,
-  "score" | "slotSelections"
-> {
+export interface LegacyFrequencyFirstUtteranceSelection {
+  readonly policyVersion: string;
+  readonly utterance: GrammarUtteranceCandidate;
   readonly score: LegacyUtteranceCandidateScore;
+  readonly templateCandidates: readonly LegacyTemplateSelectionScore[];
   readonly slotSelections: readonly LegacySlotSelectionScore[];
+  readonly generationAttempts: number;
+  readonly grammarFallbackReasons: readonly string[];
 }
 
-export interface FrequencyFirstUtteranceInput extends Omit<
-  FrequencyFirstSelectionEvidenceInput,
-  "bindingEvidence" | "additionalLearnerBoost"
-> {
+export interface FrequencyFirstUtteranceInput {
+  readonly entries: readonly CatalogEntry[];
+  readonly annotations: Readonly<Record<string, GrammarAnnotation>>;
   readonly measurement: MeasurementSummary;
-  /** Binding-only reproduces the former production seam for compatibility tests. */
+  readonly mode: PracticeMode;
+  readonly layoutId: string;
+  readonly history: UtteranceSelectionHistory;
+  readonly policy: FrequencyFirstUtterancePolicy;
+  readonly random: RandomSource;
   readonly learnerEvidenceMode?: LearnerEvidenceMode;
+  readonly templates?: readonly GrammarTemplate[];
   readonly transitionPolicy?: LegacyTransitionScoringPolicy;
 }
 
@@ -132,6 +164,20 @@ function transitionBoost(
   return Math.max(1, ...transitionTrace(entries, input).map((item) => item.boost));
 }
 
+function scoringEvidence(input: FrequencyFirstUtteranceInput) {
+  return {
+    entries: input.entries,
+    bindingEvidence: Object.values(input.measurement.bindings),
+    mode: input.mode,
+    layoutId: input.layoutId,
+    history: input.history,
+    policy: input.policy,
+    ...(input.learnerEvidenceMode === "binding-only"
+      ? {}
+      : { additionalLearnerBoost: (entries: readonly CatalogEntry[]) => transitionBoost(entries, input) }),
+  };
+}
+
 function enrichEntryScore(
   score: EntrySelectionScore,
   entry: CatalogEntry,
@@ -145,37 +191,108 @@ function enrichEntryScore(
   };
 }
 
+function enrichCandidateScore(
+  score: UtteranceCandidateScore,
+  candidate: GrammarUtteranceCandidate,
+  input: FrequencyFirstUtteranceInput,
+): LegacyUtteranceCandidateScore {
+  const trace = transitionTrace(candidate.entries, input);
+  return {
+    ...score,
+    transitionBoost: Math.max(1, ...trace.map((item) => item.boost)),
+    transitionTrace: trace,
+  };
+}
+
+function templateScore(
+  templateId: string,
+  input: FrequencyFirstUtteranceInput,
+): LegacyTemplateSelectionScore {
+  const recentTemplateFactor = input.history.recentTemplateIds.includes(templateId)
+    ? input.policy.recentTemplatePenalty
+    : 1;
+  return {
+    templateId,
+    recentTemplateFactor,
+    totalWeight: recentTemplateFactor,
+  };
+}
+
+function enrichSlotSelections(
+  traces: readonly GrammarSlotSelectionTrace[],
+  input: FrequencyFirstUtteranceInput,
+): readonly LegacySlotSelectionScore[] {
+  const entriesById = new Map(input.entries.map((entry) => [entry.id, entry]));
+  const evidence = scoringEvidence(input);
+  return traces.map((trace) => ({
+    slotKey: trace.slotKey,
+    role: trace.role,
+    selectedEntryId: trace.selectedEntryId,
+    candidates: trace.candidates.map((candidate) => {
+      const entry = entriesById.get(candidate.entryId);
+      if (entry === undefined) throw new Error(`legacy slot candidate disappeared: ${candidate.entryId}`);
+      const score = enrichEntryScore(scoreFrequencyFirstEntry(entry, evidence), entry, input);
+      if (score.totalWeight !== candidate.weight) {
+        throw new Error(`legacy slot candidate weight drift: ${candidate.entryId}`);
+      }
+      return score;
+    }),
+  }));
+}
+
 /**
- * Archived/research compatibility selector retaining canonical token-pair
- * transition semantics. Current browser production must not import this module.
+ * Archived/research compatibility selector retaining the old annotation/template
+ * grammar and canonical token-pair transition semantics.
  */
 export function selectFrequencyFirstUtterance(
   input: FrequencyFirstUtteranceInput,
 ): LegacyFrequencyFirstUtteranceSelection {
-  const { measurement, learnerEvidenceMode: _mode, transitionPolicy: _transitionPolicy, ...selectionInput } = input;
-  const selected = selectFrequencyFirstUtteranceFromEvidence({
-    ...selectionInput,
-    bindingEvidence: Object.values(measurement.bindings),
-    additionalLearnerBoost: input.learnerEvidenceMode === "binding-only"
-      ? undefined
-      : (entries) => transitionBoost(entries, input),
-  });
-  const entriesById = new Map(input.entries.map((entry) => [entry.id, entry]));
-  const selectedTrace = transitionTrace(selected.utterance.entries, input);
+  const evidence = scoringEvidence(input);
+  let generation: ReturnType<typeof generateSlotWeightedGrammar> | null = null;
+  let score: LegacyUtteranceCandidateScore | null = null;
+  let generationAttempts = 0;
+
+  while (generationAttempts < MAXIMUM_RECENT_UTTERANCE_ATTEMPTS) {
+    generationAttempts += 1;
+    generation = generateSlotWeightedGrammar({
+      entries: input.entries,
+      annotations: input.annotations,
+      ...(input.templates === undefined ? {} : { templates: input.templates }),
+      random: input.random,
+      entryWeight: (entry) => scoreFrequencyFirstEntry(entry, evidence).totalWeight,
+      templateWeight: (template) => templateScore(template.id, input).totalWeight,
+    });
+    if (generation.candidate === null) {
+      throw new Error(`no grammar-valid legacy utterance candidate: ${generation.fallbackReasons.join(",")}`);
+    }
+    score = enrichCandidateScore(
+      scoreFrequencyFirstCandidate(generation.candidate, evidence),
+      generation.candidate,
+      input,
+    );
+    if (score.recentUtteranceFactor === 1
+      || generationAttempts >= MAXIMUM_RECENT_UTTERANCE_ATTEMPTS
+      || input.random.next() < score.recentUtteranceFactor) {
+      break;
+    }
+  }
+
+  if (generation?.candidate === null || generation === null || score === null) {
+    throw new Error("legacy slot-weighted generation did not produce a candidate");
+  }
   return {
-    ...selected,
-    score: {
-      ...selected.score,
-      transitionBoost: Math.max(1, ...selectedTrace.map((item) => item.boost)),
-      transitionTrace: selectedTrace,
-    },
-    slotSelections: selected.slotSelections.map((slot) => ({
-      ...slot,
-      candidates: slot.candidates.map((candidate) => {
-        const entry = entriesById.get(candidate.entryId);
-        if (entry === undefined) throw new Error(`legacy slot candidate disappeared: ${candidate.entryId}`);
-        return enrichEntryScore(candidate, entry, input);
-      }),
-    })),
+    policyVersion: input.policy.version,
+    utterance: generation.candidate,
+    score,
+    templateCandidates: generation.templateCandidates.map((candidate) => {
+      const resolved = templateScore(candidate.templateId, input);
+      if (resolved.totalWeight !== candidate.weight) {
+        throw new Error(`legacy template candidate weight drift: ${candidate.templateId}`);
+      }
+      return resolved;
+    }),
+    slotSelections: enrichSlotSelections(generation.slotSelections, input),
+    generationAttempts,
+    grammarFallbackReasons: generation.fallbackReasons,
   };
 }
