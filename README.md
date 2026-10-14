@@ -37,7 +37,7 @@
 在句法相容的候選中選出下一題
 ```
 
-只有題目原本要求的注音會累積錯誤；使用者誤按的另一顆鍵不會反過來獲得權重。慢速訊號只採用沒有錯誤或輸入干擾的樣本。學習紀錄不會直接指定整句，而是輕推含有容易出錯注音或按鍵轉換的合法候選。
+只有題目原本要求的注音會累積錯誤；使用者誤按的另一顆鍵不會反過來獲得權重。慢速訊號只採用沒有錯誤或輸入干擾的樣本。學習紀錄不會直接指定整句，而是輕推含有容易出錯或明顯變慢之目標注音的合法候選；production 選題不使用 transition timing。
 
 ## 句子怎麼產生
 
@@ -62,9 +62,9 @@ Vite 啟動後，開啟終端顯示的本機網址即可。
 npm run check
 ```
 
-這會依序執行 TypeScript typecheck、Vitest（快速與 simulation）、Python source-adapter 測試、catalog 驗證與 production build。
+本機 `npm run check` 會跑 active runtime morphology / occurrence-capability projections、TypeScript typecheck、Vitest（快速與 simulation）、Python source-adapter 測試、catalog 驗證、production build 與 bundle size budget。
 
-唯一不在此關卡內的是 `npm run test:slow`：它會在完整 catalog 上跑五種關聯切分策略，單獨就要約五分鐘。
+Pull request CI 比這個本機入口更完整：另外會跑 Formal Syntax 的 source-evidence audits、Phase 1 closure / product-baseline 驗證，以及獨立的 Playwright browser smoke tests。Archived relational research 則只在手動要求時跑 `npm run check:research`；`npm run test:slow` 也不屬於一般 PR gate。
 
 ## 主要目錄
 
@@ -95,6 +95,7 @@ docs/             架構、政策、證據與歷史研究文件
 - [正式句法實作狀態](docs/formal-syntax-implementation-status.md)
 - [選題政策](docs/frequency-first-utterance-policy.md)
 - [架構](docs/architecture.md)
+- [Repo consolidation inventory](docs/repo-consolidation-inventory.md)
 - [領域模型](docs/domain-model.md)
 - [測量政策](docs/measurement-policy.md)
 - [弱點診斷](docs/weakness-diagnostics.md)
