@@ -129,7 +129,6 @@ for (const sourceRow of linked) {
   cases.push({
     caseId: sourceRow.caseId,
     targetReadingEntryId: sourceRow.entryId,
-    hostLexeme,
     baselineAtomicOccurrences: reference.sampledAtomicHostOccurrences,
     ...readiness,
     probeStatus: readiness.status !== "licensed-profile-present"
