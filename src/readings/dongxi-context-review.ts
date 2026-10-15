@@ -108,7 +108,8 @@ export function buildDongxiContextReview(
   }
   // Source order does not influence which example gets into the review queue.
   const sorted = [...occurrences].sort((a, b) =>
-    a.origin.localeCompare(b.origin)
+    (a.origin === "unbiased-reviewed-roles" ? 0 : 1)
+      - (b.origin === "unbiased-reviewed-roles" ? 0 : 1)
     || a.hit.seedIndex - b.hit.seedIndex
     || a.hit.entryIndex - b.hit.entryIndex
     || a.hit.selectedEntryId.localeCompare(b.hit.selectedEntryId),
