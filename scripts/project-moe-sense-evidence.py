@@ -180,7 +180,7 @@ def main() -> None:
     sources = []
     for name, path in [("concised", args.concised), ("revised", args.revised)]:
         module = load_adapter(name)
-        checksum, candidates = source_candidates(module, "moe-" + name, path, texts)
+        checksum, candidates = source_candidates(module, name, path, texts)
         sources.append(("moe-" + name, checksum, candidates))
     public, private = project_evidence(targets, sources)
     for path, value in [(args.public_output, public), (args.private_output, private)]:
