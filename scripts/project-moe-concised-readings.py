@@ -148,6 +148,8 @@ class SourceReading:
     multi_reading_order: int
     source_bopomofo: str
     multi_reading_reference: str | None
+    # Optional in-memory sense evidence; never included in the reading projection.
+    definition: str | None = None
 
 
 def decode_cell(cell: ET.Element, shared_strings: list[str]) -> Cell:
@@ -260,6 +262,8 @@ def candidate_texts(path: Path) -> tuple[list[str], dict[str, int]]:
 def read_source_rows(
     archive_path: Path,
     target_texts: set[str],
+    *,
+    include_definition: bool = False,
 ) -> tuple[str, dict[str, list[SourceReading]], int, int]:
     checksum = sha256_file(archive_path)
     if checksum != EXPECTED_ARCHIVE_SHA256:
@@ -317,6 +321,8 @@ def read_source_rows(
                 multi_reading_order=nonnegative_integer(cells, 6, f"F{physical_row_number}"),
                 source_bopomofo=required_string(cells, 7, f"G{physical_row_number}"),
                 multi_reading_reference=optional_string(cells, 15, f"O{physical_row_number}"),
+                definition=(optional_string(cells, 14, f"N{physical_row_number}")
+                            if include_definition else None),
             )
             matched.setdefault(lookup_text, []).append(row)
 

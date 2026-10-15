@@ -7,6 +7,7 @@ on:
       - "scripts/audit-polyphonic-context.ts"
       - "scripts/audit-same-upos-polyphones.ts"
       - "scripts/audit-targeted-polyphonic-identities.ts"
+      - "scripts/prepare-moe-sense-targets.ts"
       - "src/readings/**"
       - "tests/readings/**"
       - "package.json"
@@ -31,6 +32,8 @@ jobs:
         run: npm ci --include=dev --ignore-scripts
       - name: Generate the product catalog
         run: npm run app:catalog
+      - name: Prepare five-word exact reading identities for private MOE review
+        run: npx tsx scripts/prepare-moe-sense-targets.ts
       - name: Audit 2048 deterministic generated sentences
         run: npm run readings:audit
       - name: Trial closed-class reading eligibility against the same seeds
@@ -161,5 +164,6 @@ jobs:
             data/generated/polyphonic-role-trial-comparison.json
             data/generated/same-upos-polyphone-review.json
             data/generated/polyphonic-targeted-identity-coverage.json
+            data/generated/moe-sense-pilot-targets.json
           retention-days: 14
           if-no-files-found: error
