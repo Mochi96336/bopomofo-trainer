@@ -6,6 +6,8 @@ on:
       - ".github/workflows/moe-september-source-discovery.yml"
       - "scripts/discover-moe-20260929-sense-source.py"
       - "scripts/prepare-moe-sense-targets.ts"
+      - "scripts/verify-moe-sense-context-provenance.py"
+      - "data/readings/moe-20260929-pilot-context-hypotheses.json"
   workflow_dispatch:
 
 permissions:
@@ -82,6 +84,12 @@ jobs:
               raise RuntimeError("private dictionary source text leaked into public report")
           print(f"Private dictionary extraction verified: {len(rows)} readings, {sum(len(row['sourceRows']) for row in rows)} defined sources, 0 sense approvals")
           PY
+      - name: Verify proposed cases point to actual September MOE source IDs
+        shell: bash
+        run: |
+          python scripts/verify-moe-sense-context-provenance.py \
+            --cases data/readings/moe-20260929-pilot-context-hypotheses.json \
+            --source-index data/generated/moe-20260929-sense-source-index.json
       - name: Remove local private definitions before artifact upload
         if: always()
         run: rm -f data/external/moe/20260929/private-five-word-definitions.json
