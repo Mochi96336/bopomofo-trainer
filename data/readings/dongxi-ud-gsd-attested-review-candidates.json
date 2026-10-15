@@ -1,0 +1,275 @@
+{
+  "schemaVersion": "dongxi-ud-gsd-attested-review-candidates-v1",
+  "purpose": "Research-only externally attested sentence candidate review; NO correct-reading labels and NO model training",
+  "source": {
+    "corpus": "UD_Chinese-GSD",
+    "repository": "https://github.com/UniversalDependencies/UD_Chinese-GSD",
+    "commit": "22f73e87f7ddc530bb131a6b7587971a03e1a712",
+    "annotationLicense": "CC BY-SA 4.0",
+    "genre": "Wikipedia-derived",
+    "sourceTransliterationWarning": "UD token Translit=dōngxi does not disambiguate first tone vs neutral tone in 東西",
+    "licenseCaveat": "Annotations CC BY-SA 4.0; upstream acknowledges it does not own underlying text. Preserve downstream attribution, share-alike and underlying-text provenance; no automatic redistribution into MIT product asset."
+  },
+  "attestedIndependentTokenCount": 10,
+  "candidates": [
+    {
+      "id": "ud-gsd-train-s681",
+      "split": "train",
+      "sentId": "train-s681",
+      "sourceFile": "zh_gsd-ud-train.conllu",
+      "sentence": "有了這兩東西，人類生存了。",
+      "lexicalSourceToken": {
+        "id": 5,
+        "form": "東西",
+        "upos": "NOUN",
+        "deprel": "obj",
+        "translit": "dōngxi"
+      },
+      "preliminarySenseProposal": "objects",
+      "proposalStatus": "triage-only-not-adjudicated",
+      "sourceReadingAnnotation": "not-disambiguated-in-UD-translit",
+      "review": {
+        "naturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending",
+        "tokenization": "source-UD-token-attested-not-independently-reviewed"
+      },
+      "eligibleForTraining": false,
+      "eligibleForProductRule": false
+    },
+    {
+      "id": "ud-gsd-train-s1643",
+      "split": "train",
+      "sentId": "train-s1643",
+      "sourceFile": "zh_gsd-ud-train.conllu",
+      "sentence": "海光寺路口也成為天津市東西和南北方向的交通要衝，常年交通擁堵。",
+      "lexicalSourceToken": {
+        "id": 9,
+        "form": "東西",
+        "upos": "NOUN",
+        "deprel": "nmod",
+        "translit": "dōngxi"
+      },
+      "preliminarySenseProposal": "directions",
+      "proposalStatus": "triage-only-not-adjudicated",
+      "sourceReadingAnnotation": "not-disambiguated-in-UD-translit",
+      "review": {
+        "naturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending",
+        "tokenization": "source-UD-token-attested-not-independently-reviewed"
+      },
+      "eligibleForTraining": false,
+      "eligibleForProductRule": false
+    },
+    {
+      "id": "ud-gsd-train-s2287",
+      "split": "train",
+      "sentId": "train-s2287",
+      "sourceFile": "zh_gsd-ud-train.conllu",
+      "sentence": "我承認當時我踢的足球不像現在和在阿賈克斯踢的這麼漂亮，可是作為一名運動員，我學到了不少東西。",
+      "lexicalSourceToken": {
+        "id": 31,
+        "form": "東西",
+        "upos": "NOUN",
+        "deprel": "obj",
+        "translit": "dōngxi"
+      },
+      "preliminarySenseProposal": "objects",
+      "proposalStatus": "triage-only-not-adjudicated",
+      "sourceReadingAnnotation": "not-disambiguated-in-UD-translit",
+      "review": {
+        "naturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending",
+        "tokenization": "source-UD-token-attested-not-independently-reviewed"
+      },
+      "eligibleForTraining": false,
+      "eligibleForProductRule": false
+    },
+    {
+      "id": "ud-gsd-train-s2541",
+      "split": "train",
+      "sentId": "train-s2541",
+      "sourceFile": "zh_gsd-ud-train.conllu",
+      "sentence": "面對不可能和疑問，理性的人就只有放棄或否認，並永遠為失去的東西而悲傷。",
+      "lexicalSourceToken": {
+        "id": 21,
+        "form": "東西",
+        "upos": "NOUN",
+        "deprel": "nmod",
+        "translit": "dōngxi"
+      },
+      "preliminarySenseProposal": "objects",
+      "proposalStatus": "triage-only-not-adjudicated",
+      "sourceReadingAnnotation": "not-disambiguated-in-UD-translit",
+      "review": {
+        "naturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending",
+        "tokenization": "source-UD-token-attested-not-independently-reviewed"
+      },
+      "eligibleForTraining": false,
+      "eligibleForProductRule": false
+    },
+    {
+      "id": "ud-gsd-train-s3688",
+      "split": "train",
+      "sentId": "train-s3688",
+      "sourceFile": "zh_gsd-ud-train.conllu",
+      "sentence": "學民思潮召集人黃之鋒聞言舉起《中國模式國情專題教學手冊》，表示「此東西都是由大學所寫的」。",
+      "lexicalSourceToken": {
+        "id": 21,
+        "form": "東西",
+        "upos": "NOUN",
+        "deprel": "ccomp",
+        "translit": "dōngxi"
+      },
+      "preliminarySenseProposal": "objects",
+      "proposalStatus": "triage-only-not-adjudicated",
+      "sourceReadingAnnotation": "not-disambiguated-in-UD-translit",
+      "review": {
+        "naturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending",
+        "tokenization": "source-UD-token-attested-not-independently-reviewed"
+      },
+      "eligibleForTraining": false,
+      "eligibleForProductRule": false
+    },
+    {
+      "id": "ud-gsd-train-s3831",
+      "split": "train",
+      "sentId": "train-s3831",
+      "sourceFile": "zh_gsd-ud-train.conllu",
+      "sentence": "市境東西寬106公里，南北寬111公里，總面積4058平方公里。",
+      "lexicalSourceToken": {
+        "id": 2,
+        "form": "東西",
+        "upos": "NOUN",
+        "deprel": "nsubj",
+        "translit": "dōngxi"
+      },
+      "preliminarySenseProposal": "directions",
+      "proposalStatus": "triage-only-not-adjudicated",
+      "sourceReadingAnnotation": "not-disambiguated-in-UD-translit",
+      "review": {
+        "naturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending",
+        "tokenization": "source-UD-token-attested-not-independently-reviewed"
+      },
+      "eligibleForTraining": false,
+      "eligibleForProductRule": false
+    },
+    {
+      "id": "ud-gsd-dev-s34",
+      "split": "dev",
+      "sentId": "dev-s34",
+      "sourceFile": "zh_gsd-ud-dev.conllu",
+      "sentence": "北京外城共有七門，南面三門，東西各一門，此外還有兩座便門。",
+      "lexicalSourceToken": {
+        "id": 12,
+        "form": "東西",
+        "upos": "NOUN",
+        "deprel": "conj",
+        "translit": "dōngxi"
+      },
+      "preliminarySenseProposal": "directions",
+      "proposalStatus": "triage-only-not-adjudicated",
+      "sourceReadingAnnotation": "not-disambiguated-in-UD-translit",
+      "review": {
+        "naturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending",
+        "tokenization": "source-UD-token-attested-not-independently-reviewed"
+      },
+      "eligibleForTraining": false,
+      "eligibleForProductRule": false
+    },
+    {
+      "id": "ud-gsd-dev-s35",
+      "split": "dev",
+      "sentId": "dev-s35",
+      "sourceFile": "zh_gsd-ud-dev.conllu",
+      "sentence": "瓮城為元朝末年所修，因為當時崇仁門為東垣正中城門，因此瓮城幾乎為正方形，南北寬68米，東西深62米，南面辟閘樓、券門。",
+      "lexicalSourceToken": {
+        "id": 30,
+        "form": "東西",
+        "upos": "NOUN",
+        "deprel": "nsubj",
+        "translit": "dōngxi"
+      },
+      "preliminarySenseProposal": "directions",
+      "proposalStatus": "triage-only-not-adjudicated",
+      "sourceReadingAnnotation": "not-disambiguated-in-UD-translit",
+      "review": {
+        "naturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending",
+        "tokenization": "source-UD-token-attested-not-independently-reviewed"
+      },
+      "eligibleForTraining": false,
+      "eligibleForProductRule": false
+    },
+    {
+      "id": "ud-gsd-dev-s312",
+      "split": "dev",
+      "sentId": "dev-s312",
+      "sourceFile": "zh_gsd-ud-dev.conllu",
+      "sentence": "校園中有一條南北向的大道將校園分成東西兩部。",
+      "lexicalSourceToken": {
+        "id": 12,
+        "form": "東西",
+        "upos": "NOUN",
+        "deprel": "obj",
+        "translit": "dōngxi"
+      },
+      "preliminarySenseProposal": "directions",
+      "proposalStatus": "triage-only-not-adjudicated",
+      "sourceReadingAnnotation": "not-disambiguated-in-UD-translit",
+      "review": {
+        "naturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending",
+        "tokenization": "source-UD-token-attested-not-independently-reviewed"
+      },
+      "eligibleForTraining": false,
+      "eligibleForProductRule": false
+    },
+    {
+      "id": "ud-gsd-test-s354",
+      "split": "test",
+      "sentId": "test-s354",
+      "sourceFile": "zh_gsd-ud-test.conllu",
+      "sentence": "始鏡猴科有可以抓住東西的手及腳，手指及腳趾有指甲而沒有爪。",
+      "lexicalSourceToken": {
+        "id": 6,
+        "form": "東西",
+        "upos": "NOUN",
+        "deprel": "obj",
+        "translit": "dōngxi"
+      },
+      "preliminarySenseProposal": "objects",
+      "proposalStatus": "triage-only-not-adjudicated",
+      "sourceReadingAnnotation": "not-disambiguated-in-UD-translit",
+      "review": {
+        "naturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending",
+        "tokenization": "source-UD-token-attested-not-independently-reviewed"
+      },
+      "eligibleForTraining": false,
+      "eligibleForProductRule": false
+    }
+  ],
+  "excludedSourceSubstringCases": [
+    {
+      "split": "train",
+      "sentId": "train-s816",
+      "tokenId": 10,
+      "form": "東西向",
+      "exclusionReason": "single source token is 東西向, not an independently selected 東西 token"
+    }
+  ]
+}
