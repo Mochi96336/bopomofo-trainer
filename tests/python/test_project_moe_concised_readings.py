@@ -54,6 +54,9 @@ def workbook_bytes(adapter: ModuleType, rows: list[dict[str, object]], headers: 
             numeric_cell(f"F{index}", int(row.get("order", 0))),
             inline_cell(f"G{index}", str(row["bopomofo"])),
         ]
+        definition = row.get("definition")
+        if definition is not None:
+            cells.append(inline_cell(f"N{index}", str(definition)))
         reference = row.get("reference")
         if reference is not None:
             cells.append(inline_cell(f"O{index}", str(reference)))
