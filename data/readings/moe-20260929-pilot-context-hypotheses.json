@@ -1,0 +1,178 @@
+{
+  "schemaVersion": "moe-20260929-sense-context-hypotheses-v1",
+  "status": "source-linked; contextual hypotheses NOT reviewed and NOT production constraints",
+  "sourcePins": "data/readings/moe-20260929-sense-source-pins.json",
+  "purpose": "Review reading, lexical sense, syntax role, and sentence naturalness separately before any runtime rule.",
+  "rows": [
+    {
+      "caseId": "sense-pilot-01",
+      "entryId": "word:種:ㄓㄨㄥ3",
+      "sourceIds": {
+        "concised": "4613",
+        "revised": "08148"
+      },
+      "authoredExample": "這種花很香",
+      "targetWrittenForm": "種",
+      "scope": "standalone-token",
+      "senseHypothesis": "量詞／類別",
+      "readingReview": "pending",
+      "syntaxRoleReview": "pending",
+      "sentenceNaturalnessReview": "pending",
+      "sourceSenseReview": "pending",
+      "notTrainingGroundTruth": true
+    },
+    {
+      "caseId": "sense-pilot-02",
+      "entryId": "word:種:ㄓㄨㄥ4",
+      "sourceIds": {
+        "concised": "4618",
+        "revised": "08153"
+      },
+      "authoredExample": "我想種花",
+      "targetWrittenForm": "種",
+      "scope": "standalone-token",
+      "senseHypothesis": "動作／栽植",
+      "readingReview": "pending",
+      "syntaxRoleReview": "pending",
+      "sentenceNaturalnessReview": "pending",
+      "sourceSenseReview": "pending",
+      "notTrainingGroundTruth": true
+    },
+    {
+      "caseId": "sense-pilot-03",
+      "entryId": "word:說:ㄕㄨㄛ1",
+      "sourceIds": {
+        "concised": "5148",
+        "revised": "09114"
+      },
+      "authoredExample": "他說得很清楚",
+      "targetWrittenForm": "說",
+      "scope": "standalone-token",
+      "senseHypothesis": "陳述／發言",
+      "readingReview": "pending",
+      "syntaxRoleReview": "pending",
+      "sentenceNaturalnessReview": "pending",
+      "sourceSenseReview": "pending",
+      "notTrainingGroundTruth": true
+    },
+    {
+      "caseId": "sense-pilot-04",
+      "entryId": "word:說:ㄕㄨㄟ4",
+      "sourceIds": {
+        "concised": "5166",
+        "revised": "09146"
+      },
+      "authoredExample": "他正在遊說議員",
+      "targetWrittenForm": "說",
+      "scope": "bound-in-compound",
+      "senseHypothesis": "勸服／說動",
+      "readingReview": "pending",
+      "syntaxRoleReview": "pending",
+      "sentenceNaturalnessReview": "pending",
+      "sourceSenseReview": "pending",
+      "notTrainingGroundTruth": true
+    },
+    {
+      "caseId": "sense-pilot-05",
+      "entryId": "word:東西:ㄉㄨㄥ1-ㄒㄧ1",
+      "sourceIds": {
+        "concised": "130600044",
+        "revised": "023940150"
+      },
+      "authoredExample": "街道呈東西走向",
+      "targetWrittenForm": "東西",
+      "scope": "multi-character-headword",
+      "senseHypothesis": "東方與西方／方向",
+      "readingReview": "pending",
+      "syntaxRoleReview": "pending",
+      "sentenceNaturalnessReview": "pending",
+      "sourceSenseReview": "pending",
+      "notTrainingGroundTruth": true
+    },
+    {
+      "caseId": "sense-pilot-06",
+      "entryId": "word:東西:ㄉㄨㄥ1-ㄒㄧ5",
+      "sourceIds": {
+        "concised": "1306000451",
+        "revised": "0239401581"
+      },
+      "authoredExample": "我買了一些東西",
+      "targetWrittenForm": "東西",
+      "scope": "multi-character-headword",
+      "senseHypothesis": "物品",
+      "readingReview": "pending",
+      "syntaxRoleReview": "pending",
+      "sentenceNaturalnessReview": "pending",
+      "sourceSenseReview": "pending",
+      "notTrainingGroundTruth": true
+    },
+    {
+      "caseId": "sense-pilot-07",
+      "entryId": "word:給:ㄍㄟ3",
+      "sourceIds": {
+        "concised": "2236",
+        "revised": "03983"
+      },
+      "authoredExample": "請給我一杯水",
+      "targetWrittenForm": "給",
+      "scope": "standalone-token",
+      "senseHypothesis": "交付／給予",
+      "readingReview": "pending",
+      "syntaxRoleReview": "pending",
+      "sentenceNaturalnessReview": "pending",
+      "sourceSenseReview": "pending",
+      "notTrainingGroundTruth": true
+    },
+    {
+      "caseId": "sense-pilot-08",
+      "entryId": "word:給:ㄐㄧ3",
+      "sourceIds": {
+        "concised": "3069",
+        "revised": "05410"
+      },
+      "authoredExample": "社區力求自給自足",
+      "targetWrittenForm": "給",
+      "scope": "bound-in-compound",
+      "senseHypothesis": "供應／供給",
+      "readingReview": "pending",
+      "syntaxRoleReview": "pending",
+      "sentenceNaturalnessReview": "pending",
+      "sourceSenseReview": "pending",
+      "notTrainingGroundTruth": true
+    },
+    {
+      "caseId": "sense-pilot-09",
+      "entryId": "word:為:ㄨㄟ2",
+      "sourceIds": {
+        "concised": "6309",
+        "revised": "11375"
+      },
+      "authoredExample": "他成為老師了",
+      "targetWrittenForm": "為",
+      "scope": "bound-in-compound",
+      "senseHypothesis": "成為／充當",
+      "readingReview": "pending",
+      "syntaxRoleReview": "pending",
+      "sentenceNaturalnessReview": "pending",
+      "sourceSenseReview": "pending",
+      "notTrainingGroundTruth": true
+    },
+    {
+      "caseId": "sense-pilot-10",
+      "entryId": "word:為:ㄨㄟ4",
+      "sourceIds": {
+        "concised": "6340",
+        "revised": "11422"
+      },
+      "authoredExample": "他為大家準備晚餐",
+      "targetWrittenForm": "為",
+      "scope": "standalone-token",
+      "senseHypothesis": "為了／替",
+      "readingReview": "pending",
+      "syntaxRoleReview": "pending",
+      "sentenceNaturalnessReview": "pending",
+      "sourceSenseReview": "pending",
+      "notTrainingGroundTruth": true
+    }
+  ]
+}
