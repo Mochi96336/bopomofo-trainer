@@ -23,9 +23,44 @@ import {
   type FormalSyntaxUtteranceInput,
   type PreparedFormalSyntaxLexicon,
 } from "./formal-syntax-utterance.js";
+import {
+  PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+  type FormalSyntaxSamplingPolicy,
+} from "./formal-syntax-sampling-policy.js";
 import type { LearnerBindingEvidence } from "./types.js";
 
 const MAXIMUM_RECENT_UTTERANCE_ATTEMPTS = 4;
+
+/**
+ * Failure-only recovery for a lexically narrowed catalog.
+ *
+ * Product practice axes are curriculum preferences, not grammar requirements.
+ * If the complete bounded product-family pass cannot realize any sentence, keep
+ * the same root-family prior/catalog/reading gate but remove all optional
+ * practice targets. This is deliberately a second bounded pass instead of
+ * increasing the primary 64-attempt budget, so successful seeded rounds keep
+ * their historical RNG trajectory and output.
+ */
+const PRODUCT_AVAILABILITY_RECOVERY_POLICY: FormalSyntaxSamplingPolicy = {
+  ...PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+  version: `${PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY.version}:availability-recovery-v1`,
+  predicateMarkingPracticeWeights: {
+    ordinary: 1,
+    modal: 0,
+    aspect: 0,
+    negation: 0,
+  },
+  argumentRealizationPracticeWeights: {
+    ordinary: 1,
+    subjectOmission: 0,
+    objectOmission: 0,
+  },
+  comparativePracticeWeights: {
+    inactive: 1,
+    adjectival: 0,
+    verbal: 0,
+  },
+};
 
 export interface FrequencyFirstUtterancePolicy {
   readonly version: string;
@@ -508,7 +543,7 @@ function generateOnce(
   }
   const executionBounds = preparedFormalSyntaxExecution?.bounds
     ?? formalSyntaxExecutionBounds(maximumClauseNesting);
-  return composeFormalSyntaxUtterances({
+  const composerInput: FormalSyntaxUtteranceInput = {
     eligibleEntries,
     profiles: input.profiles,
     random: input.random,
@@ -519,7 +554,29 @@ function generateOnce(
     maximumAttempts: 64,
     ...compositionOverride,
     bounds: executionBounds,
+  };
+  const primary = composeFormalSyntaxUtterances(
+    composerInput,
+    preparedFormalSyntaxLexicon,
+    preparedFormalSyntaxExecution?.structuralSamplingContext,
+  );
+  if (primary.candidates.length > 0 || input.formalSyntaxComposition !== undefined) {
+    return primary;
+  }
+
+  const recovery = composeFormalSyntaxUtterances({
+    ...composerInput,
+    samplingMode: "product-family",
+    samplingPolicy: PRODUCT_AVAILABILITY_RECOVERY_POLICY,
   }, preparedFormalSyntaxLexicon, preparedFormalSyntaxExecution?.structuralSamplingContext);
+  return {
+    candidates: recovery.candidates,
+    fallbackReasons: [...new Set([
+      ...primary.fallbackReasons,
+      "formal-syntax-practice-availability-recovery",
+      ...recovery.fallbackReasons,
+    ])].sort(),
+  };
 }
 
 export function validateFrequencyFirstUtterancePolicy(
