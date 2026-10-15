@@ -10,7 +10,9 @@ on:
       - "scripts/audit-targeted-polyphonic-identities.ts"
       - "scripts/prepare-moe-sense-targets.ts"
       - "scripts/audit-dongxi-ud-intake.ts"
+      - "scripts/audit-dongxi-ud-review-queue.ts"
       - "data/readings/dongxi-ud-gsd-attested-review-candidates.json"
+      - "data/readings/dongxi-ud-gsd-train-review-queue.json"
       - "src/readings/**"
       - "tests/readings/**"
       - "package.json"
@@ -35,6 +37,8 @@ jobs:
         run: npm ci --include=dev --ignore-scripts
       - name: Validate attested UD 東西 contexts without generating reading labels
         run: npx tsx scripts/audit-dongxi-ud-intake.ts
+      - name: Verify review packet contains train-only pending judgments and no reading guesses
+        run: npx tsx scripts/audit-dongxi-ud-review-queue.ts
       - name: Generate the product catalog
         run: npm run app:catalog
       - name: Prepare five-word exact reading identities for private MOE review
