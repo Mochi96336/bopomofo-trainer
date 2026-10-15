@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/polyphonic-reading-exposure.yml"
       - "scripts/audit-polyphonic-context.ts"
+      - "scripts/compare-zhong-role-trial.ts"
       - "scripts/audit-same-upos-polyphones.ts"
       - "scripts/audit-targeted-polyphonic-identities.ts"
       - "scripts/prepare-moe-sense-targets.ts"
@@ -40,6 +41,14 @@ jobs:
         run: npm run readings:audit -- --policy reviewed-closed --output data/generated/polyphonic-context-reviewed-closed.json
       - name: Trial reviewed pronoun/determiner roles against the same seeds
         run: npm run readings:audit -- --policy reviewed-roles --output data/generated/polyphonic-context-reviewed-roles.json
+      - name: Trial reviewed 種 noun/verb reading identity restrictions
+        run: npm run readings:audit -- --policy zhong-role-trial --output data/generated/polyphonic-context-zhong-role-trial.json
+      - name: Verify 種 opt-in trial has zero unlicensed selection and unrelated seed drift
+        run: >-
+          npx tsx scripts/compare-zhong-role-trial.ts
+          data/generated/polyphonic-context-reviewed-roles.json
+          data/generated/polyphonic-context-zhong-role-trial.json
+          data/generated/polyphonic-zhong-role-trial-comparison.json
       - name: Verify exact-seed changes and reviewed-role rejection counts
         run: >-
           npx tsx scripts/compare-polyphonic-role-trial.ts
@@ -61,6 +70,7 @@ jobs:
           const comparison = JSON.parse(readFileSync('data/generated/polyphonic-role-trial-comparison.json', 'utf8'));
           const queue = JSON.parse(readFileSync('data/generated/same-upos-polyphone-review.json', 'utf8'));
           const targets = JSON.parse(readFileSync('data/generated/polyphonic-targeted-identity-coverage.json', 'utf8'));
+          const zhongTrial = JSON.parse(readFileSync('data/generated/polyphonic-zhong-role-trial-comparison.json', 'utf8'));
           const escape = (value) => String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
           const count = Object.entries(report.occurrenceCountByText)
             .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -114,6 +124,10 @@ jobs:
             '',
             'Targets not seen in bounded probes remain UNKNOWN, not unreachable. Biased samples are not pronunciation-validity evidence.',
             '',
+            '#### Opt-in 種 lexical role trial (never active in product)',
+            '',
+            `Reviewed NOUN/VERB mismatches: ${zhongTrial.priorDisallowedOccurrences} → ${zhongTrial.trialDisallowedOccurrences}. Changed seeds: ${zhongTrial.alteredSeeds}; unrelated changes: ${zhongTrial.unrelatedAlteredSeeds}.`,
+            '',
             '#### Same-UPOS sense-review queue (not error labels)',
             '',
             `Observed ${queue.unreviewedGroups} unreviewed multi-reading text/UPOS groups, ${queue.unreviewedOccurrences} occurrences; examples need human review.`,
@@ -164,6 +178,8 @@ jobs:
             data/generated/polyphonic-role-trial-comparison.json
             data/generated/same-upos-polyphone-review.json
             data/generated/polyphonic-targeted-identity-coverage.json
+            data/generated/polyphonic-context-zhong-role-trial.json
+            data/generated/polyphonic-zhong-role-trial-comparison.json
             data/generated/moe-sense-pilot-targets.json
           retention-days: 14
           if-no-files-found: error
