@@ -1,0 +1,199 @@
+{
+  "schemaVersion": "moe-headword-sense-evidence-crosscheck-v1",
+  "status": "dictionary-level-checked; no sentence reviewed; no production rule enabled",
+  "pinnedSeptemberBulkEvidence": "data/readings/moe-20260929-sense-source-pins.json",
+  "crossCheckSource": "MOE Concised Dictionary public online 2021 edition; kept separate from pinned September 2026 bulk source",
+  "warning": "A lexeme-level reading/sense attestation is not proof that any authored or generated sentence uses the lexical sense correctly.",
+  "entries": [
+    {
+      "caseId": "sense-pilot-01",
+      "entryId": "word:種:ㄓㄨㄥ3",
+      "externalReference": {
+        "work": "moe-concised-online-2021",
+        "url": "https://dict.concised.moe.edu.tw/dictView.jsp?ID=31268&la=0&powerMode=0",
+        "headwordReadingChecked": true
+      },
+      "authoredSenseFamily": "類別與量詞",
+      "evidenceBoundary": "whole-token-role-needed",
+      "exampleHostLexeme": null,
+      "sourceMeaningStatus": "dictionary-headword-crosschecked",
+      "septemberSourceDefinitionComparison": "pending",
+      "authoredExampleReadingStatus": "pending",
+      "syntaxRoleStatus": "pending",
+      "sentenceNaturalnessStatus": "pending",
+      "usableAsTrainingLabel": false,
+      "usableAsProductRule": false
+    },
+    {
+      "caseId": "sense-pilot-02",
+      "entryId": "word:種:ㄓㄨㄥ4",
+      "externalReference": {
+        "work": "moe-concised-online-2021",
+        "url": "https://dict.concised.moe.edu.tw/dictView.jsp?ID=31340&la=0&powerMode=0",
+        "headwordReadingChecked": true
+      },
+      "authoredSenseFamily": "栽種動作",
+      "evidenceBoundary": "whole-token-role-needed",
+      "exampleHostLexeme": null,
+      "sourceMeaningStatus": "dictionary-headword-crosschecked",
+      "septemberSourceDefinitionComparison": "pending",
+      "authoredExampleReadingStatus": "pending",
+      "syntaxRoleStatus": "pending",
+      "sentenceNaturalnessStatus": "pending",
+      "usableAsTrainingLabel": false,
+      "usableAsProductRule": false
+    },
+    {
+      "caseId": "sense-pilot-03",
+      "entryId": "word:說:ㄕㄨㄛ1",
+      "externalReference": {
+        "work": "moe-concised-online-2021",
+        "url": "https://dict.concised.moe.edu.tw/dictView.jsp?ID=35509&la=0&powerMode=0",
+        "headwordReadingChecked": true
+      },
+      "authoredSenseFamily": "陳述、言說",
+      "evidenceBoundary": "whole-token-role-needed",
+      "exampleHostLexeme": null,
+      "sourceMeaningStatus": "dictionary-headword-crosschecked",
+      "septemberSourceDefinitionComparison": "pending",
+      "authoredExampleReadingStatus": "pending",
+      "syntaxRoleStatus": "pending",
+      "sentenceNaturalnessStatus": "pending",
+      "usableAsTrainingLabel": false,
+      "usableAsProductRule": false
+    },
+    {
+      "caseId": "sense-pilot-04",
+      "entryId": "word:說:ㄕㄨㄟ4",
+      "externalReference": {
+        "work": "moe-concised-online-2021",
+        "url": "https://dict.concised.moe.edu.tw/dictView.jsp?ID=35731&la=0&powerMode=0",
+        "headwordReadingChecked": true
+      },
+      "authoredSenseFamily": "勸說、遊說",
+      "evidenceBoundary": "attested-in-larger-lexeme",
+      "exampleHostLexeme": "遊說",
+      "sourceMeaningStatus": "dictionary-headword-crosschecked",
+      "septemberSourceDefinitionComparison": "pending",
+      "authoredExampleReadingStatus": "pending",
+      "syntaxRoleStatus": "pending",
+      "sentenceNaturalnessStatus": "pending",
+      "usableAsTrainingLabel": false,
+      "usableAsProductRule": false
+    },
+    {
+      "caseId": "sense-pilot-05",
+      "entryId": "word:東西:ㄉㄨㄥ1-ㄒㄧ1",
+      "externalReference": {
+        "work": "moe-concised-online-2021",
+        "url": "https://dict.concised.moe.edu.tw/dictView.jsp?ID=9785&la=0&powerMode=0",
+        "headwordReadingChecked": true
+      },
+      "authoredSenseFamily": "方位、東西向",
+      "evidenceBoundary": "same-upos-sense-needed",
+      "exampleHostLexeme": null,
+      "sourceMeaningStatus": "dictionary-headword-crosschecked",
+      "septemberSourceDefinitionComparison": "pending",
+      "authoredExampleReadingStatus": "pending",
+      "syntaxRoleStatus": "pending",
+      "sentenceNaturalnessStatus": "pending",
+      "usableAsTrainingLabel": false,
+      "usableAsProductRule": false
+    },
+    {
+      "caseId": "sense-pilot-06",
+      "entryId": "word:東西:ㄉㄨㄥ1-ㄒㄧ5",
+      "externalReference": {
+        "work": "moe-concised-online-2021",
+        "url": "https://dict.concised.moe.edu.tw/dictView.jsp?ID=9787&la=0&powerMode=0",
+        "headwordReadingChecked": true
+      },
+      "authoredSenseFamily": "物件",
+      "evidenceBoundary": "same-upos-sense-needed",
+      "exampleHostLexeme": null,
+      "sourceMeaningStatus": "dictionary-headword-crosschecked",
+      "septemberSourceDefinitionComparison": "pending",
+      "authoredExampleReadingStatus": "pending",
+      "syntaxRoleStatus": "pending",
+      "sentenceNaturalnessStatus": "pending",
+      "usableAsTrainingLabel": false,
+      "usableAsProductRule": false
+    },
+    {
+      "caseId": "sense-pilot-07",
+      "entryId": "word:給:ㄍㄟ3",
+      "externalReference": {
+        "work": "moe-concised-online-2021",
+        "url": "https://dict.concised.moe.edu.tw/dictView.jsp?ID=16048&la=0&powerMode=0",
+        "headwordReadingChecked": true
+      },
+      "authoredSenseFamily": "交付、介引",
+      "evidenceBoundary": "whole-token-role-needed",
+      "exampleHostLexeme": null,
+      "sourceMeaningStatus": "dictionary-headword-crosschecked",
+      "septemberSourceDefinitionComparison": "pending",
+      "authoredExampleReadingStatus": "pending",
+      "syntaxRoleStatus": "pending",
+      "sentenceNaturalnessStatus": "pending",
+      "usableAsTrainingLabel": false,
+      "usableAsProductRule": false
+    },
+    {
+      "caseId": "sense-pilot-08",
+      "entryId": "word:給:ㄐㄧ3",
+      "externalReference": {
+        "work": "moe-concised-online-2021",
+        "url": "https://dict.concised.moe.edu.tw/dictView.jsp?ID=21535&la=0&powerMode=0",
+        "headwordReadingChecked": true
+      },
+      "authoredSenseFamily": "供應、補給",
+      "evidenceBoundary": "attested-in-larger-lexeme",
+      "exampleHostLexeme": "自給自足",
+      "sourceMeaningStatus": "dictionary-headword-crosschecked",
+      "septemberSourceDefinitionComparison": "pending",
+      "authoredExampleReadingStatus": "pending",
+      "syntaxRoleStatus": "pending",
+      "sentenceNaturalnessStatus": "pending",
+      "usableAsTrainingLabel": false,
+      "usableAsProductRule": false
+    },
+    {
+      "caseId": "sense-pilot-09",
+      "entryId": "word:為:ㄨㄟ2",
+      "externalReference": {
+        "work": "moe-concised-online-2021",
+        "url": "https://dict.concised.moe.edu.tw/dictView.jsp?ID=43336&la=0&powerMode=0",
+        "headwordReadingChecked": true
+      },
+      "authoredSenseFamily": "作為、成為",
+      "evidenceBoundary": "attested-in-larger-lexeme",
+      "exampleHostLexeme": "成為",
+      "sourceMeaningStatus": "dictionary-headword-crosschecked",
+      "septemberSourceDefinitionComparison": "pending",
+      "authoredExampleReadingStatus": "pending",
+      "syntaxRoleStatus": "pending",
+      "sentenceNaturalnessStatus": "pending",
+      "usableAsTrainingLabel": false,
+      "usableAsProductRule": false
+    },
+    {
+      "caseId": "sense-pilot-10",
+      "entryId": "word:為:ㄨㄟ4",
+      "externalReference": {
+        "work": "moe-concised-online-2021",
+        "url": "https://dict.concised.moe.edu.tw/dictView.jsp?ID=43557&la=0&powerMode=0",
+        "headwordReadingChecked": true
+      },
+      "authoredSenseFamily": "目的、受益者、原因",
+      "evidenceBoundary": "whole-token-role-needed",
+      "exampleHostLexeme": null,
+      "sourceMeaningStatus": "dictionary-headword-crosschecked",
+      "septemberSourceDefinitionComparison": "pending",
+      "authoredExampleReadingStatus": "pending",
+      "syntaxRoleStatus": "pending",
+      "sentenceNaturalnessStatus": "pending",
+      "usableAsTrainingLabel": false,
+      "usableAsProductRule": false
+    }
+  ]
+}
