@@ -24,14 +24,48 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = "moe-sense-pilot-evidence-v1"
 
 
-def load_adapter(name: str) -> ModuleType:
+def load_adapter(name: str, edition: str = "202606") -> ModuleType:
+    if name not in ("concised", "revised"):
+        raise ValueError("unknown MOE source adapter: " + name)
+    if edition not in ("202606", "20260929"):
+        raise ValueError("unsupported MOE source edition: " + edition)
     path = ROOT / "scripts" / f"project-moe-{name}-readings.py"
-    spec = importlib.util.spec_from_file_location(f"moe_sense_pilot_{name}", path)
+    spec = importlib.util.spec_from_file_location(f"moe_sense_pilot_{name}_{edition}", path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"cannot load pinned adapter: {path}")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
+
+    if edition == "20260929":
+        pins_path = ROOT / "data" / "readings" / "moe-20260929-sense-source-pins.json"
+        pins = json.loads(pins_path.read_text(encoding="utf-8"))
+        if pins.get("schemaVersion") != "moe-sense-source-pins-v1" or pins.get("edition") != edition:
+            raise ValueError("unexpected September source pin schema or edition")
+        pin = pins["sources"][name]
+        module.SOURCE_VERSION = pin["version"]
+        module.EXPECTED_ARCHIVE_SHA256 = pin["archiveSha256"]
+        module.EXPECTED_SHEET = pin["sheet"]
+        module.EXPECTED_DIMENSION = pin["dimension"]
+        if name == "concised":
+            module.EXPECTED_MEMBER = pin["member"]
+            module.EXPECTED_MEMBER_SIZE = pin["memberSize"]
+            module.EXPECTED_MEMBER_SHA256 = pin["memberSha256"]
+        else:
+            module.EXPECTED_MAIN_MEMBER = pin["member"]
+            module.EXPECTED_MAIN_MEMBER_SIZE = pin["memberSize"]
+            module.EXPECTED_MAIN_MEMBER_SHA256 = pin["memberSha256"]
+            module.EXPECTED_FIELD_GUIDE_MEMBER = pin["fieldGuide"]
+            module.EXPECTED_FIELD_GUIDE_SIZE = pin["fieldGuideSize"]
+            module.EXPECTED_FIELD_GUIDE_SHA256 = pin["fieldGuideSha256"]
+            # Explicitly verified in #409: only column J label gained 5:或讀.
+            headers = list(module.EXPECTED_HEADERS)
+            if headers[9] != "變體類型 1:變 2:又音 3:語音 4:讀音":
+                raise ValueError("unexpected revised base header before 20260929 pin")
+            headers[9] = pin["variantColumnLabel"]
+            if headers[9] != "變體類型 1:變 2:又音 3:語音 4:讀音 5:或讀":
+                raise ValueError("unexpected revised 20260929 column label")
+            module.EXPECTED_HEADERS = headers
     return module
 
 
@@ -108,6 +142,8 @@ def source_candidates(
 def project_evidence(
     targets: list[dict[str, str]],
     sources: list[tuple[str, str, dict[str, dict[str, list[dict[str, Any]]]]]],
+    *,
+    edition: str = "202606",
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     public_rows: list[dict[str, Any]] = []
     private_rows: list[dict[str, Any]] = []
@@ -121,10 +157,16 @@ def project_evidence(
         ]
         # Never select one definition when multiple dictionary records match:
         # multiple source rows may denote different lexical senses.
+        per_source = [matched.get(text, {}).get(reading, []) for _, _, matched in sources]
         status = (
             "no-exact-source-reading" if not candidates
-            else "multiple-source-rows-review-required" if len(candidates) > 1
+            else "duplicate-within-one-dictionary-review-required"
+                if any(len(group) > 1 for group in per_source)
+            else "paired-sources-awaiting-sense-review"
+                if len(per_source) == 2 and all(len(group) == 1 for group in per_source)
             else "one-source-row-awaiting-sense-review"
+                if len(candidates) == 1
+            else "partial-source-match-review-required"
         )
         counts[status] = counts.get(status, 0) + 1
         base = {**target, "matchStatus": status, "senseReviewStatus": "unreviewed"}
@@ -134,7 +176,7 @@ def project_evidence(
                            for row in candidates],
         })
         private_rows.append({**base, "sourceRows": candidates})
-    source_refs = [{"kind": kind, "sourceVersion": module_version(kind),
+    source_refs = [{"kind": kind, "sourceVersion": module_version(kind, edition),
                     "archiveSha256": checksum} for kind, checksum, _ in sources]
     shared = {
         "schemaVersion": SCHEMA,
@@ -146,12 +188,17 @@ def project_evidence(
             {**shared, "PRIVATE_DO_NOT_COMMIT": True, "rows": private_rows})
 
 
-def module_version(kind: str) -> str:
-    if kind == "moe-concised":
-        return "2014_20260626"
-    if kind == "moe-revised":
-        return "2015_20260625"
-    raise ValueError("unexpected source kind " + kind)
+def module_version(kind: str, edition: str = "202606") -> str:
+    if edition == "20260929":
+        pins = json.loads((ROOT / "data/readings/moe-20260929-sense-source-pins.json").read_text(encoding="utf-8"))
+        if kind in ("moe-concised", "moe-revised"):
+            return pins["sources"][kind.removeprefix("moe-")]["version"]
+    if edition == "202606":
+        if kind == "moe-concised":
+            return "2014_20260626"
+        if kind == "moe-revised":
+            return "2015_20260625"
+    raise ValueError("unexpected source kind or edition " + kind + "/" + edition)
 
 
 def validate_output_paths(public_path: Path, private_path: Path) -> None:
@@ -166,6 +213,8 @@ def validate_output_paths(public_path: Path, private_path: Path) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--edition", choices=("202606", "20260929"), default="202606",
+                        help="strictly pinned source version; 20260929 does not change production projections")
     parser.add_argument("--targets", type=Path, default=ROOT / "data/generated/moe-sense-pilot-targets.json")
     parser.add_argument("--concised", type=Path, required=True)
     parser.add_argument("--revised", type=Path, required=True)
@@ -179,10 +228,10 @@ def main() -> None:
     texts = {row["text"] for row in targets}
     sources = []
     for name, path in [("concised", args.concised), ("revised", args.revised)]:
-        module = load_adapter(name)
+        module = load_adapter(name, args.edition)
         checksum, candidates = source_candidates(module, name, path, texts)
         sources.append(("moe-" + name, checksum, candidates))
-    public, private = project_evidence(targets, sources)
+    public, private = project_evidence(targets, sources, edition=args.edition)
     for path, value in [(args.public_output, public), (args.private_output, private)]:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -190,6 +239,7 @@ def main() -> None:
         "publicOutput": str(args.public_output),
         "privateOutput": str(args.private_output),
         "entryIds": len(targets),
+        "edition": args.edition,
         "matchCounts": public["matchCounts"],
         "status": "source-row matching only; lexical senses remain unreviewed",
     }, ensure_ascii=False, indent=2))

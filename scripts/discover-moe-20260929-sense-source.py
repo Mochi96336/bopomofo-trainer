@@ -65,6 +65,10 @@ def audit_source(name: str, archive_path: Path, targets):
         if conf["member"] not in members:
             raise ValueError(f"{name} workbook not found; member names: {members}")
         workbook = z.read(conf["member"])
+        field_guide = (
+            z.read("dict_revised_2015_20260929_欄位說明.xlsx")
+            if name == "revised" else None
+        )
     with zipfile.ZipFile(BytesIO(workbook)) as book:
         sheet, sheet_path = parser.workbook_sheet(book)
         shared = parser.read_shared_strings(book)
@@ -128,6 +132,8 @@ def audit_source(name: str, archive_path: Path, targets):
         "members": members,
         "workbookSha256": hash_bytes(workbook),
         "workbookBytes": len(workbook),
+        "fieldGuideSha256": hash_bytes(field_guide) if field_guide is not None else None,
+        "fieldGuideBytes": len(field_guide) if field_guide is not None else None,
         "worksheetName": sheet,
         "worksheetDimension": used_range,
         "columnOffsetsStrictlyVerified": header_verified,

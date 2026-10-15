@@ -110,8 +110,45 @@ class MoeSensePilotEvidenceTest(unittest.TestCase):
             [{"text": "種", "reading": "ㄓㄨㄥ3", "entryId": "word:種:ㄓㄨㄥ3"}],
             [("moe-concised", checksum, c)],
         )
-        self.assertEqual(public["rows"][0]["matchStatus"], "multiple-source-rows-review-required")
+        self.assertEqual(public["rows"][0]["matchStatus"], "duplicate-within-one-dictionary-review-required")
         self.assertEqual(len(public["rows"][0]["sourceRows"]), 2)
+
+    def test_paired_dictionaries_are_not_mistaken_for_duplicate_senses(self):
+        c_hash = "a" * 64
+        r_hash = "b" * 64
+        base = {
+            "sourceEntryId": "MOCK-A",
+            "definition": "MOCK private source definition",
+            "definitionPresent": True,
+            "definitionSha256": "c" * 64,
+        }
+        c = {"種": {"ㄓㄨㄥ3": [{**base, "sourceKind": "moe-concised"}]}}
+        r = {"種": {"ㄓㄨㄥ3": [{**base, "sourceKind": "moe-revised", "sourceEntryId": "MOCK-B"}]}}
+        targets = [{"text": "種", "reading": "ㄓㄨㄥ3", "entryId": "word:種:ㄓㄨㄥ3"}]
+        public, private = self.pilot.project_evidence(
+            targets, [("moe-concised", c_hash, c), ("moe-revised", r_hash, r)],
+            edition="20260929",
+        )
+        self.assertEqual(public["rows"][0]["matchStatus"], "paired-sources-awaiting-sense-review")
+        self.assertEqual(len(public["rows"][0]["sourceRows"]), 2)
+        self.assertEqual(public["sourceArchives"][0]["sourceVersion"], "2014_20260929")
+        self.assertEqual(public["sourceArchives"][1]["sourceVersion"], "2015_20260929")
+        self.assertNotIn("MOCK private source definition", json.dumps(public))
+        self.assertIn("MOCK private source definition", json.dumps(private))
+
+    def test_september_pins_do_not_change_older_reading_adapters(self):
+        for name in ("concised", "revised"):
+            old = self.pilot.load_adapter(name)
+            new = self.pilot.load_adapter(name, "20260929")
+            self.assertNotEqual(old.SOURCE_VERSION, new.SOURCE_VERSION)
+            self.assertNotEqual(old.EXPECTED_ARCHIVE_SHA256, new.EXPECTED_ARCHIVE_SHA256)
+            self.assertEqual(new.SOURCE_VERSION[-8:], "20260929")
+            self.assertEqual(old.SOURCE_VERSION[-8:], "20260626" if name == "concised" else "20260625")
+            self.assertEqual(new.EXPECTED_DIMENSION, "A1:O45179" if name == "concised" else "A1:R163910")
+        self.assertIn("5:或讀", self.pilot.load_adapter("revised", "20260929").EXPECTED_HEADERS[9])
+        self.assertNotIn("5:或讀", self.pilot.load_adapter("revised").EXPECTED_HEADERS[9])
+        with self.assertRaisesRegex(ValueError, "unsupported MOE source edition"):
+            self.pilot.load_adapter("concised", "latest")
 
     def test_rejects_tampered_target_identity_and_private_path_outside_ignore(self):
         path = self.root / "targets.json"

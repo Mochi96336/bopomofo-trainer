@@ -48,6 +48,43 @@ jobs:
             --revised data/external/moe/20260929/revised.zip \
             --targets data/generated/moe-sense-pilot-targets.json \
             --output data/generated/moe-20260929-source-discovery.json
+      - name: Extract private definitions with exact September pins
+        shell: bash
+        run: |
+          set -euo pipefail
+          python scripts/project-moe-sense-evidence.py \
+            --edition 20260929 \
+            --targets data/generated/moe-sense-pilot-targets.json \
+            --concised data/external/moe/20260929/concised.zip \
+            --revised data/external/moe/20260929/revised.zip \
+            --public-output data/generated/moe-20260929-sense-source-index.json \
+            --private-output data/external/moe/20260929/private-five-word-definitions.json
+      - name: Enforce ten reading pairs in both sources, with no source-text publication
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path("data/generated/moe-20260929-sense-source-index.json")
+          report = json.loads(path.read_text(encoding="utf-8"))
+          rows = report["rows"]
+          if len(rows) != 10:
+              raise RuntimeError("must account for all 10 exact reading IDs")
+          if any(row["matchStatus"] != "paired-sources-awaiting-sense-review" for row in rows):
+              raise RuntimeError("a pilot reading lacks exactly one source row in each dictionary")
+          for row in rows:
+              if len(row["sourceRows"]) != 2:
+                  raise RuntimeError("each pilot reading needs two source citations")
+              if any(not source["definitionPresent"] for source in row["sourceRows"]):
+                  raise RuntimeError("source row lacks definition; cannot privately review lexical sense")
+          serialized = path.read_text(encoding="utf-8")
+          if '"definition":' in serialized or "PRIVATE_DO_NOT_COMMIT" in serialized:
+              raise RuntimeError("private dictionary source text leaked into public report")
+          print(f"Private dictionary extraction verified: {len(rows)} readings, {sum(len(row['sourceRows']) for row in rows)} defined sources, 0 sense approvals")
+          PY
+      - name: Remove local private definitions before artifact upload
+        if: always()
+        run: rm -f data/external/moe/20260929/private-five-word-definitions.json
       - name: Attach sanitized metadata only
         if: success()
         uses: actions/upload-artifact@v4
@@ -56,5 +93,6 @@ jobs:
           path: |
             data/generated/moe-sense-pilot-targets.json
             data/generated/moe-20260929-source-discovery.json
+            data/generated/moe-20260929-sense-source-index.json
           if-no-files-found: error
           retention-days: 14

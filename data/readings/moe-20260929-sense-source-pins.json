@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "moe-sense-source-pins-v1",
+  "edition": "20260929",
+  "purpose": "offline reading-to-source evidence only; never changes packaged catalog",
+  "sources": {
+    "concised": {
+      "version": "2014_20260929",
+      "archiveSha256": "5bab99dac44ad7a6ccdcf481e770e8aca05ede7445c4cc25b8199e0e5df64cf2",
+      "member": "dict_concised_2014_20260929.xlsx",
+      "memberSize": 7080113,
+      "memberSha256": "af2e9ba3655799080e0f7214646bde11ca5cc5e16226bca1e9a461285e05eec6",
+      "sheet": "辭典匯出_1150929",
+      "dimension": "A1:O45179"
+    },
+    "revised": {
+      "version": "2015_20260929",
+      "archiveSha256": "65a24fff76d0fbfa078541f39761bb9f302bdf7ad6bb48be4ce1052d1b49f609",
+      "member": "dict_revised_2015_20260929.xlsx",
+      "memberSize": 31188250,
+      "memberSha256": "bbbac6a820cac000cabf789d81b88338d94aa14f1d7eea6e16b495cf5c8dfa80",
+      "fieldGuide": "dict_revised_2015_20260929_欄位說明.xlsx",
+      "fieldGuideSize": 9504,
+      "fieldGuideSha256": "1b36941248151516473f74f39db1f1095a22ba9367462c685d01a6ba03b191ca",
+      "sheet": "1150929辭典匯出",
+      "dimension": "A1:R163910",
+      "variantColumnLabel": "變體類型 1:變 2:又音 3:語音 4:讀音 5:或讀"
+    }
+  }
+}
