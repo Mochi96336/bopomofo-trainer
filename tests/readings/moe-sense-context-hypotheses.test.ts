@@ -36,8 +36,8 @@ describe("MOE September reading sense-case research hypotheses (not runtime poli
       expect(row.targetWrittenForm).toBe(text);
       expect(row.authoredExample.includes(text)).toBe(true);
       expect(row.authoredExample.length).toBeGreaterThan(text.length);
-      expect(row.sourceIds.concised).toMatch(/^\\d+$/);
-      expect(row.sourceIds.revised).toMatch(/^\\d+$/);
+      expect(row.sourceIds.concised).toMatch(/^\d+$/);
+      expect(row.sourceIds.revised).toMatch(/^\d+$/);
       expect(observed.has(row.entryId)).toBe(false);
       observed.add(row.entryId);
     }
