@@ -10,7 +10,8 @@ import {
 import type { PolyphonicContextHit } from "../../src/readings/polyphonic-audit.js";
 import type { RuntimeSyntaxProfile } from "../../src/syntax/types.js";
 
-const [DIRECTION, OBJECTS] = DONGXI_SENSE_READINGS.map(x => x.id);
+const DIRECTION = DONGXI_SENSE_READINGS[0].id;
+const OBJECTS = DONGXI_SENSE_READINGS[1].id;
 const entry = (reading: string): CatalogEntry => ({
   id: catalogEntryId("東西", reading),
   prompt: { text: "東西", locale: "zh-TW" },
