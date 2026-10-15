@@ -2,7 +2,7 @@
 
 > 本文件僅供研究，並非已核准的 gold pronunciation labels。原始候選資料、驗證器、正式出題／讀音規則維持不變。
 >
-> 來源：UD_Chinese-GSD，commit `22f73e87f7ddc530bb131a6b7587971a03e1a712`；原始來源與授權注意事項參見 [intake](readings-dongxi-ud-attested-source-intake.md)。此表為針對候選語料的人工作業**第一輪判斷**，尚待獨立複核，尤其需將來源句的自然度與詞義讀音分開處理。
+> 來源：UD_Chinese-GSD，commit `22f73e87f7ddc530bb131a6b7587971a03e1a712`；原始來源與授權注意事項參見 [intake](readings-dongxi-ud-attested-source-intake.md)。此表為研究助理對候選語料的**第一輪分析假說，不是獨立人類標註**，尚待獨立複核，尤其需將來源句的自然度與詞義讀音分開處理。
 
 ## 逐句 review queue
 
@@ -17,7 +17,7 @@
 | dev-s34 | 東西各一門 | 方位（東、西分列） | ㄉㄨㄥ1 ㄒㄧ1 | 並列兩個方向，在 source 中為一詞元 | 獨立斷詞判斷 |
 | dev-s35 | 東西深62米 | 方位／尺寸軸 | ㄉㄨㄥ1 ㄒㄧ1 | 「東西深」較少見，但方位意義清楚 | 詞組的自然度 |
 | dev-s312 | 分成東西兩部 | 方位／區域 | ㄉㄨㄥ1 ㄒㄧ1 | 可理解成東、西兩部 | 斷詞是否應為「東」「西」 |
-| test-s354 | 抓住東西的手及腳 | 事物／實體 | ㄉㄨㄥ1 ㄒㄧ5 | 自然 | **保留 test 為封存資料**，不可據此調規則 |
+| test-s354 | 抓住東西的手及腳 | 事物／實體 | ㄉㄨㄥ1 ㄒㄧ5 | 自然 | **文字已揭露，不能再視為盲測資料**，不可據此調規則 |
 
 ## 研究判斷
 
@@ -34,3 +34,20 @@
 - 另蒐集至少兩種讀音且來源相互獨立的新開發集和新的封存測試集，來源應多樣，避免單一百科文本造成題材捷徑。
 - 評估三個 **research-only** baseline：完整詞條先行且不能判斷就 abstain；顯式語境規則（例如方位軸／數量搭配）；小型分類器。共用同一份審核後資料與測試規範。
 - 預先定義 per-sense precision / recall、abstain rate、coverage 與 false confident reading rate；在新測試集封存前不選模型，也不修改正式出題器。
+
+## 來源獨立性盤點：只計數，不揭露新候選句
+
+這份研究已看過 GSD 全 10 句，包括原始 `dev/test` 四句，故**它們不能再構成新的嚴格盲測**。在固定模型、規則和評估指標前，對新的候選來源只能做 exact-UD-token **數量盤點**，不能看句子、猜其正確讀音或依答案選案例。
+
+| Treebank / snapshot | 材料與授權界線 | 精確獨立詞元 `FORM=東西` | 當前用途 |
+| --- | --- | ---: | --- |
+| UD_Chinese-HK `05c37a78e3818e5d311e8b77b13adeccdda1e2cf` / `zh_hk-ud-test.conllu` | 繁體中文電影字幕與香港議會紀錄，CC BY-SA 4.0；以香港語境為主 | **1** | 僅作來源候選，不能宣稱有兩種讀音或代表臺灣華語 |
+| UD_Chinese-PUD `2849afd946a8c01b3e9acdf3e7afa8670cf2777d` / `zh_pud-ud-test.conllu` | 新聞／百科與翻譯材料，文本及標註授權條款須個別保留（來源說明含 CC BY-SA 3.0） | **5** | 僅作來源候選，不揭露原句、不確認兩種詞義的比例 |
+
+計數方法：以固定上游版本的 CoNLL-U 行為單位，僅計入數字 token ID 且第二欄 `FORM` **完全等於** `東西` 的行（例如正規表示式 `^\d+\t東西\t`）；字串包含的複合詞、註解 `# text`、其他 token 均不計入。這是來源 token count，**不是讀音標註數**，也不是獨立人工斷詞結論；從這六筆尚無法得知方位與事物是否都有覆蓋。
+
+- HK 樹庫來源：https://github.com/UniversalDependencies/UD_Chinese-HK
+- PUD 樹庫來源：https://github.com/UniversalDependencies/UD_Chinese-PUD
+- GSD 原始來源及授權例外：見前述 intake。不同資料集授權不可因本 repo 的 MIT 授權而合併消失。
+
+下一個有意義的 gate：先把現有 GSD **train 六筆**獨立審閱，區分詞義、自然度與斷詞；再預先凍結 baseline、棄權策略與評估指標，才由不參與模型設計的人依固定清單審查新來源。若新來源的雙讀音或文本品質不足，停止報準確率，擴充不同來源；不能為了達到平衡而臨時挑測試答案。
