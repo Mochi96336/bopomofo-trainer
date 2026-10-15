@@ -41,6 +41,8 @@ jobs:
         run: npm run readings:audit -- --policy reviewed-closed --output data/generated/polyphonic-context-reviewed-closed.json
       - name: Trial reviewed pronoun/determiner roles against the same seeds
         run: npm run readings:audit -- --policy reviewed-roles --output data/generated/polyphonic-context-reviewed-roles.json
+      - name: Audit exact host-lexeme boundaries without inferring character readings
+        run: npx tsx scripts/audit-lexeme-boundary-readiness.ts
       - name: Trial reviewed 種 noun/verb reading identity restrictions
         run: npm run readings:audit -- --policy zhong-role-trial --output data/generated/polyphonic-context-zhong-role-trial.json
       - name: Verify 種 opt-in trial has zero unlicensed selection and unrelated seed drift
@@ -180,6 +182,7 @@ jobs:
             data/generated/polyphonic-targeted-identity-coverage.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
+            data/generated/polyphonic-lexeme-boundary-readiness.json
             data/generated/moe-sense-pilot-targets.json
           retention-days: 14
           if-no-files-found: error
