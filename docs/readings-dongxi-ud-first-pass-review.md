@@ -51,3 +51,21 @@
 - GSD 原始來源及授權例外：見前述 intake。不同資料集授權不可因本 repo 的 MIT 授權而合併消失。
 
 下一個有意義的 gate：先把現有 GSD **train 六筆**獨立審閱，區分詞義、自然度與斷詞；再預先凍結 baseline、棄權策略與評估指標，才由不參與模型設計的人依固定清單審查新來源。若新來源的雙讀音或文本品質不足，停止報準確率，擴充不同來源；不能為了達到平衡而臨時挑測試答案。
+
+## #419 可重現的無答案審核包（尚未產生人工核准）
+
+- 審核入口：`data/readings/dongxi-ud-gsd-train-review-queue.json`。僅含 **6 筆 train** 的原句、UD 來源 ID、目標位置及四個 `pending` 欄位；**不含**本頁任何詞義或讀音推測。別把這份第一輪備忘交給獨立審查者當作引導。
+- 審查者只應看無答案審核包及教育部詞條的定義，**不應先閱讀**原始 intake 的 `preliminarySenseProposal` 或本頁第一輪判斷。由獨立人類審查者在**外部獨立紀錄**中逐一標註並附理由，不直接覆寫無答案審核包。
+- 四項判斷須分開紀錄：① `independentTokenization`（完整「東西」／應拆分／無法確認）；② `taiwanMandarinNaturalness`（自然／可理解但生硬／不自然／無法確認）；③ `contextualSense`（方位／事物含抽象義／歧義／無法確認）；④ `contextualReading`（第一聲／輕聲／歧義／無法確認）。**不得**從原本的 UD `NOUN`、`Translit=dōngxi` 或研究者的預測自動填寫。
+- 保留審核者身分代碼、日期、是否看過先前答案、理由及原始判斷。至少兩位未看本頁推測的獨立審查者分別完成後，再檢查一致性；衝突應保持 unresolved 並獨立裁定，不能以多數或模型預測硬填。
+- 本審核包是 **train-only context-review**，不是 test，更不等於可訓練標籤。GSD 原始 dev/test 已看過；HK/PUD 六筆目前也只有來源詞元**計數**而非讀音金標。新的正式封存測試集須另行建立、凍結來源清單與指標，後續開封只用於最終評估。
+- 授權與上游原句權利限制沿用 intake；不得因審核通過，就把受來源授權限制的原句當 MIT 正式題庫資產。
+
+重現門禁：
+```sh
+npx tsx scripts/audit-dongxi-ud-intake.ts
+npx tsx scripts/audit-dongxi-ud-review-queue.ts
+npx vitest run tests/readings/dongxi-ud-intake.test.ts tests/readings/dongxi-ud-review-queue.test.ts
+```
+
+這個驗證只證明六筆來源正確投影、所有審核欄位保持 `pending`、沒有提前洩漏讀音假說與 dev/test；**不會**假裝已有獨立審核、評測準確率，亦不能保證文字本身自然。
