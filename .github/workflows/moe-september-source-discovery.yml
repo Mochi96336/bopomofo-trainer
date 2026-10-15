@@ -1,0 +1,60 @@
+name: MOE September source discovery
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/moe-september-source-discovery.yml"
+      - "scripts/discover-moe-20260929-sense-source.py"
+      - "scripts/prepare-moe-sense-targets.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-discovery:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: npm ci --include=dev --ignore-scripts
+      - run: npm run app:catalog
+      - run: npm run readings:sense-targets
+      - name: Download the current official MOE text archives for discovery only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/external/moe/20260929
+          base='https://language.moe.gov.tw/001/Upload/Files/site_content/M0001/respub/download'
+          curl -fsSL --retry 2 --connect-timeout 20 --max-time 300 \
+            "$base/dict_concised_2014_20260929.zip" \
+            -o data/external/moe/20260929/concised.zip
+          curl -fsSL --retry 2 --connect-timeout 20 --max-time 300 \
+            "$base/dict_revised_2015_20260929.zip" \
+            -o data/external/moe/20260929/revised.zip
+      - name: Discover new source metadata and exact five-word reading mappings
+        run: |
+          python scripts/discover-moe-20260929-sense-source.py \
+            --concised data/external/moe/20260929/concised.zip \
+            --revised data/external/moe/20260929/revised.zip \
+            --targets data/generated/moe-sense-pilot-targets.json \
+            --output data/generated/moe-20260929-source-discovery.json
+      - name: Attach sanitized metadata only
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: moe-20260929-source-discovery-no-definitions
+          path: |
+            data/generated/moe-sense-pilot-targets.json
+            data/generated/moe-20260929-source-discovery.json
+          if-no-files-found: error
+          retention-days: 14
