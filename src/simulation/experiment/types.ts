@@ -1,6 +1,6 @@
 import type { CatalogEntry } from "../../core/model.js";
 import type { PracticeBudget, PracticeSequence } from "../../composition/types.js";
-import type { ObjectiveDecision, RelationObjective } from "../../curriculum/objectives.js";
+import type { ObjectiveDecision, RelationObjective } from "../../archive/research/curriculum/objectives.js";
 import type { MeasurementSummary } from "../../measurement/types.js";
 import type { RelationalCatalogReport } from "../../relations/catalog-report.js";
 import type { PartitionDecision, PartitionPolicyOptions } from "../../relations/partition/types.js";

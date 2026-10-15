@@ -1,14 +1,14 @@
 import { readFile } from "node:fs/promises";
-import { compileCatalog } from "../catalog/compile-catalog.js";
-import { parseCsv } from "../catalog/csv.js";
-import { createProvenanceRegistry } from "../catalog/provenance.js";
+import { compileCatalog } from "../../../../catalog/compile-catalog.js";
+import { parseCsv } from "../../../../catalog/csv.js";
+import { createProvenanceRegistry } from "../../../../catalog/provenance.js";
 import {
   PHASE_4_CURRICULUM_POLICY,
   validateCurriculumPolicy,
 } from "./policy.js";
 import { createStandardSimulationScenarios } from "./scenarios.js";
 import { runCurriculumSimulation } from "./simulator.js";
-import { createCatalogSupportIndex } from "./support.js";
+import { createCatalogSupportIndex } from "../../../../curriculum/support.js";
 
 function readArgument(args: readonly string[], name: string, fallback: string): string {
   const index = args.indexOf(name);
@@ -26,8 +26,8 @@ export async function createCurriculumSimulationOutput(
   validateCurriculumPolicy(PHASE_4_CURRICULUM_POLICY);
 
   const [source, provenanceSource] = await Promise.all([
-    readFile(new URL("../../data/source/words.sample.csv", import.meta.url), "utf8"),
-    readFile(new URL("../../data/provenance.csv", import.meta.url), "utf8"),
+    readFile(new URL("../../../../../data/source/words.sample.csv", import.meta.url), "utf8"),
+    readFile(new URL("../../../../../data/provenance.csv", import.meta.url), "utf8"),
   ]);
   const provenance = createProvenanceRegistry(parseCsv(provenanceSource).records);
   if (provenance.errors.length > 0) {

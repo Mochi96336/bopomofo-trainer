@@ -10,7 +10,9 @@ export * from "./scheme/standard-layout.js";
 export * from "./scheme/syllable-grammar.js";
 export * from "./scheme/parse-reading.js";
 
-export * from "./practice/interaction-session.js";
+export * from "./practice/interaction-input.js";
+export * from "./practice/input-plan.js";
+export * from "./practice/interaction-session-v2.js";
 
 export * from "./syntax/types.js";
 

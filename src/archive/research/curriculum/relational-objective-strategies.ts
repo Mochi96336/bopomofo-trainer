@@ -2,9 +2,9 @@ import {
   bindingScopeKey,
   confusionScopeKey,
   transitionScopeKey,
-} from "../measurement/aggregate.js";
-import type { MeasurementSummary } from "../measurement/types.js";
-import { compositionRelationKey } from "../composition/objective.js";
+} from "../../../measurement/aggregate.js";
+import type { MeasurementSummary } from "../../../measurement/types.js";
+import { compositionRelationKey } from "../../../composition/objective.js";
 import type {
   ObjectiveCandidateScore,
   ObjectiveDecision,
@@ -12,11 +12,11 @@ import type {
   RelationDemand,
   RelationObjective,
 } from "./objectives.js";
-import type { RelationRef, RelationSupportSummary } from "../relations/types.js";
+import type { RelationRef, RelationSupportSummary } from "../../../relations/types.js";
 import type {
   ObjectiveSelectionContext,
   ObjectiveSelectorStrategy,
-} from "../simulation/strategy-matrix.js";
+} from "../../../simulation/strategy-matrix.js";
 
 interface ScoredRelation {
   readonly relation: RelationRef;

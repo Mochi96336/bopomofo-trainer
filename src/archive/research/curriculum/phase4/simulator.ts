@@ -1,11 +1,11 @@
-import { catalogCommonnessTiers } from "../commonness/tiers.js";
-import type { CatalogEntry, TokenId } from "../core/model.js";
+import { catalogCommonnessTiers } from "../../../../commonness/tiers.js";
+import type { CatalogEntry, TokenId } from "../../../../core/model.js";
 import { buildCurriculumExercise } from "./exercise-builder.js";
 import { selectCurriculumFocus } from "./focus.js";
 import { validateCurriculumPolicy } from "./policy.js";
-import { createSeededRandom } from "./random.js";
+import { createSeededRandom } from "../../../../curriculum/random.js";
 import { classifyBindingStates } from "./state.js";
-import { entryTokenSet } from "./support.js";
+import { entryTokenSet } from "../../../../curriculum/support.js";
 import type {
   CatalogSupportIndex,
   CurriculumBindingRecord,
@@ -14,7 +14,7 @@ import type {
   CurriculumSimulationReport,
   LearnerBindingEvidence,
   SimulationRoundReport,
-} from "./types.js";
+} from "../../../../curriculum/types.js";
 
 export interface SyntheticPerformance {
   readonly timingMs: number;

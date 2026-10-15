@@ -3,7 +3,7 @@ import type {
   CatalogEntry,
   RandomSource,
 } from "../../src/core/model.js";
-import type { RelationObjective } from "../../src/curriculum/objectives.js";
+import type { RelationObjective } from "../../src/archive/research/curriculum/objectives.js";
 import {
   bindingRelationKey,
   transitionRelationKey,

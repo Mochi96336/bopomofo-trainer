@@ -11,7 +11,7 @@ import type {
   PracticeSequence,
   RecentSequenceHistory,
 } from "../../../composition/types.js";
-import type { RelationObjective } from "../../../curriculum/objectives.js";
+import type { RelationObjective } from "../curriculum/objectives.js";
 import { createSeededRandom } from "../../../curriculum/random.js";
 import { semanticReferenceIdentity } from "../../../reference/identity.js";
 import { importReferenceSource } from "../../../reference/importers/import-reference-source.js";

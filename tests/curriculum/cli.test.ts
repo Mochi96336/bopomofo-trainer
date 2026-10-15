@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { parseCsv } from "../../src/catalog/csv.js";
-import { createCurriculumSimulationOutput } from "../../src/curriculum/cli.js";
+import { createCurriculumSimulationOutput } from "../../src/archive/research/curriculum/phase4/cli.js";
 
 async function activeCatalogSize(): Promise<number> {
   const source = await readFile(

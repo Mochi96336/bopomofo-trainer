@@ -5,8 +5,8 @@ import { createSeededRandom } from "../../curriculum/random.js";
 import {
   objectiveDecisionRelationKeys,
   createRelationalObjectiveStrategyRegistry,
-} from "../../curriculum/relational-objective-strategies.js";
-import type { ObjectiveDecision, RelationObjective } from "../../curriculum/objectives.js";
+} from "../../archive/research/curriculum/relational-objective-strategies.js";
+import type { ObjectiveDecision, RelationObjective } from "../../archive/research/curriculum/objectives.js";
 import { createRelationalCatalogReport } from "../../relations/catalog-report.js";
 import { getSyntheticScenario } from "../learner/scenarios.js";
 import type { RelationalStrategyCell } from "../strategy-matrix.js";

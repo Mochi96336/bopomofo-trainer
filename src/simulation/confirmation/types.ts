@@ -1,6 +1,6 @@
 import type { CatalogEntry } from "../../core/model.js";
 import type { PracticeBudget } from "../../composition/types.js";
-import type { ObjectiveStrategyId } from "../../curriculum/objectives.js";
+import type { ObjectiveStrategyId } from "../../archive/research/curriculum/objectives.js";
 import type { PartitionPolicyId, PartitionPolicyOptions } from "../../relations/partition/types.js";
 import type { ConfusionRelationRef } from "../../relations/types.js";
 import type { CompositionStrategyId } from "../../composition/types.js";

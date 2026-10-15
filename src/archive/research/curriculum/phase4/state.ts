@@ -1,4 +1,4 @@
-import type { TokenId } from "../core/model.js";
+import type { TokenId } from "../../../../core/model.js";
 import type {
   BindingStateDecision,
   CatalogSupportIndex,
@@ -6,7 +6,7 @@ import type {
   CurriculumEvidence,
   CurriculumPolicy,
   CurriculumProfile,
-} from "./types.js";
+} from "../../../../curriculum/types.js";
 
 function codeUnitCompare(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;

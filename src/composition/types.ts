@@ -5,7 +5,7 @@ import type {
 } from "../core/model.js";
 import type {
   RelationObjective,
-} from "../curriculum/objectives.js";
+} from "../archive/research/curriculum/objectives.js";
 import type {
   RelationOccurrence,
   RelationRef,

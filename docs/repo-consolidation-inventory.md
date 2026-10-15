@@ -103,20 +103,28 @@ A product boundary test prevents archived research exports from leaking back int
 
 ### P2b — physical archive — in progress
 
-The first low-risk batch is physically archived under `src/archive/research/`:
+Two low-risk batches are now physically archived under `src/archive/research/`:
 
 - relational research integration;
 - legacy transition-aware frequency-first selector;
-- legacy slot-weighted/template grammar.
+- legacy slot-weighted/template grammar;
+- relational objective contracts and strategy selection;
+- the retired Phase 4 curriculum policy/state/focus/exercise/simulator/scenario/CLI stack.
 
-Their research scripts/tests now import the archived paths explicitly, while `src/research.ts` remains the stable opt-in research entrypoint. A source-boundary test prevents active runtime trees from importing `src/archive/research/**`.
+Their research scripts/tests now import archived paths explicitly, while `src/research.ts` remains the stable opt-in research entrypoint. `src/curriculum/**` is now limited to current/shared selection, formal-syntax practice, random/support, and shared evidence types. The product boundary test also checks the complete active runtime trees against importing `src/archive/research/**`.
 
-Relations and the broader simulation tree are intentionally not moved yet because current reference/ranking tooling still imports relational report types. Those dependencies should be separated before the next physical archive batch.
+Relations and the broader simulation tree are intentionally not moved wholesale: current reference contribution/ranking tooling still consumes relational report contracts, while `simulation-v2/input-order.ts` remains a useful current Measurement V2 input-order invariant harness. Further physical moves should happen only after those ownership boundaries change.
 
-### P2c — CI boundary
+### P2c — CI boundary — done
 
-Stop legacy simulation from gating unrelated browser/UI changes once equivalent research verification remains available through the explicit research check.
+Ordinary `check:pr` and GitHub product CI no longer execute `tests/simulation/**`. Focused simulation remains available through `npm run test:simulation`, while manual `npm run check:research` begins with full `npm test` and therefore retains simulation coverage before the relational research pipeline runs.
+
+This removes archived simulation latency from unrelated browser/UI/product changes without deleting or weakening the research verification path.
+
+## Final audit
+
+The final consolidation audit is recorded in [repo final audit](./repo-final-audit.md). It found no active browser/product import of Measurement V1, relations, composition, simulation, or archived research. It also corrected the default root so it exposes InteractionSessionV2 instead of the retired V1 session.
 
 ## Stop condition
 
-Repo consolidation is complete when a new maintainer can understand the browser product without learning the archived relational research architecture first, while historical experiments and old local backups remain reproducible/readable through explicit boundaries.
+The product-facing consolidation stop condition is satisfied: a new maintainer can follow the browser path, public root, persistence, CI, and current selection/measurement stack without learning the archived relational research architecture first. Broader physical archive work may continue opportunistically, but it no longer blocks product validation work.

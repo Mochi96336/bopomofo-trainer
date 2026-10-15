@@ -5,6 +5,8 @@
  * Measurement V1, relational, curriculum, simulation, and experiment surfaces
  * reproducible without presenting them as product runtime APIs.
  */
+export * from "./practice/interaction-session.js";
+
 export * from "./measurement/types.js";
 export * from "./measurement/policy.js";
 export * from "./measurement/derive-observations.js";
@@ -23,14 +25,14 @@ export * from "./relations/partition/binding-baseline.js";
 export * from "./relations/partition/commonness-stratified.js";
 
 export * from "./curriculum/types.js";
-export * from "./curriculum/policy.js";
-export * from "./curriculum/state.js";
-export * from "./curriculum/focus.js";
-export * from "./curriculum/exercise-builder.js";
-export * from "./curriculum/simulator.js";
-export * from "./curriculum/scenarios.js";
-export * from "./curriculum/objectives.js";
-export * from "./curriculum/relational-objective-strategies.js";
+export * from "./archive/research/curriculum/phase4/policy.js";
+export * from "./archive/research/curriculum/phase4/state.js";
+export * from "./archive/research/curriculum/phase4/focus.js";
+export * from "./archive/research/curriculum/phase4/exercise-builder.js";
+export * from "./archive/research/curriculum/phase4/simulator.js";
+export * from "./archive/research/curriculum/phase4/scenarios.js";
+export * from "./archive/research/curriculum/objectives.js";
+export * from "./archive/research/curriculum/relational-objective-strategies.js";
 export * from "./archive/research/curriculum/legacy-frequency-first-utterance.js";
 
 export * from "./composition/types.js";

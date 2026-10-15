@@ -6,7 +6,7 @@ import {
   transitionScopeKey,
 } from "../../src/measurement/aggregate.js";
 import type { MeasurementSummary } from "../../src/measurement/types.js";
-import { selectRelationalObjective } from "../../src/curriculum/relational-objective-strategies.js";
+import { selectRelationalObjective } from "../../src/archive/research/curriculum/relational-objective-strategies.js";
 import { createRelationalCatalogReport } from "../../src/relations/catalog-report.js";
 import type { ConfusionRelationRef } from "../../src/relations/types.js";
 import { STANDARD_BOPOMOFO_LAYOUT } from "../../src/scheme/standard-layout.js";

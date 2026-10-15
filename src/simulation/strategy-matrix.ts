@@ -13,7 +13,7 @@ import type {
   ObjectiveDecision,
   ObjectiveStrategyId,
   RelationObjective,
-} from "../curriculum/objectives.js";
+} from "../archive/research/curriculum/objectives.js";
 import type {
   MeasurementPolicy,
   MeasurementSummary,
