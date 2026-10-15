@@ -76,7 +76,19 @@ def audit_source(name: str, archive_path: Path, targets):
         header_num, header_cells = next(rows)
         header = [header_cells.get(i).value if i in header_cells else None
                   for i in range(1, len(parser.EXPECTED_HEADERS) + 1)]
-        header_verified = header_num == 1 and header == parser.EXPECTED_HEADERS
+        # September 2026 Revised explicitly adds variant-type 5 (或讀)
+        # in column J; all *column positions* remain unchanged. Permit ONLY
+        # this exact observed variant, not arbitrary header drift.
+        allowed_headers = list(parser.EXPECTED_HEADERS)
+        schema_variant = "unchanged-from-previous-pinned-schema"
+        if name == "revised":
+            old_value = "變體類型 1:變 2:又音 3:語音 4:讀音"
+            new_value = "變體類型 1:變 2:又音 3:語音 4:讀音 5:或讀"
+            assert allowed_headers[9] == old_value
+            if header[9] == new_value:
+                allowed_headers[9] = new_value
+                schema_variant = "revised-20260929-added-variant-type-5"
+        header_verified = header_num == 1 and header == allowed_headers
         if not header_verified:
             # Fail closed: column offsets cannot be used with a changed schema.
             raise ValueError(
@@ -118,7 +130,8 @@ def audit_source(name: str, archive_path: Path, targets):
         "workbookBytes": len(workbook),
         "worksheetName": sheet,
         "worksheetDimension": used_range,
-        "columnSchemaVerifiedAgainstOldVersion": header_verified,
+        "columnOffsetsStrictlyVerified": header_verified,
+        "schemaVariant": schema_variant,
         "sourceRowsScanned": source_rows,
         "matchingExactReadingRows": len(matches),
         "matches": matches,
