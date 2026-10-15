@@ -31,7 +31,12 @@ describe("MOE September reading sense-case research hypotheses (not runtime poli
     const observed = new Set<string>();
     for (const row of file.rows) {
       expect(all.has(row.entryId), row.entryId).toBe(true);
-      const text = row.entryId.split(":")[1];
+      const idParts = row.entryId.split(":");
+      expect(idParts).toHaveLength(3);
+      const text = idParts[1];
+      if (text === undefined || text.length === 0) {
+        throw new Error("invalid case identity: " + row.entryId);
+      }
       expect(ambiguous.get(text)?.includes(row.entryId)).toBe(true);
       expect(row.targetWrittenForm).toBe(text);
       expect(row.authoredExample.includes(text)).toBe(true);
