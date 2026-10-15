@@ -43,6 +43,23 @@ describe("東西 independent-review train queue is not gold or held-out", () => 
     }
   });
 
+  it("rejects coordinated upstream-intake and reviewer-packet sentence edits", () => {
+    const tamperedSource = structuredClone(source) as unknown as { candidates: Array<{
+      sentence: string;
+    }> };
+    const tamperedPacket = structuredClone(packet) as { cases: Array<{
+      sentence: string;
+      targetUtf16Offset: number;
+    }> };
+    const altered = "有了這些東西，人類生存了。";
+    tamperedSource.candidates[0]!.sentence = altered;
+    tamperedPacket.cases[0]!.sentence = altered;
+    tamperedPacket.cases[0]!.targetUtf16Offset = altered.indexOf("東西");
+    expect(() => validateDongxiUdTrainReviewQueue(
+      tamperedPacket, tamperedSource as unknown as DongxiUdCorpus,
+    )).toThrow("pinned UD source sentence/token facts");
+  });
+
   it("fails closed on extra answer fields or an altered sentence", () => {
     const extra = structuredClone(packet) as {
       cases: Array<Record<string, unknown>>;
