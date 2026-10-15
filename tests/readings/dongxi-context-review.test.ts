@@ -67,6 +67,11 @@ describe("東西 same-POS dictionary identities are NOT reviewed sentence senses
     expect(review.observed[DIRECTION]).toEqual({
       unbiasedHits: 1, biasedHits: 1, reviewItems: 2, profileCount: 1,
     });
+    const priority = buildDongxiContextReview(catalog, profiles, [
+      occurrence("biased-research-probe", DIRECTION, 0, "不自然的東西。"),
+      occurrence("unbiased-reviewed-roles", DIRECTION, 5, "街道呈東西走向。"),
+    ], 1);
+    expect(priority.reviewItems[0]?.origin).toBe("unbiased-reviewed-roles");
     expect(review.observed[OBJECTS]).toEqual({
       unbiasedHits: 0, biasedHits: 2, reviewItems: 2, profileCount: 1,
     });
