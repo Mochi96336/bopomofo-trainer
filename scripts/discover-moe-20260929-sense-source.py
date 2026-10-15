@@ -58,8 +58,7 @@ def audit_source(name: str, archive_path: Path, targets):
     conf = CONFIG[name]
     parser = adapter_for(name)
     archive_bytes = archive_path.read_bytes()
-    if archive_bytes[:4] != b"PK\\x03\\x04":
-        # ZipFile below also verifies structure, but fail early on HTTP errors.
+    if not zipfile.is_zipfile(archive_path):
         raise ValueError(f"{name} is not a ZIP archive")
     with zipfile.ZipFile(BytesIO(archive_bytes)) as z:
         members = sorted(i.filename for i in z.infolist() if not i.is_dir())
