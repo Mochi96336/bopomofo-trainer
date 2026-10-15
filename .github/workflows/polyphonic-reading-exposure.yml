@@ -9,6 +9,8 @@ on:
       - "scripts/audit-same-upos-polyphones.ts"
       - "scripts/audit-targeted-polyphonic-identities.ts"
       - "scripts/prepare-moe-sense-targets.ts"
+      - "scripts/audit-dongxi-ud-intake.ts"
+      - "data/readings/dongxi-ud-gsd-attested-review-candidates.json"
       - "src/readings/**"
       - "tests/readings/**"
       - "package.json"
@@ -31,6 +33,8 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install dependencies
         run: npm ci --include=dev --ignore-scripts
+      - name: Validate attested UD 東西 contexts without generating reading labels
+        run: npx tsx scripts/audit-dongxi-ud-intake.ts
       - name: Generate the product catalog
         run: npm run app:catalog
       - name: Prepare five-word exact reading identities for private MOE review
@@ -189,6 +193,7 @@ jobs:
             data/generated/polyphonic-lexeme-boundary-readiness.json
             data/generated/polyphonic-host-lexeme-reachability.json
             data/generated/dongxi-context-review.json
+            data/generated/dongxi-ud-intake-summary.json
             data/generated/moe-sense-pilot-targets.json
           retention-days: 14
           if-no-files-found: error
