@@ -65,6 +65,14 @@ describe("attested sentence identity coverage (research-only)", () => {
       .toEqual({ kind: "excluded", reason: "incompatible-upos" });
   });
 
+  it("rejects comma-ended and comma-prefixed source fragments, not full stops", () => {
+    expect(decide([token(1, "我", "PRON"), token(2, "吃", "VERB"), token(3, "飯", "NOUN"), token(4, "，", "PUNCT")]))
+      .toEqual({ kind: "excluded", reason: "nonterminal-punctuation" });
+    expect(decide([token(1, "，", "PUNCT"), token(2, "我", "PRON"), token(3, "吃", "VERB"), token(4, "飯", "NOUN")]))
+      .toEqual({ kind: "excluded", reason: "nonterminal-punctuation" });
+    expect(decide(sentence).kind).toBe("candidate");
+  });
+
   it("does not bridge punctuation, sentences, or arbitrary noun phrases", () => {
     expect(decide([token(1, "我", "PRON"), token(2, "，", "PUNCT"), token(3, "吃", "VERB"), token(4, "飯", "NOUN")]))
       .toEqual({ kind: "excluded", reason: "internal-punctuation" });
