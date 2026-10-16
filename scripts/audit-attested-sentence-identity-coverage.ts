@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
 import { auditAttestedSentenceEligibility } from "../src/curriculum/attested-sentence-candidates.js";
+import { extractAttestedClauseSpans } from "../src/curriculum/attested-clause-spans.js";
 import { parseUdOccurrenceSentences } from "./ud-occurrence-source.js";
 
 const SOURCE_COMMIT = "22f73e87f7ddc530bb131a6b7587971a03e1a712";
@@ -27,6 +28,19 @@ for (const report of [strict, broad]) {
     throw new Error("attested sentence eligibility partition is inconsistent");
   }
 }
+// Offline alternative: exact contiguous subordinate-clause subtrees from
+// longer UD sentences. These are NOT independently approved standalone
+// learner sentences; compare their coverage separately from full sentences.
+const clauseTokens = sentences.flatMap(sentence =>
+  extractAttestedClauseSpans(sentence).map(span => span.tokens));
+const clauseStrict = auditAttestedSentenceEligibility(
+  clauseTokens, PRACTICE_CATALOG, SYNTAX_PROFILES,
+  { minLexicalTokens: 3, maxLexicalTokens: 8 },
+);
+const clauseBroad = auditAttestedSentenceEligibility(
+  clauseTokens, PRACTICE_CATALOG, SYNTAX_PROFILES,
+  { minLexicalTokens: 3, maxLexicalTokens: 16 },
+);
 const summary = {
   schemaVersion: "attested-sentence-identity-coverage-v1",
   status: "train-only source feasibility audit; NOT independently approved sentences or pronunciation labels",
@@ -38,6 +52,12 @@ const summary = {
   syntaxProfileCount: SYNTAX_PROFILES.length,
   strict: { ...strict, candidateIndices: undefined },
   broad: { ...broad, candidateIndices: undefined },
+  attestedSubordinateClauses: {
+    candidateType: "contiguous ccomp/advcl subtrees with explicit lexical nsubj; not standalone sentence gold",
+    spanCount: clauseTokens.length,
+    strict: { ...clauseStrict, candidateIndices: undefined },
+    broad: { ...clauseBroad, candidateIndices: undefined },
+  },
   usage: "No text or sentence-level token/reading material redistributed; no product activation",
 };
 await mkdir("data/generated", { recursive: true });
