@@ -19,6 +19,7 @@ import {
   type FrequencyFirstUtterancePolicy,
 } from "../curriculum/frequency-first-utterance.js";
 import { prepareFormalSyntaxLexicon } from "../curriculum/formal-syntax-utterance.js";
+import { buildLexicalCompatibilityIndex } from "../compatibility/lexical-pairs.js";
 import { reviewedRoleReadingEligible } from "../readings/pronominal-role-license.js";
 import { createSeededRandom } from "../curriculum/random.js";
 import { createCatalogSupportIndex } from "../curriculum/support.js";
@@ -72,6 +73,11 @@ export function createProductEnvironment(
     catalogs,
     practiceSupport: createCatalogSupportIndex(catalogs.practice),
     utterancePolicy,
+    // Validate provenance/digest once at environment construction; never trust
+    // a stale or malformed pair table in the live browser selector.
+    ...(catalogs.lexicalCompatibility === undefined ? {} : {
+      lexicalCompatibility: buildLexicalCompatibilityIndex(catalogs.lexicalCompatibility),
+    }),
     preparedPracticeLexicon: prepareFormalSyntaxLexicon(
       catalogs.practice,
       catalogs.syntaxProfiles,
@@ -114,6 +120,10 @@ function selectRound(
     // Preserve the original draw for all licensed readings; only an actual
     // reviewed-role mismatch is resampled. No catalog/progress IDs are rewritten.
     readingEligibility: reviewedRoleReadingEligible,
+    ...(environment.lexicalCompatibility === undefined ? {} : {
+      lexicalCompatibility: environment.lexicalCompatibility,
+      lexicalCompatibilityMaximumBoost: 1,
+    }),
     preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
     preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
