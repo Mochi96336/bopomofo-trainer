@@ -7,6 +7,11 @@ import {
  * "Blind" here means that the reviewer does not receive the prior semantic
  * hypothesis or a guessed pronunciation. This is NOT a held-out test set.
  */
+/** Intentional human-reviewed freeze of the entire blank reviewer handout.
+ * Any copy change requires updating this pin in the same reviewed diff.
+ * Git blob SHA is a change detector, not a human-independence guarantee. */
+export const PINNED_DONGXI_HANDOUT_GIT_BLOB_SHA = "4e07d765044c4551229685370b048897cb3c8ea2";
+
 export interface DongxiUdReviewQueue {
   readonly schemaVersion: "dongxi-ud-train-review-queue-v1";
   readonly sourceCommit: string;
