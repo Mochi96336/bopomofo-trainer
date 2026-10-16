@@ -119,8 +119,9 @@ export function auditAttestedSentenceEligibility(
 } {
   const catalog = catalogIdentityIndex(entries);
   const upos = catalogUposIndex(profiles);
-  const excluded = Object.fromEntries(ATTESTED_SENTENCE_FILTER_REASONS.map(reason => [reason, 0]))
-    as Record<AttestedSentenceFilterReason, number>;
+  const excluded = Object.fromEntries(
+    ATTESTED_SENTENCE_FILTER_REASONS.map(reason => [reason, 0]),
+  ) as Record<AttestedSentenceFilterReason, number>;
   const candidateIndices: number[] = [];
   for (let i = 0; i < sentences.length; i++) {
     const classification = classifyAttestedSentence(sentences[i]!, i, catalog, upos, options);
