@@ -10,7 +10,7 @@ import {
 /** Intentional human-reviewed freeze of the entire blank reviewer handout.
  * Any copy change requires updating this pin in the same reviewed diff.
  * Git blob SHA is a change detector, not a human-independence guarantee. */
-export const PINNED_DONGXI_HANDOUT_GIT_BLOB_SHA = "4e07d765044c4551229685370b048897cb3c8ea2";
+export const PINNED_DONGXI_HANDOUT_GIT_BLOB_SHA = "385c571f3a9b78c24929acd4f3b09bd4d10747e9";
 
 export interface DongxiUdReviewQueue {
   readonly schemaVersion: "dongxi-ud-train-review-queue-v1";
