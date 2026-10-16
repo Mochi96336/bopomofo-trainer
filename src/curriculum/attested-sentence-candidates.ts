@@ -14,7 +14,7 @@ export interface AttestedSentenceCandidate {
 }
 
 export const ATTESTED_SENTENCE_FILTER_REASONS = [
-  "too-short-or-long", "internal-punctuation", "not-verbal-clause",
+  "too-short-or-long", "internal-punctuation", "nonterminal-punctuation", "not-verbal-clause",
   "unknown-surface", "ambiguous-reading", "incompatible-upos",
 ] as const;
 export type AttestedSentenceFilterReason = (typeof ATTESTED_SENTENCE_FILTER_REASONS)[number];
@@ -53,6 +53,14 @@ export function classifyAttestedSentence(
   const first = tokens.findIndex(token => token.upos !== "PUNCT");
   let last = tokens.length - 1;
   while (last >= 0 && tokens[last]!.upos === "PUNCT") last--;
+  // Do not promote a quoted/comma-prefixed fragment or a clause ending in
+  // a comma into an independent practice sentence. Full-stop endings remain
+  // possible, but are still subject to later human acceptability review.
+  const trailing = tokens.slice(last + 1);
+  if (first > 0 || trailing.length > 1
+    || trailing.some(token => !["。", "！", "？", ".", "!", "?"].includes(token.form))) {
+    return { kind: "excluded", reason: "nonterminal-punctuation" };
+  }
   if (tokens.some((token, i) => token.upos === "PUNCT" && i > first && i < last)) {
     return { kind: "excluded", reason: "internal-punctuation" };
   }
