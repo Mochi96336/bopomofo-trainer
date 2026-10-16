@@ -51,7 +51,8 @@ export function classifyAttestedSentence(
   // Conservative single-clause pilot: do not discard punctuation in the middle
   // and accidentally join two originally separate clauses as one exercise.
   const first = tokens.findIndex(token => token.upos !== "PUNCT");
-  const last = tokens.findLastIndex(token => token.upos !== "PUNCT");
+  let last = tokens.length - 1;
+  while (last >= 0 && tokens[last]!.upos === "PUNCT") last--;
   if (tokens.some((token, i) => token.upos === "PUNCT" && i > first && i < last)) {
     return { kind: "excluded", reason: "internal-punctuation" };
   }
