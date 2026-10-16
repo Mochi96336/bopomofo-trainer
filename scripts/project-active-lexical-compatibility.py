@@ -10,9 +10,10 @@ import argparse
 import csv
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
-from ud_grammar_evidence.common import DEFAULT_SOURCE_DIR, canonical_digest
+from ud_grammar_evidence.common import DEFAULT_SOURCE_DIR
 from ud_lexical_compatibility.projector import project_ranked_texts
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -69,7 +70,28 @@ def generate(source_dir: Path) -> dict:
         "surfacePairs": [p for p in projected["surfacePairs"] if p["score"] > 0],
         "dependencyPairs": [],  # Not used by the current runtime scorer.
     }
-    return {**core, "determinismDigest": canonical_digest(core)}
+    # The product validates sha256Canonical() over JS JSON.stringify(), whose
+    # floating-point spelling differs from Python json.dumps in edge cases.
+    # Use that same Node canonicalization rather than producing a false diff.
+    node = r"""
+import { createHash } from "node:crypto";
+let text = "";
+for await (const chunk of process.stdin) text += chunk;
+const core = JSON.parse(text);
+const canonical = (value) => Array.isArray(value)
+  ? value.map(canonical)
+  : value && typeof value === "object"
+    ? Object.fromEntries(Object.keys(value).sort().map(k => [k, canonical(value[k])]))
+    : value;
+process.stdout.write(createHash("sha256")
+  .update(JSON.stringify(canonical(core)), "utf8").digest("hex"));
+"""
+    digest = subprocess.run(
+        ["node", "--input-type=module", "-e", node],
+        input=json.dumps(core, ensure_ascii=False, separators=(",", ":")),
+        text=True, capture_output=True, check=True,
+    ).stdout.strip()
+    return {**core, "determinismDigest": digest}
 
 
 def main() -> None:
