@@ -1,3 +1,4 @@
+import type { LexicalCompatibilityIndex } from "../compatibility/lexical-pairs.js";
 import type {
   CatalogEntry,
   PracticeMode,
@@ -187,6 +188,9 @@ export interface FormalSyntaxUtteranceSelectionInput
   readonly profiles: readonly RuntimeSyntaxProfile[];
   /** Optional reading permission policy, independent of research/grammar overrides. */
   readonly readingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
+  /** Optional verified lexical adjacency evidence. No data means the original sampler. */
+  readonly lexicalCompatibility?: LexicalCompatibilityIndex;
+  readonly lexicalCompatibilityMaximumBoost?: number;
   readonly formalSyntaxComposition?: FormalSyntaxCompositionOverride;
   readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
   readonly preparedFormalSyntaxExecution?: PreparedFormalSyntaxExecution;
@@ -549,6 +553,8 @@ function generateOnce(
     random: input.random,
     ...(useStaticFormalEntryWeight ? {} : { entryWeight }),
     ...(input.readingEligibility === undefined ? {} : { readingEligibility: input.readingEligibility }),
+    ...(input.lexicalCompatibility === undefined ? {} : { lexicalCompatibility: input.lexicalCompatibility }),
+    ...(input.lexicalCompatibilityMaximumBoost === undefined ? {} : { lexicalCompatibilityMaximumBoost: input.lexicalCompatibilityMaximumBoost }),
     minimumLexicalEntries: 2,
     maximumCandidates: 1,
     maximumAttempts: 64,
