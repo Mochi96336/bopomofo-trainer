@@ -42,7 +42,7 @@ jobs:
             zh_gsd-ud-dev.conllu
             zh_gsd-ud-test.conllu
           sparse-checkout-cone-mode: false
-      - name: Reproduce aggregate source projection byte-for-byte
+      - name: Reproduce pinned aggregate pair values and canonical digest
         run: python scripts/project-active-lexical-compatibility.py --verify
       - name: Compile validated compact source aggregate
         run: npm run app:catalog
