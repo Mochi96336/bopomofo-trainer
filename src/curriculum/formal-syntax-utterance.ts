@@ -236,9 +236,26 @@ function selectCompatibleProfile(
   lexicalCompatibilityMaximumBoost: number,
   random: RandomSource,
 ): RuntimeSyntaxProfile | null {
+  // Supplying an index does not itself authorize a new RNG path. Most sparse
+  // UD pairs do not match the current candidate frontier: if none can receive
+  // a positive score, preserve the original static sampler byte-for-byte.
+  // This is also important for same-seed collateral auditing.
+  const positivePairInFrontier = previousEntry !== null
+    && lexicalCompatibility !== undefined
+    && lexicalCompatibilityMaximumBoost > 0
+    && groupedCompatibleProfiles(compatible).some((group) => {
+      if (usedEntryIds.has(group.entryId) && group.entryId !== reusableEntryId) return false;
+      const candidate = entriesById.get(group.entryId);
+      if (candidate === undefined) {
+        throw new Error(`formal syntax profile references missing entry ${group.entryId}`);
+      }
+      return surfaceCompatibilityScore(
+        lexicalCompatibility, previousEntry.prompt.text, candidate.prompt.text,
+      ) > 0;
+    });
   const useStaticDefaultWeights = entryWeight === undefined
     && entryWeightsById === undefined
-    && (previousEntry === null || lexicalCompatibility === undefined);
+    && !positivePairInFrontier;
   if (useStaticDefaultWeights) {
     const groupIndexByEntryId = compatibleProfileGroupIndex(compatible);
     const prepared = preparedStaticCompatibleProfileWeights(compatible, entriesById);

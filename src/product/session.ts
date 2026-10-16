@@ -72,6 +72,11 @@ export function createProductEnvironment(
     catalogs,
     practiceSupport: createCatalogSupportIndex(catalogs.practice),
     utterancePolicy,
+    // A browser-safe index is created from already verified source data in
+    // app:catalog. Never import build-time node:crypto into the browser.
+    ...(catalogs.lexicalCompatibility === undefined ? {} : {
+      lexicalCompatibility: catalogs.lexicalCompatibility,
+    }),
     preparedPracticeLexicon: prepareFormalSyntaxLexicon(
       catalogs.practice,
       catalogs.syntaxProfiles,
@@ -114,6 +119,10 @@ function selectRound(
     // Preserve the original draw for all licensed readings; only an actual
     // reviewed-role mismatch is resampled. No catalog/progress IDs are rewritten.
     readingEligibility: reviewedRoleReadingEligible,
+    ...(environment.lexicalCompatibility === undefined ? {} : {
+      lexicalCompatibility: environment.lexicalCompatibility,
+      lexicalCompatibilityMaximumBoost: 1,
+    }),
     preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
     preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,

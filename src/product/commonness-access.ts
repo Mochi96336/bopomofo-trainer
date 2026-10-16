@@ -85,5 +85,10 @@ export function catalogsForCommonnessTiers(
   return {
     practice,
     syntaxProfiles: catalogs.syntaxProfiles.filter((profile) => entryIds.has(profile.entryId)),
+    // Evidence is keyed by written surfaces: tier filtering must not lose the
+    // same frozen candidate-pair source for the remaining lexical entries.
+    ...(catalogs.lexicalCompatibility === undefined ? {} : {
+      lexicalCompatibility: catalogs.lexicalCompatibility,
+    }),
   };
 }

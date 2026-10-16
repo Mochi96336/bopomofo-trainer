@@ -5,6 +5,7 @@ import {
 } from "../../src/compatibility/lexical-pairs.js";
 import type { CatalogEntry, RandomSource } from "../../src/core/model.js";
 import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
+import { FREQUENCY_FIRST_UTTERANCE_POLICY, selectFormalSyntaxUtterance } from "../../src/curriculum/frequency-first-utterance.js";
 import { FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";
 import { sha256Canonical } from "../../src/reference/importers/canonical-json.js";
 import type { ProductionRule, RuntimeSyntaxProfile } from "../../src/syntax/types.js";
@@ -178,6 +179,48 @@ describe("formal syntax lexical compatibility weighting", () => {
       rules: [rule],
     });
     expect(result.candidates[0]?.text).toBe("我吃飯");
+  });
+
+  it("reaches lexical compatibility from the actual frequency-first selection path", () => {
+    const run = (withEvidence: boolean) => selectFormalSyntaxUtterance({
+      entries,
+      profiles,
+      bindingEvidence: [],
+      mode: "guided",
+      layoutId: "standard",
+      history: { recentEntryIds: [], recentUtteranceIds: [], recentTemplateIds: [] },
+      policy: FREQUENCY_FIRST_UTTERANCE_POLICY,
+      random: new ConstantRandom(0.6),
+      formalSyntaxComposition: { rules: [rule], samplingMode: "raw" },
+      ...(withEvidence ? {
+        lexicalCompatibility: compatibility(),
+        lexicalCompatibilityMaximumBoost: 4,
+      } : {}),
+    });
+    expect(run(false).utterance.text).toBe("我吃理論");
+    expect(run(true).utterance.text).toBe("我吃飯");
+  });
+
+  it("preserves the exact seeded draw when no positive evidence reaches its candidates", () => {
+    const baseInput = {
+      eligibleEntries: entries,
+      profiles,
+      entryWeightsById: weights,
+      random: new ConstantRandom(0.6),
+      maximumCandidates: 1,
+      maximumAttempts: 1,
+      rules: [rule],
+    };
+    const baseline = composeFormalSyntaxUtterances(baseInput);
+    const unrelatedIndex = {
+      surfaceScoreByPair: new Map([[JSON.stringify(["吃", "飛船"]), 1]]),
+      dependencyScoreByPair: new Map<string, number>(),
+    };
+    const unchanged = composeFormalSyntaxUtterances({
+      ...baseInput,
+      lexicalCompatibility: unrelatedIndex,
+    });
+    expect(unchanged).toEqual(baseline);
   });
 
   it("does not apply surface-pair evidence across punctuation", () => {
