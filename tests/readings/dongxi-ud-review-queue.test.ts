@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { DongxiUdCorpus } from "../../src/readings/dongxi-ud-intake.js";
 import {
   buildDongxiUdTrainReviewQueue, validateDongxiUdTrainReviewQueue,
+  validateDongxiUdReviewerHandout,
 } from "../../src/readings/dongxi-ud-review-queue.js";
 
 const source = JSON.parse(readFileSync(
@@ -94,5 +95,42 @@ describe("東西 independent-review train queue is not gold or held-out", () => 
     shifted.cases[0]!.sourceTokenId = source.candidates[0]!.lexicalSourceToken.id;
     shifted.cases[0]!.targetUtf16Offset = 0;
     expect(() => validateDongxiUdTrainReviewQueue(shifted, source)).toThrow("unapproved judgment");
+  });
+});
+
+describe("reviewer-facing Markdown is actually the audited source projection", () => {
+  const handout = readFileSync(
+    "docs/reviewer-packets/dongxi-gsd-train-independent-review-form.md", "utf8",
+  );
+
+  it("preserves six exact train sentences in order, without source metadata", () => {
+    expect(validateDongxiUdReviewerHandout(handout, source)).toEqual({
+      reviewerCases: 6, sourceMatches: 6, approvedGoldLabels: 0,
+    });
+  });
+
+  it("rejects a changed sentence, altered order, or a missing case", () => {
+    expect(() => validateDongxiUdReviewerHandout(
+      handout.replace("有了這兩東西", "有了這兩樣東西"), source,
+    )).toThrow("sentence text/order");
+    expect(() => validateDongxiUdReviewerHandout(
+      handout.replace("## R06", "## R16"), source,
+    )).toThrow("sentence text/order");
+    expect(() => validateDongxiUdReviewerHandout(
+      handout.replace("## R06", "## REMOVED"), source,
+    )).toThrow("exactly the six");
+  });
+
+  it("rejects dev/test content and source/answer hints in handouts", () => {
+    const dev = source.candidates.find(c => c.split === "dev")!;
+    expect(() => validateDongxiUdReviewerHandout(
+      handout + "\n" + dev.sentence, source,
+    )).toThrow("dev/test");
+    expect(() => validateDongxiUdReviewerHandout(
+      handout + "\nsourceTokenId: 5", source,
+    )).toThrow("source metadata");
+    expect(() => validateDongxiUdReviewerHandout(
+      handout + "\nㄉㄨㄥ1 ㄒㄧ5", source,
+    )).toThrow("reading hints");
   });
 });
