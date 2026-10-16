@@ -15,6 +15,22 @@
 
 召集人在**兩份原始表格都回收並保留原檔**之後，才可將各欄的自由文字轉成結構化的類別，並記錄 `raw_answer`、`normalized_value`、`normalization_rationale`、`coder_id`。如無法合理對應，使用 `uncertain` 或 `unresolved`，不可硬套研究者原先的分類。原始作答與事後編碼永遠不能互相覆蓋。
 
+## 事前凍結的事後編碼規則（只供召集人）
+
+以下是**在尚未收到任何審查者答案前**先固定的編碼類別與拒判條件。不得因為日後兩人答案或模型預測不符期待，就臨時修改分類邊界；必要的修訂需另記新版本，舊版與原始答案都要保留。
+
+| 原始欄位 | 編碼值 | 原則 |
+| --- | --- | --- |
+| 詞界 | `whole_word`, `split`, `other`, `uncertain` | 依審查者實際切分，不從 UD token 猜測 |
+| 自然度 | `natural`, `awkward_understandable`, `unnatural`, `uncertain` | 只依其語句評價和理由；不足以判定則 uncertain |
+| 整詞詞義 | `directions`, `things_including_abstract`, `other`, `ambiguous`, `uncertain`, `not_applicable_non_lexeme` | 由自然語言解釋編碼，**不得**反過來從注音推論詞義 |
+| 整詞讀音 | `dong1_xi1`, `dong1_xi5`, `other`, `ambiguous`, `uncertain`, `not_applicable_non_lexeme` | 按審查者自己寫的完整注音轉換；不能由詞義代填或用 UD Translit 當讀音 |
+
+- 若明確判定不是完整詞，整詞詞義／讀音一律為 `not_applicable_non_lexeme`；若詞界本身不確定，後兩項不能直接升為可信整詞金標。
+- 保留「審查者實際寫的字串」與「召集人如何對應類別」兩份資訊；每個非直譯或有爭議的對應須記錄理由。詞義與讀音可以各自 uncertain，不得強迫彼此一致。
+- **先分別編碼 A、B，再比較**，不可因看過另一人的答案而改寫前一份。出現分歧時保留雙方原答案和分類，由第三方審查；不能由已知研究假說決勝。
+- 這是一份 train-only 語境審查 codebook，並非預先宣稱有六筆可訓練讀音標籤，更不是封存測試規格。
+
 ## 回收
 
 - 審查者 A/B 分別提交原始填答檔，保留原檔；禁止將兩份整理成單一可覆寫表格後才保存。
