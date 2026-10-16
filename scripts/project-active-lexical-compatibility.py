@@ -79,7 +79,21 @@ def main() -> None:
     args = parser.parse_args()
     generated = json.dumps(generate(args.source_dir), ensure_ascii=False, separators=(",", ":")) + "\n"
     if args.verify:
-        if OUTPUT.read_text(encoding="utf-8") != generated:
+        actual = json.loads(generated)
+        expected = json.loads(OUTPUT.read_text(encoding="utf-8"))
+        if actual != expected:
+            for key in sorted(set(actual) | set(expected)):
+                if actual.get(key) == expected.get(key):
+                    continue
+                if key == "surfacePairs":
+                    got, want = actual[key], expected[key]
+                    first = next((i for i, (x, y) in enumerate(zip(got, want)) if x != y), None)
+                    print(f"surfacePairs: generated={len(got)} committed={len(want)} firstDifference={first}")
+                    if first is not None:
+                        print(f" generated row: {got[first]}")
+                        print(f" committed row: {want[first]}")
+                else:
+                    print(f"{key}: generated={str(actual.get(key))[:450]} committed={str(expected.get(key))[:450]}")
             raise SystemExit("the pinned active-catalog UD aggregate evidence has drifted")
         print("UD aggregate artifact matches the pinned source and active catalog")
     else:
