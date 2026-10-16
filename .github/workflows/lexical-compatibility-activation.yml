@@ -34,7 +34,7 @@ jobs:
       - name: Compile validated compact source aggregate
         run: npm run app:catalog
       - name: Compare identical fresh-user seeds in live product
-        run: npx tsx scripts/audit-lexical-compatibility-activation.ts --samples=128
+        run: npx tsx scripts/audit-lexical-compatibility-activation.ts --samples=384
       - name: Upload exact-seed effect report
         uses: actions/upload-artifact@v4
         with:
