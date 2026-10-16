@@ -12,6 +12,8 @@ on:
       - "scripts/audit-dongxi-ud-intake.ts"
       - "data/readings/dongxi-ud-gsd-attested-review-candidates.json"
       - "src/readings/**"
+      - "src/product/session.ts"
+      - "tests/product/reviewed-reading-live.test.ts"
       - "tests/readings/**"
       - "package.json"
   workflow_dispatch:
