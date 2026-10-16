@@ -1,5 +1,5 @@
 import type { CatalogEntry, Exercise, PracticeMode, TokenId } from "../core/model.js";
-import type { LexicalCompatibilityArtifact, LexicalCompatibilityIndex } from "../compatibility/lexical-pairs.js";
+import type { LexicalCompatibilityIndex } from "../compatibility/lexical-pairs.js";
 import type {
   CatalogSupportIndex,
   CurriculumEvidence,
@@ -25,8 +25,8 @@ export type ProductHistoryRoundKind = "practice" | "evaluation";
 export interface ProductCatalogs {
   readonly practice: readonly CatalogEntry[];
   readonly syntaxProfiles: readonly RuntimeSyntaxProfile[];
-  /** Optional source-verified sparse pair artifact; absent in the current shipped catalog. */
-  readonly lexicalCompatibility?: LexicalCompatibilityArtifact;
+  /** Index created only from build-time validated aggregate pair data. */
+  readonly lexicalCompatibility?: LexicalCompatibilityIndex;
 }
 
 export interface ProductRound {
