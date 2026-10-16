@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
-import { auditAttestedSentenceEligibility } from "../src/curriculum/attested-sentence-candidates.js";
+import { auditAttestedSentenceEligibility, catalogIdentityIndex, catalogUposIndex, classifyAttestedSentence } from "../src/curriculum/attested-sentence-candidates.js";
 import { extractAttestedClauseSpans } from "../src/curriculum/attested-clause-spans.js";
 import { parseUdOccurrenceSentences } from "./ud-occurrence-source.js";
 
@@ -60,6 +60,52 @@ const summary = {
   },
   usage: "No text or sentence-level token/reading material redistributed; no product activation",
 };
+// Opt-in local-only handoff. It contains copyrighted source text and is
+// NEVER uploaded by CI. Deterministic evenly spaced sampling prevents selecting
+// only attractive examples after reading the generated candidates.
+const reviewArg = process.argv.find(arg => arg.startsWith("--local-review="));
+if (reviewArg !== undefined) {
+  const path = reviewArg.slice("--local-review=".length);
+  if (!/^data\\/generated\\/[a-zA-Z0-9._/-]+\\.json$/u.test(path)
+    || path.includes("..")) {
+    throw new Error("local review must be a JSON path under data/generated/");
+  }
+  const catalog = catalogIdentityIndex(PRACTICE_CATALOG);
+  const upos = catalogUposIndex(SYNTAX_PROFILES);
+  const originals = sentences.flatMap((sentence, sourceSentenceIndex) =>
+    extractAttestedClauseSpans(sentence).map(span => {
+      const decision = classifyAttestedSentence(
+        span.tokens, sourceSentenceIndex, catalog, upos,
+        { minLexicalTokens: 3, maxLexicalTokens: 8 },
+      );
+      return decision.kind === "candidate"
+        ? { ...decision.candidate, sourceHeadTokenId: span.sourceHeadTokenId, relation: span.sourceRelation }
+        : null;
+    }).filter((x): x is NonNullable<typeof x> => x !== null));
+  const sampleCount = Math.min(24, originals.length);
+  const reviewSamples = Array.from({ length: sampleCount }, (_, i) => {
+    const original = originals[Math.floor(i * originals.length / sampleCount)]!;
+    return {
+      ...original,
+      review: {
+        standaloneAcceptability: null,
+        TaiwanMandarinNaturalness: null,
+        notes: null,
+      },
+    };
+  });
+  await mkdir("data/generated", { recursive: true });
+  await writeFile(path, JSON.stringify({
+    schemaVersion: "local-ud-clause-review-sample-v1",
+    sourceCommit: SOURCE_COMMIT, sourceSplit: "train",
+    attribution: "UD Chinese GSD contributors (Mo Shen, Ryan McDonald, Daniel Zeman, Peng Qi); CC BY-SA 4.0",
+    caution: "Locally generated copyrighted source quotations; do not relabel as MIT, ship or treat as independent pronunciation gold",
+    sampling: "fixed, evenly spaced over all eligible original-order train clause candidates",
+    eligiblePopulation: originals.length,
+    samples: reviewSamples,
+  }, null, 2) + "\\n", "utf8");
+  console.log(`wrote ${sampleCount} locally reviewable source excerpts; no excerpts printed`);
+}
 await mkdir("data/generated", { recursive: true });
 await writeFile("data/generated/attested-sentence-identity-coverage.json",
   JSON.stringify(summary, null, 2) + "\n", "utf8");
