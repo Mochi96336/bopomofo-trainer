@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import type { DongxiUdCorpus } from "../../src/readings/dongxi-ud-intake.js";
 import {
   buildDongxiUdTrainReviewQueue, validateDongxiUdTrainReviewQueue,
   validateDongxiUdReviewerHandout,
+  PINNED_DONGXI_HANDOUT_GIT_BLOB_SHA,
 } from "../../src/readings/dongxi-ud-review-queue.js";
 
 const source = JSON.parse(readFileSync(
@@ -102,6 +104,17 @@ describe("reviewer-facing Markdown is actually the audited source projection", (
   const handout = readFileSync(
     "docs/reviewer-packets/dongxi-gsd-train-independent-review-form.md", "utf8",
   );
+
+  it("pins the complete reviewer-facing document, not just recognizable keywords", () => {
+    const sha = (text: string) => createHash("sha1")
+      .update(`blob ${Buffer.byteLength(text, "utf8")}\\0`)
+      .update(text, "utf8").digest("hex");
+    expect(sha(handout)).toBe(PINNED_DONGXI_HANDOUT_GIT_BLOB_SHA);
+    const hinted = handout + "\\n補充提示：R02 的正確詞義是方位。\\n";
+    // Sentence extraction/keyword heuristics alone would accept this hint.
+    expect(validateDongxiUdReviewerHandout(hinted, source).sourceMatches).toBe(6);
+    expect(sha(hinted)).not.toBe(PINNED_DONGXI_HANDOUT_GIT_BLOB_SHA);
+  });
 
   it("preserves six exact train sentences in order, without source metadata", () => {
     expect(validateDongxiUdReviewerHandout(handout, source)).toEqual({
