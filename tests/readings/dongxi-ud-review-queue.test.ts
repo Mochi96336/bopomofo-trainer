@@ -107,10 +107,10 @@ describe("reviewer-facing Markdown is actually the audited source projection", (
 
   it("pins the complete reviewer-facing document, not just recognizable keywords", () => {
     const sha = (text: string) => createHash("sha1")
-      .update(`blob ${Buffer.byteLength(text, "utf8")}\\0`)
+      .update(`blob ${Buffer.byteLength(text, "utf8")}\0`)
       .update(text, "utf8").digest("hex");
     expect(sha(handout)).toBe(PINNED_DONGXI_HANDOUT_GIT_BLOB_SHA);
-    const hinted = handout + "\\n補充提示：R02 的正確詞義是方位。\\n";
+    const hinted = handout + "\n補充提示：R02 的正確詞義是方位。\n";
     // Sentence extraction/keyword heuristics alone would accept this hint.
     expect(validateDongxiUdReviewerHandout(hinted, source).sourceMatches).toBe(6);
     expect(sha(hinted)).not.toBe(PINNED_DONGXI_HANDOUT_GIT_BLOB_SHA);
