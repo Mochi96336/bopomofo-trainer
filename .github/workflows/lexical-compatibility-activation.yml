@@ -1,0 +1,44 @@
+name: Lexical compatibility activation
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/lexical-compatibility-activation.yml"
+      - "data/compatibility/**"
+      - "scripts/compile-app-catalog.ts"
+      - "scripts/audit-lexical-compatibility-activation.ts"
+      - "scripts/project-active-lexical-compatibility.py"
+      - "src/product/**"
+      - "src/curriculum/**"
+      - "src/app/create-app.ts"
+      - "src/compatibility/**"
+      - "tests/product/lexical-compatibility-live.test.ts"
+      - "tests/curriculum/formal-syntax-lexical-compatibility.test.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - name: Compile validated compact source aggregate
+        run: npm run app:catalog
+      - name: Compare identical fresh-user seeds in live product
+        run: npx tsx scripts/audit-lexical-compatibility-activation.ts --samples=128
+      - name: Upload exact-seed effect report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lexical-compatibility-activation
+          path: data/generated/lexical-compatibility-activation-audit.json
+          retention-days: 14
+          if-no-files-found: error
