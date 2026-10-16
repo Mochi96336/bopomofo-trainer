@@ -66,7 +66,8 @@ const summary = {
 const reviewArg = process.argv.find(arg => arg.startsWith("--local-review="));
 if (reviewArg !== undefined) {
   const path = reviewArg.slice("--local-review=".length);
-  if (!/^data\\/generated\\/[a-zA-Z0-9._/-]+\\.json$/u.test(path)
+  if (!path.startsWith("data/generated/") || !path.endsWith(".json")
+    || /[^a-zA-Z0-9._/-]/u.test(path)
     || path.includes("..")) {
     throw new Error("local review must be a JSON path under data/generated/");
   }
@@ -103,7 +104,7 @@ if (reviewArg !== undefined) {
     sampling: "fixed, evenly spaced over all eligible original-order train clause candidates",
     eligiblePopulation: originals.length,
     samples: reviewSamples,
-  }, null, 2) + "\\n", "utf8");
+  }, null, 2) + "\n", "utf8");
   console.log(`wrote ${sampleCount} locally reviewable source excerpts; no excerpts printed`);
 }
 await mkdir("data/generated", { recursive: true });
