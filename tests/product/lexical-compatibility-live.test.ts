@@ -30,22 +30,22 @@ describe("product lexical compatibility handoff", () => {
 
   it("validates a supplied source and preserves it across tier filtering", () => {
     const evidence = fixture();
-    const environment = createProductEnvironment({ ...source, lexicalCompatibility: evidence });
+    const validated = buildLexicalCompatibilityIndex(evidence);
+    const environment = createProductEnvironment({ ...source, lexicalCompatibility: validated });
     expect(environment.lexicalCompatibility).toBeDefined();
     expect(surfaceCompatibilityScore(environment.lexicalCompatibility!, "吃", "飯")).toBe(1);
     expect(surfaceCompatibilityScore(environment.lexicalCompatibility!, "吃", "理論")).toBe(0);
-    expect(buildLexicalCompatibilityIndex(evidence)).toEqual(environment.lexicalCompatibility);
+    expect(environment.lexicalCompatibility).toBe(validated);
 
     const narrowed = catalogsForCommonnessTiers(
-      { ...source, lexicalCompatibility: evidence }, COMMONNESS_TIER_THRESHOLDS, [1],
+      { ...source, lexicalCompatibility: validated }, COMMONNESS_TIER_THRESHOLDS, [1],
     );
-    expect(narrowed.lexicalCompatibility).toBe(evidence);
+    expect(narrowed.lexicalCompatibility).toBe(validated);
     expect(createProductEnvironment(narrowed).lexicalCompatibility).toBeDefined();
   });
 
   it("fails closed on tampered source evidence instead of quietly enabling it", () => {
     const corrupted = { ...fixture(), determinismDigest: "unverified" };
-    expect(() => createProductEnvironment({ ...source, lexicalCompatibility: corrupted }))
-      .toThrow("stale or invalid");
+    expect(() => buildLexicalCompatibilityIndex(corrupted)).toThrow("stale or invalid");
   });
 });
