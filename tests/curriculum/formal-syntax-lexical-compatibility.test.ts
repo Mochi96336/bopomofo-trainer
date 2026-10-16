@@ -201,6 +201,28 @@ describe("formal syntax lexical compatibility weighting", () => {
     expect(run(true).utterance.text).toBe("我吃飯");
   });
 
+  it("preserves the exact seeded draw when no positive evidence reaches its candidates", () => {
+    const baseInput = {
+      eligibleEntries: entries,
+      profiles,
+      entryWeightsById: weights,
+      random: new ConstantRandom(0.6),
+      maximumCandidates: 1,
+      maximumAttempts: 1,
+      rules: [rule],
+    };
+    const baseline = composeFormalSyntaxUtterances(baseInput);
+    const unrelatedIndex = {
+      surfaceScoreByPair: new Map([[JSON.stringify(["吃", "飛船"]), 1]]),
+      dependencyScoreByPair: new Map<string, number>(),
+    };
+    const unchanged = composeFormalSyntaxUtterances({
+      ...baseInput,
+      lexicalCompatibility: unrelatedIndex,
+    });
+    expect(unchanged).toEqual(baseline);
+  });
+
   it("does not apply surface-pair evidence across punctuation", () => {
     const result = composeFormalSyntaxUtterances({
       eligibleEntries: entries,
