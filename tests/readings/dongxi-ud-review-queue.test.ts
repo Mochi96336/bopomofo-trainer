@@ -116,6 +116,11 @@ describe("reviewer-facing Markdown is actually the audited source projection", (
     expect(sha(hinted)).not.toBe(PINNED_DONGXI_HANDOUT_GIT_BLOB_SHA);
   });
 
+  it("does not give reviewers forced-choice sense or tone categories", () => {
+    expect(handout).not.toMatch(/方位\\s*[／/|]\\s*事物|第一聲\\s*[／/|]\\s*輕聲|第二音節一聲\\s*[／/|]\\s*第二音節輕聲/u);
+    expect(handout).toContain("你的實際讀法（完整注音或不適用）");
+  });
+
   it("preserves six exact train sentences in order, without source metadata", () => {
     expect(validateDongxiUdReviewerHandout(handout, source)).toEqual({
       reviewerCases: 6, sourceMatches: 6, approvedGoldLabels: 0,
