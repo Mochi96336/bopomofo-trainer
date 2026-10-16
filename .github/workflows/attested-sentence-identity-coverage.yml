@@ -45,7 +45,10 @@ jobs:
       - name: Unit-test exact identity and token boundary gates
         run: npx vitest run tests/curriculum/attested-sentence-candidates.test.ts tests/curriculum/attested-clause-spans.test.ts
       - name: Measure train-only source candidates without distributing sentences
-        run: npx tsx scripts/audit-attested-sentence-identity-coverage.ts
+        run: npx tsx scripts/audit-attested-sentence-identity-coverage.ts --local-review=data/generated/attested-clause-review-local.json
+      - name: Verify local review file shape without publishing source quotations
+        run: |
+          node --input-type=module -e 'import {readFileSync} from "node:fs"; const v=JSON.parse(readFileSync("data/generated/attested-clause-review-local.json","utf8")); if(v.samples.length!==24 || v.samples.some(x=>x.review.standaloneAcceptability!==null||x.review.TaiwanMandarinNaturalness!==null)) throw Error("local review sample drift"); console.log("24 eligible source clauses ready for local review; source text withheld from CI logs");'
       - uses: actions/upload-artifact@v4
         with:
           name: attested-sentence-identity-coverage
