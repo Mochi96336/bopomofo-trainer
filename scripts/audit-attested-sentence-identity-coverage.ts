@@ -105,6 +105,11 @@ if (reviewArg !== undefined) {
     eligiblePopulation: originals.length,
     samples: reviewSamples,
   }, null, 2) + "\n", "utf8");
+  console.log(JSON.stringify({
+    localReviewManifest: reviewSamples.map(({ sourceSentenceIndex, sourceHeadTokenId, relation }) =>
+      ({ sourceSentenceIndex, sourceHeadTokenId, relation })),
+    note: "Metadata-only references; no UD source text or pronunciation labels in CI logs",
+  }));
   console.log(`wrote ${sampleCount} locally reviewable source excerpts; no excerpts printed`);
 }
 await mkdir("data/generated", { recursive: true });
