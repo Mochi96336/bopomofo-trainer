@@ -92,3 +92,34 @@ export function validateDongxiUdTrainReviewQueue(
   }
   return { sourceTrainCases: 6, pendingIndependentReviews: 6, approvedGoldLabels: 0 };
 }
+
+/**
+ * Validate what human reviewers actually receive, not just the machine queue.
+ * A correct source JSON does not protect a separately edited Markdown handout.
+ * This gate checks source fidelity and obvious evidence/answer leakage; it
+ * cannot prove a reviewer has never seen hypotheses elsewhere.
+ */
+export function validateDongxiUdReviewerHandout(
+  markdown: string, source: DongxiUdCorpus,
+): { reviewerCases: 6; sourceMatches: 6; approvedGoldLabels: 0 } {
+  const expected = buildDongxiUdTrainReviewQueue(source).cases;
+  const text = markdown.replaceAll("\r\n", "\n");
+  const entries = [...text.matchAll(/^## R(\d{2})\n([^\n]+)$/gm)];
+  if (entries.length !== expected.length) {
+    throw new Error("reviewer handout must contain exactly the six numbered train sentences");
+  }
+  for (let i = 0; i < expected.length; i++) {
+    if (entries[i]![1] !== String(i + 1).padStart(2, "0")
+      || entries[i]![2] !== expected[i]!.sentence) {
+      throw new Error("reviewer handout sentence text/order differs from pinned UD train source");
+    }
+  }
+  if (source.candidates.some(row => row.split !== "train" && text.includes(row.sentence))) {
+    throw new Error("reviewer handout exposes a dev/test sentence");
+  }
+  // These indicators belong in the organizer/source packet, never a reviewer handout.
+  if (/\bud-gsd-(?:train|dev|test)-s\d+\b|preliminarySenseProposal|sourceTokenId|sourceCommit|Translit|dōngxi|ㄉㄨㄥ|ㄒㄧ|\bGSD\b|\bNOUN\b/u.test(text)) {
+    throw new Error("reviewer handout contains source metadata or reading hints");
+  }
+  return { reviewerCases: 6, sourceMatches: 6, approvedGoldLabels: 0 };
+}
