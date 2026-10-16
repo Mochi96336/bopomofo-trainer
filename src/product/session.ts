@@ -19,7 +19,7 @@ import {
   type FrequencyFirstUtterancePolicy,
 } from "../curriculum/frequency-first-utterance.js";
 import { prepareFormalSyntaxLexicon } from "../curriculum/formal-syntax-utterance.js";
-import { reviewedRoleReadingEligible } from "../readings/pronominal-role-license.js";
+import { reviewedZhongRolePilotEligible } from "../readings/zhong-role-pilot.js";
 import { createSeededRandom } from "../curriculum/random.js";
 import { createCatalogSupportIndex } from "../curriculum/support.js";
 import {
@@ -111,9 +111,10 @@ function selectRound(
     },
     policy: environment.utterancePolicy,
     profiles: environment.catalogs.syntaxProfiles,
-    // Preserve the original draw for all licensed readings; only an actual
-    // reviewed-role mismatch is resampled. No catalog/progress IDs are rewritten.
-    readingEligibility: reviewedRoleReadingEligible,
+    // Exact lexical identity still wins: reject only documented 種/NOUN or
+    // 種/VERB mismatches and the already reviewed closed-class/PRON roles.
+    // Other senses/UPOS remain eligible; do not infer from a surface alone.
+    readingEligibility: reviewedZhongRolePilotEligible,
     preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
     preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
