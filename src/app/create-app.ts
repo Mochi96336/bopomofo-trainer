@@ -50,6 +50,7 @@ import {
   COMMONNESS_TIER_THRESHOLDS,
   PRACTICE_CATALOG,
   SYNTAX_PROFILES,
+  LEXICAL_COMPATIBILITY,
 } from "./generated/catalog.js";
 import {
   isInspectionAdvanceShortcut,
@@ -152,6 +153,7 @@ export function createApp(deps: AppDependencies): App {
   const catalogs = {
     practice: PRACTICE_CATALOG,
     syntaxProfiles: SYNTAX_PROFILES,
+    lexicalCompatibility: LEXICAL_COMPATIBILITY,
   } as const;
 
   let selectionTuning: SelectionTuning = DEFAULT_SELECTION_TUNING;
