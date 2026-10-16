@@ -16,7 +16,7 @@ const packet = JSON.parse(await readFile(
 const report = validateDongxiUdTrainReviewQueue(packet, source);
 const handout = await readFile("docs/reviewer-packets/dongxi-gsd-train-independent-review-form.md", "utf8");
 const handoutBlobSha = createHash("sha1")
-  .update(`blob ${Buffer.byteLength(handout, "utf8")}\\0`)
+  .update(`blob ${Buffer.byteLength(handout, "utf8")}\0`)
   .update(handout, "utf8").digest("hex");
 if (handoutBlobSha !== PINNED_DONGXI_HANDOUT_GIT_BLOB_SHA) {
   throw new Error("reviewer handout differs from intentionally approved complete-document pin");
