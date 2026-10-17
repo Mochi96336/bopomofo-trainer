@@ -1,0 +1,65 @@
+name: Attested sentence identity coverage
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/attested-sentence-identity-coverage.yml"
+      - "src/curriculum/attested-sentence-candidates.ts"
+      - "src/curriculum/attested-target-contexts.ts"
+      - "src/curriculum/attested-context-source-alignment.ts"
+      - "src/app/attested-focus-context.ts"
+      - "src/app/attested-reviewed-focus.ts"
+      - "tests/app/attested-reviewed-focus.test.ts"
+      - "tests/app/attested-focus-context.test.ts tests/app/attested-reviewed-focus.test.ts"
+      - "tests/curriculum/attested-context-source-alignment.test.ts tests/app/attested-focus-context.test.ts"
+      - "tests/curriculum/attested-target-contexts.test.ts"
+      - "src/curriculum/attested-clause-spans.ts"
+      - "tests/curriculum/attested-clause-spans.test.ts"
+      - "tests/curriculum/attested-sentence-candidates.test.ts"
+      - "scripts/audit-attested-sentence-identity-coverage.ts"
+      - "scripts/ud-occurrence-source.ts"
+      - "src/app/**"
+      - "scripts/compile-app-catalog.ts"
+      - "data/source/words.sample.csv"
+      - "data/readings/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - name: Fetch exact pinned natural train corpus
+        uses: actions/checkout@v6
+        with:
+          repository: UniversalDependencies/UD_Chinese-GSD
+          ref: 22f73e87f7ddc530bb131a6b7587971a03e1a712
+          path: data/external/ud/chinese-gsd/r2.18
+          sparse-checkout: |
+            zh_gsd-ud-train.conllu
+          sparse-checkout-cone-mode: false
+      - name: Compile current resolved pronunciation-specific catalog
+        run: npm run app:catalog
+      - name: Unit-test exact identity and token boundary gates
+        run: npx vitest run tests/curriculum/attested-sentence-candidates.test.ts tests/curriculum/attested-clause-spans.test.ts tests/curriculum/attested-target-contexts.test.ts tests/curriculum/attested-context-source-alignment.test.ts
+      - name: Measure train-only source candidates without distributing sentences
+        run: npx tsx scripts/audit-attested-sentence-identity-coverage.ts --local-review=data/generated/attested-clause-review-local.json
+      - name: Verify local review file shape without publishing source quotations
+        run: |
+          node --input-type=module -e 'import {readFileSync} from "node:fs"; const v=JSON.parse(readFileSync("data/generated/attested-clause-review-local.json","utf8")); if(v.samples.length!==24 || v.samples.some(x=>x.review.standaloneAcceptability!==null||x.review.TaiwanMandarinNaturalness!==null)) throw Error("local review sample drift"); console.log("24 eligible source clauses ready for local review; source text withheld from CI logs");'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: attested-sentence-identity-coverage
+          path: data/generated/attested-sentence-identity-coverage.json
+          if-no-files-found: error
+          retention-days: 14

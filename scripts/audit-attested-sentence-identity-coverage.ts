@@ -1,0 +1,191 @@
+import { createHash } from "node:crypto";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+import { auditAttestedSentenceEligibility, catalogIdentityIndex, catalogUposIndex, classifyAttestedSentence } from "../src/curriculum/attested-sentence-candidates.js";
+import { extractAttestedClauseSpans } from "../src/curriculum/attested-clause-spans.js";
+import { auditAttestedTargetContextCoverage } from "../src/curriculum/attested-target-contexts.js";
+import { alignUdTokensToSourceText, parseUdOriginalSentenceTexts } from "../src/curriculum/attested-context-source-alignment.js";
+import { parseUdOccurrenceSentences } from "./ud-occurrence-source.js";
+
+const SOURCE_COMMIT = "22f73e87f7ddc530bb131a6b7587971a03e1a712";
+const TRAIN_SHA256 = "de36e605a4786edb00097165cfc0ee425ab668a2dfc1da7ce4652ba4d2585b1e";
+const source = await readFile("data/external/ud/chinese-gsd/r2.18/zh_gsd-ud-train.conllu");
+const digest = createHash("sha256").update(source).digest("hex");
+if (digest !== TRAIN_SHA256) {
+  throw new Error("attested sentence candidate source differs from pinned train file");
+}
+
+const sentences = parseUdOccurrenceSentences(source.toString("utf8"));
+if (sentences.length === 0) throw new Error("pinned UD train source contained no sentences");
+const strict = auditAttestedSentenceEligibility(sentences, PRACTICE_CATALOG, SYNTAX_PROFILES, {
+  minLexicalTokens: 3, maxLexicalTokens: 8,
+});
+const broad = auditAttestedSentenceEligibility(sentences, PRACTICE_CATALOG, SYNTAX_PROFILES, {
+  minLexicalTokens: 3, maxLexicalTokens: 16,
+});
+for (const report of [strict, broad]) {
+  const excludedCount = Object.values(report.excluded).reduce((a, b) => a + b, 0);
+  if (report.eligibleCount + excludedCount !== report.sentenceCount
+    || report.sentenceCount !== sentences.length) {
+    throw new Error("attested sentence eligibility partition is inconsistent");
+  }
+}
+// Offline alternative: exact contiguous subordinate-clause subtrees from
+// longer UD sentences. These are NOT independently approved standalone
+// learner sentences; compare their coverage separately from full sentences.
+const clauseTokens = sentences.flatMap(sentence =>
+  extractAttestedClauseSpans(sentence).map(span => span.tokens));
+const clauseStrict = auditAttestedSentenceEligibility(
+  clauseTokens, PRACTICE_CATALOG, SYNTAX_PROFILES,
+  { minLexicalTokens: 3, maxLexicalTokens: 8 },
+);
+const clauseBroad = auditAttestedSentenceEligibility(
+  clauseTokens, PRACTICE_CATALOG, SYNTAX_PROFILES,
+  { minLexicalTokens: 3, maxLexicalTokens: 16 },
+);
+// Alternative design: preserve the entire original sentence as an *ungraded*
+// context and select only one lexical focus entry. This removes the incorrect
+// requirement that all context words be in the active practice catalog.
+// It is a coverage feasibility result, not evidence of reading correctness.
+const targetOnlyShort = auditAttestedTargetContextCoverage(
+  sentences, PRACTICE_CATALOG, SYNTAX_PROFILES,
+  { minLexicalTokens: 3, maxLexicalTokens: 8 },
+);
+const targetOnlyBroad = auditAttestedTargetContextCoverage(
+  sentences, PRACTICE_CATALOG, SYNTAX_PROFILES,
+  { minLexicalTokens: 3, maxLexicalTokens: 16 },
+);
+// Preserve exact source text and token offsets before any visual highlighting.
+// Unlike join(""), this explicitly abstains when UD tokens cannot reproduce the
+// upstream # text field byte-for-byte apart from inter-token whitespace.
+const originalTexts = parseUdOriginalSentenceTexts(source.toString("utf8"));
+if (originalTexts.length !== sentences.length) {
+  throw new Error("pinned UD source text count differs from tokenized sentence count");
+}
+let metadataMissing = 0;
+let exactTokenAligned = 0;
+let broadEligibleAligned = 0;
+let shortEligibleAligned = 0;
+let broadEligibleFocusOccurrencesAligned = 0;
+const eligibleFocusCatalog = catalogIdentityIndex(PRACTICE_CATALOG);
+const eligibleFocusUpos = catalogUposIndex(SYNTAX_PROFILES);
+const eligibleFocusCount = (tokens: (typeof sentences)[number]): number => {
+  let count = 0;
+  const byText = eligibleFocusCatalog;
+  const byUpos = eligibleFocusUpos;
+  for (const token of tokens) {
+    if (token.upos === "PUNCT") continue;
+    const entries = byText.get(token.form);
+    if (entries?.length === 1 && byUpos.get(entries[0]!.id)?.has(token.upos)) count++;
+  }
+  return count;
+};
+for (let i = 0; i < sentences.length; i++) {
+  const text = originalTexts[i];
+  if (text === null || text === undefined) {
+    metadataMissing++;
+    continue;
+  }
+  const tokens = sentences[i]!;
+  if (alignUdTokensToSourceText(text, tokens) === null) continue;
+  exactTokenAligned++;
+  const lexical = tokens.filter(token => token.upos !== "PUNCT");
+  if (!lexical.some(token => token.upos === "VERB")) continue;
+  if (lexical.length >= 3 && lexical.length <= 16) {
+    const focusCount = eligibleFocusCount(tokens);
+    if (focusCount > 0) {
+      broadEligibleAligned++;
+      broadEligibleFocusOccurrencesAligned += focusCount;
+      if (lexical.length <= 8) shortEligibleAligned++;
+    }
+  }
+}
+const summary = {
+  schemaVersion: "attested-sentence-identity-coverage-v1",
+  status: "train-only source feasibility audit; NOT independently approved sentences or pronunciation labels",
+  source: {
+    corpus: "UD Chinese GSD r2.18", commit: SOURCE_COMMIT,
+    split: "train", sha256: digest, license: "CC BY-SA 4.0",
+  },
+  catalogEntryCount: PRACTICE_CATALOG.length,
+  syntaxProfileCount: SYNTAX_PROFILES.length,
+  strict: { ...strict, candidateIndices: undefined },
+  broad: { ...broad, candidateIndices: undefined },
+  exactOriginalSourceTextAlignment: {
+    method: "match pinned # text exactly in UD token order, only whitespace permitted between forms",
+    sourceSentenceCount: sentences.length,
+    missingSourceTextMetadata: metadataMissing,
+    exactlyAlignedSentences: exactTokenAligned,
+    alignedShortContextsWithFocus: shortEligibleAligned,
+    alignedBroadContextsWithFocus: broadEligibleAligned,
+    alignedBroadFocusOccurrences: broadEligibleFocusOccurrencesAligned,
+  },
+  oneGradedTargetInUngradedFullSourceContext: {
+    caveat: "catalog uniqueness is NOT contextual pronunciation evidence; full context still requires naturalness/rightful reuse review",
+    short: targetOnlyShort,
+    broad: targetOnlyBroad,
+  },
+  attestedSubordinateClauses: {
+    candidateType: "contiguous ccomp/advcl subtrees with explicit lexical nsubj; not standalone sentence gold",
+    spanCount: clauseTokens.length,
+    strict: { ...clauseStrict, candidateIndices: undefined },
+    broad: { ...clauseBroad, candidateIndices: undefined },
+  },
+  usage: "No text or sentence-level token/reading material redistributed; no product activation",
+};
+// Opt-in local-only handoff. It contains copyrighted source text and is
+// NEVER uploaded by CI. Deterministic evenly spaced sampling prevents selecting
+// only attractive examples after reading the generated candidates.
+const reviewArg = process.argv.find(arg => arg.startsWith("--local-review="));
+if (reviewArg !== undefined) {
+  const path = reviewArg.slice("--local-review=".length);
+  if (!path.startsWith("data/generated/") || !path.endsWith(".json")
+    || /[^a-zA-Z0-9._/-]/u.test(path)
+    || path.includes("..")) {
+    throw new Error("local review must be a JSON path under data/generated/");
+  }
+  const catalog = catalogIdentityIndex(PRACTICE_CATALOG);
+  const upos = catalogUposIndex(SYNTAX_PROFILES);
+  const originals = sentences.flatMap((sentence, sourceSentenceIndex) =>
+    extractAttestedClauseSpans(sentence).map(span => {
+      const decision = classifyAttestedSentence(
+        span.tokens, sourceSentenceIndex, catalog, upos,
+        { minLexicalTokens: 3, maxLexicalTokens: 8 },
+      );
+      return decision.kind === "candidate"
+        ? { ...decision.candidate, sourceHeadTokenId: span.sourceHeadTokenId, relation: span.sourceRelation }
+        : null;
+    }).filter((x): x is NonNullable<typeof x> => x !== null));
+  const sampleCount = Math.min(24, originals.length);
+  const reviewSamples = Array.from({ length: sampleCount }, (_, i) => {
+    const original = originals[Math.floor(i * originals.length / sampleCount)]!;
+    return {
+      ...original,
+      review: {
+        standaloneAcceptability: null,
+        TaiwanMandarinNaturalness: null,
+        notes: null,
+      },
+    };
+  });
+  await mkdir("data/generated", { recursive: true });
+  await writeFile(path, JSON.stringify({
+    schemaVersion: "local-ud-clause-review-sample-v1",
+    sourceCommit: SOURCE_COMMIT, sourceSplit: "train",
+    attribution: "UD Chinese GSD contributors (Mo Shen, Ryan McDonald, Daniel Zeman, Peng Qi); CC BY-SA 4.0",
+    caution: "Locally generated copyrighted source quotations; do not relabel as MIT, ship or treat as independent pronunciation gold",
+    sampling: "fixed, evenly spaced over all eligible original-order train clause candidates",
+    eligiblePopulation: originals.length,
+    samples: reviewSamples,
+  }, null, 2) + "\n", "utf8");
+  console.log(JSON.stringify({
+    localReviewManifest: reviewSamples.map(({ sourceSentenceIndex, sourceHeadTokenId, relation }) =>
+      ({ sourceSentenceIndex, sourceHeadTokenId, relation })),
+    note: "Metadata-only references; no UD source text or pronunciation labels in CI logs",
+  }));
+  console.log(`wrote ${sampleCount} locally reviewable source excerpts; no excerpts printed`);
+}
+await mkdir("data/generated", { recursive: true });
+await writeFile("data/generated/attested-sentence-identity-coverage.json",
+  JSON.stringify(summary, null, 2) + "\n", "utf8");
+console.log(JSON.stringify(summary, null, 2));
