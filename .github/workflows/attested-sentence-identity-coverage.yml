@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/attested-sentence-identity-coverage.yml"
       - "src/curriculum/attested-sentence-candidates.ts"
+      - "src/curriculum/attested-target-contexts.ts"
+      - "tests/curriculum/attested-target-contexts.test.ts"
       - "src/curriculum/attested-clause-spans.ts"
       - "tests/curriculum/attested-clause-spans.test.ts"
       - "tests/curriculum/attested-sentence-candidates.test.ts"
@@ -43,7 +45,7 @@ jobs:
       - name: Compile current resolved pronunciation-specific catalog
         run: npm run app:catalog
       - name: Unit-test exact identity and token boundary gates
-        run: npx vitest run tests/curriculum/attested-sentence-candidates.test.ts tests/curriculum/attested-clause-spans.test.ts
+        run: npx vitest run tests/curriculum/attested-sentence-candidates.test.ts tests/curriculum/attested-clause-spans.test.ts tests/curriculum/attested-target-contexts.test.ts
       - name: Measure train-only source candidates without distributing sentences
         run: npx tsx scripts/audit-attested-sentence-identity-coverage.ts --local-review=data/generated/attested-clause-review-local.json
       - name: Verify local review file shape without publishing source quotations
