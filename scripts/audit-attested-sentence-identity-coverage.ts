@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
 import { auditAttestedSentenceEligibility, catalogIdentityIndex, catalogUposIndex, classifyAttestedSentence } from "../src/curriculum/attested-sentence-candidates.js";
 import { extractAttestedClauseSpans } from "../src/curriculum/attested-clause-spans.js";
+import { auditAttestedTargetContextCoverage } from "../src/curriculum/attested-target-contexts.js";
 import { parseUdOccurrenceSentences } from "./ud-occurrence-source.js";
 
 const SOURCE_COMMIT = "22f73e87f7ddc530bb131a6b7587971a03e1a712";
@@ -41,6 +42,18 @@ const clauseBroad = auditAttestedSentenceEligibility(
   clauseTokens, PRACTICE_CATALOG, SYNTAX_PROFILES,
   { minLexicalTokens: 3, maxLexicalTokens: 16 },
 );
+// Alternative design: preserve the entire original sentence as an *ungraded*
+// context and select only one lexical focus entry. This removes the incorrect
+// requirement that all context words be in the active practice catalog.
+// It is a coverage feasibility result, not evidence of reading correctness.
+const targetOnlyShort = auditAttestedTargetContextCoverage(
+  sentences, PRACTICE_CATALOG, SYNTAX_PROFILES,
+  { minLexicalTokens: 3, maxLexicalTokens: 8 },
+);
+const targetOnlyBroad = auditAttestedTargetContextCoverage(
+  sentences, PRACTICE_CATALOG, SYNTAX_PROFILES,
+  { minLexicalTokens: 3, maxLexicalTokens: 16 },
+);
 const summary = {
   schemaVersion: "attested-sentence-identity-coverage-v1",
   status: "train-only source feasibility audit; NOT independently approved sentences or pronunciation labels",
@@ -52,6 +65,11 @@ const summary = {
   syntaxProfileCount: SYNTAX_PROFILES.length,
   strict: { ...strict, candidateIndices: undefined },
   broad: { ...broad, candidateIndices: undefined },
+  oneGradedTargetInUngradedFullSourceContext: {
+    caveat: "catalog uniqueness is NOT contextual pronunciation evidence; full context still requires naturalness/rightful reuse review",
+    short: targetOnlyShort,
+    broad: targetOnlyBroad,
+  },
   attestedSubordinateClauses: {
     candidateType: "contiguous ccomp/advcl subtrees with explicit lexical nsubj; not standalone sentence gold",
     spanCount: clauseTokens.length,
