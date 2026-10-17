@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { CatalogEntry } from "../../src/core/model.js";
 import type { RuntimeSyntaxProfile } from "../../src/syntax/types.js";
 import type { UdOccurrenceToken } from "../../scripts/ud-occurrence-source.js";
+import { compileExerciseInputPlan } from "../../src/practice/input-plan.js";
+import { createInteractionSessionV2 } from "../../src/practice/interaction-session-v2.js";
 import {
   auditAttestedTargetContextCoverage,
+  buildAttestedFocusExercisePrototype,
   targetCandidatesForAttestedContext,
 } from "../../src/curriculum/attested-target-contexts.js";
 
@@ -43,6 +46,23 @@ describe("source context vs graded entry identity", () => {
       sourceSentenceIndex: 9, sourceTokenId: 2, tokenIndex: 1,
       focusText: "吃", sourceTokenForms: ["他", "吃", "未知菜名", "。"],
     });
+  });
+
+  it("grades only the chosen target, not the surrounding unscored sentence", () => {
+    const targets = targetCandidatesForAttestedContext(sentence, 9, entries, profiles);
+    const focus = buildAttestedFocusExercisePrototype(targets[1]!, entries);
+    expect(focus.sourceContext.sourceTokenForms).toEqual(["他", "吃", "未知菜名", "。"]);
+    expect(focus.exercise.entries.map(e => e.id)).toEqual([eats.id]);
+    expect(compileExerciseInputPlan(focus.exercise).syllables.map(x => x.entryId))
+      .toEqual([eats.id]);
+    expect(createInteractionSessionV2(focus.exercise, 0).plan.totalSlots)
+      .toBe(eats.syllables[0]!.tokens.length);
+    expect(() => buildAttestedFocusExercisePrototype({
+      ...targets[1]!, focusText: "飯",
+    }, entries)).toThrow("token boundary");
+    expect(() => buildAttestedFocusExercisePrototype(
+      targets[1]!, [...entries, entry("吃", "ㄔ2")],
+    )).toThrow("no longer unique");
   });
 
   it("will not derive an ambiguous pronunciation from the corpus UPOS", () => {
