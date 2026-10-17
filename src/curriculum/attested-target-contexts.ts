@@ -1,4 +1,4 @@
-import type { CatalogEntry } from "../core/model.js";
+import type { CatalogEntry, Exercise, PracticeMode } from "../core/model.js";
 import type { RuntimeSyntaxProfile } from "../syntax/types.js";
 import type { UdOccurrenceToken } from "../../scripts/ud-occurrence-source.js";
 import { catalogIdentityIndex, catalogUposIndex } from "./attested-sentence-candidates.js";
@@ -123,4 +123,32 @@ export function targetCandidatesForAttestedContext(
     });
   }
   return result;
+}
+
+/**
+ * Research-only adapter proving the current practice input model can grade a
+ * single lexical focus without grading source context. The context must stay
+ * separately presented; never insert ungraded source words into entries.
+ */
+export function buildAttestedFocusExercisePrototype(
+  target: AttestedTargetContext,
+  entries: readonly CatalogEntry[],
+  mode: PracticeMode = "guided",
+  layoutId = "standard",
+): { readonly sourceContext: AttestedTargetContext; readonly exercise: Exercise } {
+  if (target.sourceTokenForms[target.tokenIndex] !== target.focusText) {
+    throw new Error("attested focus token boundary no longer matches source");
+  }
+  const variants = entries.filter(entry => entry.prompt.text === target.focusText);
+  if (variants.length !== 1 || variants[0]!.id !== target.focusEntryId) {
+    throw new Error("attested focus pronunciation identity no longer unique");
+  }
+  return {
+    sourceContext: target,
+    exercise: {
+      id: `research-attested-focus:${target.sourceSentenceIndex}:${target.sourceTokenId}:${target.focusEntryId}`,
+      mode, layoutId,
+      entries: [variants[0]!],
+    },
+  };
 }
