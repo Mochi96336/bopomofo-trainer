@@ -4,6 +4,7 @@ import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.
 import { auditAttestedSentenceEligibility, catalogIdentityIndex, catalogUposIndex, classifyAttestedSentence } from "../src/curriculum/attested-sentence-candidates.js";
 import { extractAttestedClauseSpans } from "../src/curriculum/attested-clause-spans.js";
 import { auditAttestedTargetContextCoverage } from "../src/curriculum/attested-target-contexts.js";
+import { alignUdTokensToSourceText, parseUdOriginalSentenceTexts } from "../src/curriculum/attested-context-source-alignment.js";
 import { parseUdOccurrenceSentences } from "./ud-occurrence-source.js";
 
 const SOURCE_COMMIT = "22f73e87f7ddc530bb131a6b7587971a03e1a712";
@@ -54,6 +55,51 @@ const targetOnlyBroad = auditAttestedTargetContextCoverage(
   sentences, PRACTICE_CATALOG, SYNTAX_PROFILES,
   { minLexicalTokens: 3, maxLexicalTokens: 16 },
 );
+// Preserve exact source text and token offsets before any visual highlighting.
+// Unlike join(""), this explicitly abstains when UD tokens cannot reproduce the
+// upstream # text field byte-for-byte apart from inter-token whitespace.
+const originalTexts = parseUdOriginalSentenceTexts(source.toString("utf8"));
+if (originalTexts.length !== sentences.length) {
+  throw new Error("pinned UD source text count differs from tokenized sentence count");
+}
+let metadataMissing = 0;
+let exactTokenAligned = 0;
+let broadEligibleAligned = 0;
+let shortEligibleAligned = 0;
+let broadEligibleFocusOccurrencesAligned = 0;
+const eligibleFocusCatalog = catalogIdentityIndex(PRACTICE_CATALOG);
+const eligibleFocusUpos = catalogUposIndex(SYNTAX_PROFILES);
+const eligibleFocusCount = (tokens: (typeof sentences)[number]): number => {
+  let count = 0;
+  const byText = eligibleFocusCatalog;
+  const byUpos = eligibleFocusUpos;
+  for (const token of tokens) {
+    if (token.upos === "PUNCT") continue;
+    const entries = byText.get(token.form);
+    if (entries?.length === 1 && byUpos.get(entries[0]!.id)?.has(token.upos)) count++;
+  }
+  return count;
+};
+for (let i = 0; i < sentences.length; i++) {
+  const text = originalTexts[i];
+  if (text === null || text === undefined) {
+    metadataMissing++;
+    continue;
+  }
+  const tokens = sentences[i]!;
+  if (alignUdTokensToSourceText(text, tokens) === null) continue;
+  exactTokenAligned++;
+  const lexical = tokens.filter(token => token.upos !== "PUNCT");
+  if (!lexical.some(token => token.upos === "VERB")) continue;
+  if (lexical.length >= 3 && lexical.length <= 16) {
+    const focusCount = eligibleFocusCount(tokens);
+    if (focusCount > 0) {
+      broadEligibleAligned++;
+      broadEligibleFocusOccurrencesAligned += focusCount;
+      if (lexical.length <= 8) shortEligibleAligned++;
+    }
+  }
+}
 const summary = {
   schemaVersion: "attested-sentence-identity-coverage-v1",
   status: "train-only source feasibility audit; NOT independently approved sentences or pronunciation labels",
@@ -65,6 +111,15 @@ const summary = {
   syntaxProfileCount: SYNTAX_PROFILES.length,
   strict: { ...strict, candidateIndices: undefined },
   broad: { ...broad, candidateIndices: undefined },
+  exactOriginalSourceTextAlignment: {
+    method: "match pinned # text exactly in UD token order, only whitespace permitted between forms",
+    sourceSentenceCount: sentences.length,
+    missingSourceTextMetadata: metadataMissing,
+    exactlyAlignedSentences: exactTokenAligned,
+    alignedShortContextsWithFocus: shortEligibleAligned,
+    alignedBroadContextsWithFocus: broadEligibleAligned,
+    alignedBroadFocusOccurrences: broadEligibleFocusOccurrencesAligned,
+  },
   oneGradedTargetInUngradedFullSourceContext: {
     caveat: "catalog uniqueness is NOT contextual pronunciation evidence; full context still requires naturalness/rightful reuse review",
     short: targetOnlyShort,
