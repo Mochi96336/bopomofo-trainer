@@ -36,7 +36,7 @@ describe("original source text + exact focused token", () => {
       focusText: "看", focusEntryId: "word:看:ㄎㄢ4",
       sourceTokenForms: tokens.map(t => t.form),
     };
-    const presentation = buildAlignedAttestedFocusPresentation(target, tokens, "他看看 看書。");
+    const presentation = buildAlignedAttestedFocusPresentation(target, tokens, "他看看 看書。", 7);
     expect(presentation).toMatchObject({
       originalText: "他看看 看書。", prefix: "他看看 ", focus: "看", suffix: "書。",
       start: 4, end: 5, focusEntryId: target.focusEntryId,
@@ -59,13 +59,14 @@ describe("original source text + exact focused token", () => {
     expect(alignUdTokensToSourceText("我先吃飯", tokens)).toBeNull();
     expect(alignUdTokensToSourceText("我吃飯。", tokens)).toBeNull();
     expect(alignUdTokensToSourceText("我吃飯", tokens)).not.toBeNull();
-    expect(buildAlignedAttestedFocusPresentation(target, tokens, null)).toBeNull();
-    expect(buildAlignedAttestedFocusPresentation(target, tokens, "我先吃飯")).toBeNull();
+    expect(buildAlignedAttestedFocusPresentation(target, tokens, null, 0)).toBeNull();
+    expect(buildAlignedAttestedFocusPresentation(target, tokens, "我先吃飯", 0)).toBeNull();
+    expect(buildAlignedAttestedFocusPresentation(target, tokens, "我吃飯", 99)).toBeNull();
     expect(buildAlignedAttestedFocusPresentation(
-      { ...target, tokenIndex: 0 }, tokens, "我吃飯",
+      { ...target, tokenIndex: 0 }, tokens, "我吃飯", 0,
     )).toBeNull();
     expect(buildAlignedAttestedFocusPresentation(
-      { ...target, sourceTokenId: 99 }, tokens, "我吃飯",
+      { ...target, sourceTokenId: 99 }, tokens, "我吃飯", 0,
     )).toBeNull();
   });
 
@@ -75,7 +76,7 @@ describe("original source text + exact focused token", () => {
       sourceSentenceIndex: 5, sourceTokenId: 2, tokenIndex: 1,
       focusText: "看", focusEntryId: "word:看", sourceTokenForms: tokens.map(t => t.form),
     };
-    expect(buildAlignedAttestedFocusPresentation(target, tokens, "𠮷看書"))
+    expect(buildAlignedAttestedFocusPresentation(target, tokens, "𠮷看書", 5))
       .toMatchObject({ prefix: "𠮷", focus: "看", suffix: "書", start: 2, end: 3 });
   });
 });
