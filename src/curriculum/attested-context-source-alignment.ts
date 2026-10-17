@@ -82,8 +82,10 @@ export function buildAlignedAttestedFocusPresentation(
   target: AttestedTargetContext,
   sourceTokens: readonly UdOccurrenceToken[],
   originalText: string | null,
+  sourceSentenceIndex: number,
 ): AttestedFocusPresentation | null {
-  if (originalText === null || sourceTokens.length !== target.sourceTokenForms.length) return null;
+  if (sourceSentenceIndex !== target.sourceSentenceIndex
+    || originalText === null || sourceTokens.length !== target.sourceTokenForms.length) return null;
   if (sourceTokens.some((token, i) => token.form !== target.sourceTokenForms[i])) return null;
   const token = sourceTokens[target.tokenIndex];
   if (token === undefined || token.id !== target.sourceTokenId
