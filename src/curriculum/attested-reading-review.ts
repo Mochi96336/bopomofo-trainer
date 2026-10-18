@@ -157,25 +157,47 @@ export function preparePairedBlindedReadingReviewSample(
   }
 
   type Pair = readonly [AttestedReadingReviewCandidate, AttestedReadingReviewCandidate];
+  // A pair is useful only insofar as the target appears in two *different*
+  // contexts. Sentence-number distance is not contextual variation.
+  // Compare short original text flanks without guessing meanings or readings.
+  function localFrame(row: AttestedReadingReviewCandidate): readonly [string, string] {
+    const left = row.originalText.slice(Math.max(0, row.start - 8), row.start)
+      .replace(/[^\\p{L}\\p{N}]/gu, "").slice(-2);
+    const right = row.originalText.slice(row.end, row.end + 8)
+      .replace(/[^\\p{L}\\p{N}]/gu, "").slice(0, 2);
+    return [left, right];
+  }
   function pairFor(
     rows: readonly AttestedReadingReviewCandidate[],
-    cohort: "same-source-upos" | "different-source-upos" | "either",
+    cohort: "same-source-upos" | "different-source-upos",
+    excludedSentences: ReadonlySet<number> = new Set(),
   ): Pair | null {
     const ordered = [...rows].sort((a, b) =>
       a.sourceSentenceIndex - b.sourceSentenceIndex
       || a.sourceTokenId - b.sourceTokenId);
     let best: Pair | null = null;
-    let maximumDistance = -1;
+    let bestVariation = -1;
+    let bestDistance = -1;
     for (let i = 0; i < ordered.length; i++) {
+      const a = ordered[i]!;
+      if (excludedSentences.has(a.sourceSentenceIndex)) continue;
+      const aFrame = localFrame(a);
       for (let j = i + 1; j < ordered.length; j++) {
-        const a = ordered[i]!, b = ordered[j]!;
-        if (a.sourceSentenceIndex === b.sourceSentenceIndex || a.originalText === b.originalText) continue;
+        const b = ordered[j]!;
+        if (excludedSentences.has(b.sourceSentenceIndex)
+          || a.sourceSentenceIndex === b.sourceSentenceIndex
+          || a.originalText === b.originalText) continue;
         if (cohort === "same-source-upos" && a.sourceUpos !== b.sourceUpos) continue;
         if (cohort === "different-source-upos" && a.sourceUpos === b.sourceUpos) continue;
+        const bFrame = localFrame(b);
+        const variation = Number(aFrame[0] !== bFrame[0])
+          + Number(aFrame[1] !== bFrame[1]);
         const distance = b.sourceSentenceIndex - a.sourceSentenceIndex;
-        if (distance > maximumDistance) {
+        if (variation > bestVariation
+          || (variation === bestVariation && distance > bestDistance)) {
           best = [a, b];
-          maximumDistance = distance;
+          bestVariation = variation;
+          bestDistance = distance;
         }
       }
     }
@@ -206,16 +228,26 @@ export function preparePairedBlindedReadingReviewSample(
     readonly pair: Pair;
   }[] = [];
   const used = new Set<string>();
+  const usedSourceSentences = new Set<number>();
+  function takePair(
+    group: typeof pool[number],
+    cohort: "same-source-upos" | "different-source-upos",
+  ): boolean {
+    const pair = pairFor(groups.get(group.text)!, cohort, usedSourceSentences);
+    if (pair === null) return false;
+    selected.push({ text: group.text, cohort, pair });
+    used.add(group.text);
+    usedSourceSentences.add(pair[0].sourceSentenceIndex);
+    usedSourceSentences.add(pair[1].sourceSentenceIndex);
+    return true;
+  }
   function collect(
     cohort: "same-source-upos" | "different-source-upos",
     maximum: number,
   ): void {
     for (const group of pool) {
       if (selected.length >= maximum || used.has(group.text)) continue;
-      const pair = group[cohort === "same-source-upos" ? "same" : "different"];
-      if (pair === null) continue;
-      selected.push({ text: group.text, cohort, pair });
-      used.add(group.text);
+      takePair(group, cohort);
     }
   }
   // Target two-thirds same-POS contexts: POS cannot decide their readings.
@@ -227,12 +259,9 @@ export function preparePairedBlindedReadingReviewSample(
     for (const group of pool) {
       if (selected.length >= desiredPairs) break;
       if (used.has(group.text)) continue;
-      const pair = group.same ?? group.different;
-      if (pair === null) continue;
-      selected.push({
-        text: group.text, cohort: group.same ? "same-source-upos" : "different-source-upos", pair,
-      });
-      used.add(group.text);
+      if (!takePair(group, "same-source-upos")) {
+        takePair(group, "different-source-upos");
+      }
     }
   }
   // Present all A cases before B cases, with opaque case IDs. The reviewer
