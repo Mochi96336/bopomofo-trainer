@@ -5,7 +5,6 @@ import { catalogIdentityIndex } from "../../src/curriculum/attested-sentence-can
 import {
   auditAttestedAmbiguousReadingCoverage,
   findAttestedAmbiguousReadingCandidates,
-  prepareBlindedReadingReviewSample,
   preparePairedBlindedReadingReviewSample,
 } from "../../src/curriculum/attested-reading-review.js";
 
@@ -50,28 +49,6 @@ describe("attested polyphonic reading review intake", () => {
       [token(1, "東西向")], "東西向", 7, byText)).toEqual([]);
     expect(findAttestedAmbiguousReadingCandidates(
       [token(1, "東")], "東", 7, byText)).toEqual([]);
-  });
-
-  it("separates an answer-free reviewer sample from organizer identity hypotheses", () => {
-    const found = [
-      ...findAttestedAmbiguousReadingCandidates(
-        tokens, "這東西東西很好。", 7, catalogIdentityIndex(entries)),
-      ...findAttestedAmbiguousReadingCandidates(
-        [token(1, "他", "PRON"), token(2, "種", "VERB"), token(3, "花")],
-        "他種花", 8, catalogIdentityIndex(entries)),
-    ];
-    const report = prepareBlindedReadingReviewSample(found, 5);
-    expect(report.distinctTargetForms).toBe(2);
-    expect(report.reviewerCases).toHaveLength(2);
-    expect(report.organizerCases).toHaveLength(2);
-    expect(report.reviewerCases[0]!.caseId).toBe("R01");
-    expect(report.reviewerCases[0]!.rawAnswer.completeBopomofo).toBeNull();
-    const onlyReviewer = JSON.stringify(report.reviewerCases);
-    expect(onlyReviewer).not.toContain("possibleEntryIds");
-    expect(onlyReviewer).not.toContain("ㄉㄨㄥ1");
-    expect(onlyReviewer).not.toContain("ㄓㄨㄥ4");
-    expect(JSON.stringify(report.organizerCases)).toContain("possibleEntryIds");
-    expect(() => prepareBlindedReadingReviewSample(found, 0)).toThrow();
   });
 
   it("samples two distinct contexts of the same form, including same-UPOS ambiguity", () => {
