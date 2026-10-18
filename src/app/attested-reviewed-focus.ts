@@ -136,7 +136,7 @@ export function buildReviewedAttestedFocusPrototype(
   if (typeof approvedReading !== "string" || !nonblank(approvedReading)) return null;
   const parsedReading = parseReading(approvedReading);
   if (!parsedReading.ok) return null;
-  const normalizedReading = approvedReading.trim().split(/\\s+/u).join(" ");
+  const normalizedReading = approvedReading.trim().split(/\s+/u).join(" ");
   if (catalogEntryId(target.focusText, normalizedReading) !== approvedEntry.id
     || JSON.stringify(parsedReading.syllables.map(syllable => syllable.tokens))
       !== JSON.stringify(approvedEntry.syllables.map(syllable => syllable.tokens))) return null;
