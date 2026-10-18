@@ -5,6 +5,7 @@ import { auditAttestedSentenceEligibility, catalogIdentityIndex, catalogUposInde
 import { extractAttestedClauseSpans } from "../src/curriculum/attested-clause-spans.js";
 import { auditAttestedTargetContextCoverage } from "../src/curriculum/attested-target-contexts.js";
 import { alignUdTokensToSourceText, parseUdOriginalSentenceTexts } from "../src/curriculum/attested-context-source-alignment.js";
+import { auditAttestedAmbiguousReadingCoverage, findAttestedAmbiguousReadingCandidates, prepareBlindedReadingReviewSample } from "../src/curriculum/attested-reading-review.js";
 import { parseUdOccurrenceSentences } from "./ud-occurrence-source.js";
 
 const SOURCE_COMMIT = "22f73e87f7ddc530bb131a6b7587971a03e1a712";
@@ -100,6 +101,11 @@ for (let i = 0; i < sentences.length; i++) {
     }
   }
 }
+// A separate cohort that was excluded from the one-reading pool. These are
+// unresolved polyphonic words in attested source contexts, never reading gold.
+const ambiguousReviewCoverage = auditAttestedAmbiguousReadingCoverage(
+  sentences, originalTexts, PRACTICE_CATALOG, 3, 16,
+);
 const summary = {
   schemaVersion: "attested-sentence-identity-coverage-v1",
   status: "train-only source feasibility audit; NOT independently approved sentences or pronunciation labels",
@@ -120,6 +126,10 @@ const summary = {
     alignedBroadContextsWithFocus: broadEligibleAligned,
     alignedBroadFocusOccurrences: broadEligibleFocusOccurrencesAligned,
   },
+  ambiguousInContextReadingReview: {
+    status: "pending independent whole-lexeme, contextual sense and full-bopomofo review; no approved labels",
+    ...ambiguousReviewCoverage,
+  },
   oneGradedTargetInUngradedFullSourceContext: {
     caveat: "catalog uniqueness is NOT contextual pronunciation evidence; full context still requires naturalness/rightful reuse review",
     short: targetOnlyShort,
@@ -133,6 +143,52 @@ const summary = {
   },
   usage: "No text or sentence-level token/reading material redistributed; no product activation",
 };
+// Opt-in organizer/reviewer artifacts from *real* corpus ambiguity cases.
+// Unlike the prior approved-one-reading pilot, these do NOT guess readings.
+// The blind reviewer file contains original sentences and target spans but NO
+// competing reading options or UD UPOS; the organizer file keeps identities.
+// Neither file is included in CI artifacts, logs, or the shipping catalog.
+const ambiguousReviewArg = process.argv.find(arg => arg.startsWith("--local-polyphonic-review="));
+if (ambiguousReviewArg !== undefined) {
+  const prefix = ambiguousReviewArg.slice("--local-polyphonic-review=".length);
+  if (!prefix.startsWith("data/generated/") || prefix.includes("..")
+    || !/^data\\/generated\\/[a-zA-Z0-9._/-]+$/u.test(prefix)) {
+    throw new Error("local polyphonic review prefix must be under data/generated/");
+  }
+  const lexicalIndex = catalogIdentityIndex(PRACTICE_CATALOG);
+  const all = sentences.flatMap((tokens, sourceSentenceIndex) => {
+    const lexical = tokens.filter(t => t.upos !== "PUNCT");
+    if (lexical.length < 3 || lexical.length > 16
+      || !lexical.some(t => t.upos === "VERB")) return [];
+    return findAttestedAmbiguousReadingCandidates(
+      tokens, originalTexts[sourceSentenceIndex] ?? null, sourceSentenceIndex, lexicalIndex,
+    );
+  });
+  if (all.length !== ambiguousReviewCoverage.ambiguousOccurrenceCount) {
+    throw new Error("polyphonic organizer/reviewer sample coverage disagrees with audit");
+  }
+  const sample = prepareBlindedReadingReviewSample(all, 24);
+  await mkdir("data/generated", { recursive: true });
+  await writeFile(prefix + ".reviewer.json", JSON.stringify({
+    schemaVersion: "attested-polyphonic-blind-review-v1",
+    purpose: "Independent free response. Do not consult organizer mapping or previous sense hypotheses.",
+    sourceUsage: "UD Chinese GSD train, CC BY-SA 4.0; local research only",
+    cases: sample.reviewerCases,
+  }, null, 2) + "\\n", "utf8");
+  await writeFile(prefix + ".organizer.json", JSON.stringify({
+    schemaVersion: "attested-polyphonic-organizer-v1",
+    sourceCommit: SOURCE_COMMIT, sourceSha256: digest,
+    caution: "Contains unapproved reading alternatives; do NOT distribute to first-round reviewers",
+    distinctTargetForms: sample.distinctTargetForms,
+    cases: sample.organizerCases,
+  }, null, 2) + "\\n", "utf8");
+  console.log(JSON.stringify({
+    localPolyphonicCasesPrepared: sample.reviewerCases.length,
+    separateBlindedAndOrganizerFiles: true,
+    candidateReadingsPublishedToReviewer: false,
+    sourceTextPrinted: false,
+  }));
+}
 // Opt-in local-only handoff. It contains copyrighted source text and is
 // NEVER uploaded by CI. Deterministic evenly spaced sampling prevents selecting
 // only attractive examples after reading the generated candidates.
