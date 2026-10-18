@@ -63,65 +63,6 @@ export interface AttestedReadingReviewSample {
   };
 }
 
-/** Deterministic type-balanced sampling, not cherry-picked favorable sentences.
- * Sampling is spread over *distinct written forms*, then the middle source
- * occurrence of that form. No competing reading options reach reviewers.
- */
-export function prepareBlindedReadingReviewSample(
-  candidates: readonly AttestedReadingReviewCandidate[],
-  maxCases = 24,
-): {
-  readonly reviewerCases: readonly AttestedReadingReviewSample[];
-  readonly organizerCases: readonly {
-    readonly caseId: string;
-    readonly sourceSentenceIndex: number;
-    readonly sourceTokenId: number;
-    readonly sourceTokenIndex: number;
-    readonly text: string;
-    readonly possibleEntryIds: readonly string[];
-  }[];
-  readonly distinctTargetForms: number;
-} {
-  if (!Number.isInteger(maxCases) || maxCases < 1 || maxCases > 100) {
-    throw new RangeError("invalid review sample count");
-  }
-  const groups = new Map<string, AttestedReadingReviewCandidate[]>();
-  for (const candidate of candidates) {
-    const group = groups.get(candidate.text) ?? [];
-    group.push(candidate);
-    groups.set(candidate.text, group);
-  }
-  const forms = [...groups.keys()].sort();
-  const count = Math.min(maxCases, forms.length);
-  const selected = Array.from({ length: count }, (_, i) => {
-    const text = forms[Math.floor(i * forms.length / count)]!;
-    const examples = groups.get(text)!;
-    return examples[Math.floor((examples.length - 1) / 2)]!;
-  });
-  return {
-    reviewerCases: selected.map((candidate, index) => ({
-      caseId: `R${String(index + 1).padStart(2, "0")}`,
-      originalText: candidate.originalText,
-      focusText: candidate.text,
-      focusStart: candidate.start,
-      focusEnd: candidate.end,
-      rawAnswer: {
-        wordBoundary: null, senseDescription: null,
-        completeBopomofo: null, naturalness: null, uncertaintyNotes: null,
-      },
-    })),
-    organizerCases: selected.map((candidate, index) => ({
-      caseId: `R${String(index + 1).padStart(2, "0")}`,
-      sourceSentenceIndex: candidate.sourceSentenceIndex,
-      sourceTokenId: candidate.sourceTokenId,
-      sourceTokenIndex: candidate.sourceTokenIndex,
-      text: candidate.text,
-      possibleEntryIds: candidate.possibleEntryIds,
-    })),
-    distinctTargetForms: forms.length,
-  };
-}
-
 /** Two distinct authentic contexts for the same written form. A pair is a
  * *review question*, not proof of a reading alternation, and cannot be used
  * as ground truth before independent human review.
