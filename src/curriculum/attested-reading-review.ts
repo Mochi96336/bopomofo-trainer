@@ -264,12 +264,33 @@ export function preparePairedBlindedReadingReviewSample(
       }
     }
   }
-  // Present all A cases before B cases, with opaque case IDs. The reviewer
-  // sees neither a pair ID nor source UPOS or possible pronunciation IDs.
-  const reordered = [
-    ...selected.map((group, index) => ({ group, index, half: 0 as const })),
-    ...selected.map((group, index) => ({ group, index, half: 1 as const })),
-  ];
+  // Do NOT expose the previous aligned A/B order: R01 matched R13, R02
+  // matched R14, etc., revealing the contrast design to first-pass reviewers.
+  // Fixed pseudorandom case order is independent of candidate pronunciations
+  // and makes every first-pass reviewer see the same blind packet.
+  const unordered = selected.flatMap((group, index) => [
+    { group, index, half: 0 as const },
+    { group, index, half: 1 as const },
+  ]);
+  unordered.sort((a, b) => {
+    const aCase = a.group.pair[a.half];
+    const bCase = b.group.pair[b.half];
+    const aHash = formHash(
+      `blind-v2:${a.group.text}:${aCase.sourceSentenceIndex}:${aCase.sourceTokenId}`,
+    );
+    const bHash = formHash(
+      `blind-v2:${b.group.text}:${bCase.sourceSentenceIndex}:${bCase.sourceTokenId}`,
+    );
+    return aHash - bHash || aCase.sourceSentenceIndex - bCase.sourceSentenceIndex
+      || aCase.sourceTokenId - bCase.sourceTokenId;
+  });
+  const reordered: typeof unordered = [];
+  while (unordered.length > 0) {
+    const lastText = reordered.length > 0
+      ? reordered[reordered.length - 1]!.group.text : null;
+    const different = unordered.findIndex(row => row.group.text !== lastText);
+    reordered.push(unordered.splice(different < 0 ? 0 : different, 1)[0]!);
+  }
   const reviewerCases = reordered.map(({ group, half }, index) => {
     const row = group.pair[half];
     return {
