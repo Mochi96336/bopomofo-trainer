@@ -6,6 +6,7 @@ import { extractAttestedClauseSpans } from "../src/curriculum/attested-clause-sp
 import { auditAttestedTargetContextCoverage } from "../src/curriculum/attested-target-contexts.js";
 import { alignUdTokensToSourceText, parseUdOriginalSentenceTexts } from "../src/curriculum/attested-context-source-alignment.js";
 import { auditAttestedAmbiguousReadingCoverage, findAttestedAmbiguousReadingCandidates, prepareBlindedReadingReviewSample } from "../src/curriculum/attested-reading-review.js";
+import { compareAttestedReadingPolicies } from "../src/curriculum/attested-reading-policy-comparison.js";
 import { parseUdOccurrenceSentences } from "./ud-occurrence-source.js";
 
 const SOURCE_COMMIT = "22f73e87f7ddc530bb131a6b7587971a03e1a712";
@@ -106,6 +107,22 @@ for (let i = 0; i < sentences.length; i++) {
 const ambiguousReviewCoverage = auditAttestedAmbiguousReadingCoverage(
   sentences, originalTexts, PRACTICE_CATALOG, 3, 16,
 );
+const ambiguousCatalog = catalogIdentityIndex(PRACTICE_CATALOG);
+const ambiguousSourceCases = sentences.flatMap((tokens, sourceSentenceIndex) => {
+  const lexical = tokens.filter(token => token.upos !== "PUNCT");
+  if (lexical.length < 3 || lexical.length > 16
+    || !lexical.some(token => token.upos === "VERB")) return [];
+  return findAttestedAmbiguousReadingCandidates(
+    tokens, originalTexts[sourceSentenceIndex] ?? null, sourceSentenceIndex,
+    ambiguousCatalog,
+  );
+});
+if (ambiguousSourceCases.length !== ambiguousReviewCoverage.ambiguousOccurrenceCount) {
+  throw new Error("polyphonic comparison does not match exact source coverage");
+}
+const policyComparison = compareAttestedReadingPolicies(
+  ambiguousSourceCases, sentences, PRACTICE_CATALOG, SYNTAX_PROFILES,
+);
 const summary = {
   schemaVersion: "attested-sentence-identity-coverage-v1",
   status: "train-only source feasibility audit; NOT independently approved sentences or pronunciation labels",
@@ -126,6 +143,7 @@ const summary = {
     alignedBroadContextsWithFocus: broadEligibleAligned,
     alignedBroadFocusOccurrences: broadEligibleFocusOccurrencesAligned,
   },
+  ambiguousReadingPolicyHypotheses: policyComparison,
   ambiguousInContextReadingReview: {
     status: "pending independent whole-lexeme, contextual sense and full-bopomofo review; no approved labels",
     ...ambiguousReviewCoverage,
@@ -155,15 +173,7 @@ if (ambiguousReviewArg !== undefined) {
     || /[^a-zA-Z0-9._/-]/u.test(prefix)) {
     throw new Error("local polyphonic review prefix must be under data/generated/");
   }
-  const lexicalIndex = catalogIdentityIndex(PRACTICE_CATALOG);
-  const all = sentences.flatMap((tokens, sourceSentenceIndex) => {
-    const lexical = tokens.filter(t => t.upos !== "PUNCT");
-    if (lexical.length < 3 || lexical.length > 16
-      || !lexical.some(t => t.upos === "VERB")) return [];
-    return findAttestedAmbiguousReadingCandidates(
-      tokens, originalTexts[sourceSentenceIndex] ?? null, sourceSentenceIndex, lexicalIndex,
-    );
-  });
+  const all = ambiguousSourceCases;
   if (all.length !== ambiguousReviewCoverage.ambiguousOccurrenceCount) {
     throw new Error("polyphonic organizer/reviewer sample coverage disagrees with audit");
   }
