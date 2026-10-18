@@ -13,6 +13,8 @@ export interface AttestedReadingReviewCandidate {
   readonly sourceTokenId: number;
   readonly sourceTokenIndex: number;
   readonly text: string;
+  /** Organizer-only UD role observation, NOT semantic or reading gold. */
+  readonly sourceUpos: string;
   readonly originalText: string;
   readonly start: number;
   readonly end: number;
@@ -39,7 +41,7 @@ export function findAttestedAmbiguousReadingCandidates(
     if (originalText.slice(span.start, span.end) !== token.form) continue;
     found.push({
       sourceSentenceIndex, sourceTokenId: token.id,
-      sourceTokenIndex: i, text: token.form, originalText,
+      sourceTokenIndex: i, text: token.form, sourceUpos: token.upos, originalText,
       start: span.start, end: span.end, possibleEntryIds: identities.sort(),
     });
   }
@@ -117,6 +119,160 @@ export function prepareBlindedReadingReviewSample(
       possibleEntryIds: candidate.possibleEntryIds,
     })),
     distinctTargetForms: forms.length,
+  };
+}
+
+/** Two distinct authentic contexts for the same written form. A pair is a
+ * *review question*, not proof of a reading alternation, and cannot be used
+ * as ground truth before independent human review.
+ */
+export function preparePairedBlindedReadingReviewSample(
+  candidates: readonly AttestedReadingReviewCandidate[],
+  maxCases = 24,
+): {
+  readonly reviewerCases: readonly AttestedReadingReviewSample[];
+  readonly organizerCases: readonly {
+    readonly caseId: string;
+    readonly pairId: string;
+    readonly cohort: "same-source-upos" | "different-source-upos";
+    readonly sourceSentenceIndex: number;
+    readonly sourceTokenId: number;
+    readonly sourceTokenIndex: number;
+    readonly sourceUpos: string;
+    readonly text: string;
+    readonly possibleEntryIds: readonly string[];
+  }[];
+  readonly eligiblePairedForms: number;
+  readonly sameUposPairCount: number;
+  readonly differentUposPairCount: number;
+} {
+  if (!Number.isInteger(maxCases) || maxCases < 2 || maxCases > 100 || maxCases % 2 !== 0) {
+    throw new RangeError("paired review count must be even, between 2 and 100");
+  }
+  const groups = new Map<string, AttestedReadingReviewCandidate[]>();
+  for (const candidate of candidates) {
+    const list = groups.get(candidate.text) ?? [];
+    list.push(candidate);
+    groups.set(candidate.text, list);
+  }
+
+  type Pair = readonly [AttestedReadingReviewCandidate, AttestedReadingReviewCandidate];
+  function pairFor(
+    rows: readonly AttestedReadingReviewCandidate[],
+    cohort: "same-source-upos" | "different-source-upos" | "either",
+  ): Pair | null {
+    const ordered = [...rows].sort((a, b) =>
+      a.sourceSentenceIndex - b.sourceSentenceIndex
+      || a.sourceTokenId - b.sourceTokenId);
+    let best: Pair | null = null;
+    let maximumDistance = -1;
+    for (let i = 0; i < ordered.length; i++) {
+      for (let j = i + 1; j < ordered.length; j++) {
+        const a = ordered[i]!, b = ordered[j]!;
+        if (a.sourceSentenceIndex === b.sourceSentenceIndex || a.originalText === b.originalText) continue;
+        if (cohort === "same-source-upos" && a.sourceUpos !== b.sourceUpos) continue;
+        if (cohort === "different-source-upos" && a.sourceUpos === b.sourceUpos) continue;
+        const distance = b.sourceSentenceIndex - a.sourceSentenceIndex;
+        if (distance > maximumDistance) {
+          best = [a, b];
+          maximumDistance = distance;
+        }
+      }
+    }
+    return best;
+  }
+  // FNV-1a of the word form gives a fixed sample order independent of Unicode
+  // lexicographic order and independent of the as-yet-unseen human answers.
+  function formHash(form: string): number {
+    let hash = 2166136261;
+    for (let i = 0; i < form.length; i++) {
+      hash = Math.imul(hash ^ form.charCodeAt(i), 16777619) >>> 0;
+    }
+    return hash;
+  }
+  const formOrder = [...groups.keys()].sort((a, b) =>
+    formHash(a) - formHash(b) || (a < b ? -1 : a > b ? 1 : 0));
+  const pool = formOrder.flatMap(text => {
+    const rows = groups.get(text)!;
+    const same = pairFor(rows, "same-source-upos");
+    const different = pairFor(rows, "different-source-upos");
+    if (same === null && different === null) return [];
+    return [{ text, same, different }];
+  });
+  const desiredPairs = Math.min(maxCases / 2, pool.length);
+  const selected: {
+    readonly text: string;
+    readonly cohort: "same-source-upos" | "different-source-upos";
+    readonly pair: Pair;
+  }[] = [];
+  const used = new Set<string>();
+  function collect(
+    cohort: "same-source-upos" | "different-source-upos",
+    maximum: number,
+  ): void {
+    for (const group of pool) {
+      if (selected.length >= maximum || used.has(group.text)) continue;
+      const pair = group[cohort === "same-source-upos" ? "same" : "different"];
+      if (pair === null) continue;
+      selected.push({ text: group.text, cohort, pair });
+      used.add(group.text);
+    }
+  }
+  // Target two-thirds same-POS contexts: POS cannot decide their readings.
+  collect("same-source-upos", Math.ceil(desiredPairs * 2 / 3));
+  collect("different-source-upos", desiredPairs);
+  collect("same-source-upos", desiredPairs);
+  // Fallback when no second role exists: a same-form pair is still useful.
+  if (selected.length < desiredPairs) {
+    for (const group of pool) {
+      if (selected.length >= desiredPairs) break;
+      if (used.has(group.text)) continue;
+      const pair = group.same ?? group.different;
+      if (pair === null) continue;
+      selected.push({
+        text: group.text, cohort: group.same ? "same-source-upos" : "different-source-upos", pair,
+      });
+      used.add(group.text);
+    }
+  }
+  // Present all A cases before B cases, with opaque case IDs. The reviewer
+  // sees neither a pair ID nor source UPOS or possible pronunciation IDs.
+  const reordered = [
+    ...selected.map((group, index) => ({ group, index, half: 0 as const })),
+    ...selected.map((group, index) => ({ group, index, half: 1 as const })),
+  ];
+  const reviewerCases = reordered.map(({ group, half }, index) => {
+    const row = group.pair[half];
+    return {
+      caseId: `R${String(index + 1).padStart(2, "0")}`,
+      originalText: row.originalText,
+      focusText: row.text,
+      focusStart: row.start,
+      focusEnd: row.end,
+      rawAnswer: {
+        wordBoundary: null, senseDescription: null,
+        completeBopomofo: null, naturalness: null, uncertaintyNotes: null,
+      },
+    } satisfies AttestedReadingReviewSample;
+  });
+  const organizerCases = reordered.map(({ group, half, index }, offset) => {
+    const row = group.pair[half];
+    return {
+      caseId: `R${String(offset + 1).padStart(2, "0")}`,
+      pairId: `P${String(index + 1).padStart(2, "0")}`,
+      cohort: group.cohort,
+      sourceSentenceIndex: row.sourceSentenceIndex,
+      sourceTokenId: row.sourceTokenId,
+      sourceTokenIndex: row.sourceTokenIndex,
+      sourceUpos: row.sourceUpos,
+      text: row.text,
+      possibleEntryIds: row.possibleEntryIds,
+    };
+  });
+  return {
+    reviewerCases, organizerCases, eligiblePairedForms: pool.length,
+    sameUposPairCount: selected.filter(p => p.cohort === "same-source-upos").length,
+    differentUposPairCount: selected.filter(p => p.cohort === "different-source-upos").length,
   };
 }
 
