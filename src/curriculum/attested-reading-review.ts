@@ -162,9 +162,9 @@ export function preparePairedBlindedReadingReviewSample(
   // Compare short original text flanks without guessing meanings or readings.
   function localFrame(row: AttestedReadingReviewCandidate): readonly [string, string] {
     const left = row.originalText.slice(Math.max(0, row.start - 8), row.start)
-      .replace(/[^\\p{L}\\p{N}]/gu, "").slice(-2);
+      .replace(/[^\p{L}\p{N}]/gu, "").slice(-2);
     const right = row.originalText.slice(row.end, row.end + 8)
-      .replace(/[^\\p{L}\\p{N}]/gu, "").slice(0, 2);
+      .replace(/[^\p{L}\p{N}]/gu, "").slice(0, 2);
     return [left, right];
   }
   function pairFor(
