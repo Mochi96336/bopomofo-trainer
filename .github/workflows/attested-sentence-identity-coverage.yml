@@ -17,8 +17,6 @@ on:
       - "tests/app/attested-reviewed-focus.test.ts"
       - "tests/app/attested-focus-context.test.ts"
       - "tests/curriculum/attested-target-contexts.test.ts"
-      - "src/curriculum/attested-clause-spans.ts"
-      - "tests/curriculum/attested-clause-spans.test.ts"
       - "tests/curriculum/attested-sentence-candidates.test.ts"
       - "scripts/audit-attested-sentence-identity-coverage.ts"
       - "scripts/ud-occurrence-source.ts"
@@ -55,12 +53,9 @@ jobs:
       - name: Compile current resolved pronunciation-specific catalog
         run: npm run app:catalog
       - name: Unit-test exact identity and token boundary gates
-        run: npx vitest run tests/curriculum/attested-sentence-candidates.test.ts tests/curriculum/attested-clause-spans.test.ts tests/curriculum/attested-target-contexts.test.ts tests/curriculum/attested-context-source-alignment.test.ts tests/curriculum/attested-reading-review.test.ts tests/curriculum/attested-reading-policy-comparison.test.ts tests/app/attested-focus-context.test.ts tests/app/attested-reviewed-focus.test.ts
+        run: npx vitest run tests/curriculum/attested-sentence-candidates.test.ts tests/curriculum/attested-target-contexts.test.ts tests/curriculum/attested-context-source-alignment.test.ts tests/curriculum/attested-reading-review.test.ts tests/curriculum/attested-reading-policy-comparison.test.ts tests/app/attested-focus-context.test.ts tests/app/attested-reviewed-focus.test.ts
       - name: Measure train-only source candidates without distributing sentences
-        run: npx tsx scripts/audit-attested-sentence-identity-coverage.ts --local-review=data/generated/attested-clause-review-local.json --local-polyphonic-review=data/generated/ud-polyphonic-blind
-      - name: Verify local review file shape without publishing source quotations
-        run: |
-          node --input-type=module -e 'import {readFileSync} from "node:fs"; const v=JSON.parse(readFileSync("data/generated/attested-clause-review-local.json","utf8")); if(v.samples.length!==24 || v.samples.some(x=>x.review.standaloneAcceptability!==null||x.review.TaiwanMandarinNaturalness!==null)) throw Error("local review sample drift"); console.log("24 eligible source clauses ready for local review; source text withheld from CI logs");'
+        run: npx tsx scripts/audit-attested-sentence-identity-coverage.ts --local-polyphonic-review=data/generated/ud-polyphonic-blind
       - name: Verify blind polyphonic file omits answer choices and organizer contents remain private
         run: |
           node --input-type=module -e 'import {readFileSync} from "node:fs"; const prefix="data/generated/ud-polyphonic-blind"; const reviewer=JSON.parse(readFileSync(prefix+".reviewer.json","utf8")); const organizer=JSON.parse(readFileSync(prefix+".organizer.json","utf8")); if(reviewer.cases.length!==24||organizer.cases.length!==24||organizer.sameUposPairCount+organizer.differentUposPairCount!==12||new Set(organizer.cases.map(c=>c.pairId)).size!==12||new Set(organizer.cases.map(c=>c.sourceSentenceIndex)).size!==24||organizer.cases.some((c,i)=>i>0&&c.pairId===organizer.cases[i-1].pairId)||reviewer.cases.some(c=>c.rawAnswer.completeBopomofo!==null||"possibleEntryIds" in c||"sourceUpos" in c||"pairId" in c)||organizer.cases.some(c=>c.possibleEntryIds.length<2)) throw Error("polyphonic blind contrast review mismatch"); console.log("24 source-attested cases in 12 same-form context pairs prepared, answer-free reviewer packet; no source texts uploaded");'
