@@ -1,5 +1,5 @@
 import type { CatalogEntry } from "../core/model.js";
-import type { RuntimeSyntaxProfile, Upos } from "../syntax/types.js";
+import type { RuntimeSyntaxProfile } from "../syntax/types.js";
 import { reviewedRoleReadingEligible } from "../readings/pronominal-role-license.js";
 import { reviewedZhongRolePilotEligible } from "../readings/zhong-role-pilot.js";
 import type { AttestedReadingReviewCandidate } from "./attested-reading-review.js";
