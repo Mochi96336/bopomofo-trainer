@@ -178,6 +178,27 @@ if (ambiguousReviewArg !== undefined) {
     throw new Error("polyphonic organizer/reviewer sample coverage disagrees with audit");
   }
   const sample = preparePairedBlindedReadingReviewSample(all, 24);
+  const bySourceCoordinate = new Map(all.map(row => [
+    JSON.stringify([row.sourceSentenceIndex, row.sourceTokenId, row.sourceTokenIndex]), row,
+  ]));
+  const selectedSourceCases = sample.organizerCases.map(row => {
+    const sourceCase = bySourceCoordinate.get(JSON.stringify([
+      row.sourceSentenceIndex, row.sourceTokenId, row.sourceTokenIndex,
+    ]));
+    if (sourceCase === undefined || sourceCase.text !== row.text) {
+      throw new Error("blind reviewer source coordinate has no pinned corpus occurrence");
+    }
+    return sourceCase;
+  });
+  const sampledPolicy = compareAttestedReadingPolicies(
+    selectedSourceCases, sentences, PRACTICE_CATALOG, SYNTAX_PROFILES,
+  );
+  // These are private organizer-level aggregate diagnostics, never reviewer
+  // answer suggestions. Do not interpret any unique proposal as gold.
+  const unresolvedSample = sampledPolicy.existingProductPolicy.unresolvedMultipleReadings;
+  if (sampledPolicy.candidateCount !== sample.reviewerCases.length) {
+    throw new Error("blind review selection/policy comparison count drift");
+  }
   await mkdir("data/generated", { recursive: true });
   await writeFile(prefix + ".reviewer.json", JSON.stringify({
     schemaVersion: "attested-polyphonic-blind-review-v1",
@@ -199,6 +220,12 @@ if (ambiguousReviewArg !== undefined) {
     localPolyphonicDistinctFormsSampled: sample.sameUposPairCount + sample.differentUposPairCount,
     sameUposContrastPairs: sample.sameUposPairCount,
     differentUposContrastPairs: sample.differentUposPairCount,
+    currentPolicyUniqueProposalsInBlindCases:
+      sampledPolicy.existingProductPolicy.uniqueReadingProposal,
+    currentPolicyUnresolvedInBlindCases: unresolvedSample,
+    currentPolicyNoMatchingProfilesInBlindCases:
+      sampledPolicy.existingProductPolicy.noMatchingProfile,
+    proposedZhongAdditionalUniqueInBlindCases: sampledPolicy.newlyUniqueZhongOnly,
     separateBlindedAndOrganizerFiles: true,
     candidateReadingsPublishedToReviewer: false,
     sourceTextPrinted: false,
