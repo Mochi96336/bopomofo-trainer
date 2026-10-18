@@ -8,12 +8,16 @@ import {
   type AttestedContextDecision,
 } from "../../src/app/attested-reviewed-focus.js";
 import { compileExerciseInputPlan } from "../../src/practice/input-plan.js";
+import { catalogEntryId } from "../../src/core/catalog-entry-id.js";
+import { parseReading } from "../../src/scheme/parse-reading.js";
 
 function entry(text: string, reading: string): CatalogEntry {
+  const parsed = parseReading(reading);
+  if (!parsed.ok) throw new Error("fixture reading invalid: " + reading);
   return {
-    id: "word:" + text + ":" + reading,
+    id: catalogEntryId(text, reading),
     prompt: { text, locale: "zh-TW" },
-    syllables: [{ tokens: ["zhuyin:ㄔ", "tone:1"] }],
+    syllables: parsed.syllables,
     tags: [], provenanceIds: [],
   };
 }
@@ -51,6 +55,7 @@ const hypotheticalApproved: AttestedContextDecision = {
     verdict: "approved", evidenceId: "test-reading",
     reviewerId: "reviewer-fixture-A", adjudicatorId: "reviewer-fixture-B",
     approvedEntryId: targetEntry.id,
+    approvedReading: "ㄔ1",
     reviewedCandidateEntryIds: [targetEntry.id],
   },
   taiwanMandarinSuitability: { verdict: "approved", evidenceId: "test-naturalness" },
@@ -107,6 +112,7 @@ describe("attested context product promotion stays blocked without independent r
       contextualReading: {
         ...hypotheticalApproved.contextualReading,
         approvedEntryId: objects.id,
+        approvedReading: "ㄉㄨㄥ1 ㄒㄧ5",
         reviewedCandidateEntryIds: [directional.id, objects.id],
       },
     };
@@ -122,7 +128,17 @@ describe("attested context product promotion stays blocked without independent r
     expect(result?.exercise.entries.map(word => word.id)).toEqual([objects.id]);
     expect(result?.presentation.focus).toBe("東西");
     expect(result?.html).toContain(">東西</mark>");
-    expect(compileExerciseInputPlan(result!.exercise).syllables).toHaveLength(1);
+    const realInput = compileExerciseInputPlan(result!.exercise);
+    expect(realInput.syllables).toHaveLength(2);
+    expect(realInput.syllables[0]!.bodySlots.map(slot => slot.tokenId))
+      .toEqual(["zhuyin:ㄉ", "zhuyin:ㄨ", "zhuyin:ㄥ"]);
+    expect(realInput.syllables.map(syllable => syllable.toneSlot.tokenId))
+      .toEqual(["tone:1", "tone:5"]);
+    expect(compileExerciseInputPlan({
+      ...result!.exercise,
+      entries: [directional],
+    }).syllables.map(syllable => syllable.toneSlot.tokenId))
+      .toEqual(["tone:1", "tone:1"]);
     // A reading decision may not silently follow the source-UPOS-only option.
     expect(checked({ ...adjudicated,
       contextualReading: { ...adjudicated.contextualReading, approvedEntryId: directional.id },
@@ -134,6 +150,17 @@ describe("attested context product promotion stays blocked without independent r
     expect(checked({ ...adjudicated, contextualReading: {
       ...adjudicated.contextualReading, reviewedCandidateEntryIds: [objects.id],
     } })).toBeNull();
+    expect(checked({ ...adjudicated, contextualReading: {
+      ...adjudicated.contextualReading,
+      approvedReading: "ㄉㄨㄥ1 ㄒㄧ1",
+    } })).toBeNull();
+    expect(checked({ ...adjudicated, contextualReading: {
+      ...adjudicated.contextualReading,
+      approvedReading: "ㄉㄨㄥ1 ㄒㄧ",
+    } })).toBeNull();
+    // An entry ID left unchanged with a mutated grading token is not safe.
+    const poisoned = { ...objects, syllables: directional.syllables };
+    expect(checked(adjudicated, focus, [directional, poisoned])).toBeNull();
     expect(checked(adjudicated, focus, ambiguousCatalog, [])).toBeNull();
     expect(checked(adjudicated, { ...focus, tokenIndex: 1 })).toBeNull();
     // Merely editing the source entry ID must not bypass the explicit approval.
@@ -165,6 +192,12 @@ describe("attested context product promotion stays blocked without independent r
     } })).toBeNull();
     expect(run({ ...hypotheticalApproved, contextualReading: {
       ...hypotheticalApproved.contextualReading, approvedEntryId: "word:吃:ㄔ2",
+    } })).toBeNull();
+    expect(run({ ...hypotheticalApproved, contextualReading: {
+      ...hypotheticalApproved.contextualReading, approvedReading: "ㄔ2",
+    } })).toBeNull();
+    expect(run({ ...hypotheticalApproved, contextualReading: {
+      ...hypotheticalApproved.contextualReading, approvedReading: "",
     } })).toBeNull();
     expect(run({ ...hypotheticalApproved, contextualReading: {
       ...hypotheticalApproved.contextualReading, reviewedCandidateEntryIds: [],
