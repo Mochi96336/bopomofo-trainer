@@ -113,6 +113,13 @@ describe("attested polyphonic reading review intake", () => {
     expect([...byPair.values()].every(rows =>
       rows.length === 2 && rows[0]!.text === rows[1]!.text
       && rows[0]!.sourceSentenceIndex !== rows[1]!.sourceSentenceIndex)).toBe(true);
+    expect(new Set(out.organizerCases.map(row => row.sourceSentenceIndex)).size).toBe(4);
+    expect(out.organizerCases.every((row, i) =>
+      i === 0 || row.pairId !== out.organizerCases[i - 1]!.pairId)).toBe(true);
+    // Reviewer case ordering is not two aligned lists exposing which cases pair.
+    expect(out.organizerCases.map(row => row.pairId)).not.toEqual([
+      "P01", "P02", "P01", "P02",
+    ]);
     const blind = JSON.stringify(out.reviewerCases);
     expect(blind).not.toContain("possibleEntryIds");
     expect(blind).not.toContain("sourceUpos");
@@ -120,6 +127,27 @@ describe("attested polyphonic reading review intake", () => {
     expect(blind).not.toContain("ㄓㄨㄥ");
     expect(blind).not.toContain("ㄉㄨㄥ");
     expect(() => preparePairedBlindedReadingReviewSample(source, 3)).toThrow("even");
+  });
+
+  it("prefers locally different context over distant but identical usage frames", () => {
+    const contexts = [
+      { text: "我買東西", tokens: [token(1, "我", "PRON"), token(2, "買", "VERB"), token(3, "東西")] },
+      { text: "道路東西延伸", tokens: [token(1, "道路"), token(2, "東西"), token(3, "延伸", "VERB")] },
+      { text: "昨天我買東西", tokens: [token(1, "昨天"), token(2, "我", "PRON"), token(3, "買", "VERB"), token(4, "東西")] },
+    ];
+    const rows = contexts.flatMap((row, sourceSentenceIndex) =>
+      findAttestedAmbiguousReadingCandidates(
+        row.tokens, row.text, sourceSentenceIndex, catalogIdentityIndex(entries),
+      ));
+    const result = preparePairedBlindedReadingReviewSample(rows, 2);
+    expect(result.organizerCases).toHaveLength(2);
+    const chosenIndices = result.organizerCases.map(row => row.sourceSentenceIndex).sort();
+    // The old "maximum sentence-index distance" policy took 0 and 2, even
+    // though both literally use 我買東西. Now the contrast includes 道路...延伸.
+    expect(chosenIndices).toContain(1);
+    expect(chosenIndices).not.toEqual([0, 2]);
+    expect(preparePairedBlindedReadingReviewSample([...rows].reverse(), 2))
+      .toEqual(result);
   });
 
   it("counts source ambiguity without promoting corpus UPOS to a label", () => {
