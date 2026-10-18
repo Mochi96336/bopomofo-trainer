@@ -5,7 +5,7 @@ import { auditAttestedSentenceEligibility, catalogIdentityIndex, catalogUposInde
 import { extractAttestedClauseSpans } from "../src/curriculum/attested-clause-spans.js";
 import { auditAttestedTargetContextCoverage } from "../src/curriculum/attested-target-contexts.js";
 import { alignUdTokensToSourceText, parseUdOriginalSentenceTexts } from "../src/curriculum/attested-context-source-alignment.js";
-import { auditAttestedAmbiguousReadingCoverage, findAttestedAmbiguousReadingCandidates, prepareBlindedReadingReviewSample } from "../src/curriculum/attested-reading-review.js";
+import { auditAttestedAmbiguousReadingCoverage, findAttestedAmbiguousReadingCandidates, preparePairedBlindedReadingReviewSample } from "../src/curriculum/attested-reading-review.js";
 import { compareAttestedReadingPolicies } from "../src/curriculum/attested-reading-policy-comparison.js";
 import { parseUdOccurrenceSentences } from "./ud-occurrence-source.js";
 
@@ -177,7 +177,7 @@ if (ambiguousReviewArg !== undefined) {
   if (all.length !== ambiguousReviewCoverage.ambiguousOccurrenceCount) {
     throw new Error("polyphonic organizer/reviewer sample coverage disagrees with audit");
   }
-  const sample = prepareBlindedReadingReviewSample(all, 24);
+  const sample = preparePairedBlindedReadingReviewSample(all, 24);
   await mkdir("data/generated", { recursive: true });
   await writeFile(prefix + ".reviewer.json", JSON.stringify({
     schemaVersion: "attested-polyphonic-blind-review-v1",
@@ -189,11 +189,16 @@ if (ambiguousReviewArg !== undefined) {
     schemaVersion: "attested-polyphonic-organizer-v1",
     sourceCommit: SOURCE_COMMIT, sourceSha256: digest,
     caution: "Contains unapproved reading alternatives; do NOT distribute to first-round reviewers",
-    distinctTargetForms: sample.distinctTargetForms,
+    eligiblePairedForms: sample.eligiblePairedForms,
+    sameUposPairCount: sample.sameUposPairCount,
+    differentUposPairCount: sample.differentUposPairCount,
     cases: sample.organizerCases,
   }, null, 2) + "\n", "utf8");
   console.log(JSON.stringify({
     localPolyphonicCasesPrepared: sample.reviewerCases.length,
+    localPolyphonicDistinctFormsSampled: sample.sameUposPairCount + sample.differentUposPairCount,
+    sameUposContrastPairs: sample.sameUposPairCount,
+    differentUposContrastPairs: sample.differentUposPairCount,
     separateBlindedAndOrganizerFiles: true,
     candidateReadingsPublishedToReviewer: false,
     sourceTextPrinted: false,
