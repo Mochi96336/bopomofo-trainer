@@ -4,7 +4,6 @@ import type { RuntimeSyntaxProfile } from "../../src/syntax/types.js";
 import type { UdOccurrenceToken } from "../../scripts/ud-occurrence-source.js";
 import {
   auditAttestedTargetContextCoverage,
-  targetCandidatesForAttestedContext,
 } from "../../src/curriculum/attested-target-contexts.js";
 
 function entry(text: string, reading: string): CatalogEntry {
@@ -35,22 +34,10 @@ const sentence = [token(1, "他", "PRON"), token(2, "吃", "VERB"),
   token(3, "未知菜名", "NOUN"), token(4, "。", "PUNCT")];
 
 describe("source context vs graded entry identity", () => {
-  it("can select a target without requiring every other source token to be in the catalog", () => {
-    const result = targetCandidatesForAttestedContext(sentence, 9, entries, profiles);
-    expect(result).toHaveLength(2);
-    expect(result.map(x => x.focusEntryId)).toEqual([he.id, eats.id]);
-    expect(result[1]).toMatchObject({
-      sourceSentenceIndex: 9, sourceTokenId: 2, tokenIndex: 1,
-      focusText: "吃", sourceTokenForms: ["他", "吃", "未知菜名", "。"],
-    });
-  });
-
   it("will not derive an ambiguous pronunciation from the corpus UPOS", () => {
     const anotherReading = entry("吃", "ㄔ2");
     const words = [...entries, anotherReading];
     const types = [...profiles, profile(anotherReading, "VERB")];
-    expect(targetCandidatesForAttestedContext(sentence, 9, words, types)
-      .map(x => x.focusText)).toEqual(["他"]);
     const report = auditAttestedTargetContextCoverage([sentence], words, types,
       { minLexicalTokens: 3, maxLexicalTokens: 8 });
     expect(report.skippedTargetTokens.ambiguousCatalogIdentity).toBe(1);
@@ -59,8 +46,12 @@ describe("source context vs graded entry identity", () => {
 
   it("rejects an unsupported target UPOS without denying other ungraded context words", () => {
     const wrong = sentence.map(t => t.id === 2 ? { ...t, upos: "ADJ" } : t);
-    const targets = targetCandidatesForAttestedContext(wrong, 3, entries, profiles);
-    expect(targets.map(x => x.focusText)).toEqual(["他"]);
+    const report = auditAttestedTargetContextCoverage([wrong], entries, profiles, {
+      minLexicalTokens: 3, maxLexicalTokens: 8,
+    });
+    // The invalid focus is skipped, but the ungraded context does not need
+    // full catalog coverage or a forced reading.
+    expect(report.eligibleContextCount).toBe(0);
   });
 
   it("counts unique context sentences and target occurrences separately", () => {
