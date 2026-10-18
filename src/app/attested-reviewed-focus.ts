@@ -7,6 +7,8 @@ import {
   type AttestedFocusPresentation,
 } from "../curriculum/attested-context-source-alignment.js";
 import { renderAttestedFocusContext } from "./attested-focus-context.js";
+import { parseReading } from "../scheme/parse-reading.js";
+import { catalogEntryId } from "../core/catalog-entry-id.js";
 
 /**
  * Offline-only product activation boundary.
@@ -40,6 +42,10 @@ export interface AttestedContextDecision {
     readonly adjudicatorId: string;
     /** Explicitly agreed reading identity; never infer from UD UPOS. */
     readonly approvedEntryId: string;
+    /** Organizer-normalized free-response Bopomofo in trainer syllable/tone
+     * notation (e.g. ㄉㄨㄥ1 ㄒㄧ5). Must match actual graded token contents;
+     * an entry ID alone is not evidence of what was read or adjudicated. */
+    readonly approvedReading: string;
     /** Snapshot of every alternative shown to the organizer at adjudication.
      * Not a reviewer-facing hint or independent evidence of correctness. */
     readonly reviewedCandidateEntryIds: readonly string[];
@@ -123,6 +129,17 @@ export function buildReviewedAttestedFocusPrototype(
     || !reviewedIds.every(id => variantIds.includes(id))) return null;
   const approvedEntry = variants.find(entry => entry.id === target.focusEntryId);
   if (approvedEntry === undefined) return null;
+  // The agreed Bopomofo is a separate review value, not just a claimed ID.
+  // The compiled input tokens must match that Bopomofo exactly, syllable by
+  // syllable, so ID drift or an accidental catalog token substitution rejects.
+  const approvedReading = decision.contextualReading.approvedReading;
+  if (typeof approvedReading !== "string" || !nonblank(approvedReading)) return null;
+  const parsedReading = parseReading(approvedReading);
+  if (!parsedReading.ok) return null;
+  const normalizedReading = approvedReading.trim().split(/\\s+/u).join(" ");
+  if (catalogEntryId(target.focusText, normalizedReading) !== approvedEntry.id
+    || JSON.stringify(parsedReading.syllables.map(syllable => syllable.tokens))
+      !== JSON.stringify(approvedEntry.syllables.map(syllable => syllable.tokens))) return null;
   // A reading must still have a corresponding catalog syntax profile for the
   // ACTUAL source token role. UPOS does not select the reading; human review does.
   if (!syntaxProfiles.some(profile => profile.entryId === approvedEntry.id
