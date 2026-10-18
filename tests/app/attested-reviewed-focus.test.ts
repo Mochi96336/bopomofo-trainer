@@ -50,6 +50,8 @@ const hypotheticalApproved: AttestedContextDecision = {
   contextualReading: {
     verdict: "approved", evidenceId: "test-reading",
     reviewerId: "reviewer-fixture-A", adjudicatorId: "reviewer-fixture-B",
+    approvedEntryId: targetEntry.id,
+    reviewedCandidateEntryIds: [targetEntry.id],
   },
   taiwanMandarinSuitability: { verdict: "approved", evidenceId: "test-naturalness" },
   reusePermission: {
@@ -76,6 +78,68 @@ describe("attested context product promotion stays blocked without independent r
     expect(out?.sourceReviewId).toBe("test-reading");
   });
 
+  it("promotes a truly polyphonic, same-UPOS focus ONLY with an explicit reviewed reading ID", () => {
+    const directional = entry("東西", "ㄉㄨㄥ1 ㄒㄧ1");
+    const objects = entry("東西", "ㄉㄨㄥ1 ㄒㄧ5");
+    const ambiguousCatalog = [directional, objects];
+    const nounProfiles: RuntimeSyntaxProfile[] = ambiguousCatalog.map(word => ({
+      ...profiles[0]!, id: word.id + ":NOUN", entryId: word.id, upos: "NOUN",
+    }));
+    const actualTokens: UdOccurrenceToken[] = [
+      { ...tokens[0]!, form: "我" },
+      { ...tokens[1]!, form: "買" },
+      { ...tokens[2]!, form: "東西", upos: "NOUN" },
+      tokens[3]!,
+    ];
+    const sourceText = "我買東西。";
+    const focus: AttestedTargetContext = {
+      sourceSentenceIndex: 20, sourceTokenId: 3, tokenIndex: 2,
+      focusText: "東西", focusEntryId: objects.id,
+      sourceTokenForms: actualTokens.map(token => token.form),
+    };
+    const adjudicated: AttestedContextDecision = {
+      ...hypotheticalApproved,
+      source: {
+        ...hypotheticalApproved.source,
+        sentenceIndex: 20, tokenId: 3, originalText: sourceText,
+        focusEntryId: objects.id,
+      },
+      contextualReading: {
+        ...hypotheticalApproved.contextualReading,
+        approvedEntryId: objects.id,
+        reviewedCandidateEntryIds: [directional.id, objects.id],
+      },
+    };
+    const checked = (review: AttestedContextDecision | null,
+      candidate: AttestedTargetContext = focus,
+      catalog: readonly CatalogEntry[] = ambiguousCatalog,
+      grammar: readonly RuntimeSyntaxProfile[] = nounProfiles,
+    ) => buildReviewedAttestedFocusPrototype(
+      candidate, actualTokens, sourceText, catalog, grammar, review,
+    );
+    expect(checked(null)).toBeNull();
+    const result = checked(adjudicated);
+    expect(result?.exercise.entries.map(word => word.id)).toEqual([objects.id]);
+    expect(result?.presentation.focus).toBe("東西");
+    expect(result?.html).toContain(">東西</mark>");
+    expect(compileExerciseInputPlan(result!.exercise).syllables).toHaveLength(1);
+    // A reading decision may not silently follow the source-UPOS-only option.
+    expect(checked({ ...adjudicated,
+      contextualReading: { ...adjudicated.contextualReading, approvedEntryId: directional.id },
+    })).toBeNull();
+    // If the catalog acquires a third alternative, the earlier adjudication
+    // has not considered that alternative, and becomes stale.
+    expect(checked(adjudicated, focus, [...ambiguousCatalog, entry("東西", "ㄉㄨㄥ1 ㄒㄧ2")]))
+      .toBeNull();
+    expect(checked({ ...adjudicated, contextualReading: {
+      ...adjudicated.contextualReading, reviewedCandidateEntryIds: [objects.id],
+    } })).toBeNull();
+    expect(checked(adjudicated, focus, ambiguousCatalog, [])).toBeNull();
+    expect(checked(adjudicated, { ...focus, tokenIndex: 1 })).toBeNull();
+    // Merely editing the source entry ID must not bypass the explicit approval.
+    expect(checked(adjudicated, { ...focus, focusEntryId: directional.id })).toBeNull();
+  });
+
   it("no review record or pending/rejected dimensions cannot enable any exercise", () => {
     expect(run(null)).toBeNull();
     expect(run({ ...hypotheticalApproved,
@@ -98,6 +162,12 @@ describe("attested context product promotion stays blocked without independent r
     } })).toBeNull();
     expect(run({ ...hypotheticalApproved, contextualReading: {
       ...hypotheticalApproved.contextualReading, evidenceId: " ",
+    } })).toBeNull();
+    expect(run({ ...hypotheticalApproved, contextualReading: {
+      ...hypotheticalApproved.contextualReading, approvedEntryId: "word:吃:ㄔ2",
+    } })).toBeNull();
+    expect(run({ ...hypotheticalApproved, contextualReading: {
+      ...hypotheticalApproved.contextualReading, reviewedCandidateEntryIds: [],
     } })).toBeNull();
     expect(run({ ...hypotheticalApproved, reusePermission: {
       ...hypotheticalApproved.reusePermission, attribution: "",
