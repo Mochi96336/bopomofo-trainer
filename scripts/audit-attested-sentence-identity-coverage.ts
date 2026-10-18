@@ -1,8 +1,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
-import { auditAttestedSentenceEligibility, catalogIdentityIndex, catalogUposIndex, classifyAttestedSentence } from "../src/curriculum/attested-sentence-candidates.js";
-import { extractAttestedClauseSpans } from "../src/curriculum/attested-clause-spans.js";
+import { auditAttestedSentenceEligibility, catalogIdentityIndex, catalogUposIndex } from "../src/curriculum/attested-sentence-candidates.js";
 import { auditAttestedTargetContextCoverage } from "../src/curriculum/attested-target-contexts.js";
 import { alignUdTokensToSourceText, parseUdOriginalSentenceTexts } from "../src/curriculum/attested-context-source-alignment.js";
 import { auditAttestedAmbiguousReadingCoverage, findAttestedAmbiguousReadingCandidates, preparePairedBlindedReadingReviewSample } from "../src/curriculum/attested-reading-review.js";
@@ -32,19 +31,6 @@ for (const report of [strict, broad]) {
     throw new Error("attested sentence eligibility partition is inconsistent");
   }
 }
-// Offline alternative: exact contiguous subordinate-clause subtrees from
-// longer UD sentences. These are NOT independently approved standalone
-// learner sentences; compare their coverage separately from full sentences.
-const clauseTokens = sentences.flatMap(sentence =>
-  extractAttestedClauseSpans(sentence).map(span => span.tokens));
-const clauseStrict = auditAttestedSentenceEligibility(
-  clauseTokens, PRACTICE_CATALOG, SYNTAX_PROFILES,
-  { minLexicalTokens: 3, maxLexicalTokens: 8 },
-);
-const clauseBroad = auditAttestedSentenceEligibility(
-  clauseTokens, PRACTICE_CATALOG, SYNTAX_PROFILES,
-  { minLexicalTokens: 3, maxLexicalTokens: 16 },
-);
 // Alternative design: preserve the entire original sentence as an *ungraded*
 // context and select only one lexical focus entry. This removes the incorrect
 // requirement that all context words be in the active practice catalog.
@@ -153,12 +139,6 @@ const summary = {
     short: targetOnlyShort,
     broad: targetOnlyBroad,
   },
-  attestedSubordinateClauses: {
-    candidateType: "contiguous ccomp/advcl subtrees with explicit lexical nsubj; not standalone sentence gold",
-    spanCount: clauseTokens.length,
-    strict: { ...clauseStrict, candidateIndices: undefined },
-    broad: { ...clauseBroad, candidateIndices: undefined },
-  },
   usage: "No text or sentence-level token/reading material redistributed; no product activation",
 };
 // Opt-in organizer/reviewer artifacts from *real* corpus ambiguity cases.
@@ -230,58 +210,6 @@ if (ambiguousReviewArg !== undefined) {
     candidateReadingsPublishedToReviewer: false,
     sourceTextPrinted: false,
   }));
-}
-// Opt-in local-only handoff. It contains copyrighted source text and is
-// NEVER uploaded by CI. Deterministic evenly spaced sampling prevents selecting
-// only attractive examples after reading the generated candidates.
-const reviewArg = process.argv.find(arg => arg.startsWith("--local-review="));
-if (reviewArg !== undefined) {
-  const path = reviewArg.slice("--local-review=".length);
-  if (!path.startsWith("data/generated/") || !path.endsWith(".json")
-    || /[^a-zA-Z0-9._/-]/u.test(path)
-    || path.includes("..")) {
-    throw new Error("local review must be a JSON path under data/generated/");
-  }
-  const catalog = catalogIdentityIndex(PRACTICE_CATALOG);
-  const upos = catalogUposIndex(SYNTAX_PROFILES);
-  const originals = sentences.flatMap((sentence, sourceSentenceIndex) =>
-    extractAttestedClauseSpans(sentence).map(span => {
-      const decision = classifyAttestedSentence(
-        span.tokens, sourceSentenceIndex, catalog, upos,
-        { minLexicalTokens: 3, maxLexicalTokens: 8 },
-      );
-      return decision.kind === "candidate"
-        ? { ...decision.candidate, sourceHeadTokenId: span.sourceHeadTokenId, relation: span.sourceRelation }
-        : null;
-    }).filter((x): x is NonNullable<typeof x> => x !== null));
-  const sampleCount = Math.min(24, originals.length);
-  const reviewSamples = Array.from({ length: sampleCount }, (_, i) => {
-    const original = originals[Math.floor(i * originals.length / sampleCount)]!;
-    return {
-      ...original,
-      review: {
-        standaloneAcceptability: null,
-        TaiwanMandarinNaturalness: null,
-        notes: null,
-      },
-    };
-  });
-  await mkdir("data/generated", { recursive: true });
-  await writeFile(path, JSON.stringify({
-    schemaVersion: "local-ud-clause-review-sample-v1",
-    sourceCommit: SOURCE_COMMIT, sourceSplit: "train",
-    attribution: "UD Chinese GSD contributors (Mo Shen, Ryan McDonald, Daniel Zeman, Peng Qi); CC BY-SA 4.0",
-    caution: "Locally generated copyrighted source quotations; do not relabel as MIT, ship or treat as independent pronunciation gold",
-    sampling: "fixed, evenly spaced over all eligible original-order train clause candidates",
-    eligiblePopulation: originals.length,
-    samples: reviewSamples,
-  }, null, 2) + "\n", "utf8");
-  console.log(JSON.stringify({
-    localReviewManifest: reviewSamples.map(({ sourceSentenceIndex, sourceHeadTokenId, relation }) =>
-      ({ sourceSentenceIndex, sourceHeadTokenId, relation })),
-    note: "Metadata-only references; no UD source text or pronunciation labels in CI logs",
-  }));
-  console.log(`wrote ${sampleCount} locally reviewable source excerpts; no excerpts printed`);
 }
 await mkdir("data/generated", { recursive: true });
 await writeFile("data/generated/attested-sentence-identity-coverage.json",
