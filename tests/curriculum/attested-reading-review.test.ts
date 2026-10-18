@@ -116,10 +116,9 @@ describe("attested polyphonic reading review intake", () => {
     expect(new Set(out.organizerCases.map(row => row.sourceSentenceIndex)).size).toBe(4);
     expect(out.organizerCases.every((row, i) =>
       i === 0 || row.pairId !== out.organizerCases[i - 1]!.pairId)).toBe(true);
-    // Reviewer case ordering is not two aligned lists exposing which cases pair.
-    expect(out.organizerCases.map(row => row.pairId)).not.toEqual([
-      "P01", "P02", "P01", "P02",
-    ]);
+    // With only two forms an alternating order is unavoidable if paired
+    // occurrences cannot be adjacent; the 12-pair real-source audit checks
+    // uniqueness and keeps the pair mapping organizer-only.
     const blind = JSON.stringify(out.reviewerCases);
     expect(blind).not.toContain("possibleEntryIds");
     expect(blind).not.toContain("sourceUpos");
