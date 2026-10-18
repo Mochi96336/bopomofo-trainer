@@ -8,6 +8,7 @@ import {
   type AttestedContextDecision,
 } from "../../src/app/attested-reviewed-focus.js";
 import { compileExerciseInputPlan } from "../../src/practice/input-plan.js";
+import { applyInteractionInputV2, createInteractionSessionV2 } from "../../src/practice/interaction-session-v2.js";
 import { catalogEntryId } from "../../src/core/catalog-entry-id.js";
 import { parseReading } from "../../src/scheme/parse-reading.js";
 
@@ -139,6 +140,38 @@ describe("attested context product promotion stays blocked without independent r
       entries: [directional],
     }).syllables.map(syllable => syllable.toneSlot.tokenId))
       .toEqual(["tone:1", "tone:1"]);
+    // Full interaction-engine path: original context is not graded. A wrong
+    // second-syllable direction tone must fail for the approved object sense,
+    // then a correct light tone must finish the exact one-entry exercise.
+    let interaction = createInteractionSessionV2(result!.exercise, 0);
+    let time = 10;
+    const press = (token: string): void => {
+      interaction = applyInteractionInputV2(interaction, {
+        timestampMs: time, physicalCode: "research-test-" + token, actualToken: token,
+        repeat: false, composing: false, modifierOnly: false,
+      });
+      time += 10;
+    };
+    for (const slot of realInput.syllables[0]!.bodySlots) press(slot.tokenId);
+    press("tone:1");
+    expect(interaction.currentSyllableOrdinal).toBe(1);
+    for (const slot of realInput.syllables[1]!.bodySlots) press(slot.tokenId);
+    press("tone:1");
+    expect(interaction.completed).toBe(false);
+    expect(interaction.traces.at(-1)).toMatchObject({
+      outcome: "unexpected-tone", attributedExpectedToken: "tone:5",
+      entryId: objects.id, syllableIndex: 1,
+    });
+    press("tone:5");
+    expect(interaction.completed).toBe(true);
+    expect(interaction.traces.at(-1)).toMatchObject({
+      outcome: "accepted-tone", entryId: objects.id, syllableIndex: 1,
+      recovery: true,
+    });
+    expect(interaction.traces.filter(trace => trace.outcome === "accepted-tone"))
+      .toHaveLength(2);
+    expect(interaction.traces.every(trace => trace.entryId === objects.id)).toBe(true);
+
     // A reading decision may not silently follow the source-UPOS-only option.
     expect(checked({ ...adjudicated,
       contextualReading: { ...adjudicated.contextualReading, approvedEntryId: directional.id },
