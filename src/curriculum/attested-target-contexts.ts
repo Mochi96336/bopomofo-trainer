@@ -98,29 +98,3 @@ export function auditAttestedTargetContextCoverage(
     skippedTargetTokens: { absentFromCatalog, ambiguousCatalogIdentity, unsupportedUpos },
   };
 }
-
-/** Opt-in offline view of a single source context's candidate focus entries. */
-export function targetCandidatesForAttestedContext(
-  tokens: readonly UdOccurrenceToken[],
-  sourceSentenceIndex: number,
-  entries: readonly CatalogEntry[],
-  syntaxProfiles: readonly RuntimeSyntaxProfile[],
-): readonly AttestedTargetContext[] {
-  const byText = catalogIdentityIndex(entries);
-  const byUpos = catalogUposIndex(syntaxProfiles);
-  const sourceTokenForms = tokens.map(token => token.form);
-  const result: AttestedTargetContext[] = [];
-  for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
-    const token = tokens[tokenIndex]!;
-    if (token.upos === "PUNCT") continue;
-    const variants = byText.get(token.form);
-    if (variants?.length !== 1) continue;
-    const only = variants[0]!;
-    if (!byUpos.get(only.id)?.has(token.upos)) continue;
-    result.push({
-      sourceSentenceIndex, sourceTokenId: token.id, tokenIndex,
-      focusText: token.form, focusEntryId: only.id, sourceTokenForms,
-    });
-  }
-  return result;
-}
