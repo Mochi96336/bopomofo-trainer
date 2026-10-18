@@ -1,11 +1,7 @@
 import type { CatalogEntry, PracticeMode, Exercise } from "../core/model.js";
 import type { RuntimeSyntaxProfile } from "../syntax/types.js";
 import type { UdOccurrenceToken } from "../../scripts/ud-occurrence-source.js";
-import {
-  targetCandidatesForAttestedContext,
-  buildAttestedFocusExercisePrototype,
-  type AttestedTargetContext,
-} from "../curriculum/attested-target-contexts.js";
+import type { AttestedTargetContext } from "../curriculum/attested-target-contexts.js";
 import {
   buildAlignedAttestedFocusPresentation,
   type AttestedFocusPresentation,
@@ -42,6 +38,11 @@ export interface AttestedContextDecision {
     readonly evidenceId: string;
     readonly reviewerId: string;
     readonly adjudicatorId: string;
+    /** Explicitly agreed reading identity; never infer from UD UPOS. */
+    readonly approvedEntryId: string;
+    /** Snapshot of every alternative shown to the organizer at adjudication.
+     * Not a reviewer-facing hint or independent evidence of correctness. */
+    readonly reviewedCandidateEntryIds: readonly string[];
   };
   readonly taiwanMandarinSuitability: {
     readonly verdict: "approved" | "pending" | "rejected";
@@ -97,6 +98,8 @@ export function buildReviewedAttestedFocusPrototype(
     || !nonblank(decision.contextualReading.reviewerId)
     || !nonblank(decision.contextualReading.adjudicatorId)
     || decision.contextualReading.reviewerId === decision.contextualReading.adjudicatorId
+    || decision.contextualReading.approvedEntryId !== target.focusEntryId
+    || !Array.isArray(decision.contextualReading.reviewedCandidateEntryIds)
     || decision.taiwanMandarinSuitability.verdict !== "approved"
     || !nonblank(decision.taiwanMandarinSuitability.evidenceId)
     || decision.reusePermission.verdict !== "cleared"
@@ -104,22 +107,35 @@ export function buildReviewedAttestedFocusPrototype(
     || !nonblank(decision.reusePermission.clearanceId)
     || !nonblank(decision.reusePermission.attribution)) return null;
 
-  // Even a reviewed record must not silently point at the wrong UD token
-  // occurrence, or at a new catalog entry added after review.
-  const available = targetCandidatesForAttestedContext(
-    sourceTokens, target.sourceSentenceIndex, entries, syntaxProfiles,
-  );
-  if (!available.some(candidate =>
-    candidate.sourceTokenId === target.sourceTokenId
-    && candidate.tokenIndex === target.tokenIndex
-    && candidate.focusText === target.focusText
-    && candidate.focusEntryId === target.focusEntryId)) return null;
+  // The previous helper for UNREVIEWED research candidates required the
+  // surface to have only one pronunciation. Reusing it here accidentally made
+  // it impossible to promote any reviewed polyphone. Instead, require a
+  // review-backed *exact* entry ID plus a snapshot of ALL catalog alternatives.
+  const sourceToken = sourceTokens[target.tokenIndex];
+  if (sourceToken === undefined || sourceToken.id !== target.sourceTokenId
+    || sourceToken.form !== target.focusText || sourceToken.upos === "PUNCT") return null;
+  const variants = entries.filter(entry => entry.prompt.text === target.focusText);
+  const variantIds = variants.map(entry => entry.id);
+  const reviewedIds = decision.contextualReading.reviewedCandidateEntryIds;
+  if (variants.length === 0 || new Set(variantIds).size !== variants.length
+    || reviewedIds.length !== variants.length
+    || new Set(reviewedIds).size !== reviewedIds.length
+    || !reviewedIds.every(id => variantIds.includes(id))) return null;
+  const approvedEntry = variants.find(entry => entry.id === target.focusEntryId);
+  if (approvedEntry === undefined) return null;
+  // A reading must still have a corresponding catalog syntax profile for the
+  // ACTUAL source token role. UPOS does not select the reading; human review does.
+  if (!syntaxProfiles.some(profile => profile.entryId === approvedEntry.id
+    && profile.upos === sourceToken.upos)) return null;
 
   const presentation = buildAlignedAttestedFocusPresentation(
     target, sourceTokens, sourceText, target.sourceSentenceIndex,
   );
   if (presentation === null) return null;
-  const { exercise } = buildAttestedFocusExercisePrototype(target, entries, mode, layoutId);
+  const exercise: Exercise = {
+    id: `research-attested-focus:${target.sourceSentenceIndex}:${target.sourceTokenId}:${target.focusEntryId}`,
+    mode, layoutId, entries: [approvedEntry],
+  };
   return {
     exercise,
     presentation,
