@@ -152,7 +152,7 @@ const ambiguousReviewArg = process.argv.find(arg => arg.startsWith("--local-poly
 if (ambiguousReviewArg !== undefined) {
   const prefix = ambiguousReviewArg.slice("--local-polyphonic-review=".length);
   if (!prefix.startsWith("data/generated/") || prefix.includes("..")
-    || !/^data\\/generated\\/[a-zA-Z0-9._/-]+$/u.test(prefix)) {
+    || /[^a-zA-Z0-9._/-]/u.test(prefix)) {
     throw new Error("local polyphonic review prefix must be under data/generated/");
   }
   const lexicalIndex = catalogIdentityIndex(PRACTICE_CATALOG);
@@ -174,14 +174,14 @@ if (ambiguousReviewArg !== undefined) {
     purpose: "Independent free response. Do not consult organizer mapping or previous sense hypotheses.",
     sourceUsage: "UD Chinese GSD train, CC BY-SA 4.0; local research only",
     cases: sample.reviewerCases,
-  }, null, 2) + "\\n", "utf8");
+  }, null, 2) + "\n", "utf8");
   await writeFile(prefix + ".organizer.json", JSON.stringify({
     schemaVersion: "attested-polyphonic-organizer-v1",
     sourceCommit: SOURCE_COMMIT, sourceSha256: digest,
     caution: "Contains unapproved reading alternatives; do NOT distribute to first-round reviewers",
     distinctTargetForms: sample.distinctTargetForms,
     cases: sample.organizerCases,
-  }, null, 2) + "\\n", "utf8");
+  }, null, 2) + "\n", "utf8");
   console.log(JSON.stringify({
     localPolyphonicCasesPrepared: sample.reviewerCases.length,
     separateBlindedAndOrganizerFiles: true,
