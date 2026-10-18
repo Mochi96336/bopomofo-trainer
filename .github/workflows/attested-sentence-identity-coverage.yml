@@ -1,0 +1,67 @@
+name: Attested sentence identity coverage
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/attested-sentence-identity-coverage.yml"
+      - "src/curriculum/attested-sentence-candidates.ts"
+      - "src/curriculum/attested-target-contexts.ts"
+      - "src/curriculum/attested-context-source-alignment.ts"
+      - "src/curriculum/attested-reading-review.ts"
+      - "src/curriculum/attested-reading-policy-comparison.ts"
+      - "tests/curriculum/attested-reading-policy-comparison.test.ts"
+      - "tests/curriculum/attested-reading-review.test.ts"
+      - "tests/curriculum/attested-context-source-alignment.test.ts"
+      - "src/app/attested-focus-context.ts"
+      - "src/app/attested-reviewed-focus.ts"
+      - "tests/app/attested-reviewed-focus.test.ts"
+      - "tests/app/attested-focus-context.test.ts"
+      - "tests/curriculum/attested-target-contexts.test.ts"
+      - "tests/curriculum/attested-sentence-candidates.test.ts"
+      - "scripts/audit-attested-sentence-identity-coverage.ts"
+      - "scripts/ud-occurrence-source.ts"
+      - "src/app/**"
+      - "scripts/compile-app-catalog.ts"
+      - "data/source/words.sample.csv"
+      - "data/readings/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  coverage:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --include=dev --ignore-scripts
+      - name: Fetch exact pinned natural train corpus
+        uses: actions/checkout@v6
+        with:
+          repository: UniversalDependencies/UD_Chinese-GSD
+          ref: 22f73e87f7ddc530bb131a6b7587971a03e1a712
+          path: data/external/ud/chinese-gsd/r2.18
+          sparse-checkout: |
+            zh_gsd-ud-train.conllu
+          sparse-checkout-cone-mode: false
+      - name: Compile current resolved pronunciation-specific catalog
+        run: npm run app:catalog
+      - name: Unit-test exact identity and token boundary gates
+        run: npx vitest run tests/curriculum/attested-sentence-candidates.test.ts tests/curriculum/attested-target-contexts.test.ts tests/curriculum/attested-context-source-alignment.test.ts tests/curriculum/attested-reading-review.test.ts tests/curriculum/attested-reading-policy-comparison.test.ts tests/app/attested-focus-context.test.ts tests/app/attested-reviewed-focus.test.ts
+      - name: Measure train-only source candidates without distributing sentences
+        run: npx tsx scripts/audit-attested-sentence-identity-coverage.ts --local-polyphonic-review=data/generated/ud-polyphonic-blind
+      - name: Verify blind polyphonic file omits answer choices and organizer contents remain private
+        run: |
+          node --input-type=module -e 'import {readFileSync} from "node:fs"; const prefix="data/generated/ud-polyphonic-blind"; const reviewer=JSON.parse(readFileSync(prefix+".reviewer.json","utf8")); const organizer=JSON.parse(readFileSync(prefix+".organizer.json","utf8")); if(reviewer.cases.length!==24||organizer.cases.length!==24||organizer.sameUposPairCount+organizer.differentUposPairCount!==12||new Set(organizer.cases.map(c=>c.pairId)).size!==12||new Set(organizer.cases.map(c=>c.sourceSentenceIndex)).size!==24||organizer.cases.some((c,i)=>i>0&&c.pairId===organizer.cases[i-1].pairId)||reviewer.cases.some(c=>c.rawAnswer.completeBopomofo!==null||"possibleEntryIds" in c||"sourceUpos" in c||"pairId" in c)||organizer.cases.some(c=>c.possibleEntryIds.length<2)) throw Error("polyphonic blind contrast review mismatch"); console.log("24 source-attested cases in 12 same-form context pairs prepared, answer-free reviewer packet; no source texts uploaded");'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: attested-sentence-identity-coverage
+          path: data/generated/attested-sentence-identity-coverage.json
+          if-no-files-found: error
+          retention-days: 14
