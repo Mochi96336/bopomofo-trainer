@@ -45,13 +45,18 @@ describe("source context vs graded entry identity", () => {
   });
 
   it("rejects an unsupported target UPOS without denying other ungraded context words", () => {
-    const wrong = sentence.map(t => t.id === 2 ? { ...t, upos: "ADJ" } : t);
+    const wrong = sentence.map(t =>
+      t.id === 2 ? { ...t, upos: "ADJ" }
+        : t.id === 3 ? { ...t, upos: "VERB" } : t,
+    );
     const report = auditAttestedTargetContextCoverage([wrong], entries, profiles, {
       minLexicalTokens: 3, maxLexicalTokens: 8,
     });
-    // The invalid focus is skipped, but the ungraded context does not need
-    // full catalog coverage or a forced reading.
-    expect(report.eligibleContextCount).toBe(0);
+    // The supported PRON may still be focused; the ADJ is never mistaken
+    // for the cataloged verb even though another token forms a verbal clause.
+    expect(report.eligibleContextCount).toBe(1);
+    expect(report.focusOccurrences).toBe(1);
+    expect(report.skippedTargetTokens.unsupportedUpos).toBe(1);
   });
 
   it("counts unique context sentences and target occurrences separately", () => {
