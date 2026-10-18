@@ -6,6 +6,7 @@ import {
   auditAttestedAmbiguousReadingCoverage,
   findAttestedAmbiguousReadingCandidates,
   prepareBlindedReadingReviewSample,
+  preparePairedBlindedReadingReviewSample,
 } from "../../src/curriculum/attested-reading-review.js";
 
 const entry = (text: string, reading: string): CatalogEntry => ({
@@ -71,6 +72,54 @@ describe("attested polyphonic reading review intake", () => {
     expect(onlyReviewer).not.toContain("ㄓㄨㄥ4");
     expect(JSON.stringify(report.organizerCases)).toContain("possibleEntryIds");
     expect(() => prepareBlindedReadingReviewSample(found, 0)).toThrow();
+  });
+
+  it("samples two distinct contexts of the same form, including same-UPOS ambiguity", () => {
+    const contextRows = [
+      {
+        tokens: [token(1, "街道", "NOUN"), token(2, "東西"), token(3, "延伸", "VERB")],
+        text: "街道東西延伸",
+      },
+      {
+        tokens: [token(1, "我們", "PRON"), token(2, "拿", "VERB"), token(3, "東西")],
+        text: "我們拿東西",
+      },
+      {
+        tokens: [token(1, "一", "NUM"), token(2, "種", "NOUN"), token(3, "花")],
+        text: "一種花",
+      },
+      {
+        tokens: [token(1, "農夫", "NOUN"), token(2, "種", "VERB"), token(3, "花")],
+        text: "農夫種花",
+      },
+    ];
+    const source = contextRows.flatMap((row, index) =>
+      findAttestedAmbiguousReadingCandidates(
+        row.tokens, row.text, index, catalogIdentityIndex(entries),
+      ));
+    const out = preparePairedBlindedReadingReviewSample(source, 4);
+    expect(out.reviewerCases).toHaveLength(4);
+    expect(out.organizerCases).toHaveLength(4);
+    expect(out.eligiblePairedForms).toBe(2);
+    expect(out.sameUposPairCount).toBe(1);
+    expect(out.differentUposPairCount).toBe(1);
+    const byPair = new Map<string, typeof out.organizerCases[number][]>();
+    for (const row of out.organizerCases) {
+      const prev = byPair.get(row.pairId) ?? [];
+      prev.push(row);
+      byPair.set(row.pairId, prev);
+    }
+    expect(byPair.size).toBe(2);
+    expect([...byPair.values()].every(rows =>
+      rows.length === 2 && rows[0]!.text === rows[1]!.text
+      && rows[0]!.sourceSentenceIndex !== rows[1]!.sourceSentenceIndex)).toBe(true);
+    const blind = JSON.stringify(out.reviewerCases);
+    expect(blind).not.toContain("possibleEntryIds");
+    expect(blind).not.toContain("sourceUpos");
+    expect(blind).not.toContain("pairId");
+    expect(blind).not.toContain("ㄓㄨㄥ");
+    expect(blind).not.toContain("ㄉㄨㄥ");
+    expect(() => preparePairedBlindedReadingReviewSample(source, 3)).toThrow("even");
   });
 
   it("counts source ambiguity without promoting corpus UPOS to a label", () => {
