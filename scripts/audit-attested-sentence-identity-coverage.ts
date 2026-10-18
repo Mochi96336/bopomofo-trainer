@@ -209,6 +209,10 @@ if (ambiguousReviewArg !== undefined) {
     separateBlindedAndOrganizerFiles: true,
     candidateReadingsPublishedToReviewer: false,
     sourceTextPrinted: false,
+    // Index-only breadcrumbs for a third-party reviewer to locate the exact
+    // licensed upstream sentence offline; no sentence text or reading options.
+    reviewerCaseSourceCoordinates: sample.organizerCases.map(({ caseId, sourceSentenceIndex, sourceTokenId }) =>
+      ({ caseId, sourceSentenceIndex, sourceTokenId })),
   }));
 }
 await mkdir("data/generated", { recursive: true });
