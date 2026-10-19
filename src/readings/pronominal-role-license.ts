@@ -3,6 +3,7 @@ import type { CatalogEntry } from "../core/model.js";
 import { CONSTRUCTION_READINGS } from "../syntax/lexical-feature-match.js";
 import type { RuntimeSyntaxProfile, Upos } from "../syntax/types.js";
 import { reviewedClosedClassReadingEligible } from "./closed-class-license.js";
+import { reviewedAdjectiveReadingEligible } from "./adjective-role-license.js";
 
 /**
  * Pronoun / determiner evidence, scoped to a written form AND a selected
@@ -58,7 +59,8 @@ export function reviewedRoleReadingEligible(
   profile: RuntimeSyntaxProfile,
 ): boolean {
   return reviewedClosedClassReadingEligible(entry, profile)
-    && reviewedPronominalReadingEligible(entry, profile);
+    && reviewedPronominalReadingEligible(entry, profile)
+    && reviewedAdjectiveReadingEligible(entry, profile);
 }
 
 /** Reviewed role keys are exported to make the boundary inspectable by tests. */
