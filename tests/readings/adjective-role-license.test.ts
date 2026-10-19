@@ -4,6 +4,7 @@ import type { CatalogEntry } from "../../src/core/model.js";
 import { reviewedAdjectiveReadingEligible } from "../../src/readings/adjective-role-license.js";
 import { reviewedRoleReadingEligible } from "../../src/readings/pronominal-role-license.js";
 import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
+import { FREQUENCY_FIRST_UTTERANCE_POLICY, scoreFrequencyFirstEntry } from "../../src/curriculum/frequency-first-utterance.js";
 import { FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";
 import type { ProductionRule } from "../../src/syntax/types.js";
 import type { RuntimeSyntaxProfile, Upos } from "../../src/syntax/types.js";
@@ -111,6 +112,37 @@ describe("reviewed standalone 好 as adjective (productive gate)", () => {
     expect(reviewed.entries.map((item) => item.id)).toEqual([he.id, correct.id]);
     expect(reviewed.text).toBe(baseline.text);
     expect(reviewed.id).not.toBe(baseline.id);
+  });
+
+  it("applies learner error boosts only to actual pronunciation tokens, not written homographs", () => {
+    const weakFond = {
+      ...entry("好", "ㄏㄠ4"),
+      syllables: [{ tokens: ["zhuyin:ㄏ", "zhuyin:ㄠ", "tone:4"] }],
+    };
+    const ordinaryGood = {
+      ...entry("好", "ㄏㄠ3"),
+      syllables: [{ tokens: ["zhuyin:ㄏ", "zhuyin:ㄠ", "tone:3"] }],
+    };
+    const learnerEvidence = [{
+      scope: { mode: "guided" as const, layoutId: "standard", tokenId: "tone:4" },
+      attempts: 10, errors: 8, timingSamples: 0,
+      currentTimeToTypeMs: null, bestTimeToTypeMs: null,
+    }];
+    const scored = (item: CatalogEntry) => scoreFrequencyFirstEntry(item, {
+      entries: [weakFond, ordinaryGood],
+      bindingEvidence: learnerEvidence,
+      mode: "guided",
+      layoutId: "standard",
+      history: { recentEntryIds: [], recentUtteranceIds: [], recentTemplateIds: [] },
+      policy: FREQUENCY_FIRST_UTTERANCE_POLICY,
+    });
+    expect(scored(weakFond).expectedTokenBoost).toBe(1.45);
+    expect(scored(ordinaryGood).expectedTokenBoost).toBe(1);
+    // Even though ㄏㄠ4 has the higher learner weight, it is still not a
+    // valid standalone ADJ pronunciation. Correcting it must not credit the
+    // learner with practising that tone.
+    expect(reviewedRoleReadingEligible(weakFond, profile(weakFond, "ADJ"))).toBe(false);
+    expect(reviewedRoleReadingEligible(ordinaryGood, profile(ordinaryGood, "ADJ"))).toBe(true);
   });
 
   it("does not infer a reading from a mismatched entry/profile join", () => {
