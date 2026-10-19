@@ -728,13 +728,15 @@ export function composeFormalSyntaxUtterances(
           // every closed-class reading would change otherwise unrelated
           // weighted selections and weaken existing sampling invariants.
           const preferSameSurface = input.preferSameSurfaceOnReadingReject;
+          // Retain the non-null sampled profile across the nested filter callback.
+          const rejectedProfile = selectedProfile;
           let corrected: RuntimeSyntaxProfile | null = null;
           if (preferSameSurface !== undefined) {
             const sameWrittenWord = licensed.filter((profile) => {
               const entry = entriesById.get(profile.entryId);
               return entry !== undefined
                 && entry.prompt.text === initiallySelected.prompt.text
-                && preferSameSurface(initiallySelected, selectedProfile, entry);
+                && preferSameSurface(initiallySelected, rejectedProfile, entry);
             });
             if (sameWrittenWord.length > 0) corrected = draw(sameWrittenWord);
           }
