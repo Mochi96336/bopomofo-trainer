@@ -728,7 +728,12 @@ export function composeFormalSyntaxUtterances(
             const entry = entriesById.get(profile.entryId);
             return entry?.prompt.text === initiallySelected.prompt.text;
           });
-          selectedProfile = draw(sameWrittenWord.length > 0 ? sameWrittenWord : licensed);
+          selectedProfile = sameWrittenWord.length === 0
+            ? null
+            : draw(sameWrittenWord);
+          // A previous slot may have consumed the only same-word entry.
+          // Do not fail the sentence if other licensed identities remain.
+          if (selectedProfile === null) selectedProfile = draw(licensed);
         }
       }
       if (selectedProfile === null) {
