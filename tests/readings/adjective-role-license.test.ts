@@ -3,6 +3,7 @@ import { catalogEntryId } from "../../src/core/catalog-entry-id.js";
 import type { CatalogEntry } from "../../src/core/model.js";
 import { reviewedAdjectiveReadingEligible } from "../../src/readings/adjective-role-license.js";
 import { reviewedRoleReadingEligible } from "../../src/readings/pronominal-role-license.js";
+import { preferReviewedHaoAdjectiveSurfaceRepair } from "../../src/readings/adjective-role-license.js";
 import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
 import { FREQUENCY_FIRST_UTTERANCE_POLICY, scoreFrequencyFirstEntry } from "../../src/curriculum/frequency-first-utterance.js";
 import { FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";
@@ -111,6 +112,7 @@ describe("reviewed standalone 好 as adjective (productive gate)", () => {
     const reviewed = composeFormalSyntaxUtterances({
       ...common,
       readingEligibility: reviewedRoleReadingEligible,
+      preferSameSurfaceOnReadingReject: preferReviewedHaoAdjectiveSurfaceRepair,
     }).candidates[0]!;
     // Before gating the draw chose the wrong reading for the correct surface.
     expect(baseline.entries.map((item) => item.id)).toEqual([he.id, wrong.id]);
