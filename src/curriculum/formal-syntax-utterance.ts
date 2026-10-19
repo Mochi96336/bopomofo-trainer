@@ -718,7 +718,17 @@ export function composeFormalSyntaxUtterances(
             }
             return readingEligibility(entry, profile, slot);
           });
-          selectedProfile = draw(licensed);
+          // A wrong reading is not permission to replace the learner's selected
+          // word with an arbitrary other word. Prefer the same written lexeme
+          // with a licensed reading in the *same compatible syntax slot*.
+          // Its entry identity (and Bopomofo) must still be selected together.
+          // When no same-word reading is legal, use the existing weighted
+          // licensed frontier rather than inventing a pronunciation.
+          const sameWrittenWord = licensed.filter((profile) => {
+            const entry = entriesById.get(profile.entryId);
+            return entry?.prompt.text === initiallySelected.prompt.text;
+          });
+          selectedProfile = draw(sameWrittenWord.length > 0 ? sameWrittenWord : licensed);
         }
       }
       if (selectedProfile === null) {
