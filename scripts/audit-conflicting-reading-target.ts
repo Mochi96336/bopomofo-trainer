@@ -11,6 +11,7 @@ import { FORMAL_GRAMMAR_VERSION } from "../src/syntax/features.js";
 import type { ProductionRule, RuntimeSyntaxProfile, Upos } from "../src/syntax/types.js";
 import { reviewedRoleReadingEligible } from "../src/readings/pronominal-role-license.js";
 import { preferReviewedHaoAdjectiveSurfaceRepair } from "../src/readings/adjective-role-license.js";
+import { reviewedAdjectiveReadingEligible } from "../src/readings/adjective-role-license.js";
 
 /**
  * Deliberately small conflict fixture. This is *not* a naturalness benchmark:
@@ -80,6 +81,7 @@ const sampleCount = 1024;
 const cohorts = [
   "unguarded", "old-legal-redraw", "same-word-correction",
   "no-weakness-unguarded", "no-weakness-legal-redraw", "no-weakness-correction",
+  "weak-tone4-prelicensed", "no-weakness-prelicensed",
 ] as const;
 type Cohort = (typeof cohorts)[number];
 
@@ -122,6 +124,9 @@ for (let seed = 0; seed < sampleCount; seed++) {
       ...(cohort === "same-word-correction" || cohort === "no-weakness-correction"
         ? { preferSameSurfaceOnReadingReject: preferReviewedHaoAdjectiveSurfaceRepair }
         : {}),
+      ...(cohort === "weak-tone4-prelicensed" || cohort === "no-weakness-prelicensed"
+        ? { preSampleReadingEligibility: reviewedAdjectiveReadingEligible }
+        : {}),
     });
     if (selection.utterance.entries.length !== 2
       || selection.utterance.entries[0]?.id !== he.id) {
@@ -145,6 +150,8 @@ for (let seed = 0; seed < sampleCount; seed++) {
   const old = produced.get("old-legal-redraw")!;
   const fixed = produced.get("same-word-correction")!;
   const quietRaw = produced.get("no-weakness-unguarded")!;
+  const prelicensed = produced.get("weak-tone4-prelicensed")!;
+  const noWeakPrelicensed = produced.get("no-weakness-prelicensed")!;
   const quietOld = produced.get("no-weakness-legal-redraw")!;
   const quietFixed = produced.get("no-weakness-correction")!;
   if (raw.id === fond.id) {
@@ -159,6 +166,9 @@ for (let seed = 0; seed < sampleCount; seed++) {
     });
   } else if (old.id !== fixed.id || raw.id !== fixed.id) {
     throw new Error("a valid lexical draw changed under reading policy");
+  }
+  if (prelicensed.id === fond.id || noWeakPrelicensed.id === fond.id) {
+    throw new Error("prelicensed lexical frontier admitted an invalid 好/ADJ reading");
   }
   if (quietRaw.id === fond.id) {
     if (quietFixed.id !== good.id) {
@@ -180,6 +190,12 @@ const summary = {
   syntheticLearnerWeakness: { tokenId: "tone:4", attempts: 16, errors: 12 },
   invalidInitialHaoAdjectiveDraws: conflicts,
   counts,
+  prelicensed: {
+    weakTone4LegitimateTargetCount: counts["weak-tone4-prelicensed"].validTone4Target,
+    noWeaknessLegitimateTargetCount: counts["no-weakness-prelicensed"].validTone4Target,
+    weakTone4GoodAdjectiveCount: counts["weak-tone4-prelicensed"].goodSelected,
+    noWeaknessGoodAdjectiveCount: counts["no-weakness-prelicensed"].goodSelected,
+  },
   tradeoff: {
     fourthTonePracticeLostToSameWordRepair:
       counts["old-legal-redraw"].validTone4Target - counts["same-word-correction"].validTone4Target,
