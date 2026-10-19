@@ -3,7 +3,6 @@ import { catalogEntryId } from "../../src/core/catalog-entry-id.js";
 import type { CatalogEntry } from "../../src/core/model.js";
 import { reviewedAdjectiveReadingEligible } from "../../src/readings/adjective-role-license.js";
 import { reviewedRoleReadingEligible } from "../../src/readings/pronominal-role-license.js";
-import { preferReviewedHaoAdjectiveSurfaceRepair } from "../../src/readings/adjective-role-license.js";
 import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
 import { FREQUENCY_FIRST_UTTERANCE_POLICY, scoreFrequencyFirstEntry } from "../../src/curriculum/frequency-first-utterance.js";
 import { FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";
@@ -61,7 +60,7 @@ describe("reviewed standalone 好 as adjective (productive gate)", () => {
     expect(reviewedRoleReadingEligible(right, profile(right, "CCONJ"))).toBe(true);
   });
 
-  it("keeps the learner's written word instead of redrawing an unrelated word", () => {
+  it("redraws the legal weighted lexical slot, never inheriting weight from an invalid homograph", () => {
     const he = entry("他", "ㄊㄚ1");
     const wrong = entry("好", "ㄏㄠ4");
     const correct = entry("好", "ㄏㄠ3");
@@ -89,8 +88,8 @@ describe("reviewed standalone 好 as adjective (productive gate)", () => {
     };
     const common = {
       eligibleEntries: [he, wrong, unrelated, correct],
-      // Force the initially sampled word to be 好/ㄏㄠ4 while making the
-      // unrelated 壞 overwhelmingly likely in an unrestricted licensed redraw.
+      // The unlicensed 好/ㄏㄠ4 has high original weight, but cannot
+      // override the distribution among valid written words.
       entryWeightsById: {
         [he.id]: 1, [wrong.id]: 1000000,
         [unrelated.id]: 1000, [correct.id]: 1,
@@ -112,13 +111,13 @@ describe("reviewed standalone 好 as adjective (productive gate)", () => {
     const reviewed = composeFormalSyntaxUtterances({
       ...common,
       readingEligibility: reviewedRoleReadingEligible,
-      preferSameSurfaceOnReadingReject: preferReviewedHaoAdjectiveSurfaceRepair,
     }).candidates[0]!;
     // Before gating the draw chose the wrong reading for the correct surface.
     expect(baseline.entries.map((item) => item.id)).toEqual([he.id, wrong.id]);
-    // The next global licensed candidate is "壞"; it must not replace "好".
-    expect(reviewed.entries.map((item) => item.id)).toEqual([he.id, correct.id]);
-    expect(reviewed.text).toBe(baseline.text);
+    // The valid fourth-tone 壞 wins its own weight, not the illegal 好 weight.
+    // This is a *lexical-slot* redraw, not a whole-sentence retry.
+    expect(reviewed.entries.map((item) => item.id)).toEqual([he.id, unrelated.id]);
+    expect(reviewed.text).toBe("他壞");
     expect(reviewed.id).not.toBe(baseline.id);
   });
 
