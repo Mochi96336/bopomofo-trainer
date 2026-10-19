@@ -1,0 +1,104 @@
+name: Learner token exposure A/B
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/learner-token-exposure-ab.yml"
+      - "scripts/audit-learner-token-exposure.ts"
+      - "scripts/audit-conflicting-reading-target.ts"
+      - "src/curriculum/frequency-first-utterance.ts"
+      - "src/curriculum/formal-syntax-utterance.ts"
+      - "src/readings/adjective-role-license.ts"
+      - "src/readings/pronominal-role-license.ts"
+      - "src/product/session.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  paired-real-selector:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Build pinned product catalog
+        run: npm run app:catalog
+      - name: Paired real-selector exposures for synthetic token weaknesses
+        run: >-
+          npx tsx scripts/audit-learner-token-exposure.ts
+          --samples 256
+          --output data/generated/learner-token-exposure-ab.json
+      - name: Force a genuine learner target versus pronunciation correction conflict
+        run: npx tsx scripts/audit-conflicting-reading-target.ts
+      - name: Publish concise comparison
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from "node:fs";
+          const result = JSON.parse(readFileSync("data/generated/learner-token-exposure-ab.json", "utf8"));
+          const lines = [
+            "# Real-selector learner-token exposure",
+            "",
+            "Read-only A/B with frozen grammar, weights, catalog, and identical seeds. **Not a user-accuracy claim.**",
+            "",
+            "| Cohort | tone:4 | zhuyin:ㄗ | tone:3 |",
+            "|---|---:|---:|---:|",
+            ...Object.entries(result.cohorts).map(([name, row]) =>
+              `| ${name} | ${row.exposureByToken["tone:4"].sentences} | ${row.exposureByToken["zhuyin:ㄗ"].sentences} | ${row.exposureByToken["tone:3"].sentences} |`
+            ),
+            "",
+            "",
+            "### Target occurrences per 100 actual syllables (not binary presence)",
+            "",
+            "| Cohort | tone:4 | zhuyin:ㄗ | tone:3 |",
+            "|---|---:|---:|---:|",
+            ...Object.entries(result.cohorts).map(([name, row]) =>
+              `| ${name} | ${row.exposureByToken["tone:4"].occurrencesPer100Syllables.toFixed(2)} | ${row.exposureByToken["zhuyin:ㄗ"].occurrencesPer100Syllables.toFixed(2)} | ${row.exposureByToken["tone:3"].occurrencesPer100Syllables.toFixed(2)} |`
+            ),
+            "### Compared to no-weakness baseline",
+            "",
+            ...result.weaknessVersusBaseline.map(row =>
+              `- ${row.targetToken}: net change ${row.netTargetExposureDelta} sentences (${row.percentagePointDelta.toFixed(2)} percentage points); ${row.netTokenOccurrenceDelta} additional token occurrences; ${row.changedSentenceCount} seed identities changed`
+            ),
+            "",
+            "### The same tone-4 weakness: before/after scoped 好 repair",
+            "",
+            `- Net tone-4 exposure change: ${result.scopedRepairUnderTone4Weakness.netTargetExposureDelta} sentences`,
+            `- Changed seed identities: ${result.scopedRepairUnderTone4Weakness.changedSentenceCount}`,
+            `- Target gains/losses: +${result.scopedRepairUnderTone4Weakness.gainedTarget} / -${result.scopedRepairUnderTone4Weakness.lostTarget}`,
+            "",
+            "### Correct reading is independent of learner weakness (restricted lexicon)",
+            "",
+            ...(() => {
+              const probe = JSON.parse(readFileSync("data/generated/conflicting-target-exposure.json", "utf8"));
+              return [
+                `- Initially invalid 好/ADJ: ${probe.invalidInitialHaoAdjectiveDraws} of ${probe.sampleCount}`,
+                `- Valid tone:4 alternatives: old redraw ${probe.counts["old-legal-redraw"].validTone4Target}, correct same-word reading ${probe.counts["same-word-correction"].validTone4Target}`,
+                `- Valid tone-4 alternatives foregone by retaining the *correct 好/ㄏㄠ3 word*: ${probe.tradeoff.fourthTonePracticeLostToSameWordRepair}; this DOES NOT change the licensed pronunciation`,
+                `- No-weakness original 好 retained by correction: ${probe.tradeoff.noWeaknessHaoLexemeRetainedByCorrection} selections`,
+                `- **Prelicensed draw** with tone-4 weakness: ${probe.prelicensed.weakTone4LegitimateTargetCount} legitimate tone-4 exercises; without weakness: ${probe.prelicensed.noWeaknessLegitimateTargetCount}`,
+                `- **Prelicensed 好/ADJ selections** with tone-4 weakness: ${probe.prelicensed.weakTone4GoodAdjectiveCount}; without weakness: ${probe.prelicensed.noWeaknessGoodAdjectiveCount}`,
+              ];
+            })(),
+            "",
+            "A higher post-generation candidate score is **not evidence** of higher real sampled exposure.",
+          ];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
+          NODE
+      - name: Upload complete paired A/B data
+        uses: actions/upload-artifact@v4
+        with:
+          name: learner-token-exposure-ab-json
+          path: |
+            data/generated/learner-token-exposure-ab.json
+            data/generated/conflicting-target-exposure.json
+          retention-days: 14
+          if-no-files-found: error
