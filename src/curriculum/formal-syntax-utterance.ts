@@ -69,12 +69,6 @@ export interface FormalSyntaxUtteranceInput {
     profile: RuntimeSyntaxProfile,
     slot: StructuralLexicalSlot,
   ) => boolean;
-  /** Opt-in preference after a sampled pronunciation is rejected; absent = historical weighted redraw. */
-  readonly preferSameSurfaceOnReadingReject?: (
-    rejected: CatalogEntry,
-    selectedProfile: RuntimeSyntaxProfile,
-    licensedSameSurface: CatalogEntry,
-  ) => boolean;
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
@@ -724,26 +718,11 @@ export function composeFormalSyntaxUtterances(
             }
             return readingEligibility(entry, profile, slot);
           });
-          // Same-word repair is a scoped, reviewed opt-in. Applying it to
-          // every closed-class reading would change otherwise unrelated
-          // weighted selections and weaken existing sampling invariants.
-          const preferSameSurface = input.preferSameSurfaceOnReadingReject;
-          // Retain the non-null sampled profile across the nested filter callback.
-          const rejectedProfile = selectedProfile;
-          let corrected: RuntimeSyntaxProfile | null = null;
-          if (preferSameSurface !== undefined) {
-            const sameWrittenWord = licensed.filter((profile) => {
-              const entry = entriesById.get(profile.entryId);
-              return entry !== undefined
-                && entry.prompt.text === initiallySelected.prompt.text
-                && preferSameSurface(initiallySelected, rejectedProfile, entry);
-            });
-            if (sameWrittenWord.length > 0) corrected = draw(sameWrittenWord);
-          }
-          // If the same word is unavailable (including used-entry exclusions)
-          // or the opt-in is absent, preserve the historical licensed,
-          // frequency/learner-weighted draw.
-          selectedProfile = corrected ?? draw(licensed);
+          // Rejection redraw is limited to this lexical slot; the entire
+          // sentence is not discarded. Draw from the legal frontier using
+          // the original entry weights. An invalid reading's learner boost
+          // must never be transferred to its written homograph.
+          selectedProfile = draw(licensed);
         }
       }
       if (selectedProfile === null) {
