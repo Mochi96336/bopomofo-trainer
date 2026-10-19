@@ -73,6 +73,7 @@ export interface FormalSyntaxUtteranceInput {
   readonly preferSameSurfaceOnReadingReject?: (
     rejected: CatalogEntry,
     selectedProfile: RuntimeSyntaxProfile,
+    licensedSameSurface: CatalogEntry,
   ) => boolean;
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
@@ -726,15 +727,14 @@ export function composeFormalSyntaxUtterances(
           // Same-word repair is a scoped, reviewed opt-in. Applying it to
           // every closed-class reading would change otherwise unrelated
           // weighted selections and weaken existing sampling invariants.
-          const preferSameSurface = input.preferSameSurfaceOnReadingReject?.(
-            initiallySelected,
-            selectedProfile,
-          ) === true;
+          const preferSameSurface = input.preferSameSurfaceOnReadingReject;
           let corrected: RuntimeSyntaxProfile | null = null;
-          if (preferSameSurface) {
+          if (preferSameSurface !== undefined) {
             const sameWrittenWord = licensed.filter((profile) => {
               const entry = entriesById.get(profile.entryId);
-              return entry?.prompt.text === initiallySelected.prompt.text;
+              return entry !== undefined
+                && entry.prompt.text === initiallySelected.prompt.text
+                && preferSameSurface(initiallySelected, selectedProfile, entry);
             });
             if (sameWrittenWord.length > 0) corrected = draw(sameWrittenWord);
           }
