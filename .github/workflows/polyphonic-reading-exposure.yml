@@ -40,7 +40,7 @@ jobs:
         run: npm run app:catalog
       - name: Prepare five-word exact reading identities for private MOE review
         run: npx tsx scripts/prepare-moe-sense-targets.ts
-      - name: Assert weak four-tone token survives reviewed same-word correction
+      - name: Assert contextual reading stays correct with and without tone-4 mistakes
         run: npx tsx scripts/audit-conflicting-reading-target.ts
       - name: Audit 2048 deterministic generated sentences
         run: npm run readings:audit
@@ -142,9 +142,9 @@ jobs:
             '',
             `Reviewed NOUN/VERB mismatches: ${zhongTrial.priorDisallowedOccurrences} → ${zhongTrial.trialDisallowedOccurrences}. Changed seeds: ${zhongTrial.alteredSeeds}; unrelated changes: ${zhongTrial.unrelatedAlteredSeeds}.`,
             '',
-            '#### Learner weakness / reviewed 好 reading tradeoff',
+            '#### Reading correctness independent of learner weakness',
             '',
-            `Under synthetic 12/16 tone-4 errors, the legal redraw reaches ${conflict.counts['old-legal-redraw'].validTone4Target} valid four-tone practice sentences; weakness-aware repair reaches ${conflict.counts['weakness-aware-correction'].validTone4Target}.`,
+            `In a 1,024-seed controlled conflict with synthetic tone-4 mistakes, independently reviewed 好/ADJ must still use ㄏㄠ3. Keeping the word can reduce valid tone-4 exposure from ${conflict.counts['old-legal-redraw'].validTone4Target} to ${conflict.counts['same-word-correction'].validTone4Target} relative to a different-word redraw; this exposure tradeoff NEVER determines pronunciation correctness.`,
             `With no weakness, the review preference retains the original 好 lexeme in ${conflict.tradeoff.noWeaknessHaoLexemeRetainedByCorrection} additional cases. These are 1,024 deliberately narrow lexical fixture runs, not a real-catalog probability estimate.`,
             '',
             '#### Same-UPOS sense-review queue (not error labels)',
