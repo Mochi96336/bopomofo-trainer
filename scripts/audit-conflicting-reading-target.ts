@@ -78,8 +78,8 @@ const profiles: readonly RuntimeSyntaxProfile[] = [
 
 const sampleCount = 1024;
 const cohorts = [
-  "unguarded", "old-legal-redraw", "weakness-aware-correction",
-  "no-weakness-legal-redraw", "no-weakness-correction",
+  "unguarded", "old-legal-redraw", "same-word-correction",
+  "no-weakness-unguarded", "no-weakness-legal-redraw", "no-weakness-correction",
 ] as const;
 type Cohort = (typeof cohorts)[number];
 
@@ -117,8 +117,9 @@ for (let seed = 0; seed < sampleCount; seed++) {
         attempts: 16, errors: 12, timingSamples: 0,
         currentTimeToTypeMs: null, bestTimeToTypeMs: null,
       }],
-      ...(cohort === "unguarded" ? {} : { readingEligibility: reviewedRoleReadingEligible }),
-      ...(cohort === "weakness-aware-correction" || cohort === "no-weakness-correction"
+      ...((cohort === "unguarded" || cohort === "no-weakness-unguarded")
+        ? {} : { readingEligibility: reviewedRoleReadingEligible }),
+      ...(cohort === "same-word-correction" || cohort === "no-weakness-correction"
         ? { preferSameSurfaceOnReadingReject: preferReviewedHaoAdjectiveSurfaceRepair }
         : {}),
     });
@@ -142,13 +143,14 @@ for (let seed = 0; seed < sampleCount; seed++) {
   }
   const raw = produced.get("unguarded")!;
   const old = produced.get("old-legal-redraw")!;
-  const fixed = produced.get("weakness-aware-correction")!;
+  const fixed = produced.get("same-word-correction")!;
+  const quietRaw = produced.get("no-weakness-unguarded")!;
   const quietOld = produced.get("no-weakness-legal-redraw")!;
   const quietFixed = produced.get("no-weakness-correction")!;
   if (raw.id === fond.id) {
     conflicts++;
-    if (fixed.id !== old.id) {
-      throw new Error("weakness-aware correction must preserve the weighted valid practice target path");
+    if (fixed.id !== good.id) {
+      throw new Error("contextual reading must correct 好/ADJ to ㄏㄠ3 regardless of tone-4 weakness");
     }
     if (conflictExamples.length < 12) conflictExamples.push({
       seed, initial: raw.id, old: old.id, sameWord: fixed.id,
@@ -158,17 +160,21 @@ for (let seed = 0; seed < sampleCount; seed++) {
   } else if (old.id !== fixed.id || raw.id !== fixed.id) {
     throw new Error("a valid lexical draw changed under reading policy");
   }
-  if (quietOld.id !== quietFixed.id && quietFixed.id !== good.id) {
-    throw new Error("no-weakness correction changed a different written word");
+  if (quietRaw.id === fond.id) {
+    if (quietFixed.id !== good.id) {
+      throw new Error("the same 好/ADJ context must be corrected without weakness evidence");
+    }
+  } else if (quietOld.id !== quietFixed.id || quietRaw.id !== quietFixed.id) {
+    throw new Error("a valid unweighted lexical draw changed under reading policy");
   }
 }
 if (conflicts === 0 || counts["old-legal-redraw"].invalidGoodReading !== 0
-  || counts["weakness-aware-correction"].invalidGoodReading !== 0) {
+  || counts["same-word-correction"].invalidGoodReading !== 0) {
   throw new Error("conflict cohort did not exercise a safely resolved sample");
 }
 const summary = {
-  schemaVersion: "conflicting-target-fourth-tone-v1",
-  purpose: "controlled conflict probe; valid target exposure vs same-lexeme retention",
+  schemaVersion: "contextual-reading-independent-of-weakness-v2",
+  purpose: "prove a reviewed contextual reading is unaffected by learner weakness; quantify the separate exposure tradeoff",
   sampleCount,
   lexicalOptions: [good.id, fond.id, bad.id],
   syntheticLearnerWeakness: { tokenId: "tone:4", attempts: 16, errors: 12 },
@@ -176,7 +182,7 @@ const summary = {
   counts,
   tradeoff: {
     fourthTonePracticeLostToSameWordRepair:
-      counts["old-legal-redraw"].validTone4Target - counts["weakness-aware-correction"].validTone4Target,
+      counts["old-legal-redraw"].validTone4Target - counts["same-word-correction"].validTone4Target,
     noWeaknessHaoLexemeRetainedByCorrection:
       counts["no-weakness-correction"].goodSelected - counts["no-weakness-legal-redraw"].goodSelected,
   },
