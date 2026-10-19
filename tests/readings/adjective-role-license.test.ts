@@ -88,6 +88,12 @@ describe("reviewed standalone 好 as adjective (productive gate)", () => {
     };
     const common = {
       eligibleEntries: [he, wrong, unrelated, correct],
+      // Force the initially sampled word to be 好/ㄏㄠ4 while making the
+      // unrelated 壞 overwhelmingly likely in an unrestricted licensed redraw.
+      entryWeightsById: {
+        [he.id]: 1, [wrong.id]: 1000000,
+        [unrelated.id]: 1000, [correct.id]: 1,
+      },
       profiles: [
         { ...profile(he, "PRON"), functions: ["subject" as const] },
         profile(wrong, "ADJ"),
@@ -96,7 +102,7 @@ describe("reviewed standalone 好 as adjective (productive gate)", () => {
       ],
       rules: [rule],
       samplingMode: "raw" as const,
-      random: { next: () => 0 },
+      random: { next: () => 0.5 },
       minimumLexicalEntries: 2,
       maximumCandidates: 1,
       maximumAttempts: 8,
