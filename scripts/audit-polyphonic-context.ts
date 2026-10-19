@@ -6,6 +6,7 @@ import { createSeededRandom } from "../src/curriculum/random.js";
 import { reviewedClosedClassReadingEligible } from "../src/readings/closed-class-license.js";
 import { reviewedRoleReadingEligible } from "../src/readings/pronominal-role-license.js";
 import { reviewedZhongRolePilotEligible } from "../src/readings/zhong-role-pilot.js";
+import { preferReviewedHaoAdjectiveSurfaceRepair } from "../src/readings/adjective-role-license.js";
 import {
   auditPolyphonicCandidate,
   buildPolyphonicReadingIndex,
@@ -104,6 +105,9 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
         : policy === "zhong-role-trial"
           ? { readingEligibility: reviewedZhongRolePilotEligible }
           : {}),
+    ...(policy === "reviewed-roles" || policy === "zhong-role-trial"
+      ? { preferSameSurfaceOnReadingReject: preferReviewedHaoAdjectiveSurfaceRepair }
+      : {}),
   });
   for (const reason of composition.fallbackReasons) increment(fallbacks, reason);
   const candidate = composition.candidates[0];
