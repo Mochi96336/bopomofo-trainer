@@ -544,34 +544,13 @@ function generateOnce(
   }
   const executionBounds = preparedFormalSyntaxExecution?.bounds
     ?? formalSyntaxExecutionBounds(maximumClauseNesting);
-  // A same-word pronunciation repair is only a preference if it does not
-  // discard an actual learner-boosted expected token. This matters when,
-  // for example, weak tone:4 initially draws invalid adjective 好/ㄏㄠ4:
-  // replacing it with 好/ㄏㄠ3 would quietly miss the tone:4 learning goal.
-  // In that case preserve the historical licensed, weighted alternative draw.
-  const rawSameSurfacePreference = input.preferSameSurfaceOnReadingReject;
-  const weaknessAwareSameSurfacePreference = rawSameSurfacePreference === undefined
-    ? undefined
-    : (
-        rejected: CatalogEntry,
-        rejectedProfile: RuntimeSyntaxProfile,
-        licensedSameSurface: CatalogEntry,
-      ): boolean => {
-        if (!rawSameSurfacePreference(rejected, rejectedProfile, licensedSameSurface)) return false;
-        if (!hasBindingEvidence) return true;
-        const replacementTokens = new Set(scoringTokens([licensedSameSurface], input));
-        return scoringTokens([rejected], input).every(token =>
-          expectedTokenTraceForToken(token, input).boost <= 1
-            || replacementTokens.has(token)
-        );
-      };
   const composerInput: FormalSyntaxUtteranceInput = {
     eligibleEntries,
     profiles: input.profiles,
     random: input.random,
     ...(useStaticFormalEntryWeight ? {} : { entryWeight }),
     ...(input.readingEligibility === undefined ? {} : { readingEligibility: input.readingEligibility }),
-    ...(weaknessAwareSameSurfacePreference === undefined ? {} : { preferSameSurfaceOnReadingReject: weaknessAwareSameSurfacePreference }),
+    ...(input.preferSameSurfaceOnReadingReject === undefined ? {} : { preferSameSurfaceOnReadingReject: input.preferSameSurfaceOnReadingReject }),
     minimumLexicalEntries: 2,
     maximumCandidates: 1,
     maximumAttempts: 64,
