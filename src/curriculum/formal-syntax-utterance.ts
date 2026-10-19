@@ -69,6 +69,13 @@ export interface FormalSyntaxUtteranceInput {
     profile: RuntimeSyntaxProfile,
     slot: StructuralLexicalSlot,
   ) => boolean;
+  /**
+   * Opt-in experimental stage: restrict the lexical frontier to validated
+   * reading/profile identities BEFORE learner-weighted sampling.
+   * Unlike post-draw correction, a rejected reading cannot lend its token
+   * boost to a different legally pronounced entry.
+   */
+  readonly preSampleReadingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
   /** Opt-in preference after a sampled pronunciation is rejected; absent = historical weighted redraw. */
   readonly preferSameSurfaceOnReadingReject?: (
     rejected: CatalogEntry,
@@ -710,7 +717,17 @@ export function composeFormalSyntaxUtterances(
         input.random,
       );
       const readingEligibility = input.readingEligibility;
-      let selectedProfile = draw(boundCompatible);
+      const preSampleReadingEligibility = input.preSampleReadingEligibility;
+      const prelicensed = preSampleReadingEligibility === undefined
+        ? boundCompatible
+        : boundCompatible.filter((profile) => {
+            const entry = entriesById.get(profile.entryId);
+            if (entry === undefined) {
+              throw new Error("pre-sample reading policy references a missing catalog entry");
+            }
+            return preSampleReadingEligibility(entry, profile, slot);
+          });
+      let selectedProfile = draw(prelicensed);
       if (selectedProfile !== null && readingEligibility !== undefined) {
         const initiallySelected = entriesById.get(selectedProfile.entryId);
         if (initiallySelected === undefined) {
