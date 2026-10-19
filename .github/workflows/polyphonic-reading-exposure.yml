@@ -6,6 +6,7 @@ on:
       - ".github/workflows/polyphonic-reading-exposure.yml"
       - "scripts/audit-polyphonic-context.ts"
       - "scripts/compare-zhong-role-trial.ts"
+      - "scripts/audit-conflicting-reading-target.ts"
       - "scripts/audit-same-upos-polyphones.ts"
       - "scripts/audit-targeted-polyphonic-identities.ts"
       - "scripts/prepare-moe-sense-targets.ts"
@@ -39,6 +40,8 @@ jobs:
         run: npm run app:catalog
       - name: Prepare five-word exact reading identities for private MOE review
         run: npx tsx scripts/prepare-moe-sense-targets.ts
+      - name: Assert weak four-tone token survives reviewed same-word correction
+        run: npx tsx scripts/audit-conflicting-reading-target.ts
       - name: Audit 2048 deterministic generated sentences
         run: npm run readings:audit
       - name: Trial closed-class reading eligibility against the same seeds
@@ -81,6 +84,7 @@ jobs:
           const queue = JSON.parse(readFileSync('data/generated/same-upos-polyphone-review.json', 'utf8'));
           const targets = JSON.parse(readFileSync('data/generated/polyphonic-targeted-identity-coverage.json', 'utf8'));
           const zhongTrial = JSON.parse(readFileSync('data/generated/polyphonic-zhong-role-trial-comparison.json', 'utf8'));
+          const conflict = JSON.parse(readFileSync('data/generated/conflicting-target-exposure.json', 'utf8'));
           const escape = (value) => String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
           const count = Object.entries(report.occurrenceCountByText)
             .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
@@ -138,6 +142,11 @@ jobs:
             '',
             `Reviewed NOUN/VERB mismatches: ${zhongTrial.priorDisallowedOccurrences} → ${zhongTrial.trialDisallowedOccurrences}. Changed seeds: ${zhongTrial.alteredSeeds}; unrelated changes: ${zhongTrial.unrelatedAlteredSeeds}.`,
             '',
+            '#### Learner weakness / reviewed 好 reading tradeoff',
+            '',
+            `Under synthetic 12/16 tone-4 errors, the legal redraw reaches ${conflict.counts['old-legal-redraw'].validTone4Target} valid four-tone practice sentences; weakness-aware repair reaches ${conflict.counts['weakness-aware-correction'].validTone4Target}.`,
+            `With no weakness, the review preference retains the original 好 lexeme in ${conflict.tradeoff.noWeaknessHaoLexemeRetainedByCorrection} additional cases. These are 1,024 deliberately narrow lexical fixture runs, not a real-catalog probability estimate.`,
+            '',
             '#### Same-UPOS sense-review queue (not error labels)',
             '',
             `Observed ${queue.unreviewedGroups} unreviewed multi-reading text/UPOS groups, ${queue.unreviewedOccurrences} occurrences; examples need human review.`,
@@ -190,6 +199,7 @@ jobs:
             data/generated/polyphonic-targeted-identity-coverage.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
+            data/generated/conflicting-target-exposure.json
             data/generated/polyphonic-lexeme-boundary-readiness.json
             data/generated/polyphonic-host-lexeme-reachability.json
             data/generated/dongxi-context-review.json
