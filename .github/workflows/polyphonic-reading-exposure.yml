@@ -43,7 +43,7 @@ jobs:
         run: npm run readings:audit
       - name: Trial closed-class reading eligibility against the same seeds
         run: npm run readings:audit -- --policy reviewed-closed --output data/generated/polyphonic-context-reviewed-closed.json
-      - name: Trial reviewed pronoun/determiner roles against the same seeds
+      - name: Trial reviewed lexical roles against the same seeds
         run: npm run readings:audit -- --policy reviewed-roles --output data/generated/polyphonic-context-reviewed-roles.json
       - name: Audit exact host-lexeme boundaries without inferring character readings
         run: npx tsx scripts/audit-lexeme-boundary-readiness.ts
@@ -105,7 +105,7 @@ jobs:
             '',
             '#### Deterministic controls (reviewed-roles is active in the product)',
             '',
-            '| Metric | Original | Closed-class trial | + Pronoun/DET trial |',
+            '| Metric | Original | Closed-class trial | + Reviewed lexical roles |',
             '|---|---:|---:|---:|',
             ...[
               ['Successfully generated', report.successfulSentences, gated.successfulSentences, roles.successfulSentences],
@@ -118,11 +118,11 @@ jobs:
             '',
             `Exact seeds with changed candidate identities: closed-class ${comparison.changedSentenceCount.reviewedClosed}; reviewed roles ${comparison.changedSentenceCount.reviewedRoles}.`,
             '',
-            '#### Reviewed role rejections (eligible syntactic roles only)',
+            '#### Reviewed role rejections (eligible syntactic roles only; including 好/ADJ)',
             '',
             '| Role | Before | After reviewed-role trial |',
             '|---|---:|---:|',
-            ...['哪/PRON', '那/DET'].map(key => `| ${key} | ${comparison.reviewedRoleMismatchCountByRole.closedClassOnly[key] ?? 0} | ${comparison.reviewedRoleMismatchCountByRole.reviewedRoles[key] ?? 0} |`),
+            ...['哪/PRON', '那/DET', '好/ADJ'].map(key => `| ${key} | ${comparison.reviewedRoleMismatchCountByRole.closedClassOnly[key] ?? 0} | ${comparison.reviewedRoleMismatchCountByRole.reviewedRoles[key] ?? 0} |`),
             '',
             '#### Exact reading identity coverage (not correctness)',
             '',
