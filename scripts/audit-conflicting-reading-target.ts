@@ -128,7 +128,7 @@ for (let seed = 0; seed < sampleCount; seed++) {
       throw new Error("unexpected fixture structure");
     }
     const adjective = selection.utterance.entries[1]!;
-    if (cohort !== "unguarded"
+    if (cohort !== "unguarded" && cohort !== "no-weakness-unguarded"
       && !reviewedRoleReadingEligible(adjective, profiles.find(p => p.entryId === adjective.id)!)) {
       throw new Error("guarded candidate produced illegal adjective reading");
     }
