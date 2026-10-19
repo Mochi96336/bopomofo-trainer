@@ -10,7 +10,6 @@ import { createSeededRandom } from "../src/curriculum/random.js";
 import { FORMAL_GRAMMAR_VERSION } from "../src/syntax/features.js";
 import type { ProductionRule, RuntimeSyntaxProfile, Upos } from "../src/syntax/types.js";
 import { reviewedRoleReadingEligible } from "../src/readings/pronominal-role-license.js";
-import { preferReviewedHaoAdjectiveSurfaceRepair } from "../src/readings/adjective-role-license.js";
 
 /**
  * Deliberately small conflict fixture. This is *not* a naturalness benchmark:
@@ -77,120 +76,116 @@ const profiles: readonly RuntimeSyntaxProfile[] = [
 ];
 
 const sampleCount = 1024;
-const cohorts = [
-  "unguarded", "old-legal-redraw", "same-word-correction",
-  "no-weakness-unguarded", "no-weakness-legal-redraw", "no-weakness-correction",
-] as const;
+const cohorts = ["raw-no-weakness", "raw-weak-tone4", "legal-no-weakness", "legal-weak-tone4"] as const;
 type Cohort = (typeof cohorts)[number];
+interface Stats {
+  sentenceCount: number;
+  wrongHaoAdjectiveCount: number;
+  goodHaoCount: number;
+  validFourthToneCount: number;
+  invalidDrawsCorrected: number;
+  nonConflictingDrawsChanged: number;
+}
+const counts = Object.fromEntries(cohorts.map(c => [c, {
+  sentenceCount: 0,
+  wrongHaoAdjectiveCount: 0,
+  goodHaoCount: 0,
+  validFourthToneCount: 0,
+  invalidDrawsCorrected: 0,
+  nonConflictingDrawsChanged: 0,
+}])) as Record<Cohort, Stats>;
 
-const counts = Object.fromEntries(cohorts.map(x => [x, {
-  sentences: 0, invalidGoodReading: 0,
-  validTone4Target: 0, validTone3Target: 0,
-  goodSelected: 0, badSelected: 0,
-}])) as Record<Cohort, {
-  sentences: number; invalidGoodReading: number; validTone4Target: number;
-  validTone3Target: number; goodSelected: number; badSelected: number;
-}>;
 const conflictExamples: Array<{
-  seed: number;
-  initial: string;
-  old: string;
-  sameWord: string;
-  oldTone4: boolean;
-  sameWordTone4: boolean;
+  seedIndex: number; initial: string; corrected: string; withTone4Weakness: boolean;
 }> = [];
-let conflicts = 0;
-for (let seed = 0; seed < sampleCount; seed++) {
-  const produced = new Map<Cohort, CatalogEntry>();
-  for (const cohort of cohorts) {
-    const selection = selectFormalSyntaxUtterance({
-      entries,
-      profiles,
-      mode,
-      layoutId,
-      history,
-      policy: FREQUENCY_FIRST_UTTERANCE_POLICY,
-      random: createSeededRandom("targeted-fourth-tone-conflict:" + seed),
-      formalSyntaxComposition: { rules: [rule], samplingMode: "raw" },
-      bindingEvidence: cohort.startsWith("no-weakness") ? [] : [{
-        scope: { mode, layoutId, tokenId: "tone:4" },
-        attempts: 16, errors: 12, timingSamples: 0,
-        currentTimeToTypeMs: null, bestTimeToTypeMs: null,
-      }],
-      ...((cohort === "unguarded" || cohort === "no-weakness-unguarded")
-        ? {} : { readingEligibility: reviewedRoleReadingEligible }),
-      ...(cohort === "same-word-correction" || cohort === "no-weakness-correction"
-        ? { preferSameSurfaceOnReadingReject: preferReviewedHaoAdjectiveSurfaceRepair }
-        : {}),
-    });
-    if (selection.utterance.entries.length !== 2
-      || selection.utterance.entries[0]?.id !== he.id) {
-      throw new Error("unexpected fixture structure");
-    }
-    const adjective = selection.utterance.entries[1]!;
-    if (cohort !== "unguarded" && cohort !== "no-weakness-unguarded"
-      && !reviewedRoleReadingEligible(adjective, profiles.find(p => p.entryId === adjective.id)!)) {
-      throw new Error("guarded candidate produced illegal adjective reading");
-    }
-    produced.set(cohort, adjective);
-    const stats = counts[cohort];
-    stats.sentences++;
-    stats.invalidGoodReading += Number(adjective.id === fond.id);
-    stats.validTone4Target += Number(adjective.id === bad.id);
-    stats.validTone3Target += Number(adjective.id === good.id);
-    stats.goodSelected += Number(adjective.prompt.text === "好");
-    stats.badSelected += Number(adjective.prompt.text === "壞");
+
+function sample(cohort: Cohort, seedIndex: number): CatalogEntry {
+  const weak = cohort.endsWith("weak-tone4");
+  const guarded = cohort.startsWith("legal");
+  const selection = selectFormalSyntaxUtterance({
+    entries,
+    profiles,
+    mode,
+    layoutId,
+    history,
+    policy: FREQUENCY_FIRST_UTTERANCE_POLICY,
+    random: createSeededRandom("targeted-fourth-tone-conflict:" + seedIndex),
+    formalSyntaxComposition: { rules: [rule], samplingMode: "raw" },
+    bindingEvidence: weak ? [{
+      scope: { mode, layoutId, tokenId: "tone:4" },
+      attempts: 16, errors: 12, timingSamples: 0,
+      currentTimeToTypeMs: null, bestTimeToTypeMs: null,
+    }] : [],
+    ...(guarded ? { readingEligibility: reviewedRoleReadingEligible } : {}),
+  });
+  if (selection.utterance.entries.length !== 2
+    || selection.utterance.entries[0]?.id !== he.id) {
+    throw new Error("controlled conflict produced unexpected sentence structure");
   }
-  const raw = produced.get("unguarded")!;
-  const old = produced.get("old-legal-redraw")!;
-  const fixed = produced.get("same-word-correction")!;
-  const quietRaw = produced.get("no-weakness-unguarded")!;
-  const quietOld = produced.get("no-weakness-legal-redraw")!;
-  const quietFixed = produced.get("no-weakness-correction")!;
-  if (raw.id === fond.id) {
-    conflicts++;
-    if (fixed.id !== good.id) {
-      throw new Error("contextual reading must correct 好/ADJ to ㄏㄠ3 regardless of tone-4 weakness");
+  const adjective = selection.utterance.entries[1]!;
+  if (guarded) {
+    const selectedProfile = profiles.find(profile => profile.entryId === adjective.id);
+    if (selectedProfile === undefined
+      || !reviewedRoleReadingEligible(adjective, selectedProfile)) {
+      throw new Error("protected selector emitted invalid 好/ADJ reading");
     }
-    if (conflictExamples.length < 12) conflictExamples.push({
-      seed, initial: raw.id, old: old.id, sameWord: fixed.id,
-      oldTone4: old.id === bad.id,
-      sameWordTone4: fixed.id === bad.id,
-    });
-  } else if (old.id !== fixed.id || raw.id !== fixed.id) {
-    throw new Error("a valid lexical draw changed under reading policy");
   }
-  if (quietRaw.id === fond.id) {
-    if (quietFixed.id !== good.id) {
-      throw new Error("the same 好/ADJ context must be corrected without weakness evidence");
+  const stats = counts[cohort];
+  stats.sentenceCount++;
+  stats.wrongHaoAdjectiveCount += Number(adjective.id === fond.id);
+  stats.goodHaoCount += Number(adjective.id === good.id);
+  stats.validFourthToneCount += Number(adjective.id === bad.id);
+  return adjective;
+}
+
+for (let seedIndex = 0; seedIndex < sampleCount; seedIndex++) {
+  for (const weak of [false, true]) {
+    const originalGroup: Cohort = weak ? "raw-weak-tone4" : "raw-no-weakness";
+    const licensedGroup: Cohort = weak ? "legal-weak-tone4" : "legal-no-weakness";
+    const originallySelected = sample(originalGroup, seedIndex);
+    const legallySelected = sample(licensedGroup, seedIndex);
+    const legal = counts[licensedGroup];
+    if (originallySelected.id === fond.id) {
+      legal.invalidDrawsCorrected++;
+      if (legallySelected.id !== good.id && legallySelected.id !== bad.id) {
+        throw new Error("invalid reading failed to redraw a legal adjective");
+      }
+      if (conflictExamples.length < 16) conflictExamples.push({
+        seedIndex,
+        initial: originallySelected.id,
+        corrected: legallySelected.id,
+        withTone4Weakness: weak,
+      });
+    } else if (legallySelected.id !== originallySelected.id) {
+      legal.nonConflictingDrawsChanged++;
+      throw new Error("valid initial word/readings changed without a legal conflict");
     }
-  } else if (quietOld.id !== quietFixed.id || quietRaw.id !== quietFixed.id) {
-    throw new Error("a valid unweighted lexical draw changed under reading policy");
   }
 }
-if (conflicts === 0 || counts["old-legal-redraw"].invalidGoodReading !== 0
-  || counts["same-word-correction"].invalidGoodReading !== 0) {
-  throw new Error("conflict cohort did not exercise a safely resolved sample");
+
+for (const name of ["legal-no-weakness", "legal-weak-tone4"] as const) {
+  if (counts[name].wrongHaoAdjectiveCount !== 0 || counts[name].invalidDrawsCorrected === 0
+    || counts[name].nonConflictingDrawsChanged !== 0) {
+    throw new Error("reviewed reading was not contextually stable");
+  }
 }
+if (!(counts["legal-weak-tone4"].validFourthToneCount
+  > counts["legal-no-weakness"].validFourthToneCount)) {
+  throw new Error("error boost did not increase *legitimate* fourth-tone practice exposure");
+}
+
 const summary = {
-  schemaVersion: "contextual-reading-independent-of-weakness-v2",
-  purpose: "prove a reviewed contextual reading is unaffected by learner weakness; quantify the separate exposure tradeoff",
+  schemaVersion: "legally-weighted-lexical-redraw-v3",
+  purpose: "reading validity is independent of learner weakness; lexical-slot legal redraw uses legal target weights",
   sampleCount,
-  lexicalOptions: [good.id, fond.id, bad.id],
+  entries: [good.id, fond.id, bad.id],
   syntheticLearnerWeakness: { tokenId: "tone:4", attempts: 16, errors: 12 },
-  invalidInitialHaoAdjectiveDraws: conflicts,
   counts,
-  tradeoff: {
-    fourthTonePracticeLostToSameWordRepair:
-      counts["old-legal-redraw"].validTone4Target - counts["same-word-correction"].validTone4Target,
-    noWeaknessHaoLexemeRetainedByCorrection:
-      counts["no-weakness-correction"].goodSelected - counts["no-weakness-legal-redraw"].goodSelected,
-  },
   conflictExamples,
   limitations: [
-    "Illustrative restricted lexicon, not a representative Chinese sentence distribution",
-    "One deliberately conflicting adjective slot, synthetic learner record, and no recency",
-    "Does not prove that whole-word preservation or tone exposure is always better for users",
+    "Restricted three-adjective fixture, not representative of full catalog",
+    "The original word may change upon an invalid reading; that is lexical selection, not reinterpretation of its pronunciation",
+    "There is no gold label for naturalness or real user learning effectiveness",
   ],
 };
 const output = "data/generated/conflicting-target-exposure.json";
