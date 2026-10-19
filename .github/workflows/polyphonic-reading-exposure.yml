@@ -40,7 +40,7 @@ jobs:
         run: npm run app:catalog
       - name: Prepare five-word exact reading identities for private MOE review
         run: npx tsx scripts/prepare-moe-sense-targets.ts
-      - name: Assert contextual reading stays correct with and without tone-4 mistakes
+      - name: Assert legal-only lexical redraw and actual learner target weighting
         run: npx tsx scripts/audit-conflicting-reading-target.ts
       - name: Audit 2048 deterministic generated sentences
         run: npm run readings:audit
@@ -142,10 +142,11 @@ jobs:
             '',
             `Reviewed NOUN/VERB mismatches: ${zhongTrial.priorDisallowedOccurrences} → ${zhongTrial.trialDisallowedOccurrences}. Changed seeds: ${zhongTrial.alteredSeeds}; unrelated changes: ${zhongTrial.unrelatedAlteredSeeds}.`,
             '',
-            '#### Reading correctness independent of learner weakness',
+            '#### Legal pronunciation and target weighting are separate',
             '',
-            `In a 1,024-seed controlled conflict with synthetic tone-4 mistakes, independently reviewed 好/ADJ must still use ㄏㄠ3. Keeping the word can reduce valid tone-4 exposure from ${conflict.counts['old-legal-redraw'].validTone4Target} to ${conflict.counts['same-word-correction'].validTone4Target} relative to a different-word redraw; this exposure tradeoff NEVER determines pronunciation correctness.`,
-            `With no weakness, the review preference retains the original 好 lexeme in ${conflict.tradeoff.noWeaknessHaoLexemeRetainedByCorrection} additional cases. These are 1,024 deliberately narrow lexical fixture runs, not a real-catalog probability estimate.`,
+            `In a 1,024-seed restricted lexical fixture, illegal 好/ADJ:ㄏㄠ4 was rejected in ${conflict.counts['legal-weak-tone4'].invalidDrawsCorrected} cases with four-tone weakness, and ${conflict.counts['legal-no-weakness'].invalidDrawsCorrected} cases without weakness.`,
+            `Legitimate four-tone exercises: without weakness ${conflict.counts['legal-no-weakness'].validFourthToneCount}, with weakness ${conflict.counts['legal-weak-tone4'].validFourthToneCount}. Already-valid draws changed in neither cohort.`,
+            'These are controlled, synthetic samples, not observed learner accuracy or validated natural sentences.',
             '',
             '#### Same-UPOS sense-review queue (not error labels)',
             '',
