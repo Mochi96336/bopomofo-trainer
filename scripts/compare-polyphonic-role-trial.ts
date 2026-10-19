@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { catalogEntryId } from "../src/core/catalog-entry-id.js";
 import { REVIEWED_CLOSED_CLASS_POSITIONS } from "../src/readings/closed-class-license.js";
 import { REVIEWED_PRONOMINAL_ROLE_READINGS } from "../src/readings/pronominal-role-license.js";
+import { REVIEWED_ADJECTIVE_ROLE_READINGS } from "../src/readings/adjective-role-license.js";
 import { CONSTRUCTION_READINGS } from "../src/syntax/lexical-feature-match.js";
 import type { Upos } from "../src/syntax/types.js";
 
@@ -54,7 +55,10 @@ function closedClassLicenses(): AllowedReadings {
 
 function reviewedRoleLicenses(): AllowedReadings {
   const allowed = new Map(closedClassLicenses());
-  for (const [text, roles] of Object.entries(REVIEWED_PRONOMINAL_ROLE_READINGS)) {
+  for (const [text, roles] of Object.entries({
+    ...REVIEWED_PRONOMINAL_ROLE_READINGS,
+    ...REVIEWED_ADJECTIVE_ROLE_READINGS,
+  })) {
     for (const [upos, readings] of Object.entries(roles)) {
       if (readings === undefined) continue;
       const key = text + "/" + upos;

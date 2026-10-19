@@ -718,6 +718,10 @@ export function composeFormalSyntaxUtterances(
             }
             return readingEligibility(entry, profile, slot);
           });
+          // Rejection redraw is limited to this lexical slot; the entire
+          // sentence is not discarded. Draw from the legal frontier using
+          // the original entry weights. An invalid reading's learner boost
+          // must never be transferred to its written homograph.
           selectedProfile = draw(licensed);
         }
       }
