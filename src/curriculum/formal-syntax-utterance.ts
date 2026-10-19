@@ -69,6 +69,11 @@ export interface FormalSyntaxUtteranceInput {
     profile: RuntimeSyntaxProfile,
     slot: StructuralLexicalSlot,
   ) => boolean;
+  /** Opt-in preference after a sampled pronunciation is rejected; absent = historical weighted redraw. */
+  readonly preferSameSurfaceOnReadingReject?: (
+    rejected: CatalogEntry,
+    selectedProfile: RuntimeSyntaxProfile,
+  ) => boolean;
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
@@ -718,22 +723,25 @@ export function composeFormalSyntaxUtterances(
             }
             return readingEligibility(entry, profile, slot);
           });
-          // A wrong reading is not permission to replace the learner's selected
-          // word with an arbitrary other word. Prefer the same written lexeme
-          // with a licensed reading in the *same compatible syntax slot*.
-          // Its entry identity (and Bopomofo) must still be selected together.
-          // When no same-word reading is legal, use the existing weighted
-          // licensed frontier rather than inventing a pronunciation.
-          const sameWrittenWord = licensed.filter((profile) => {
-            const entry = entriesById.get(profile.entryId);
-            return entry?.prompt.text === initiallySelected.prompt.text;
-          });
-          selectedProfile = sameWrittenWord.length === 0
-            ? null
-            : draw(sameWrittenWord);
-          // A previous slot may have consumed the only same-word entry.
-          // Do not fail the sentence if other licensed identities remain.
-          if (selectedProfile === null) selectedProfile = draw(licensed);
+          // Same-word repair is a scoped, reviewed opt-in. Applying it to
+          // every closed-class reading would change otherwise unrelated
+          // weighted selections and weaken existing sampling invariants.
+          const preferSameSurface = input.preferSameSurfaceOnReadingReject?.(
+            initiallySelected,
+            selectedProfile,
+          ) === true;
+          let corrected: RuntimeSyntaxProfile | null = null;
+          if (preferSameSurface) {
+            const sameWrittenWord = licensed.filter((profile) => {
+              const entry = entriesById.get(profile.entryId);
+              return entry?.prompt.text === initiallySelected.prompt.text;
+            });
+            if (sameWrittenWord.length > 0) corrected = draw(sameWrittenWord);
+          }
+          // If the same word is unavailable (including used-entry exclusions)
+          // or the opt-in is absent, preserve the historical licensed,
+          // frequency/learner-weighted draw.
+          selectedProfile = corrected ?? draw(licensed);
         }
       }
       if (selectedProfile === null) {
