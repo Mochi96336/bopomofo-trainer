@@ -34,14 +34,3 @@ export function reviewedAdjectiveReadingEligible(
     || entry.id === ADJECTIVAL_HAO_ID;
 }
 
-/**
- * Limit the lexeme-preserving repair to the reviewed good/satisfactory
- * adjectival sense. A contextual target lacking an authorized reading
- * must not be silently renamed to practise a different tone.
- */
-export function preferReviewedHaoAdjectiveSurfaceRepair(
-  rejected: CatalogEntry,
-  selectedProfile: RuntimeSyntaxProfile,
-): boolean {
-  return rejected.prompt.text === "好" && selectedProfile.upos === "ADJ";
-}
