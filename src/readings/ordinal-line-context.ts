@@ -1,6 +1,7 @@
 import { catalogEntryId } from "../core/catalog-entry-id.js";
 import type { CatalogEntry } from "../core/model.js";
 import type { RuntimeSyntaxProfile } from "../syntax/types.js";
+import { reviewedAdjectiveReadingEligible } from "./adjective-role-license.js";
 import { reviewedRoleReadingEligible } from "./pronominal-role-license.js";
 
 /**
@@ -40,3 +41,21 @@ export function reviewedRoleAndOrdinalLineReadingEligible(
     && reviewedOrdinalLineReadingEligible(entry, profile, previousEntry);
 }
 
+
+/**
+ * Shared *pre-draw* scope for two independently reviewed contexts.
+ *
+ * This is intentionally NOT the entire role license: broad prefiltering
+ * changes the probabilities of unrelated word classes. At each lexical slot,
+ * remove only unlicensed standalone 好/ADJ and immediate 第N行 identities
+ * before learner/frequency weights are evaluated.
+ */
+export function reviewedContextualPreDrawReadingEligible(
+  entry: CatalogEntry,
+  profile: RuntimeSyntaxProfile,
+  _slot: unknown,
+  previousEntry: CatalogEntry | null,
+): boolean {
+  return reviewedAdjectiveReadingEligible(entry, profile)
+    && reviewedOrdinalLineReadingEligible(entry, profile, previousEntry);
+}
