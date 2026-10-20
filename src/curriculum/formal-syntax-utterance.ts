@@ -71,15 +71,12 @@ export interface FormalSyntaxUtteranceInput {
     previousEntry: CatalogEntry | null,
   ) => boolean;
   /**
-   * Optional contextual reading repair, not a general learner-weighted
-   * same-spelling preference: repair an already selected written word
-   * to its uniquely licensed pronunciation when one exists.
+   * Optional local pre-draw legality test. Applied to the current lexical
+   * frontier before the learner/frequency-weighted pick, so an invalid
+   * pronunciation never lends probability mass to a licensed word.
+   * Omitted outside specifically reviewed contextual constructions.
    */
-  readonly preserveSelectedWordOnReadingReject?: (
-    rejected: CatalogEntry,
-    profile: RuntimeSyntaxProfile,
-    previousEntry: CatalogEntry | null,
-  ) => boolean;
+  readonly preDrawReadingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
@@ -699,10 +696,9 @@ export function composeFormalSyntaxUtterances(
       const boundCompatible = boundEntryId === undefined
         ? allCompatible
         : allCompatible.filter((profile) => profile.entryId === boundEntryId);
-      // Preserve the pre-policy random selection whenever it already has an
-      // appropriate reading. Pre-filtering the complete lexical frontier
-      // perturbs many unrelated seeded sentences even when the original
-      // selected identity is valid. Only a rejected selection is resampled.
+      // Only explicitly scoped contexts may prelicense this lexical
+      // frontier. Other reviewed-role gates preserve the prior local
+      // post-draw check so unrelated selection paths remain unchanged.
       const draw = (choices: readonly RuntimeSyntaxProfile[]) => selectCompatibleProfile(
         choices,
         usedEntryIds,
@@ -716,7 +712,17 @@ export function composeFormalSyntaxUtterances(
         input.random,
       );
       const readingEligibility = input.readingEligibility;
-      let selectedProfile = draw(boundCompatible);
+      const preDrawPolicy = input.preDrawReadingEligibility;
+      const currentLegalFrontier = preDrawPolicy === undefined
+        ? boundCompatible
+        : boundCompatible.filter((profile) => {
+            const entry = entriesById.get(profile.entryId);
+            if (entry === undefined) {
+              throw new Error("pre-draw reading policy references a missing catalog entry");
+            }
+            return preDrawPolicy(entry, profile, slot, previousEntry);
+          });
+      let selectedProfile = draw(currentLegalFrontier);
       if (selectedProfile !== null && readingEligibility !== undefined) {
         const initiallySelected = entriesById.get(selectedProfile.entryId);
         if (initiallySelected === undefined) {
@@ -734,22 +740,10 @@ export function composeFormalSyntaxUtterances(
           // sentence is not discarded. Draw from the legal frontier using
           // the original entry weights. An invalid reading's learner boost
           // must never be transferred to its written homograph.
-          const preferPreserving = input.preserveSelectedWordOnReadingReject?.(
-            initiallySelected, selectedProfile, previousEntry,
-          ) === true;
-          const sameWord = preferPreserving
-            ? licensed.filter((profile) =>
-                entriesById.get(profile.entryId)?.prompt.text === initiallySelected.prompt.text
-                && (!usedEntryIds.has(profile.entryId) || profile.entryId === boundEntryId))
-            : [];
-          // A single validated reading does not need an extra random draw:
-          // keeping the original written word also preserves all later
-          // lexical random choices, instead of changing the rest of a sentence.
-          selectedProfile = sameWord.length === 1
-            ? sameWord[0]!
-            : sameWord.length > 1
-              ? draw(sameWord)
-              : draw(licensed);
+          // Earlier reviewed role gates retain their existing local legal
+          // redraw. The explicitly reviewed ordinal context is already
+          // licensed BEFORE weighting, so it never borrows mass from ㄒㄧㄥ2.
+          selectedProfile = draw(licensed);
         }
       }
       if (selectedProfile === null) {
