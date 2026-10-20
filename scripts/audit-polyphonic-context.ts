@@ -5,7 +5,7 @@ import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-u
 import { createSeededRandom } from "../src/curriculum/random.js";
 import { reviewedClosedClassReadingEligible } from "../src/readings/closed-class-license.js";
 import { reviewedRoleReadingEligible } from "../src/readings/pronominal-role-license.js";
-import { reviewedRoleAndOrdinalLineReadingEligible, preserveReviewedOrdinalLineWord } from "../src/readings/ordinal-line-context.js";
+import { reviewedRoleAndOrdinalLineReadingEligible, reviewedOrdinalLineReadingEligible, preserveReviewedOrdinalLineWord } from "../src/readings/ordinal-line-context.js";
 import { reviewedZhongRolePilotEligible } from "../src/readings/zhong-role-pilot.js";
 import {
   auditPolyphonicCandidate,
@@ -32,7 +32,7 @@ const PRODUCT_BOUNDS = {
   maximumLexicalEntriesPerUtterance: 6,
 } as const;
 
-type ReadingAuditPolicy = "none" | "reviewed-closed" | "reviewed-roles" | "zhong-role-trial" | "ordinal-line-trial";
+type ReadingAuditPolicy = "none" | "reviewed-closed" | "reviewed-roles" | "zhong-role-trial" | "ordinal-line-trial" | "ordinal-valid-first";
 
 function argumentsFromCli(): { samples: number; output: string; policy: ReadingAuditPolicy } {
   let samples = 2048;
@@ -50,8 +50,8 @@ function argumentsFromCli(): { samples: number; output: string; policy: ReadingA
     } else if (name === "--output") {
       output = value;
     } else if (name === "--policy") {
-      if (value !== "none" && value !== "reviewed-closed" && value !== "reviewed-roles" && value !== "zhong-role-trial" && value !== "ordinal-line-trial") {
-        throw new Error("--policy accepts none, reviewed-closed, reviewed-roles, zhong-role-trial or ordinal-line-trial");
+      if (value !== "none" && value !== "reviewed-closed" && value !== "reviewed-roles" && value !== "zhong-role-trial" && value !== "ordinal-line-trial" && value !== "ordinal-valid-first") {
+        throw new Error("--policy accepts none, reviewed-closed, reviewed-roles, zhong-role-trial or ordinal-line-trial or ordinal-valid-first");
       }
       policy = value;
     } else {
@@ -102,13 +102,21 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
       ? { readingEligibility: reviewedClosedClassReadingEligible }
       : policy === "reviewed-roles"
         ? { readingEligibility: reviewedRoleReadingEligible }
-        : policy === "ordinal-line-trial"
+        : (policy === "ordinal-line-trial" || policy === "ordinal-valid-first")
           ? { readingEligibility: reviewedRoleAndOrdinalLineReadingEligible }
         : policy === "zhong-role-trial"
           ? { readingEligibility: reviewedZhongRolePilotEligible }
           : {}),
     ...(policy === "ordinal-line-trial"
       ? { preserveSelectedWordOnReadingReject: preserveReviewedOrdinalLineWord }
+      : {}),
+    ...(policy === "ordinal-valid-first"
+      ? { preDrawReadingEligibility: (
+          entry: (typeof PRACTICE_CATALOG)[number],
+          profile: (typeof SYNTAX_PROFILES)[number],
+          _slot: unknown,
+          previousEntry: (typeof PRACTICE_CATALOG)[number] | null,
+        ) => reviewedOrdinalLineReadingEligible(entry, profile, previousEntry) }
       : {}),
   });
   for (const reason of composition.fallbackReasons) increment(fallbacks, reason);
