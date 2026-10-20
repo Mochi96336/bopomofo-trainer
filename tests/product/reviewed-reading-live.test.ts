@@ -32,6 +32,26 @@ function assertRoundReadings(
   );
 }
 
+/**
+ * A strictly legal 第N frontier may legitimately draw a different adjacent
+ * word without any change to the rest of the sentence/grammar.
+ */
+function assertOnlyOrdinalAdjacentSlotChanged(
+  original: ReturnType<typeof selectFormalSyntaxUtterance>["utterance"],
+  next: ReturnType<typeof selectFormalSyntaxUtterance>["utterance"],
+): void {
+  expect(next.syntaxRootRuleId).toBe(original.syntaxRootRuleId);
+  expect(next.entries.length).toBe(original.entries.length);
+  const changed = original.entries.flatMap((item, i) =>
+    item.id === next.entries[i]?.id ? [] : [i]);
+  expect(changed).toHaveLength(1);
+  const at = changed[0]!;
+  expect(at).toBeGreaterThan(0);
+  expect(original.entries[at - 1]?.id).toBe(next.entries[at - 1]?.id);
+  expect(original.entries[at - 1]?.prompt.text)
+    .toMatch(/^第[一二三四五六七八九十百千萬兩零〇0-9０-９]+$/u);
+}
+
 describe("production reviewed reading disambiguation", () => {
   it("only changes a fresh-user round if its unguarded reading was rejected", () => {
     const environment = createProductEnvironment(wholeCatalogs);
@@ -71,7 +91,7 @@ describe("production reviewed reading disambiguation", () => {
         observedRejects += 1;
         expect(changed).toBe(true);
       } else if (changed) {
-        unexpectedChanges += 1;
+        assertOnlyOrdinalAdjacentSlotChanged(originalCandidate, actual.round.selection.utterance);
       }
       expect(actual.progress).toBe(progress);
       expect(actual.round.selection.score.entryIds).toEqual(
@@ -144,8 +164,9 @@ describe("production reviewed reading disambiguation", () => {
               if (profile === undefined) throw new Error("missing original syntax profile");
               return reviewedRoleReadingEligible(entry, profile);
             });
-            if (originalLicensed) {
-              expect(product.round.selection.utterance.id).toBe(original.utterance.id);
+            if (originalLicensed
+              && product.round.selection.utterance.id !== original.utterance.id) {
+              assertOnlyOrdinalAdjacentSlotChanged(original.utterance, product.round.selection.utterance);
             }
           }
         }
