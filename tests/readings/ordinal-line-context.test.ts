@@ -5,7 +5,6 @@ import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-synta
 import {
   reviewedOrdinalLineReadingEligible,
   reviewedRoleAndOrdinalLineReadingEligible,
-  preserveReviewedOrdinalLineWord,
 } from "../../src/readings/ordinal-line-context.js";
 import { FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";
 import type { ProductionRule, RuntimeSyntaxProfile, Upos } from "../../src/syntax/types.js";
@@ -101,22 +100,23 @@ describe("reviewed adjacent 第N行 reading", () => {
       ...base,
       readingEligibility: reviewedRoleAndOrdinalLineReadingEligible,
     });
-    const fixedReading = composeFormalSyntaxUtterances({
+    const legalFirst = composeFormalSyntaxUtterances({
       ...base,
       readingEligibility: reviewedRoleAndOrdinalLineReadingEligible,
-      preserveSelectedWordOnReadingReject: preserveReviewedOrdinalLineWord,
+      preDrawReadingEligibility: (entry, profile, _slot, previousEntry) =>
+        reviewedOrdinalLineReadingEligible(entry, profile, previousEntry),
     });
     expect(before.candidates[0]?.entries.map(x => x.id)).toEqual([ordinal.id, move.id]);
     expect(legalRedraw.candidates[0]?.entries.map(x => x.id)).toEqual([ordinal.id, different.id]);
-    // Reading resolution for an already selected 第三行 should not turn it
-    // into an unrelated 第三航 or restart the whole sentence.
-    expect(fixedReading.candidates[0]?.entries.map(x => x.id)).toEqual([ordinal.id, row.id]);
-    expect(fixedReading.candidates[0]?.text).toBe(before.candidates[0]?.text);
-    expect(fixedReading.candidates[0]?.syntaxRootRuleId).toEqual(before.candidates[0]?.syntaxRootRuleId);
-    expect(fixedReading.fallbackReasons).not.toContain("formal-syntax-no-candidate");
+    // An invalid high-weight 行/ㄒㄧㄥ2 candidate must not donate its
+    // selection mass to 行/ㄏㄤ2. The legal 航 candidate can win by its
+    // own weight without restarting the sentence or overriding its reading.
+    expect(legalFirst.candidates[0]?.entries.map(x => x.id)).toEqual([ordinal.id, different.id]);
+    expect(legalFirst.candidates[0]?.syntaxRootRuleId).toEqual(before.candidates[0]?.syntaxRootRuleId);
+    expect(legalFirst.fallbackReasons).not.toContain("formal-syntax-no-candidate");
   });
 
-  it("retains 行 when its only legal lexical identity wins, with one structural attempt", () => {
+  it("chooses 行/ㄏㄤ2 when it is the only legal candidate, with one structural attempt", () => {
     const result = composeFormalSyntaxUtterances({
       eligibleEntries: [ordinal, move, row],
       profiles: [
@@ -134,6 +134,8 @@ describe("reviewed adjacent 第N行 reading", () => {
       maximumCandidates: 1,
       maximumAttempts: 1,
       readingEligibility: reviewedRoleAndOrdinalLineReadingEligible,
+      preDrawReadingEligibility: (entry, profile, _slot, previousEntry) =>
+        reviewedOrdinalLineReadingEligible(entry, profile, previousEntry),
     });
     expect(result.candidates[0]?.entries.map(x => x.id)).toEqual([ordinal.id, row.id]);
     expect(result.candidates[0]?.text).toBe("第三行");
