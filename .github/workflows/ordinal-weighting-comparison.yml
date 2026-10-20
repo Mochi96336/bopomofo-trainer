@@ -1,0 +1,84 @@
+name: Ordinal context weight comparison
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/ordinal-weighting-comparison.yml"
+      - "src/curriculum/formal-syntax-utterance.ts"
+      - "scripts/audit-polyphonic-context.ts"
+      - "scripts/compare-ordinal-probability.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Build source catalog
+        run: npm run app:catalog
+      - name: Keep selected word and repair its local reading (2048)
+        run: >-
+          npm run readings:audit -- --policy ordinal-line-trial
+          --output data/generated/ordinal-existing.json
+      - name: First restrict the numbered-row reading candidates (2048)
+        run: >-
+          npm run readings:audit -- --policy ordinal-valid-first
+          --output data/generated/ordinal-valid-first.json
+      - name: Compare selection distributions and exact changed identities
+        run: >-
+          npx tsx scripts/compare-ordinal-probability.ts
+          data/generated/ordinal-existing.json
+          data/generated/ordinal-valid-first.json
+          data/generated/ordinal-weight-comparison.json
+      - name: Publish results
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from "node:fs";
+          const r = JSON.parse(readFileSync("data/generated/ordinal-weight-comparison.json", "utf8"));
+          const t = r.results;
+          const lines = [
+            "# Ordinal context: correct reading vs legal-only weighting",
+            "",
+            "Both strategies require the correct reading ㄏㄤ2 whenever the selected text contains adjacent 第N行.",
+            "This is a fixed-seed generator A/B, not human naturalness or user learning accuracy.",
+            "",
+            "| Measure | Value |",
+            "|---|---:|",
+            `| Generated in both branches | ${r.samples}/${r.samples} |`,
+            `| Existing-policy 第N行 occurrences | ${t.existingRowPhraseHits} |`,
+            `| Legal-first 第N行 occurrences | ${t.legalFirstRowPhraseHits} |`,
+            `| Wrong numbered-row reading, both | ${t.wrongOrdinalRowReadingsExisting} / ${t.wrongOrdinalRowReadingsLegalFirst} |`,
+            `| Changed seeded sentences | ${t.changedSeeds} |`,
+            `| Changed seeds without a previously selected 第N行 | ${t.changesWithoutPreviouslySelectedOrdinalRow} |`,
+            "",
+            "### Seed 931",
+            "",
+            `- Word-preserving: ${t.seed931.sameWord}`,
+            `- Legal-first weighting: ${t.seed931.legalFirst}`,
+            "",
+            "The compared policies are experimental. No product activation or auto-merge.",
+          ];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
+          NODE
+      - name: Upload all exact-seed evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ordinal-weighting-comparison-json
+          path: |
+            data/generated/ordinal-existing.json
+            data/generated/ordinal-valid-first.json
+            data/generated/ordinal-weight-comparison.json
+          retention-days: 14
+          if-no-files-found: error
