@@ -21,7 +21,7 @@ import {
 import { prepareFormalSyntaxLexicon } from "../curriculum/formal-syntax-utterance.js";
 import {
   reviewedRoleAndOrdinalLineReadingEligible,
-  preserveReviewedOrdinalLineWord,
+  reviewedOrdinalLineReadingEligible,
 } from "../readings/ordinal-line-context.js";
 import { createSeededRandom } from "../curriculum/random.js";
 import { createCatalogSupportIndex } from "../curriculum/support.js";
@@ -117,7 +117,7 @@ function selectRound(
     // Preserve the original draw for all licensed readings; only an actual
     // reviewed-role mismatch is resampled. No catalog/progress IDs are rewritten.
     readingEligibility: reviewedRoleAndOrdinalLineReadingEligible,
-    preserveSelectedWordOnReadingReject: preserveReviewedOrdinalLineWord,
+    preDrawReadingEligibility: (entry, profile, _slot, previousEntry) => reviewedOrdinalLineReadingEligible(entry, profile, previousEntry),
     preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
     preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
