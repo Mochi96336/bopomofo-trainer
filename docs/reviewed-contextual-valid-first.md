@@ -69,10 +69,10 @@ the scarcity of genuinely human-attested target contexts separately.
 ## Natural short-context review queue (not generated-sentence fluency)
 
 `tests/readings/reviewed-natural-contexts.test.ts` now carries five
-**human-written, manually segmented** reading examples. They check the
+**illustrative, manually specified (not independently corpus-attested)** reading examples. They check the
 scoped pronunciation policies for `這家餐廳的服務很好`, `他愛好音樂`
 (the whole-word lexeme `愛好`), and `請看第三行`. These examples
-confirm a reviewed lexical sense **given manually supplied syntax**,
+check a reviewed lexical sense **given manually supplied syntax**,
 not an automatic parser's precision or the whole generator's naturalness.
 
 One important open gap is deliberately marked **TODO**, not silently
