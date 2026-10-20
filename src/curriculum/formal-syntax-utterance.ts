@@ -70,6 +70,16 @@ export interface FormalSyntaxUtteranceInput {
     slot: StructuralLexicalSlot,
     previousEntry: CatalogEntry | null,
   ) => boolean;
+  /**
+   * Optional contextual reading repair, not a general learner-weighted
+   * same-spelling preference: repair an already selected written word
+   * to its uniquely licensed pronunciation when one exists.
+   */
+  readonly preserveSelectedWordOnReadingReject?: (
+    rejected: CatalogEntry,
+    profile: RuntimeSyntaxProfile,
+    previousEntry: CatalogEntry | null,
+  ) => boolean;
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
@@ -724,7 +734,22 @@ export function composeFormalSyntaxUtterances(
           // sentence is not discarded. Draw from the legal frontier using
           // the original entry weights. An invalid reading's learner boost
           // must never be transferred to its written homograph.
-          selectedProfile = draw(licensed);
+          const preferPreserving = input.preserveSelectedWordOnReadingReject?.(
+            initiallySelected, selectedProfile, previousEntry,
+          ) === true;
+          const sameWord = preferPreserving
+            ? licensed.filter((profile) =>
+                entriesById.get(profile.entryId)?.prompt.text === initiallySelected.prompt.text
+                && (!usedEntryIds.has(profile.entryId) || profile.entryId === boundEntryId))
+            : [];
+          // A single validated reading does not need an extra random draw:
+          // keeping the original written word also preserves all later
+          // lexical random choices, instead of changing the rest of a sentence.
+          selectedProfile = sameWord.length === 1
+            ? sameWord[0]!
+            : sameWord.length > 1
+              ? draw(sameWord)
+              : draw(licensed);
         }
       }
       if (selectedProfile === null) {
