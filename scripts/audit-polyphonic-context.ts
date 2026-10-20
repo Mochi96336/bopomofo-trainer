@@ -5,7 +5,7 @@ import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-u
 import { createSeededRandom } from "../src/curriculum/random.js";
 import { reviewedClosedClassReadingEligible } from "../src/readings/closed-class-license.js";
 import { reviewedRoleReadingEligible } from "../src/readings/pronominal-role-license.js";
-import { reviewedRoleAndOrdinalLineReadingEligible, preserveReviewedOrdinalLineWord } from "../src/readings/ordinal-line-context.js";
+import { reviewedRoleAndOrdinalLineReadingEligible, reviewedOrdinalLineReadingEligible } from "../src/readings/ordinal-line-context.js";
 import { reviewedZhongRolePilotEligible } from "../src/readings/zhong-role-pilot.js";
 import {
   auditPolyphonicCandidate,
@@ -108,7 +108,12 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
           ? { readingEligibility: reviewedZhongRolePilotEligible }
           : {}),
     ...(policy === "ordinal-line-trial"
-      ? { preserveSelectedWordOnReadingReject: preserveReviewedOrdinalLineWord }
+      ? { preDrawReadingEligibility: (
+          entry: (typeof PRACTICE_CATALOG)[number],
+          profile: (typeof SYNTAX_PROFILES)[number],
+          _slot: unknown,
+          previousEntry: (typeof PRACTICE_CATALOG)[number] | null,
+        ) => reviewedOrdinalLineReadingEligible(entry, profile, previousEntry) }
       : {}),
   });
   for (const reason of composition.fallbackReasons) increment(fallbacks, reason);
