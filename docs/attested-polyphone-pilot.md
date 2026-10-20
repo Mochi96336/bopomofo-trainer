@@ -45,6 +45,40 @@
 `test` split 僅記錄語料來源身分，這個 prototype **不是**
 使用原封保留測試集衡量泛化能力的研究。
 
+## 來源完整性：不只檢查 JSON 自己說的話
+
+本次除了保存三份 CoNLL-U 的 Git blob SHA，也把來源 repository
+固定在 commit `22f73e87f7ddc530bb131a6b7587971a03e1a712`。
+CI 會另外下載該 commit 的原始 UD Chinese GSD，執行：
+
+```bash
+npx tsx scripts/verify-attested-gsd-source.ts .external/ud-chinese-gsd
+```
+
+這一步使用 Git `blob <byteLength>\\0<bytes>` 的 **SHA-1**
+檢查 train/dev/test 原始檔，並逐筆要求 `sent_id`、**整句原文**、
+目標詞元與詞性、原始 `Translit` 都與固定來源完全一致。
+**僅用 `Translit` 來比對來源身分，不拿它當正確讀音。**
+如此若資料被改寫成自己造的句子，或來源版本偷偷變動，會直接失敗。
+
+### 尚待人工判斷、禁止自動升級成正確答案的候選
+
+從同一批真實 GSD 另找到了幾個需要整句語義或詞界審查的案例：
+
+- `dev-s231`：`全詩計12卷，長達近萬行，是遵照奧古斯都的旨意創作出來的。`
+  其中單獨的「行」按行列量詞意義應候選 ㄏㄤˊ，但 GSD
+  `Translit=xíng`；**暫列 review-needed，未收入已審查 12 筆**。
+- `test-s64`：`好，開始拍` 的「好」被 GSD 標成 ADJ，
+  但在引述攝影師話語時可能是話語標記；不能把
+  `好/ADJ` 規則通過，當作句法角色也審查完成。
+- `train-s3887`：`有些種的花是兩性同花的` 的「種」被
+  GSD 標成 VERB，卻具有「類別／物種」名詞意義。
+  這再次證實詞性標註也可能有誤。
+
+以上**都不是新訓練標籤**。後續應讓第二位審查者不看模型預測，
+根據完整原句、詞界與辭典證據，決定是否適合作為自然語境測試。
+這一步比盲目抽取更多同字例句更重要。
+
 ## 第二步：已驗證目標候選 → 個人化加權選題
 
 `src/research/attested-sentence-selector.ts` 不生成句子，也**沒有模型推論**。
