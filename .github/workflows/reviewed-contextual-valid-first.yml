@@ -8,6 +8,7 @@ on:
       - "scripts/audit-polyphonic-context.ts"
       - "scripts/compare-contextual-valid-first.ts"
       - "tests/readings/contextual-pre-draw.test.ts"
+      - "tests/readings/reviewed-natural-contexts.test.ts"
   workflow_dispatch:
 
 permissions:
@@ -30,7 +31,7 @@ jobs:
       - name: Generate active catalog
         run: npm run app:catalog
       - name: Targeted legal-first semantic role tests
-        run: npx vitest run tests/readings/contextual-pre-draw.test.ts
+        run: npx vitest run tests/readings/contextual-pre-draw.test.ts tests/readings/reviewed-natural-contexts.test.ts
       - name: Pinned ordinal legal-first (2048)
         run: >-
           npx tsx scripts/audit-polyphonic-context.ts
