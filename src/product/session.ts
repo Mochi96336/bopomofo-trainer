@@ -19,7 +19,7 @@ import {
   type FrequencyFirstUtterancePolicy,
 } from "../curriculum/frequency-first-utterance.js";
 import { prepareFormalSyntaxLexicon } from "../curriculum/formal-syntax-utterance.js";
-import { reviewedRoleReadingEligible } from "../readings/pronominal-role-license.js";
+import { reviewedRoleAndOrdinalLineReadingEligible } from "../readings/ordinal-line-context.js";
 import { createSeededRandom } from "../curriculum/random.js";
 import { createCatalogSupportIndex } from "../curriculum/support.js";
 import {
@@ -113,7 +113,7 @@ function selectRound(
     profiles: environment.catalogs.syntaxProfiles,
     // Preserve the original draw for all licensed readings; only an actual
     // reviewed-role mismatch is resampled. No catalog/progress IDs are rewritten.
-    readingEligibility: reviewedRoleReadingEligible,
+    readingEligibility: reviewedRoleAndOrdinalLineReadingEligible,
     preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
     preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
