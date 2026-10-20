@@ -7,6 +7,7 @@ on:
       - "data/research/attested-polyphones-v1.json"
       - "src/research/attested-sentence-selector.ts"
       - "scripts/audit-attested-sentence-weighting.ts"
+      - "scripts/verify-attested-gsd-source.ts"
       - "tests/readings/attested-sentence-selector.test.ts"
       - "docs/attested-polyphone-pilot.md"
   workflow_dispatch:
@@ -20,6 +21,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
+      - name: Fetch exact pinned GSD source (research verification only)
+        uses: actions/checkout@v6
+        with:
+          repository: UniversalDependencies/UD_Chinese-GSD
+          ref: 22f73e87f7ddc530bb131a6b7587971a03e1a712
+          path: .external/ud-chinese-gsd
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: 22
@@ -27,6 +35,8 @@ jobs:
           cache-dependency-path: package-lock.json
       - name: Install dependencies
         run: npm ci --include=dev --ignore-scripts
+      - name: Verify all original GSD sentences against pinned git blobs
+        run: npx tsx scripts/verify-attested-gsd-source.ts .external/ud-chinese-gsd
       - name: Confirm TypeScript source contracts
         run: npm run typecheck
       - name: Validate corpus-backed target syllables and learner independence
