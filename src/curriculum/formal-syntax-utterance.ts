@@ -68,6 +68,7 @@ export interface FormalSyntaxUtteranceInput {
     entry: CatalogEntry,
     profile: RuntimeSyntaxProfile,
     slot: StructuralLexicalSlot,
+    previousEntry: CatalogEntry | null,
   ) => boolean;
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
@@ -676,7 +677,8 @@ export function composeFormalSyntaxUtterances(
     let previousEntry: CatalogEntry | null = null;
     let unrealizable = false;
     for (const slot of shape.lexicalSlots) {
-      if (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT") {
+      if (slot.formalLiteral !== undefined
+        || (slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT")) {
         previousEntry = null;
         continue;
       }
@@ -710,13 +712,13 @@ export function composeFormalSyntaxUtterances(
         if (initiallySelected === undefined) {
           throw new Error("formal syntax reading policy references a missing catalog entry");
         }
-        if (!readingEligibility(initiallySelected, selectedProfile, slot)) {
+        if (!readingEligibility(initiallySelected, selectedProfile, slot, previousEntry)) {
           const licensed = boundCompatible.filter((profile) => {
             const entry = entriesById.get(profile.entryId);
             if (entry === undefined) {
               throw new Error("formal syntax reading policy references a missing catalog entry");
             }
-            return readingEligibility(entry, profile, slot);
+            return readingEligibility(entry, profile, slot, previousEntry);
           });
           // Rejection redraw is limited to this lexical slot; the entire
           // sentence is not discarded. Draw from the legal frontier using
