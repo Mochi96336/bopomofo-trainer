@@ -65,3 +65,28 @@ as a validated natural sentence solely because it has a legal reading.**
 Do not activate this experiment in product or merge automatically
 merely because CI passes. Review the lexical-distribution cost and
 the scarcity of genuinely human-attested target contexts separately.
+
+## Natural short-context review queue (not generated-sentence fluency)
+
+`tests/readings/reviewed-natural-contexts.test.ts` now carries five
+**human-written, manually segmented** reading examples. They check the
+scoped pronunciation policies for `這家餐廳的服務很好`, `他愛好音樂`
+(the whole-word lexeme `愛好`), and `請看第三行`. These examples
+confirm a reviewed lexical sense **given manually supplied syntax**,
+not an automatic parser's precision or the whole generator's naturalness.
+
+One important open gap is deliberately marked **TODO**, not silently
+counted as a successful reading:
+
+- `請把這三行字抄下來` requires `行:ㄏㄤ2` for "three lines
+  of writing." The MOE Revised Dictionary records both meanings of
+  `三行`, including "three rows/lines" and a historical `三行字`
+  phrase (https://dict.revised.moe.edu.tw/dictView.jsp?ID=144541).
+  The current rule purposely does not force every bare `三行` to
+  `ㄏㄤ2`: it sees the previous numeral, but needs the following
+  classifier object `字` or a reviewed semantic construction to
+  disambiguate safely.
+
+This explicitly avoids declaring that all examples selected by the
+stochastic grammar composer are natural merely because the local
+word's pronunciation is valid.
