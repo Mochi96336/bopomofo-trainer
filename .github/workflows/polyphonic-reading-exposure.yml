@@ -6,6 +6,7 @@ on:
       - ".github/workflows/polyphonic-reading-exposure.yml"
       - "scripts/audit-polyphonic-context.ts"
       - "scripts/compare-zhong-role-trial.ts"
+      - "scripts/compare-ordinal-line-trial.ts"
       - "scripts/audit-conflicting-reading-target.ts"
       - "scripts/audit-same-upos-polyphones.ts"
       - "scripts/audit-targeted-polyphonic-identities.ts"
@@ -62,6 +63,14 @@ jobs:
           data/generated/polyphonic-context-reviewed-roles.json
           data/generated/polyphonic-context-zhong-role-trial.json
           data/generated/polyphonic-zhong-role-trial-comparison.json
+      - name: Trial local 第N行 legal pronunciation during lexical-slot selection
+        run: npm run readings:audit -- --policy ordinal-line-trial --output data/generated/polyphonic-context-ordinal-line-trial.json
+      - name: Verify 第N行 legal-first redraw changes only ordinal-adjacent lexical slots
+        run: >-
+          npx tsx scripts/compare-ordinal-line-trial.ts
+          data/generated/polyphonic-context-reviewed-roles.json
+          data/generated/polyphonic-context-ordinal-line-trial.json
+          data/generated/polyphonic-ordinal-line-trial-comparison.json
       - name: Verify exact-seed changes and reviewed-role rejection counts
         run: >-
           npx tsx scripts/compare-polyphonic-role-trial.ts
@@ -84,6 +93,7 @@ jobs:
           const queue = JSON.parse(readFileSync('data/generated/same-upos-polyphone-review.json', 'utf8'));
           const targets = JSON.parse(readFileSync('data/generated/polyphonic-targeted-identity-coverage.json', 'utf8'));
           const zhongTrial = JSON.parse(readFileSync('data/generated/polyphonic-zhong-role-trial-comparison.json', 'utf8'));
+          const ordinalTrial = JSON.parse(readFileSync('data/generated/polyphonic-ordinal-line-trial-comparison.json', 'utf8'));
           const conflict = JSON.parse(readFileSync('data/generated/conflicting-target-exposure.json', 'utf8'));
           const escape = (value) => String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
           const count = Object.entries(report.occurrenceCountByText)
@@ -148,6 +158,10 @@ jobs:
             `Legitimate four-tone exercises: without weakness ${conflict.counts['legal-no-weakness'].validFourthToneCount}, with weakness ${conflict.counts['legal-weak-tone4'].validFourthToneCount}. Already-valid draws changed in neither cohort.`,
             'These are controlled, synthetic samples, not observed learner accuracy or validated natural sentences.',
             '',
+            '#### Reviewed 第N行 context at lexical slot',
+            '',
+            `Disallowed 第N行 readings: ${ordinalTrial.wrongOrdinalLineHitsBefore} → ${ordinalTrial.wrongOrdinalLineHitsAfter}. Changed seed count: ${ordinalTrial.alteredSeeds.length}; changes outside the single ordinal-adjacent lexical slot: ${ordinalTrial.changedSeedsOutsideOrdinalLexicalSlot}. No whole-utterance rejection. A fixed-seed candidate distribution is expected to change when illegal reading weights are removed.`,
+            '',
             '#### Same-UPOS sense-review queue (not error labels)',
             '',
             `Observed ${queue.unreviewedGroups} unreviewed multi-reading text/UPOS groups, ${queue.unreviewedOccurrences} occurrences; examples need human review.`,
@@ -198,6 +212,8 @@ jobs:
             data/generated/polyphonic-role-trial-comparison.json
             data/generated/same-upos-polyphone-review.json
             data/generated/polyphonic-targeted-identity-coverage.json
+            data/generated/polyphonic-context-ordinal-line-trial.json
+            data/generated/polyphonic-ordinal-line-trial-comparison.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
             data/generated/conflicting-target-exposure.json
