@@ -56,6 +56,28 @@ const trialWrong = trial.hits.filter(wrong);
 if (beforeWrong.length === 0) throw new Error("baseline did not exercise the targeted ordinal-row misreading");
 if (trialWrong.length > 0) throw new Error("trial still emitted the wrong reading in 第N行");
 const affected = new Set(beforeWrong.map(h => h.seedIndex));
+// The goal is to fix the reading of 第三行, not generate 第三壺 and
+// perturb later words via an extra random draw. Assert only this catalog
+// entry identity changes in every affected deterministic sentence.
+for (const seedIndex of affected) {
+  const left = before.sentences[seedIndex]!;
+  const right = trial.sentences[seedIndex]!;
+  if (left.text !== right.text || left.root !== right.root
+    || left.entryIds.length !== right.entryIds.length) {
+    throw new Error("local reading repair changed the written sentence/grammar at seed " + seedIndex);
+  }
+  const changedPositions = left.entryIds.flatMap((id, index) =>
+    right.entryIds[index] === id ? [] : [index]);
+  if (changedPositions.length !== 1) {
+    throw new Error("reading repair changed other lexical slots at seed " + seedIndex);
+  }
+  const index = changedPositions[0]!;
+  const originalId = left.entryIds[index]!;
+  if (!beforeWrong.some(hit => hit.seedIndex === seedIndex && hit.selectedEntryId === originalId)
+    || right.entryIds[index] !== ROW_ID) {
+    throw new Error("the only repaired entry must be the numbered-row 行:ㄏㄤ2 at seed " + seedIndex);
+  }
+}
 const alteredSeeds: number[] = [];
 for (let i = 0; i < before.sampleCount; i += 1) {
   const left = before.sentences[i], right = trial.sentences[i];
@@ -81,7 +103,7 @@ const summary = {
   alteredSeeds,
   unrelatedAlteredSeeds: unrelated.length,
   generatedSentencesAfter: trial.successfulSentences,
-  scope: "adjacent 第N + standalone 行 constrains the local row reading to ㄏㄤ2; no completed-sentence rejection",
+  scope: "adjacent 第N + standalone 行 keeps the original sentence and all other catalog IDs while repairing only 行 to ㄏㄤ2",
 };
 writeFileSync(outputPath, JSON.stringify(summary, null, 2) + "\n");
 console.log(JSON.stringify(summary, null, 2));
