@@ -9,8 +9,7 @@ import {
   type AttestedPolyphoneBank,
 } from "../../src/research/attested-sentence-selector.js";
 
-const bank = JSON.parse(readFileSync("data/research/attested-polyphones-v1.json", "utf8"))
-  as AttestedPolyphoneBank;
+const bank = JSON.parse(readFileSync("data/research/attested-polyphones-v1.json", "utf8")) as AttestedPolyphoneBank;
 function weakness(tokenId: string): readonly LearnerBindingEvidence[] {
   return [{
     scope: { mode: "guided", layoutId: "standard", tokenId },
