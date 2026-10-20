@@ -18,7 +18,8 @@
       }
     },
     "licenseNotice": "The UD annotations are CC BY-SA 4.0; underlying source text rights are NOT claimed by Google. Keep examples research-only pending reuse review.",
-    "sourceReadme": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/README.md"
+    "sourceReadme": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/README.md",
+    "pinnedCommitSha": "22f73e87f7ddc530bb131a6b7587971a03e1a712"
   },
   "readingAuthority": "https://dict.revised.moe.edu.tw/",
   "reviewStatus": "dictionary_lexeme_reading_checked__sentence_not_human_rated",
