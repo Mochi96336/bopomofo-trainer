@@ -65,7 +65,7 @@ jobs:
           data/generated/polyphonic-zhong-role-trial-comparison.json
       - name: Trial local 第N行 legal pronunciation during lexical-slot selection
         run: npm run readings:audit -- --policy ordinal-line-trial --output data/generated/polyphonic-context-ordinal-line-trial.json
-      - name: Verify 第N行 is fixed without changing unrelated seeded sentences
+      - name: Verify 第N行 legal-first redraw changes only ordinal-adjacent lexical slots
         run: >-
           npx tsx scripts/compare-ordinal-line-trial.ts
           data/generated/polyphonic-context-reviewed-roles.json
@@ -160,7 +160,7 @@ jobs:
             '',
             '#### Reviewed 第N行 context at lexical slot',
             '',
-            `Disallowed 第N行 readings: ${ordinalTrial.wrongOrdinalLineHitsBefore} → ${ordinalTrial.wrongOrdinalLineHitsAfter}. Changed exact seeds: ${ordinalTrial.alteredSeeds.join(',')}; unrelated drift: ${ordinalTrial.unrelatedAlteredSeeds}. No whole-utterance rejection.`,
+            `Disallowed 第N行 readings: ${ordinalTrial.wrongOrdinalLineHitsBefore} → ${ordinalTrial.wrongOrdinalLineHitsAfter}. Changed seed count: ${ordinalTrial.alteredSeeds.length}; changes outside the single ordinal-adjacent lexical slot: ${ordinalTrial.changedSeedsOutsideOrdinalLexicalSlot}. No whole-utterance rejection. A fixed-seed candidate distribution is expected to change when illegal reading weights are removed.`,
             '',
             '#### Same-UPOS sense-review queue (not error labels)',
             '',
