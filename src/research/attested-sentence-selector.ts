@@ -41,7 +41,7 @@ export interface AttestedPolyphoneBank {
 }
 
 function isZhuyinToken(token: string): boolean {
-  return /^zhuyin:ㄱ/u.test(token) === false && /^zhuyin:[ㄅ-ㄩ]$/u.test(token);
+  return /^zhuyin:[ㄅ-ㄩ]$/u.test(token);
 }
 
 /** Fail closed on forged text/reading joins before putting a sentence in any draw. */
