@@ -80,6 +80,12 @@ export interface FormalSyntaxUtteranceInput {
     profile: RuntimeSyntaxProfile,
     previousEntry: CatalogEntry | null,
   ) => boolean;
+  /**
+   * Experimental only: constrain current lexical candidates BEFORE drawing
+   * their learner-weighted identities. Do not infer pronunciations from errors.
+   * Default is absent, preserving production sampling.
+   */
+  readonly preDrawReadingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
@@ -716,7 +722,17 @@ export function composeFormalSyntaxUtterances(
         input.random,
       );
       const readingEligibility = input.readingEligibility;
-      let selectedProfile = draw(boundCompatible);
+      const preDrawPolicy = input.preDrawReadingEligibility;
+      const drawCandidates = preDrawPolicy === undefined
+        ? boundCompatible
+        : boundCompatible.filter((profile) => {
+            const entry = entriesById.get(profile.entryId);
+            if (entry === undefined) {
+              throw new Error("pre-draw reading policy references a missing catalog entry");
+            }
+            return preDrawPolicy(entry, profile, slot, previousEntry);
+          });
+      let selectedProfile = draw(drawCandidates);
       if (selectedProfile !== null && readingEligibility !== undefined) {
         const initiallySelected = entriesById.get(selectedProfile.entryId);
         if (initiallySelected === undefined) {
