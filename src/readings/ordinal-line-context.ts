@@ -39,3 +39,22 @@ export function reviewedRoleAndOrdinalLineReadingEligible(
   return reviewedRoleReadingEligible(entry, profile)
     && reviewedOrdinalLineReadingEligible(entry, profile, previousEntry);
 }
+
+/**
+ * A known numbered-row collocation already fixes the selected word 行's
+ * pronunciation. Preserve that written word when the compatible ㄏㄤ2
+ * catalog identity exists; never choose the reading from learner mistakes.
+ * Other selected words/contexts still use the historic legal weighted redraw.
+ */
+export function preserveReviewedOrdinalLineWord(
+  rejected: CatalogEntry,
+  profile: RuntimeSyntaxProfile,
+  previousEntry: CatalogEntry | null,
+): boolean {
+  if (profile.entryId !== rejected.id) {
+    throw new Error("reading repair must inspect the selected catalog identity");
+  }
+  return rejected.prompt.text === "行"
+    && previousEntry !== null
+    && ORDINAL_WORD.test(previousEntry.prompt.text);
+}
