@@ -23,13 +23,25 @@ followed by the **standalone `行` lexical entry** must select the
 exact `行:ㄏㄤ2` catalog identity. Existing closed-class, pronominal,
 and 好/ADJ constraints still apply.
 
-If the initially sampled current-slot lexical identity has an unlicensed
-pronunciation, the composer **redraws only that lexical slot from its
-licensed candidates**, using the *original actual frequency and learner
-weights of each legitimate entry*. It does **not** transfer an invalid
-reading's learner weight to the row reading, rewrite the displayed
-Bopomofo, throw away the whole sentence, or restart the structural
-derivation.
+If `行:ㄒㄧㄥ2` was selected in the reviewed numbered-row context,
+the composer first looks for a compatible, uniquely licensed **same
+written word** entry `行:ㄏㄤ2`. In that case it changes only the
+reading/catalog ID for the already selected `行`, and consumes **no
+extra random draw**. The preceding and following words retain their
+original choices. A complete candidate is not rejected.
+
+If no compatible same-written-word correction exists, the established
+**current lexical-slot weighted legal redraw** is still available.
+Other written words and bare unreviewed `行` contexts are not force-corrected.
+
+**Separate weighting caveat:** An already-selected invalid reading can
+have acquired probability from its own learner token weight before the
+context gate. Preserving the written word does not retroactively fix
+this word-selection probability distribution. This Draft only guarantees
+the *correct phonetic identity* after the word is selected, which must
+not depend on learner mistakes. Fully separating word selection and
+semantic pronunciation licensing needs its own selector-level design;
+never claim this single collocation removes all weighting bias.
 
 Bare `三行` remains untouched; it does not necessarily convey the
 ordinal numbered-line collocation. Whole lexemes such as `行動`,
@@ -41,11 +53,12 @@ raises an error rather than hiding an identity problem.
 
 - Deterministic narrow unit tests: exact ordinal context, bare cardinal,
   other words, full lexemes, invalid lexical/profile joins, and
-  **maximumAttempts=1** verifying one-slot redraw works without a
+  **maximumAttempts=1** verifying local correction works without a
   whole-utterance retry.
 - Exact 2,048-seed baseline reviewed-role vs ordinal-trial audit.
-  Require no wrong 第N行 reading, **0 unrelated seed drift**, and 0
-  generation failures, with concrete changed candidates inspected.
+  Require no wrong 第N行 reading, **0 unrelated seed drift**, **same
+  written sentence and all other entry IDs unchanged at every affected
+  seed**, and 0 generation failures.
 - Product uses the same combined callback as the ordinal trial.
 
 This proves a scoped selection invariant only: no human-verified
