@@ -5,6 +5,7 @@ import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-synta
 import {
   reviewedOrdinalLineReadingEligible,
   reviewedRoleAndOrdinalLineReadingEligible,
+  preserveReviewedOrdinalLineWord,
 } from "../../src/readings/ordinal-line-context.js";
 import { FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";
 import type { ProductionRule, RuntimeSyntaxProfile, Upos } from "../../src/syntax/types.js";
@@ -96,14 +97,23 @@ describe("reviewed adjacent 第N行 reading", () => {
       minimumLexicalEntries: 2,
     };
     const before = composeFormalSyntaxUtterances(base);
-    const after = composeFormalSyntaxUtterances({
+    const legalRedraw = composeFormalSyntaxUtterances({
       ...base,
       readingEligibility: reviewedRoleAndOrdinalLineReadingEligible,
     });
+    const fixedReading = composeFormalSyntaxUtterances({
+      ...base,
+      readingEligibility: reviewedRoleAndOrdinalLineReadingEligible,
+      preserveSelectedWordOnReadingReject: preserveReviewedOrdinalLineWord,
+    });
     expect(before.candidates[0]?.entries.map(x => x.id)).toEqual([ordinal.id, move.id]);
-    expect(after.candidates[0]?.entries.map(x => x.id)).toEqual([ordinal.id, different.id]);
-    expect(after.candidates[0]?.syntaxRootRuleId).toEqual(before.candidates[0]?.syntaxRootRuleId);
-    expect(after.fallbackReasons).not.toContain("formal-syntax-no-candidate");
+    expect(legalRedraw.candidates[0]?.entries.map(x => x.id)).toEqual([ordinal.id, different.id]);
+    // Reading resolution for an already selected 第三行 should not turn it
+    // into an unrelated 第三航 or restart the whole sentence.
+    expect(fixedReading.candidates[0]?.entries.map(x => x.id)).toEqual([ordinal.id, row.id]);
+    expect(fixedReading.candidates[0]?.text).toBe(before.candidates[0]?.text);
+    expect(fixedReading.candidates[0]?.syntaxRootRuleId).toEqual(before.candidates[0]?.syntaxRootRuleId);
+    expect(fixedReading.fallbackReasons).not.toContain("formal-syntax-no-candidate");
   });
 
   it("retains 行 when its only legal lexical identity wins, with one structural attempt", () => {
