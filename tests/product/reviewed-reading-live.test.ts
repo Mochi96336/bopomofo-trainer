@@ -57,7 +57,6 @@ describe("production reviewed reading disambiguation", () => {
     const environment = createProductEnvironment(wholeCatalogs);
     const profilesById = new Map(environment.catalogs.syntaxProfiles.map(p => [p.id, p]));
     let observedRejects = 0;
-    let unexpectedChanges = 0;
     for (let seedIndex = 0; seedIndex < 128; seedIndex += 1) {
       const seed = "reading-live-" + seedIndex;
       const progress = createFreshProgressForEnvironment(environment, seed, "guided", standardLayout);
@@ -98,7 +97,6 @@ describe("production reviewed reading disambiguation", () => {
         actual.round.exercise.entries.map(entry => entry.id),
       );
     }
-    expect(unexpectedChanges).toBe(0);
     // Demonstrate that this end-to-end test exercised the actual repair path,
     // rather than merely observing coincidentally valid draws.
     expect(observedRejects).toBeGreaterThan(0);
