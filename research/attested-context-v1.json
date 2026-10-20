@@ -1,0 +1,307 @@
+{
+  "schemaVersion": "attested-context-character-reading-v1",
+  "license": "CC BY-SA 4.0 applies to excerpted UD GSD text; project code remains separately MIT",
+  "sourcePolicy": "All excerpts verified contiguous in upstream pinned CoNLL-U sentence text, target lexeme matches a UD token, exact pronunciation adjudicated separately against MOE lexical/sense entries. UD Translit and UPOS are NOT gold.",
+  "rows": [
+    {
+      "id": "ud-gsd-train-s20-行-0",
+      "targetCharacter": "行",
+      "excerpt": "吳湯興一行人皆壯烈成仁",
+      "targetLexeme": "行",
+      "characterIndexInLexeme": 0,
+      "characterReading": "ㄒㄧㄥˊ",
+      "sense": "travelling_group",
+      "source": {
+        "dataset": "UD_Chinese-GSD",
+        "repoUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD",
+        "split": "train",
+        "conlluFile": "zh_gsd-ud-train.conllu",
+        "blobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sentenceId": "train-s20",
+        "sourceUpos": "NOUN",
+        "sourceTransliterationUnverified": "xíng"
+      },
+      "readingEvidence": {
+        "provider": "MOE Revised Chinese Dictionary",
+        "url": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=149545",
+        "assessment": "dictionary-anchored/manual-context-mapping"
+      },
+      "labelScope": "target_character_only_not_full_sentence"
+    },
+    {
+      "id": "ud-gsd-dev-s231-行-0",
+      "targetCharacter": "行",
+      "excerpt": "全詩計12卷，長達近萬行",
+      "targetLexeme": "行",
+      "characterIndexInLexeme": 0,
+      "characterReading": "ㄏㄤˊ",
+      "sense": "lines_of_poetry",
+      "source": {
+        "dataset": "UD_Chinese-GSD",
+        "repoUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD",
+        "split": "dev",
+        "conlluFile": "zh_gsd-ud-dev.conllu",
+        "blobSha": "8b967948097a2e4bebe7f5d0e053c4fed4fe3baa",
+        "sentenceId": "dev-s231",
+        "sourceUpos": "NOUN",
+        "sourceTransliterationUnverified": "xíng"
+      },
+      "readingEvidence": {
+        "provider": "MOE Revised Chinese Dictionary",
+        "url": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=4898&ver=4",
+        "assessment": "dictionary-anchored/manual-context-mapping"
+      },
+      "labelScope": "target_character_only_not_full_sentence"
+    },
+    {
+      "id": "ud-gsd-train-s693-銀行-1",
+      "targetCharacter": "行",
+      "excerpt": "慶豐銀行第一次公開標售",
+      "targetLexeme": "銀行",
+      "characterIndexInLexeme": 1,
+      "characterReading": "ㄏㄤˊ",
+      "sense": "financial_institution",
+      "source": {
+        "dataset": "UD_Chinese-GSD",
+        "repoUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD",
+        "split": "train",
+        "conlluFile": "zh_gsd-ud-train.conllu",
+        "blobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sentenceId": "train-s693",
+        "sourceUpos": "NOUN",
+        "sourceTransliterationUnverified": "yínxíng"
+      },
+      "readingEvidence": {
+        "provider": "MOE Revised Chinese Dictionary",
+        "url": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=156656",
+        "assessment": "dictionary-anchored/manual-context-mapping"
+      },
+      "labelScope": "target_character_only_not_full_sentence"
+    },
+    {
+      "id": "ud-gsd-train-s715-好-0",
+      "targetCharacter": "好",
+      "excerpt": "不過有相當好的評價",
+      "targetLexeme": "好",
+      "characterIndexInLexeme": 0,
+      "characterReading": "ㄏㄠˇ",
+      "sense": "good_quality",
+      "source": {
+        "dataset": "UD_Chinese-GSD",
+        "repoUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD",
+        "split": "train",
+        "conlluFile": "zh_gsd-ud-train.conllu",
+        "blobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sentenceId": "train-s715",
+        "sourceUpos": "ADJ",
+        "sourceTransliterationUnverified": "hǎo"
+      },
+      "readingEvidence": {
+        "provider": "MOE Revised Chinese Dictionary",
+        "url": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=4814",
+        "assessment": "dictionary-anchored/manual-context-mapping"
+      },
+      "labelScope": "target_character_only_not_full_sentence"
+    },
+    {
+      "id": "ud-gsd-test-s416-愛好-1",
+      "targetCharacter": "好",
+      "excerpt": "為愛好者開辦的業餘廣播電台",
+      "targetLexeme": "愛好",
+      "characterIndexInLexeme": 1,
+      "characterReading": "ㄏㄠˋ",
+      "sense": "fondness",
+      "source": {
+        "dataset": "UD_Chinese-GSD",
+        "repoUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD",
+        "split": "test",
+        "conlluFile": "zh_gsd-ud-test.conllu",
+        "blobSha": "3b15be45a96edcb21736f220e73fdccade231ca5",
+        "sentenceId": "test-s416",
+        "sourceUpos": "VERB",
+        "sourceTransliterationUnverified": "'àihǎo"
+      },
+      "readingEvidence": {
+        "provider": "MOE Revised Chinese Dictionary",
+        "url": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=147255",
+        "assessment": "dictionary-anchored/manual-context-mapping"
+      },
+      "labelScope": "target_character_only_not_full_sentence"
+    },
+    {
+      "id": "ud-gsd-test-s55-良好-1",
+      "targetCharacter": "好",
+      "excerpt": "長期血糖水平控制良好可以降低",
+      "targetLexeme": "良好",
+      "characterIndexInLexeme": 1,
+      "characterReading": "ㄏㄠˇ",
+      "sense": "good_condition",
+      "source": {
+        "dataset": "UD_Chinese-GSD",
+        "repoUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD",
+        "split": "test",
+        "conlluFile": "zh_gsd-ud-test.conllu",
+        "blobSha": "3b15be45a96edcb21736f220e73fdccade231ca5",
+        "sentenceId": "test-s55",
+        "sourceUpos": "ADJ",
+        "sourceTransliterationUnverified": "liánghǎo"
+      },
+      "readingEvidence": {
+        "provider": "MOE Revised Chinese Dictionary",
+        "url": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=4814",
+        "assessment": "dictionary-anchored/manual-context-mapping"
+      },
+      "labelScope": "target_character_only_not_full_sentence"
+    },
+    {
+      "id": "ud-gsd-test-s335-好-0",
+      "targetCharacter": "好",
+      "excerpt": "願望是找個好男人結婚",
+      "targetLexeme": "好",
+      "characterIndexInLexeme": 0,
+      "characterReading": "ㄏㄠˇ",
+      "sense": "good_quality",
+      "source": {
+        "dataset": "UD_Chinese-GSD",
+        "repoUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD",
+        "split": "test",
+        "conlluFile": "zh_gsd-ud-test.conllu",
+        "blobSha": "3b15be45a96edcb21736f220e73fdccade231ca5",
+        "sentenceId": "test-s335",
+        "sourceUpos": "PART",
+        "sourceTransliterationUnverified": "hǎo"
+      },
+      "readingEvidence": {
+        "provider": "MOE Revised Chinese Dictionary",
+        "url": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=4814",
+        "assessment": "dictionary-anchored/manual-context-mapping"
+      },
+      "labelScope": "target_character_only_not_full_sentence"
+    },
+    {
+      "id": "ud-gsd-dev-s80-種-0",
+      "targetCharacter": "種",
+      "excerpt": "是一種松科植物",
+      "targetLexeme": "種",
+      "characterIndexInLexeme": 0,
+      "characterReading": "ㄓㄨㄥˇ",
+      "sense": "type_classifier",
+      "source": {
+        "dataset": "UD_Chinese-GSD",
+        "repoUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD",
+        "split": "dev",
+        "conlluFile": "zh_gsd-ud-dev.conllu",
+        "blobSha": "8b967948097a2e4bebe7f5d0e053c4fed4fe3baa",
+        "sentenceId": "dev-s80",
+        "sourceUpos": "NOUN",
+        "sourceTransliterationUnverified": "zhǒng"
+      },
+      "readingEvidence": {
+        "provider": "MOE Revised Chinese Dictionary",
+        "url": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=8169",
+        "assessment": "dictionary-anchored/manual-context-mapping"
+      },
+      "labelScope": "target_character_only_not_full_sentence"
+    },
+    {
+      "id": "ud-gsd-dev-s188-種植-0",
+      "targetCharacter": "種",
+      "excerpt": "植物園種植有世界三大觀賞樹",
+      "targetLexeme": "種植",
+      "characterIndexInLexeme": 0,
+      "characterReading": "ㄓㄨㄥˋ",
+      "sense": "cultivation",
+      "source": {
+        "dataset": "UD_Chinese-GSD",
+        "repoUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD",
+        "split": "dev",
+        "conlluFile": "zh_gsd-ud-dev.conllu",
+        "blobSha": "8b967948097a2e4bebe7f5d0e053c4fed4fe3baa",
+        "sentenceId": "dev-s188",
+        "sourceUpos": "VERB",
+        "sourceTransliterationUnverified": "zhǒngzhí"
+      },
+      "readingEvidence": {
+        "provider": "MOE Revised Chinese Dictionary",
+        "url": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=120566",
+        "assessment": "dictionary-anchored/manual-context-mapping"
+      },
+      "labelScope": "target_character_only_not_full_sentence"
+    },
+    {
+      "id": "ud-gsd-train-s514-種植-0",
+      "targetCharacter": "種",
+      "excerpt": "倡導種植煙草",
+      "targetLexeme": "種植",
+      "characterIndexInLexeme": 0,
+      "characterReading": "ㄓㄨㄥˋ",
+      "sense": "cultivation",
+      "source": {
+        "dataset": "UD_Chinese-GSD",
+        "repoUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD",
+        "split": "train",
+        "conlluFile": "zh_gsd-ud-train.conllu",
+        "blobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sentenceId": "train-s514",
+        "sourceUpos": "VERB",
+        "sourceTransliterationUnverified": "zhǒngzhí"
+      },
+      "readingEvidence": {
+        "provider": "MOE Revised Chinese Dictionary",
+        "url": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=120566",
+        "assessment": "dictionary-anchored/manual-context-mapping"
+      },
+      "labelScope": "target_character_only_not_full_sentence"
+    },
+    {
+      "id": "ud-gsd-train-s1-給-0",
+      "targetCharacter": "給",
+      "excerpt": "試著給你不同的意見",
+      "targetLexeme": "給",
+      "characterIndexInLexeme": 0,
+      "characterReading": "ㄍㄟˇ",
+      "sense": "giving_to_other",
+      "source": {
+        "dataset": "UD_Chinese-GSD",
+        "repoUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD",
+        "split": "train",
+        "conlluFile": "zh_gsd-ud-train.conllu",
+        "blobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sentenceId": "train-s1",
+        "sourceUpos": "VERB",
+        "sourceTransliterationUnverified": "gěi"
+      },
+      "readingEvidence": {
+        "provider": "MOE Revised Chinese Dictionary",
+        "url": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=3994",
+        "assessment": "dictionary-anchored/manual-context-mapping"
+      },
+      "labelScope": "target_character_only_not_full_sentence"
+    },
+    {
+      "id": "ud-gsd-dev-s278-給予-0",
+      "targetCharacter": "給",
+      "excerpt": "國王給予兩人祝福後",
+      "targetLexeme": "給予",
+      "characterIndexInLexeme": 0,
+      "characterReading": "ㄐㄧˇ",
+      "sense": "giving_formal",
+      "source": {
+        "dataset": "UD_Chinese-GSD",
+        "repoUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD",
+        "split": "dev",
+        "conlluFile": "zh_gsd-ud-dev.conllu",
+        "blobSha": "8b967948097a2e4bebe7f5d0e053c4fed4fe3baa",
+        "sentenceId": "dev-s278",
+        "sourceUpos": "VERB",
+        "sourceTransliterationUnverified": "gěiyǔ"
+      },
+      "readingEvidence": {
+        "provider": "MOE Revised Chinese Dictionary",
+        "url": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=88490",
+        "assessment": "dictionary-anchored/manual-context-mapping"
+      },
+      "labelScope": "target_character_only_not_full_sentence"
+    }
+  ]
+}
