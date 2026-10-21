@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { createSeededRandom } from "../../src/curriculum/random.js";
+import { blindReadingReviewCsv } from "../../research/prepare-attested-blind-review.js";
 import {
   type AttestedTarget,
   selectVerifiedTarget,
@@ -79,6 +80,19 @@ describe("attested natural-context Zhuyin pilot",()=>{
       const boosted=count({[token]:{attempts:16,errors:12}},token);
       expect(boosted).toBeGreaterThan(baseline);
     }
+  });
+  it("prepares an independent annotation sheet without leaked gold/transliteration",()=>{
+    const csv=blindReadingReviewCsv(rows);
+    const [header,...lines]=csv.trimEnd().split("\\n");
+    expect(lines).toHaveLength(rows.length);
+    expect(header).toContain("reviewer_reading");
+    expect(header).not.toContain("gold");
+    expect(header).not.toContain("Translit");
+    expect(csv).toContain(rows[0]!.origin.sourceSentenceId);
+    expect(csv).not.toContain("ㄓㄨㄥˋ");
+    expect(csv).not.toContain("ㄏㄤˊ");
+    expect(csv).not.toContain("yínxíng");
+    expect(csv).not.toContain("dict.revised.moe.edu.tw");
   });
   it("fails closed on missing targets instead of generating invented readings",()=>{
     expect(()=>selectVerifiedTarget([],{},createSeededRandom("no-targets"))).toThrow();
