@@ -6,8 +6,10 @@ on:
       - ".github/workflows/attested-reading-gold-blind.yml"
       - "scripts/audit-attested-gold-blind-reading.ts"
       - "scripts/verify-attested-ud-source.ts"
+      - "scripts/mine-attested-standalone-contexts.ts"
       - "tests/readings/attested-gold-blind-diagnostic.test.ts"
       - "tests/readings/attested-ud-source-integrity.test.ts"
+      - "tests/readings/attested-standalone-queue.test.ts"
       - "research/attested-reading-pilot/**"
   workflow_dispatch:
 
@@ -36,7 +38,10 @@ jobs:
           repository: UniversalDependencies/UD_Chinese-GSD
           ref: 22f73e87f7ddc530bb131a6b7587971a03e1a712
           path: .external/UD_Chinese-GSD
-          sparse-checkout: zh_gsd-ud-dev.conllu
+          sparse-checkout: |
+            zh_gsd-ud-train.conllu
+            zh_gsd-ud-dev.conllu
+            zh_gsd-ud-test.conllu
           persist-credentials: false
       - name: Verify original text, token IDs, POS, Translit and dependency edges
         run: >-
@@ -47,11 +52,19 @@ jobs:
           npx vitest run
           tests/readings/attested-gold-blind-diagnostic.test.ts
           tests/readings/attested-ud-source-integrity.test.ts
+          tests/readings/attested-standalone-queue.test.ts
       - name: Evaluate original attested word plus oracle UD UPOS
         run: >-
           npx tsx scripts/audit-attested-gold-blind-reading.ts
           research/attested-reading-pilot/cases.json
           data/generated/attested-gold-blind-diagnostic.json
+      - name: Find unlabelled standalone 種 and 給 in pinned train data
+        run: >-
+          npx tsx scripts/mine-attested-standalone-contexts.ts
+          .external/UD_Chinese-GSD/zh_gsd-ud-train.conllu
+          .external/UD_Chinese-GSD/zh_gsd-ud-dev.conllu
+          .external/UD_Chinese-GSD/zh_gsd-ud-test.conllu
+          data/generated/attested-standalone-unlabeled-train-queue.json
       - name: Explain what the metrics actually measure
         run: |
           node --input-type=module <<'NODE'
@@ -81,6 +94,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: attested-gold-blind-oracle-upos-json
-          path: data/generated/attested-gold-blind-diagnostic.json
+          path: |
+            data/generated/attested-gold-blind-diagnostic.json
+            data/generated/attested-standalone-unlabeled-train-queue.json
           if-no-files-found: error
           retention-days: 30
