@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/attested-polyphonic-pilot.yml"
       - "research/attested-target-selector.ts"
+      - "research/prepare-attested-blind-review.ts"
       - "research/data/attested-polyphonic-target-pilot.json"
       - "scripts/audit-attested-polyphonic-pilot.ts"
       - "scripts/verify-attested-polyphonic-sources.ts"
@@ -52,6 +53,11 @@ jobs:
           npx tsx scripts/audit-attested-polyphonic-pilot.ts
           research/data/attested-polyphonic-target-pilot.json
           data/generated/attested-polyphonic-target-pilot-audit.json
+      - name: Prepare answer-free context packet for independent second reviewer
+        run: >-
+          npx tsx research/prepare-attested-blind-review.ts
+          research/data/attested-polyphonic-target-pilot.json
+          data/generated/attested-polyphonic-blind-review.csv
       - name: Summarize evidence without inflating accuracy claims
         shell: bash
         run: |
@@ -80,6 +86,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: attested-polyphonic-target-pilot-json
-          path: data/generated/attested-polyphonic-target-pilot-audit.json
+          path: |
+            data/generated/attested-polyphonic-target-pilot-audit.json
+            data/generated/attested-polyphonic-blind-review.csv
           if-no-files-found: error
           retention-days: 14
