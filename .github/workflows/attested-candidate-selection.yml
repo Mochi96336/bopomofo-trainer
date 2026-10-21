@@ -1,0 +1,50 @@
+name: Attested candidate selection research
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/attested-candidate-selection.yml"
+      - "data/research/attested-polyphonic-context-candidates.json"
+      - "scripts/prototype-attested-candidate-weighting.ts"
+      - "docs/attested-candidate-first-study.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fixed-source-candidate-prototype:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install pinned dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Rebuild application catalog for shared scorer
+        run: npm run app:catalog
+      - name: Prototype candidate-first weakness weighting (simulation only)
+        run: npx tsx scripts/prototype-attested-candidate-weighting.ts data/generated/attested-selection.json
+      - name: Enforce disjoint holdout and expected exposure directions
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,appendFileSync} from "node:fs";
+          const r=JSON.parse(readFileSync("data/generated/attested-selection.json","utf8"));
+          if(!r.simulationOnly || r.samplesPerCohort!==512 || r.excludedHeldOutCandidates<2)throw Error("invalid research experiment boundaries");
+          const a=r.cohorts["no-errors"].toneCounts,b=r.cohorts["weak-third-tone"].toneCounts,c=r.cohorts["weak-fourth-tone"].toneCounts;
+          if(!(b["tone:3"]>a["tone:3"]) || !(c["tone:4"]>a["tone:4"]))
+            throw Error("learner weakness did not increase correct focal tone selection");
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+            `# Candidate-first research, 512 fixed rounds per cohort\n\n| Focus tone | Baseline | Weak target |\n|---|---:|---:|\n| third tone | ${a["tone:3"]} | ${b["tone:3"]} |\n| fourth tone | ${a["tone:4"]} | ${c["tone:4"]} |\n\nOnly focus-character scoring; independent pronunciation review is still pending.\n`);
+          NODE
+      - name: Publish reproducible fixed-seed measurements
+        uses: actions/upload-artifact@v4
+        with:
+          name: attested-candidate-first-research
+          path: data/generated/attested-selection.json
+          retention-days: 14
+          if-no-files-found: error
