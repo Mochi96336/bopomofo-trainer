@@ -117,3 +117,54 @@ context disambiguation.
 *same word + UPOS*, keep a held-out test split, and implement a
 context reader only when it can be evaluated without label leakage.
 Continue to keep Draft #434 and Draft #433 unmerged.
+
+
+## Source-integrity gate and gold-free candidate collection
+
+Before the dependency cues are treated as evidence, the diagnostic CI now
+checks out an exact upstream UD commit (`22f73e87f7ddc530bb131a6b7587971a03e1a712`)
+and independently verifies the Git blob SHA of the original `dev` file.
+For all 18 target occurrences, it compares the original sentence, token ID,
+form, UPOS, source Translit **as untrusted provenance only**, and recorded
+character span. For each of the three ambiguous cases, it additionally checks
+every copied UD dependency token's exact HEAD and DEPREL against the original
+CoNLL-U. The checker never consults the reviewed pronunciation; unit tests
+exercise corpus drift, altered edges, and altered gold annotations.
+
+A second read-only step now mines every **standalone exact-token** occurrence
+of `種` and `給` in the pinned `train` split. The JSON artifact preserves
+original text, sentence/token identity, original UPOS and dependency fields,
+but gives every row `reviewStatus: unlabeled`. Neither UD Translit nor MOE
+gold is copied into this review queue. The `dev` and `test` splits contribute
+**group counts only**, with no held-out sentence content in the queue.
+
+This is a search for review material, **not** yet a count of examples of
+`ㄓㄨㄥˇ/ㄓㄨㄥˋ` or `ㄍㄟˇ/ㄐㄧˇ`. A source annotation or written-form match
+must never become a phonetic label without independent contextual review.
+
+### Why the remaining three need different analyses
+
+The MOE dictionary lists `種/ㄓㄨㄥˇ` as noun (including type and classifier
+uses), while `種/ㄓㄨㄥˋ` is verbal planting/inoculating. Thus the current
+`種/NOUN` ambiguity may reflect an over-permissive catalog role/readings
+mapping even *before* building a larger context model. Investigate the two
+surviving catalog identities and their syntax profiles; do not assume the
+extra fourth-tone candidate is legitimate in this **noun** use.
+
+For `給`, both `ㄍㄟˇ` and `ㄐㄧˇ` have verbal senses in the MOE dictionary.
+In actual contemporary transfer/beneficiary uses the reviewed reading is
+`ㄍㄟˇ`, but UPOS=VERB alone cannot prove the distinction. A UD `VERB` tag
+also does not settle the dictionary's finer verb/preposition distinctions.
+The `給` examples therefore call for meaningful semantic/argument contrasts,
+not merely an additional POS check.
+
+Dictionary references:
+- 種: https://dict.revised.moe.edu.tw/dictView.jsp?ID=8174
+- 給: https://dict.revised.moe.edu.tw/dictView.jsp?ID=5423
+
+**Next gate:** review `train` candidates without looking at original Translit
+as an answer, document which actually represent independent contrasting
+readings, and reserve a separate, genuinely disjoint evaluation split.
+If GSD contains no suitable `給/ㄐㄧˇ` standalone comparator, record that
+absence instead of constructing or relabeling examples to make the benchmark
+look balanced.
