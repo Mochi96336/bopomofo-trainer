@@ -45,6 +45,7 @@ describe("pinned UD GSD contexts + separately MOE-reviewed target readings",()=>
     expect(()=>reviewedTargetTokens("ㄗˇㄓ")).toThrow();
   });
   it("makes weakness increase target selection probability without modifying any answer",()=>{
+    const originalCases=JSON.stringify(bank.cases);
     for(const token of ["tone:4","tone:3","zhuyin:ㄗ"] as const){
       const baseline=weightedAttestedProbability(bank,null);
       const boosted=weightedAttestedProbability(bank,token);
@@ -54,9 +55,14 @@ describe("pinned UD GSD contexts + separately MOE-reviewed target readings",()=>
       expect(boosted.reduce((a,b)=>a+b,0)).toBeCloseTo(1,12);
       for(let seed=1;seed<=100;seed++){
         const idx=selectAttestedIndex(boosted,seed);
-        expect(bank.cases[idx]!.reviewedCharacterZhuyin).toBe(bank.cases[idx]!.reviewedCharacterZhuyin);
+        expect(idx).toBeGreaterThanOrEqual(0);
+        expect(idx).toBeLessThan(bank.cases.length);
+        expect(bank.cases[idx]!.readingSourceUrl).toContain("dict.revised.moe.edu.tw");
       }
     }
+    // The only observable effect of synthetic errors is index selection.
+    // The complete original sentence and its gold reading labels are unchanged.
+    expect(JSON.stringify(bank.cases)).toBe(originalCases);
   });
   it("returns stable paired measurements on the same immutable attested sentences",()=>{
     const a=runAttestedAB(bank,4096);
