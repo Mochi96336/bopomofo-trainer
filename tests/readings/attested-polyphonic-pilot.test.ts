@@ -83,7 +83,7 @@ describe("attested natural-context Zhuyin pilot",()=>{
   });
   it("prepares an independent annotation sheet without leaked gold/transliteration",()=>{
     const csv=blindReadingReviewCsv(rows);
-    const [header,...lines]=csv.trimEnd().split("\\n");
+    const [header,...lines]=csv.trimEnd().split("\n");
     expect(lines).toHaveLength(rows.length);
     expect(header).toContain("reviewer_reading");
     expect(header).not.toContain("gold");
