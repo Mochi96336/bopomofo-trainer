@@ -5,7 +5,9 @@ on:
     paths:
       - ".github/workflows/attested-reading-gold-blind.yml"
       - "scripts/audit-attested-gold-blind-reading.ts"
+      - "scripts/verify-attested-ud-source.ts"
       - "tests/readings/attested-gold-blind-diagnostic.test.ts"
+      - "tests/readings/attested-ud-source-integrity.test.ts"
       - "research/attested-reading-pilot/**"
   workflow_dispatch:
 
@@ -28,8 +30,23 @@ jobs:
         run: npm ci --include=dev --ignore-scripts
       - name: Generate current practice catalog and syntax profiles
         run: npm run app:catalog
-      - name: Test label-blind reading frontier and honest ambiguity handling
-        run: npx vitest run tests/readings/attested-gold-blind-diagnostic.test.ts
+      - name: Checkout pinned upstream CoNLL-U source
+        uses: actions/checkout@v6
+        with:
+          repository: UniversalDependencies/UD_Chinese-GSD
+          ref: 22f73e87f7ddc530bb131a6b7587971a03e1a712
+          path: .external/UD_Chinese-GSD
+          sparse-checkout: zh_gsd-ud-dev.conllu
+          persist-credentials: false
+      - name: Verify original text, token IDs, POS, Translit and dependency edges
+        run: >-
+          npx tsx scripts/verify-attested-ud-source.ts
+          .external/UD_Chinese-GSD/zh_gsd-ud-dev.conllu
+      - name: Test label-blind inference and original-source integrity guard
+        run: >-
+          npx vitest run
+          tests/readings/attested-gold-blind-diagnostic.test.ts
+          tests/readings/attested-ud-source-integrity.test.ts
       - name: Evaluate original attested word plus oracle UD UPOS
         run: >-
           npx tsx scripts/audit-attested-gold-blind-reading.ts
