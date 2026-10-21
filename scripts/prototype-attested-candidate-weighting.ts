@@ -60,8 +60,13 @@ function makeEntry(row:Candidate):CatalogEntry{
 }
 const entries=train.map(makeEntry);
 const samples=512;
-const summary:Record<Cohort,{counts:Record<string,number>;toneCounts:Record<string,number>;sampleSourceIds:string[]}> =
-  Object.fromEntries(cohorts.map(c=>[c,{counts:{},toneCounts:{},sampleSourceIds:[]}])) as Record<Cohort,{counts:Record<string,number>;toneCounts:Record<string,number>;sampleSourceIds:string[]}>;
+type CohortStats = {counts:Record<string,number>;toneCounts:Record<string,number>;sampleSourceIds:string[]};
+function emptyStats():CohortStats {return {counts:{},toneCounts:{},sampleSourceIds:[]};}
+const summary:Record<Cohort,CohortStats> = {
+  "no-errors":emptyStats(),
+  "weak-third-tone":emptyStats(),
+  "weak-fourth-tone":emptyStats(),
+};
 for (const cohort of cohorts){
   const weights=entries.map((entry,i)=>{
     const score=scoreFrequencyFirstEntry(entry,{
