@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { CatalogEntry } from "../src/core/model.js";
 import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
 import { reviewedRoleReadingEligible } from "../src/readings/pronominal-role-license.js";
-import { UPOS_VALUES, type RuntimeSyntaxProfile, type Upos } from "../src/syntax/types.js";
+import { UPOS_VALUES, type RuntimeSyntaxProfile } from "../src/syntax/types.js";
 import {
   reviewedTargetTokens, validateAttestedBank, type ContextBank,
 } from "./prototype-attested-reading-selector.js";
