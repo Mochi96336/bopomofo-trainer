@@ -1,0 +1,524 @@
+{
+  "schemaVersion": "attested-polyphonic-target-pilot-v1",
+  "created": "2026-10-22",
+  "purpose": "Attested sentence provenance plus independently checked TARGET-character Zhuyin, not complete sentence pronunciation",
+  "sourceLicense": {
+    "name": "CC BY-SA 4.0",
+    "url": "https://creativecommons.org/licenses/by-sa/4.0/",
+    "attribution": "Universal Dependencies Chinese GSD treebank: Shen, Mo; McDonald, Ryan; Zeman, Daniel; Qi, Peng. Original text ownership may differ; see corpus README."
+  },
+  "goldStandard": "MOE Revised/Concised Mandarin Chinese Dictionary; URL on every target",
+  "coverage": "4 characters 好、行、種、給; contrasting readings; 17 target-only annotations; raw UD romanization independently suspect",
+  "cases": [
+    {
+      "id": "ud-gsd-train-s3451-9",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "train",
+        "sourceSentenceId": "train-s3451",
+        "sourceSentence": "景帝知道轅固直言無過，就給他一把利刃。",
+        "udTokenIndex": 9,
+        "udTokenText": "給",
+        "udUpos": "VERB",
+        "udTransliteration": "gěi",
+        "sourceBlobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-train.conllu"
+      },
+      "target": {
+        "writtenWord": "給",
+        "characterOffset": 0,
+        "character": "給",
+        "goldZhuyin": "ㄍㄟˇ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=3994&la=0&powerMode=0",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "match"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-train-s2526-19",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "train",
+        "sourceSentenceId": "train-s2526",
+        "sourceSentence": "在短短的兩年內，他接到五個解答，其中一個是雅各布給予的。",
+        "udTokenIndex": 19,
+        "udTokenText": "給予",
+        "udUpos": "VERB",
+        "udTransliteration": "gěiyǔ",
+        "sourceBlobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-train.conllu"
+      },
+      "target": {
+        "writtenWord": "給予",
+        "characterOffset": 0,
+        "character": "給",
+        "goldZhuyin": "ㄐㄧˇ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=88490&la=0&powerMode=0",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "conflict"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-train-s955-13",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "train",
+        "sourceSentenceId": "train-s955",
+        "sourceSentence": "火提供了天然光源外的另一選擇，也給予人類抵禦外來食肉動物的入侵的能力。",
+        "udTokenIndex": 13,
+        "udTokenText": "給予",
+        "udUpos": "VERB",
+        "udTransliteration": "gěiyǔ",
+        "sourceBlobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-train.conllu"
+      },
+      "target": {
+        "writtenWord": "給予",
+        "characterOffset": 0,
+        "character": "給",
+        "goldZhuyin": "ㄐㄧˇ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=88490&la=0&powerMode=0",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "conflict"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-train-s3738-11",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "train",
+        "sourceSentenceId": "train-s3738",
+        "sourceSentence": "甚至可以對1~3號機進行空中補給。",
+        "udTokenIndex": 11,
+        "udTokenText": "補給",
+        "udUpos": "NOUN",
+        "udTransliteration": "bǔgěi",
+        "sourceBlobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-train.conllu"
+      },
+      "target": {
+        "writtenWord": "補給",
+        "characterOffset": 1,
+        "character": "給",
+        "goldZhuyin": "ㄐㄧˇ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=20013&la=0&powerMode=0",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "conflict"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-train-s2478-9",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "train",
+        "sourceSentenceId": "train-s2478",
+        "sourceSentence": "嚴格來說，簽賬卡並不是銀行卡。",
+        "udTokenIndex": 9,
+        "udTokenText": "銀行",
+        "udUpos": "NOUN",
+        "udTransliteration": "yínxíng",
+        "sourceBlobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-train.conllu"
+      },
+      "target": {
+        "writtenWord": "銀行",
+        "characterOffset": 1,
+        "character": "行",
+        "goldZhuyin": "ㄏㄤˊ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=156656&la=0&powerMode=0",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "conflict"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-train-s1363-13",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "train",
+        "sourceSentenceId": "train-s1363",
+        "sourceSentence": "剛孵化的橡樹龍前肢較健壯，可能可以四肢行走。",
+        "udTokenIndex": 13,
+        "udTokenText": "行走",
+        "udUpos": "VERB",
+        "udTransliteration": "xíngzǒu",
+        "sourceBlobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-train.conllu"
+      },
+      "target": {
+        "writtenWord": "行走",
+        "characterOffset": 0,
+        "character": "行",
+        "goldZhuyin": "ㄒㄧㄥˊ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=110966&la=0&powerMode=0",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "match"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-dev-s37-28",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "dev",
+        "sourceSentenceId": "dev-s37",
+        "sourceSentence": "2010年1月7日，北京市教育委員會正式作出批複，要求該校停止體制改革試點，加入公立校行列。",
+        "udTokenIndex": 28,
+        "udTokenText": "行列",
+        "udUpos": "NOUN",
+        "udTransliteration": "xíngliè",
+        "sourceBlobSha": "8b967948097a2e4bebe7f5d0e053c4fed4fe3baa",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-dev.conllu"
+      },
+      "target": {
+        "writtenWord": "行列",
+        "characterOffset": 0,
+        "character": "行",
+        "goldZhuyin": "ㄏㄤˊ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=82218&la=0&powerMode=0",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "conflict"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-train-s3530-7",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "train",
+        "sourceSentenceId": "train-s3530",
+        "sourceSentence": "這些植物大都按科屬種植，並適當根據生態條件配置宿根草本或球根花卉。",
+        "udTokenIndex": 7,
+        "udTokenText": "種植",
+        "udUpos": "VERB",
+        "udTransliteration": "zhǒngzhí",
+        "sourceBlobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-train.conllu"
+      },
+      "target": {
+        "writtenWord": "種植",
+        "characterOffset": 0,
+        "character": "種",
+        "goldZhuyin": "ㄓㄨㄥˋ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=120566&la=0&powerMode=0",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "conflict"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-dev-s267-13",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "dev",
+        "sourceSentenceId": "dev-s267",
+        "sourceSentence": "嘉義縣是當前台灣生產高山茶的重要產區，種植的區域，以梅山鄉、竹崎鄉、番路鄉及阿里山鄉等四個山區鄉鎮為主。",
+        "udTokenIndex": 13,
+        "udTokenText": "種植",
+        "udUpos": "VERB",
+        "udTransliteration": "zhǒngzhí",
+        "sourceBlobSha": "8b967948097a2e4bebe7f5d0e053c4fed4fe3baa",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-dev.conllu"
+      },
+      "target": {
+        "writtenWord": "種植",
+        "characterOffset": 0,
+        "character": "種",
+        "goldZhuyin": "ㄓㄨㄥˋ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=120566&la=0&powerMode=0",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "conflict"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-train-s514-9",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "train",
+        "sourceSentenceId": "train-s514",
+        "sourceSentence": "弗吉尼亞商人約翰·羅爾夫發現印第安人栽種的煙草可以帶來財富，隨即開始在殖民地倡導種植煙草。",
+        "udTokenIndex": 9,
+        "udTokenText": "栽種",
+        "udUpos": "VERB",
+        "udTransliteration": "zāizhǒng",
+        "sourceBlobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-train.conllu"
+      },
+      "target": {
+        "writtenWord": "栽種",
+        "characterOffset": 1,
+        "character": "種",
+        "goldZhuyin": "ㄓㄨㄥˋ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=138319",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "conflict"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-train-s3181-24",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "train",
+        "sourceSentenceId": "train-s3181",
+        "sourceSentence": "為了增加試驗效果，每年冬天，其與助手還去海南三亞進行水稻育種，甚至在路上把種子綁在身上，利用體溫育種催芽。",
+        "udTokenIndex": 24,
+        "udTokenText": "種子",
+        "udUpos": "NOUN",
+        "udTransliteration": "zhǒngzi",
+        "sourceBlobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-train.conllu"
+      },
+      "target": {
+        "writtenWord": "種子",
+        "characterOffset": 0,
+        "character": "種",
+        "goldZhuyin": "ㄓㄨㄥˇ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=120364&la=0&powerMode=0",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "match"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-test-s110-12",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "test",
+        "sourceSentenceId": "test-s110",
+        "sourceSentence": "在報復的過程中，報復者會產生一種罪惡的快感。",
+        "udTokenIndex": 12,
+        "udTokenText": "種",
+        "udUpos": "NOUN",
+        "udTransliteration": "zhǒng",
+        "sourceBlobSha": "3b15be45a96edcb21736f220e73fdccade231ca5",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-test.conllu"
+      },
+      "target": {
+        "writtenWord": "種",
+        "characterOffset": 0,
+        "character": "種",
+        "goldZhuyin": "ㄓㄨㄥˇ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=8169&word=%3D%E7%A8%AE",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "match"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-test-s55-5",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "test",
+        "sourceSentenceId": "test-s55",
+        "sourceSentence": "長期血糖水平控制良好可以降低糖尿病視網膜病變的風險。",
+        "udTokenIndex": 5,
+        "udTokenText": "良好",
+        "udUpos": "ADJ",
+        "udTransliteration": "liánghǎo",
+        "sourceBlobSha": "3b15be45a96edcb21736f220e73fdccade231ca5",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-test.conllu"
+      },
+      "target": {
+        "writtenWord": "良好",
+        "characterOffset": 1,
+        "character": "好",
+        "goldZhuyin": "ㄏㄠˇ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=64879&la=0&powerMode=0",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "match"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-dev-s414-13",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "dev",
+        "sourceSentenceId": "dev-s414",
+        "sourceSentence": "這個結果來自於次文化成員多樣化的喜好。",
+        "udTokenIndex": 13,
+        "udTokenText": "喜好",
+        "udUpos": "NOUN",
+        "udTransliteration": "xǐhǎo",
+        "sourceBlobSha": "8b967948097a2e4bebe7f5d0e053c4fed4fe3baa",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-dev.conllu"
+      },
+      "target": {
+        "writtenWord": "喜好",
+        "characterOffset": 1,
+        "character": "好",
+        "goldZhuyin": "ㄏㄠˋ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=104940&la=0&powerMode=0",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "conflict"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-train-s1902-23",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "train",
+        "sourceSentenceId": "train-s1902",
+        "sourceSentence": "另外，這標籤擁有的兩重特性，使其同時是同人文化也是獸人文化中一種愛好的分支。",
+        "udTokenIndex": 23,
+        "udTokenText": "愛好",
+        "udUpos": "NOUN",
+        "udTransliteration": "'àihǎo",
+        "sourceBlobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-train.conllu"
+      },
+      "target": {
+        "writtenWord": "愛好",
+        "characterOffset": 1,
+        "character": "好",
+        "goldZhuyin": "ㄏㄠˋ",
+        "lexicalDictionaryUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=147255",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "conflict"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-train-s3238-1",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "train",
+        "sourceSentenceId": "train-s3238",
+        "sourceSentence": "好不容易到來的暑假，但爸爸和媽媽都很忙，也不帶小桃出去玩。",
+        "udTokenIndex": 1,
+        "udTokenText": "好",
+        "udUpos": "ADV",
+        "udTransliteration": "hǎo",
+        "sourceBlobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-train.conllu"
+      },
+      "target": {
+        "writtenWord": "好",
+        "characterOffset": 0,
+        "character": "好",
+        "goldZhuyin": "ㄏㄠˇ",
+        "lexicalDictionaryUrl": "https://dict.concised.moe.edu.tw/dictView.jsp?ID=19419",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "match"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    },
+    {
+      "id": "ud-gsd-train-s2296-9",
+      "origin": {
+        "corpus": "UniversalDependencies/UD_Chinese-GSD",
+        "release": "master inspected 2026-10-22; pinned file blob SHA",
+        "split": "train",
+        "sourceSentenceId": "train-s2296",
+        "sourceSentence": "各地的分部辦事處之前會準備好足夠的邀請單，以便在發放時給住戶。",
+        "udTokenIndex": 9,
+        "udTokenText": "好",
+        "udUpos": "ADJ",
+        "udTransliteration": "hǎo",
+        "sourceBlobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+        "sourceUrl": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/zh_gsd-ud-train.conllu"
+      },
+      "target": {
+        "writtenWord": "好",
+        "characterOffset": 0,
+        "character": "好",
+        "goldZhuyin": "ㄏㄠˇ",
+        "lexicalDictionaryUrl": "https://dict.concised.moe.edu.tw/dictView.jsp?ID=19419",
+        "scope": "verified-target-character-only",
+        "udPinyinTargetCheck": "match"
+      },
+      "review": {
+        "status": "dictionary-cross-checked",
+        "annotation": "MOE lexical reading checked against target lexeme and sentence context; UD Translit is NOT gold",
+        "sentenceFluency": "attested-corpus-not-independently-rated"
+      }
+    }
+  ]
+}
