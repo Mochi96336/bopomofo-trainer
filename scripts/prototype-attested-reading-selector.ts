@@ -96,9 +96,14 @@ export function weightedAttestedProbability(
   return weights.map(w=>w/sum);
 }
 export function xorshift32(seed: number): number {
-  let x = (seed ^ 0x9e3779b9) >>> 0;
-  x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
-  return (x>>>0)/0x1_0000_0000;
+  // A strong 32-bit avalanche is required here: adjacent seeds must not
+  // land in a narrow RNG interval or some Zhuyin cohorts get zero hits.
+  // Deterministic integer hash, not a cryptographic or production RNG.
+  let x = seed >>> 0;
+  x = Math.imul(x ^ (x >>> 16), 0x7feb352d);
+  x = Math.imul(x ^ (x >>> 15), 0x846ca68b);
+  x = (x ^ (x >>> 16)) >>> 0;
+  return x / 0x1_0000_0000;
 }
 export function selectAttestedIndex(probabilities: readonly number[], seed: number): number {
   const u = xorshift32(seed);
