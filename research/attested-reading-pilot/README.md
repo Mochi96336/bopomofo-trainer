@@ -104,3 +104,25 @@ reading of a case remains bit-identical.
    isolated, and this research does not modify them.
 
 **Draft, read-only, do not merge automatically.**
+
+## Early exact-word practice catalog coverage (separate from G2P)
+
+```sh
+npm run app:catalog
+npx tsx scripts/audit-attested-catalog-coverage.ts \
+  research/attested-reading-pilot/cases.json \
+  data/generated/attested-catalog-coverage.json
+```
+
+This independent second report checks whether the **current actual
+practice catalog** has an entry with the same **whole written lexical
+token**, the same number of syllables, and the correct target-character
+Zhuyin tokens in the same position. It separates missing words,
+incompatible syllable spans, correct reading absent, correct reading
+present but competing with other readings, and correct reading
+present without competing aligned entries.
+
+It is only a **candidate coverage audit**; it does not apply the corpus
+sentence's syntax to the runtime selector. A correct entry existing is
+not proof that the generated sentence would use it, and a missing entry
+is not a wrong model prediction.
