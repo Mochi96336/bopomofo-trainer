@@ -40,7 +40,7 @@ export function reviewedTargetTokens(zhuyin: string): readonly string[] {
   };
   const marks = [...zhuyin].filter(c => c in toneMarks);
   if (!phonemes.length || marks.length > 1
-    || [...zhuyin].some(c => !/[\u3105-\u3129]/u.test(c) && !(c in toneMarks))) {
+    || !/^[\u3105-\u3129]+[ˊˇˋ˙]?$/u.test(zhuyin)) {
     throw new Error("unsupported single-syllable reviewed Zhuyin: " + zhuyin);
   }
   return [...phonemes, marks.length ? toneMarks[marks[0]!]! : "tone:1"];
