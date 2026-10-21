@@ -126,3 +126,34 @@ It is only a **candidate coverage audit**; it does not apply the corpus
 sentence's syntax to the runtime selector. A correct entry existing is
 not proof that the generated sentence would use it, and a missing entry
 is not a wrong model prediction.
+
+## First measured result (specialized CI, 2026-10-22 Taiwan)
+
+At the 18-case pinned sample, **11** original UD whole-token
+`Translit` strings differ from independently reviewed complete-word
+Pinyin. This is a **whole-word disagreement**, which can involve a
+different syllable than the target. Never treat all 11 as target-character
+errors or as product mistakes.
+
+The independent reading-first toy lottery, using synthetic 12/16 errors
+and **8,192 fixed seeds** per cohort, yielded:
+
+| Weak token | Exact baseline target probability | Weighted | Selected cases before → after |
+|---|---:|---:|---:|
+| `tone:4` | 27.8% | 35.8% | 2,292 → 2,977 |
+| `tone:3` | 44.4% | 53.7% | 3,599 → 4,342 |
+| `zhuyin:ㄗ` | 11.1% | 15.3% | 912 → 1,256 |
+
+The actual generated practice catalog (13,692 active entries in this
+CI run) contains the target word and correct reviewed reading for
+**all 18/18**: 15 have no competing aligned pronunciation within the
+*same written word*, while **three** have another competing identity.
+The three exact ambiguous items are `dev-s241 種/ㄓㄨㄥˇ`,
+`dev-s5 給/ㄍㄟˇ` and `dev-s287 給/ㄍㄟˇ`. The real-corpus
+sentence/word reading distinction is therefore more informative than
+only asking whether the lexicon happens to contain these entries.
+
+**Do not misread 18/18 catalog candidate availability as 18/18
+contextual pronunciation accuracy.** No natural whole sentence was
+automatically disambiguated in this phase. The prototype uses the MOE
+reading label as an input, not a model prediction.
