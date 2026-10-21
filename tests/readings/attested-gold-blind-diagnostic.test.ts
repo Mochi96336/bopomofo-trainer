@@ -24,6 +24,21 @@ const four=entry("種","ㄓㄨㄥ4",["zhuyin:ㄓ","zhuyin:ㄨ","zhuyin:ㄥ","ton
 const context:DiagnosticLexicon={
   entries:[three,four],profiles:[profile(three,"NOUN"),profile(four,"NOUN")],
 };
+interface UdEvidenceToken {
+  tokenId:number; text:string; upos:string; headTokenId:number; deprel:string;
+}
+interface UndecidedSourceEvidence {
+  cases:readonly {
+    caseId:string;sourceSentId:string;sourceTokenId:number;
+    sourceWord:string;sourceUpos:string;sourceCorpusBlobSha:string;
+    rawUdEvidenceTokens:readonly UdEvidenceToken[];
+    reviewStatus:string;untestedHypothesis:string;
+  }[];
+}
+const undecided=JSON.parse(readFileSync(
+  "research/attested-reading-pilot/unresolved-context-evidence.json","utf8"
+)) as UndecidedSourceEvidence;
+
 describe("real-word reading diagnostic must be gold-blind",()=>{
   it("reports multiple licensed pronunciations rather than guessing by source UPOS",()=>{
     const result=inferExistingReadingFrontier({
@@ -66,5 +81,37 @@ describe("real-word reading diagnostic must be gold-blind",()=>{
       .frontierStatus).toBe("no-compatible-source-upos-profile");
     expect(inferExistingReadingFrontier({word:"不存在",sourceUpos:"NOUN",targetOffset:0},context)
       .frontierStatus).toBe("word-absent");
+  });
+  it("pins raw source dependency evidence for all 3 ambiguous cases without licensing a pronunciation",()=>{
+    expect(undecided.cases.map(x=>x.caseId)).toEqual(["gsd-012","gsd-013","gsd-015"]);
+    for(const cue of undecided.cases){
+      const originalRow=original.cases.find(x=>x.id===cue.caseId)!;
+      expect(cue.sourceSentId).toBe(originalRow.sourceSentId);
+      expect(cue.sourceTokenId).toBe(originalRow.sourceTokenId);
+      expect(cue.sourceWord).toBe(originalRow.sourceTokenText);
+      expect(cue.sourceUpos).toBe(originalRow.sourceTokenUpos);
+      expect(cue.sourceCorpusBlobSha).toBe(original.source.blobSha);
+      expect(cue.reviewStatus).toBe("to-review");
+      expect(cue.untestedHypothesis.length).toBeGreaterThan(15);
+      expect(cue.rawUdEvidenceTokens.some(t=>
+        t.tokenId===cue.sourceTokenId && t.text===cue.sourceWord)).toBe(true);
+    }
+    const seed=undecided.cases[0]!.rawUdEvidenceTokens;
+    expect(seed).toEqual(expect.arrayContaining([
+      expect.objectContaining({text:"兩",headTokenId:10,deprel:"nummod"}),
+      expect.objectContaining({text:"種",tokenId:10,upos:"NOUN"}),
+    ]));
+    const beneficiary=undecided.cases[1]!.rawUdEvidenceTokens;
+    expect(beneficiary).toEqual(expect.arrayContaining([
+      expect.objectContaining({text:"給",tokenId:17,headTokenId:20,deprel:"advcl"}),
+      expect.objectContaining({text:"分析",headTokenId:17,deprel:"obj"}),
+      expect.objectContaining({text:"提供",tokenId:20,deprel:"root"}),
+    ]));
+    const transfer=undecided.cases[2]!.rawUdEvidenceTokens;
+    expect(transfer).toEqual(expect.arrayContaining([
+      expect.objectContaining({text:"交",tokenId:13,headTokenId:15,deprel:"advcl"}),
+      expect.objectContaining({text:"給",tokenId:15,upos:"VERB"}),
+      expect.objectContaining({text:"叔父",headTokenId:15,deprel:"obj"}),
+    ]));
   });
 });
