@@ -1,0 +1,69 @@
+name: Attested reading gold-blind diagnostic
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/attested-reading-gold-blind.yml"
+      - "scripts/audit-attested-gold-blind-reading.ts"
+      - "tests/readings/attested-gold-blind-diagnostic.test.ts"
+      - "research/attested-reading-pilot/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  oracle-upos-candidate-frontier:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install
+        run: npm ci --include=dev --ignore-scripts
+      - name: Generate current practice catalog and syntax profiles
+        run: npm run app:catalog
+      - name: Test label-blind reading frontier and honest ambiguity handling
+        run: npx vitest run tests/readings/attested-gold-blind-diagnostic.test.ts
+      - name: Evaluate original attested word plus oracle UD UPOS
+        run: >-
+          npx tsx scripts/audit-attested-gold-blind-reading.ts
+          research/attested-reading-pilot/cases.json
+          data/generated/attested-gold-blind-diagnostic.json
+      - name: Explain what the metrics actually measure
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync,appendFileSync } from "node:fs";
+          const r=JSON.parse(readFileSync("data/generated/attested-gold-blind-diagnostic.json","utf8"));
+          const rows=[
+            "# Attested target-reading diagnostic — no gold leakage",
+            "",
+            "Input: original UD token + **oracle UD UPOS** + shipping practice catalog and reviewed role gate.",
+            "**No input of reviewed MOE correct reading or original UD Translit to the candidate filtering step.**",
+            "This is not the real app reading in a natural full sentence, nor a human-validated naturalness score.",
+            "",
+            "| Outcome | Count |",
+            "|---|---:|",
+            ...Object.entries(r.statusCounts).map(([k,v])=>`| ${k} | ${v} |`),
+            "",
+            "### Rows with more than one surviving phonetic answer",
+            "",
+            ...r.rows.filter(x=>x.frontierStatus==="multiple-pronunciations").map(x=>
+              `- ${x.id} ${x.sourceWord}/${x.sourceUpos}: ${x.distinctTargetPronunciations.map(y=>y.targetTokens.join(" ")).join(" ; ")} | reviewed target ${x.reviewedTargetReading}`),
+            "",
+            "No unique prediction = unresolved, **not** a correct contextual G2P output.",
+          ];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,rows.join("\n")+"\n");
+          NODE
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: attested-gold-blind-oracle-upos-json
+          path: data/generated/attested-gold-blind-diagnostic.json
+          if-no-files-found: error
+          retention-days: 30
