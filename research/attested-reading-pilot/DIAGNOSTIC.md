@@ -61,3 +61,59 @@ grammar, catalog or production selector is modified.
 
 **Keep Draft; do not merge automatically or treat the raw rate as
 production reading accuracy.**
+
+## Measured result on the 18 pinned source occurrences
+
+The first exact-source diagnostic CI succeeded. Existing
+**whole-word + oracle UD UPOS + shipping role gate** yielded:
+
+| Outcome | Attested target-character cases |
+|---|---:|
+| A single candidate equal to independently reviewed MOE target | 15 |
+| More than one reading, with the gold among the candidates | **3** |
+| A single candidate that conflicts with gold | 0 |
+| No licensed candidate under oracle UPOS | 0 |
+
+**This is NOT 15/18 end-to-end context G2P accuracy.** The system was
+given gold-quality original word boundaries and UD POS annotations,
+neither of which is produced for a new natural sentence by the
+current question generator. The three rows left unresolved are:
+
+- `dev-s241` `兩種` (exact standalone `種/NOUN`):
+  reviewed `ㄓㄨㄥˇ`; surviving
+  `ㄓㄨㄥˇ` **and** `ㄓㄨㄥˋ`.
+- `dev-s5` `給行為分析提供` (`給/VERB`):
+  reviewed `ㄍㄟˇ`; surviving
+  `ㄍㄟˇ` **and** `ㄐㄧˇ`.
+- `dev-s287` `交工資給叔父` (`給/VERB`):
+  reviewed `ㄍㄟˇ`; surviving
+  `ㄍㄟˇ` **and** `ㄐㄧˇ`.
+
+**Next evidence already pinned** in
+`unresolved-context-evidence.json`:
+
+- Raw UD `兩/NUM → 種/NOUN` nummod relation, plus ingredient
+  phrase, suggests a numeral-class relation for future review.
+- Raw UD `給/VERB → 提供/VERB` advcl with `分析` as an
+  object suggests a possible beneficiary phrase.
+- `交/VERB` modifies `給/VERB` and `叔父` is its object:
+  a possible transfer recipient cue.
+
+These are **hypotheses, not proved universal reading rules**.
+Source dependency annotations also can be imperfect; an independent
+linguistic review or additional contrastive natural contexts are
+required before turning any of these patterns into automatic
+pronunciation permissions.
+
+A second limitation: the current 18-example set has two naturally
+attested `給/ㄍㄟˇ` examples with the **same exact written single
+word and POS**, but no contrasting naturally attested standalone
+`給/ㄐㄧˇ` in the same comparison set. The already collected
+multi-character `給予` and `補給` examples are useful
+lexical contrast but cannot by themselves validate *same-word*
+context disambiguation.
+
+**Recommendation:** gather true opposing natural contexts of the
+*same word + UPOS*, keep a held-out test split, and implement a
+context reader only when it can be evaluated without label leakage.
+Continue to keep Draft #434 and Draft #433 unmerged.
