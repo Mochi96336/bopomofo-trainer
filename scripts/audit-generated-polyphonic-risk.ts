@@ -112,6 +112,25 @@ export function auditGeneratedReadingRisk(
       contextReadingVerified:false,
     };
   });
+  // Preserve the complete target population for future human comparison:
+  // flagged-only sampling would overstate the apparent wrong-reading rate.
+  const allTargetHits=shipping.hits.filter(hit=>
+    hit.text==="種" || hit.text==="給").map(hit=>({
+      seedIndex:hit.seedIndex,
+      sentence:hit.sentence,
+      originalWrittenToken:hit.text,
+      selectedCatalogIdentity:hit.selectedEntryId,
+      selectedUpos:hit.selectedUpos,
+      previousEntryText:hit.previousEntryText,
+      nextEntryText:hit.nextEntryText,
+      predeclaredRiskFlag:riskFlags.some(flag=>match(hit,flag)),
+      sentenceNaturalnessReviewStatus:"unreviewed" as const,
+      readingContextReviewStatus:"unreviewed" as const,
+      allowedAsVerifiedExercise:false,
+    }));
+  const allTargetOccurrencesByText=Object.fromEntries(["種","給"].map(word=>[
+    word,allTargetHits.filter(x=>x.originalWrittenToken===word).length,
+  ]));
   return {
     schemaVersion:"generated-attested-polyphonic-risk-v1",
     source:"2048 predeclared deterministic formal syntax composer seeds, not real-user utterances",
@@ -121,6 +140,9 @@ export function auditGeneratedReadingRisk(
     countsAreExposureNotError:true,
     sampleCount:shipping.sampleCount,
     riskRows,
+    allTargetHits,
+    allTargetOccurrencesByText,
+    unreviewedGeneratedTargetCount:allTargetHits.length,
     totalShippingFlaggedHits:riskRows.reduce((sum,row)=>sum+row.shippingHits,0),
     totalTrialFlaggedHits:riskRows.reduce((sum,row)=>sum+row.trialHits,0),
     noOutputSentenceReviewedForNaturalness:true,
@@ -145,6 +167,8 @@ if(process.argv[1]&&fileURLToPath(import.meta.url)===process.argv[1]){
       shippingHits:x.shippingHits,trialHits:x.trialHits,
       reviewedWrongReadingCount:x.reviewedWrongReadingCount,
     })),
+    allTargetOccurrencesByText:data.allTargetOccurrencesByText,
+    unreviewedGeneratedTargetCount:data.unreviewedGeneratedTargetCount,
     totalShippingFlaggedHits:data.totalShippingFlaggedHits,
     warning:data.warning,
   },null,2));
