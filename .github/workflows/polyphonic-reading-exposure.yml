@@ -6,6 +6,7 @@ on:
       - ".github/workflows/polyphonic-reading-exposure.yml"
       - "scripts/audit-polyphonic-context.ts"
       - "scripts/compare-zhong-role-trial.ts"
+      - "scripts/audit-generated-polyphonic-risk.ts"
       - "scripts/audit-same-upos-polyphones.ts"
       - "scripts/audit-targeted-polyphonic-identities.ts"
       - "scripts/prepare-moe-sense-targets.ts"
@@ -70,6 +71,14 @@ jobs:
         run: npx tsx scripts/audit-same-upos-polyphones.ts
       - name: Probe missing reading identities in bounded biased generation
         run: npx tsx scripts/audit-targeted-polyphonic-identities.ts --probes 3
+      - name: Audit seeded product-generated 種 and 給 identity risks without assigning gold
+        run: >-
+          npx tsx scripts/audit-generated-polyphonic-risk.ts
+          data/generated/polyphonic-context-reviewed-roles.json
+          data/generated/polyphonic-context-zhong-role-trial.json
+          data/generated/generated-attested-polyphonic-risk.json
+      - name: Test seeded generation risk flags remain exposure-only
+        run: npx vitest run tests/readings/attested-generated-polyphonic-risk.test.ts
       - name: Prepare annotated review summary
         run: |
           node --input-type=module <<'NODE'
@@ -189,6 +198,7 @@ jobs:
             data/generated/same-upos-polyphone-review.json
             data/generated/polyphonic-targeted-identity-coverage.json
             data/generated/polyphonic-context-zhong-role-trial.json
+            data/generated/generated-attested-polyphonic-risk.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
             data/generated/polyphonic-lexeme-boundary-readiness.json
             data/generated/polyphonic-host-lexeme-reachability.json
