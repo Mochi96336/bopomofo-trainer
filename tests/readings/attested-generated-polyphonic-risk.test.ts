@@ -49,7 +49,11 @@ describe("product-formal composer risk exposures, never human phonetic error lab
       .toThrow(/populations/);
   });
   it("does not flag the reviewed pronunciation identity even when the surface matches",()=>{
-    const safe={...base,hits:[hit(10,"種","ㄓㄨㄥ3","NOUN")]};
+    const safe={...base,
+      hits:[hit(10,"種","ㄓㄨㄥ3","NOUN")],
+      sentences:base.sentences.map(row=>row.seedIndex===10
+        ? {...row,entryIds:[catalogEntryId("種","ㄓㄨㄥ3")]} : row),
+    };
     expect(auditGeneratedReadingRisk(safe,trial).totalShippingFlaggedHits).toBe(0);
   });
 });
