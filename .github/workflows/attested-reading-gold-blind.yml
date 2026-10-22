@@ -10,11 +10,13 @@ on:
       - "scripts/sample-attested-review-queue.ts"
       - "scripts/audit-attested-frontier-provenance.ts"
       - "scripts/compare-attested-zhong-role-ablation.ts"
+      - "scripts/audit-attested-give-lexical-boundary.ts"
       - "tests/readings/attested-gold-blind-diagnostic.test.ts"
       - "tests/readings/attested-ud-source-integrity.test.ts"
       - "tests/readings/attested-standalone-queue.test.ts"
       - "tests/readings/attested-frontier-provenance.test.ts"
       - "tests/readings/attested-zhong-role-ablation.test.ts"
+      - "tests/readings/attested-give-lexical-boundary.test.ts"
       - "research/attested-reading-pilot/**"
   workflow_dispatch:
 
@@ -60,6 +62,7 @@ jobs:
           tests/readings/attested-standalone-queue.test.ts
           tests/readings/attested-frontier-provenance.test.ts
           tests/readings/attested-zhong-role-ablation.test.ts
+          tests/readings/attested-give-lexical-boundary.test.ts
       - name: Evaluate original attested word plus oracle UD UPOS
         run: >-
           npx tsx scripts/audit-attested-gold-blind-reading.ts
@@ -86,6 +89,11 @@ jobs:
           npx tsx scripts/compare-attested-zhong-role-ablation.ts
           research/attested-reading-pilot/cases.json
           data/generated/attested-zhong-role-opt-in-ablation.json
+      - name: Compare isolated 給 with MOE-reviewed compound-lexeme boundaries
+        run: >-
+          npx tsx scripts/audit-attested-give-lexical-boundary.ts
+          research/attested-reading-pilot/cases.json
+          data/generated/attested-give-lexical-boundary-review.json
       - name: Explain what the metrics actually measure
         run: |
           node --input-type=module <<'NODE'
@@ -121,5 +129,6 @@ jobs:
             data/generated/attested-standalone-human-review-sample.json
             data/generated/attested-unresolved-catalog-provenance.json
             data/generated/attested-zhong-role-opt-in-ablation.json
+            data/generated/attested-give-lexical-boundary-review.json
           if-no-files-found: error
           retention-days: 30
