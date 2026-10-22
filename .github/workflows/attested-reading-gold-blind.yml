@@ -7,9 +7,12 @@ on:
       - "scripts/audit-attested-gold-blind-reading.ts"
       - "scripts/verify-attested-ud-source.ts"
       - "scripts/mine-attested-standalone-contexts.ts"
+      - "scripts/sample-attested-review-queue.ts"
+      - "scripts/audit-attested-frontier-provenance.ts"
       - "tests/readings/attested-gold-blind-diagnostic.test.ts"
       - "tests/readings/attested-ud-source-integrity.test.ts"
       - "tests/readings/attested-standalone-queue.test.ts"
+      - "tests/readings/attested-frontier-provenance.test.ts"
       - "research/attested-reading-pilot/**"
   workflow_dispatch:
 
@@ -53,6 +56,7 @@ jobs:
           tests/readings/attested-gold-blind-diagnostic.test.ts
           tests/readings/attested-ud-source-integrity.test.ts
           tests/readings/attested-standalone-queue.test.ts
+          tests/readings/attested-frontier-provenance.test.ts
       - name: Evaluate original attested word plus oracle UD UPOS
         run: >-
           npx tsx scripts/audit-attested-gold-blind-reading.ts
@@ -65,6 +69,15 @@ jobs:
           .external/UD_Chinese-GSD/zh_gsd-ud-dev.conllu
           .external/UD_Chinese-GSD/zh_gsd-ud-test.conllu
           data/generated/attested-standalone-unlabeled-train-queue.json
+      - name: Trace both pronunciations to exact catalog ID, UPOS profiles and role-gate applicability
+        run: >-
+          npx tsx scripts/audit-attested-frontier-provenance.ts
+          data/generated/attested-unresolved-catalog-provenance.json
+      - name: Prepare deterministic gold-free human review sample
+        run: >-
+          npx tsx scripts/sample-attested-review-queue.ts
+          data/generated/attested-standalone-unlabeled-train-queue.json
+          data/generated/attested-standalone-human-review-sample.json
       - name: Explain what the metrics actually measure
         run: |
           node --input-type=module <<'NODE'
@@ -97,5 +110,7 @@ jobs:
           path: |
             data/generated/attested-gold-blind-diagnostic.json
             data/generated/attested-standalone-unlabeled-train-queue.json
+            data/generated/attested-standalone-human-review-sample.json
+            data/generated/attested-unresolved-catalog-provenance.json
           if-no-files-found: error
           retention-days: 30
