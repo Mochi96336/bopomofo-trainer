@@ -56,6 +56,7 @@ export interface DiagnosticLexicon {
 export function inferExistingReadingFrontier(
   input: BlindLexicalContext,
   catalog: DiagnosticLexicon,
+  eligibility: (entry: CatalogEntry, profile: RuntimeSyntaxProfile) => boolean = reviewedRoleReadingEligible,
 ): BlindInference {
   const sameWord = catalog.entries.filter(x => x.prompt.text === input.word);
   const count = [...input.word].length;
@@ -73,7 +74,7 @@ export function inferExistingReadingFrontier(
   const withProfiles = aligned.filter(entry => matchingProfileIds.has(entry.id));
   const licensed = withProfiles.filter(entry =>
     matchingProfileIds.get(entry.id)!.some(profile =>
-      reviewedRoleReadingEligible(entry, profile)));
+      eligibility(entry, profile)));
   const alternatives = new Map<string, {tokens: readonly string[]; entries: string[]}>();
   for (const entry of licensed) {
     const tokens = entry.syllables[input.targetOffset]?.tokens;
