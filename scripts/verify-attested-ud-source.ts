@@ -66,11 +66,11 @@ export function parseConlluSentences(raw: string): ReadonlyMap<string, UdSentenc
       const id = Number(cols[0]);
       requireMatch(Number.isSafeInteger(id) && id > 0, sentId + " invalid token id");
       requireMatch(!tokens.has(id), sentId + " duplicate token " + id);
-      const translit = cols[9].split("|").find(x => x.startsWith("Translit="));
+      const translit = cols[9]!.split("|").find(x => x.startsWith("Translit="));
       const head = Number(cols[6]);
       requireMatch(Number.isSafeInteger(head) && head >= 0, sentId + " invalid head for " + id);
       tokens.set(id, {
-        id, form: cols[1], upos: cols[3], head, deprel: cols[7],
+        id, form: cols[1]!, upos: cols[3]!, head, deprel: cols[7]!,
         translit: translit ? translit.slice("Translit=".length) : null,
       });
     }
@@ -93,7 +93,8 @@ export function verifyAttestedSourceEvidence(
     const sentence = sentences.get(row.sourceSentId);
     requireMatch(sentence !== undefined, row.id + ": source sentence not found");
     requireMatch(sentence.text === row.sourceText, row.id + ": source sentence text mismatch");
-    requireMatch(row.sourceFile === bank.source.path, row.id + ": source file mismatch");
+    const sourceFile = (row as typeof row & { readonly sourceFile?: string }).sourceFile;
+    requireMatch(sourceFile === bank.source.path, row.id + ": source file mismatch");
     const token = sentence.tokens.get(row.sourceTokenId);
     requireMatch(token !== undefined, row.id + ": source token not found");
     requireMatch(token.form === row.sourceTokenText, row.id + ": token form mismatch");
