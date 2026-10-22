@@ -275,3 +275,62 @@ TypeScript compile time, with eight errors in the new UD source checker/test.
 The follow-up changes address strict CoNLL-U column types, the source-file
 property in the test-bank schema, and safe test-only mutation typing. Do not
 claim the new head is globally green until its exact-head `check` completes.
+
+
+## Full train frontier audit: uniqueness is not correctness
+
+The fixed, source-verified GSD train queue contains **190 standalone tokens**
+of `種` / `給`. The read-only risk audit now groups **only by original
+whole token + oracle source UPOS**, then uses the **shipping catalog and
+reading gate** to inspect candidate sets, with no gold consulted.
+
+| Token / raw UPOS | Occurrences | Shipping frontier | Existing opt-in 種 trial |
+|---|---:|---|---|
+| 種 / NOUN | 148 | ambiguous 3rd/4th tone | uniquely 3rd tone |
+| 種 / VERB | 1 | ambiguous 3rd/4th tone | uniquely 4th tone |
+| 種 / PART | 5 | ambiguous 3rd/4th tone | ambiguous |
+| 給 / VERB | 35 | ambiguous gěi / jǐ | ambiguous |
+| 給 / ADP | 1 | ambiguous gěi / jǐ | ambiguous |
+
+**Total: shipping 0/190 unique; trial 149/190 unique, with ZERO
+independently approved phonetic labels among these 190 train rows.**
+These numbers indicate only the effect of a candidate **filter**, not
+pronunciation correctness or an app end-to-end prediction rate.
+
+The real `train-s3887#2` nominal-species source annotation is `VERB`,
+and its provisional ㄓㄨㄥˇ lexical-sense interpretation directly
+contradicts the trial's forced ㄓㄨㄥˋ. In addition, five apparent species
+noun contexts are marked `PART`; they provide no reliable supporting
+evidence for an asserted POS-to-pronunciation rule.
+
+### Exhaustive first pass on standalone 給 in train
+
+We inspected the **complete original sentences** for all **36** standalone
+`給` occurrences available in the pinned train source: 35 raw VERB,
+1 raw ADP. The first-pass contextual reading is provisionally ㄍㄟˇ for
+all 36. Situations include everyday giving/transfer, recipient and
+benefactive functions, and the constructional `給搞錯` / `給殺掉`.
+Neither source's `Translit` nor the catalog-selected reading was used as
+the answer source. **No clear standalone ㄐㄧˇ counterexample was seen
+within these 36**. That is a limitation of this corpus slice, not
+evidence that such a reading is universally impossible.
+
+The researcher-first-pass rows are in
+`train-give-preliminary-review.json`, with exact `sentenceId/tokenId`,
+tentative reading and contextual category. CI validates **all 36**
+against the pinned original train queue and fails if a case is fabricated,
+omitted or duplicated. Its status is deliberately:
+- `independentSecondReviewComplete: false`;
+- `eligibleAsGold: false`;
+- `eligibleForModelTraining: false`;
+- `shouldTriggerProductionReadingGate: false`.
+
+This is **not 36 newly verified gold labels**. The only original
+18 MOE-checked dev targets remain exploratory. Test stays sealed.
+
+**Decision:** no supervised binary model may claim a `給/VERB` ㄐㄧˇ
+class based on this train queue; `給予` and `補給` are whole compounds,
+not standalone positive examples of the same input. Seek truly attested,
+licensable opposing tokens or move the disambiguation target to
+**word identity and register**, while keeping weak-key selection downstream
+of approved pronunciation.
