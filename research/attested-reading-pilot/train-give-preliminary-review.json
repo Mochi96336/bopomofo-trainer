@@ -10,7 +10,7 @@
   "eligibleAsGold": false,
   "eligibleForModelTraining": false,
   "shouldTriggerProductionReadingGate": false,
-  "noConfirmedStandaloneJiInThisSample": true,
+  "noProvisionalStandaloneJiInThisSample": true,
   "entries": [
     {
       "sentenceId": "train-s1",
