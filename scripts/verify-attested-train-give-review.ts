@@ -19,7 +19,7 @@ export interface FirstPassGiveReview {
   readonly eligibleAsGold:boolean;
   readonly eligibleForModelTraining:boolean;
   readonly shouldTriggerProductionReadingGate:boolean;
-  readonly noConfirmedStandaloneJiInThisSample:boolean;
+  readonly noProvisionalStandaloneJiInThisSample:boolean;
   readonly entries:readonly FirstPassGiveRow[];
 }
 export interface PinnedGiveQueue extends ReviewQueue {
@@ -65,7 +65,7 @@ export function verifyFirstPassGiveReview(queue:PinnedGiveQueue,review:FirstPass
     kinds[row.contextKind]=(kinds[row.contextKind]??0)+1;
     firstPassJi+=Number(row.provisionalTargetReading==="ㄐㄧˇ");
   }
-  if(review.noConfirmedStandaloneJiInThisSample!== (firstPassJi===0))
+  if(review.noProvisionalStandaloneJiInThisSample!== (firstPassJi===0))
     throw new Error("review report's tentative contrast flag disagrees with rows");
   return {
     schemaVersion:"attested-train-give-first-pass-verification-v1",
