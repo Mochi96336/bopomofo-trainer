@@ -30,6 +30,11 @@ describe("product-formal composer risk exposures, never human phonetic error lab
     const report=auditGeneratedReadingRisk(base,trial);
     expect(report.riskRows.map(x=>[x.writtenForm,x.shippingHits,x.trialHits]))
       .toEqual([["種",1,0],["給",1,1]]);
+    expect(report.allTargetHits).toHaveLength(2);
+    expect(report.allTargetOccurrencesByText).toEqual({"種":1,"給":1});
+    expect(report.allTargetHits.every(x=>x.sentenceNaturalnessReviewStatus==="unreviewed"
+      && x.readingContextReviewStatus==="unreviewed"
+      && x.allowedAsVerifiedExercise===false)).toBe(true);
     expect(report.totalShippingFlaggedHits).toBe(2);
     expect(report.totalTrialFlaggedHits).toBe(1);
     expect(report.riskRows.every(x=>
