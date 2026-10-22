@@ -334,3 +334,53 @@ not standalone positive examples of the same input. Seek truly attested,
 licensable opposing tokens or move the disambiguation target to
 **word identity and register**, while keeping weak-key selection downstream
 of approved pronunciation.
+
+
+## Bridge back to actual generated practice: 2,048 seeded utterances
+
+The existing **product-family formal-syntax composer**, with its **reviewed
+role reading policy** applied, already has 2,048 deterministic sampled
+outputs under \`formal-syntax-v2-phase1-product-baseline-v1\`.
+These are generated candidates **not actual user practice sessions**, and
+their fluency/naturalness has not been verified.
+
+A read-only inspection of the saved CI artifact at head \`644f9aff\`
+found among these generated sentences:
+
+| Candidate identity / supplied generated UPOS | Seen in 2,048 outputs |
+|---|---:|
+| 種 / NOUN / ㄓㄨㄥˋ | **6** |
+| 種 / NOUN / ㄓㄨㄥˇ | 5 |
+| 種 / VERB / ㄓㄨㄥˋ | 1 |
+| 給 / VERB / ㄐㄧˇ | **8** |
+| 給 / VERB / ㄍㄟˇ | 10 |
+
+Examples from actual logged generated outputs:
+
+- Seed 1783: \`他們給對方\` — identity \`word:給:ㄐㄧ3\`, VERB.
+- Seed 443: \`多少種那為必須李\` — identity \`word:種:ㄓㄨㄥ4\`, NOUN.
+- Seed 872: \`她給第十三摩登\` — identity \`word:給:ㄐㄧ3\`, VERB.
+
+These sentences include significant syntax/semantic problems. **Do not
+call them human-reviewed wrong pronunciations or coherent natural contexts.**
+Yet they do show that the generator *can select* such combinations; the
+previous train-only ambiguity problem is not isolated from the product
+candidate pipeline. Weakness-based selection must not be asked to decide
+their phonetic correctness.
+
+The new \`audit-generated-polyphonic-risk.ts\` is now added to the existing
+2,048-seed polyphonic-exposure workflow, consuming the
+\`polyphonic-context-reviewed-roles.json\` and
+\`polyphonic-context-zhong-role-trial.json\` files already produced there.
+It checks exact seed/entry identity and exports each flagged sentence to
+\`generated-attested-polyphonic-risk.json\`. Counts are **exposures**, with
+\`reviewedWrongReadingCount: null\` and \`contextReadingVerified: false\`,
+not errors, accuracy, or human review. The noun/verb trial may reduce a
+candidate's presence without making the resulting utterance natural.
+
+**Research decision:** before applying new sense gates to product practice,
+establish acceptable *utterance/lexical collocation* evidence, and test
+phonetic reliability separately from sentence naturalness. A candidate
+with an explicit wrong/unknown context must not be treated as a safe
+one-answer practice item just because its reading identity exists
+in the lexical catalog.
