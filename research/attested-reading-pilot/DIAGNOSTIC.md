@@ -226,3 +226,52 @@ not be called unseen test accuracy.
 Next hard gate: independently validate suspicious train labels, seek true
 opposing same-form/same-role readings (especially standalone \`給/ㄐㄧˇ\`),
 then evaluate untouched test contexts only after method/threshold freeze.
+
+
+## Word-boundary evidence for 給 (official MOE review, research-only)
+
+The Ministry of Education's **國語一字多音審訂表**, item 2508 給 (printed
+page 157, PDF index 172), explicitly states that isolated verbal / newer
+colloquial usages are **more often** ㄍㄟˇ, while compound words are **more often**
+ㄐㄧˇ. The key phrase is **多音**, not *always*. We must not turn this into
+an exceptionless one-character rule.
+
+- Primary source: https://language.moe.gov.tw/001/Upload/Files/wxiao89/a.pdf
+- Dictionary: https://dict.revised.moe.edu.tw/dictView.jsp?ID=5423
+- Concised entries: https://dict.concised.moe.edu.tw/dictView.jsp?ID=21535 and
+  https://dict.concised.moe.edu.tw/dictView.jsp?ID=16048
+
+The new **read-only** `audit-attested-give-lexical-boundary.ts` compares
+original source token boundaries before reading MOE-reviewed gold. On the
+already-opened **dev** diagnostic, the four target-character occurrences are:
+
+| Case ID | Source lexical token | Boundary type | Reviewed target |
+|---|---|---|---|
+| gsd-013 | 給 | standalone | ㄍㄟˇ |
+| gsd-014 | 給予 | multi-character lexeme | ㄐㄧˇ |
+| gsd-015 | 給 | standalone | ㄍㄟˇ |
+| gsd-016 | 補給 | multi-character lexeme | ㄐㄧˇ |
+
+The source-provided **word boundaries are oracle inputs**. Existing catalog
+filtering still leaves the standalone tokens ambiguous; the two compounds
+have their lexical readings. No sentence parser, automatic POS predictor,
+learned context classifier, or new product reading gate is implemented.
+Altered-gold tests assert that both the token boundary and candidate frontier
+stay unchanged. Neither source `Translit` nor learner weakness history is used
+for the candidate frontier.
+
+**Research decision:** stop treating an opposing same-word+same-UPOS standalone
+`給/ㄐㄧˇ` as an assumed plentiful modern contrast. It may be rare, historical,
+or tied to register; investigate those possibilities separately, without
+relabelling existing contexts or cherry-picking balancing examples. Prioritize
+whole-lexeme identification and independent registration of grammatical
+functions, with a genuinely sealed evaluation set before any deployment.
+
+## Quality gate correction
+
+The preceding Draft head `a288d1058b793b7b88967b316132bee8f2094a77`
+had green specialist audits but failed the **full** `check` workflow at
+TypeScript compile time, with eight errors in the new UD source checker/test.
+The follow-up changes address strict CoNLL-U column types, the source-file
+property in the test-bank schema, and safe test-only mutation typing. Do not
+claim the new head is globally green until its exact-head `check` completes.
