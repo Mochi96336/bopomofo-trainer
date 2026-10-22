@@ -9,10 +9,12 @@ on:
       - "scripts/mine-attested-standalone-contexts.ts"
       - "scripts/sample-attested-review-queue.ts"
       - "scripts/audit-attested-frontier-provenance.ts"
+      - "scripts/compare-attested-zhong-role-ablation.ts"
       - "tests/readings/attested-gold-blind-diagnostic.test.ts"
       - "tests/readings/attested-ud-source-integrity.test.ts"
       - "tests/readings/attested-standalone-queue.test.ts"
       - "tests/readings/attested-frontier-provenance.test.ts"
+      - "tests/readings/attested-zhong-role-ablation.test.ts"
       - "research/attested-reading-pilot/**"
   workflow_dispatch:
 
@@ -57,6 +59,7 @@ jobs:
           tests/readings/attested-ud-source-integrity.test.ts
           tests/readings/attested-standalone-queue.test.ts
           tests/readings/attested-frontier-provenance.test.ts
+          tests/readings/attested-zhong-role-ablation.test.ts
       - name: Evaluate original attested word plus oracle UD UPOS
         run: >-
           npx tsx scripts/audit-attested-gold-blind-reading.ts
@@ -78,6 +81,11 @@ jobs:
           npx tsx scripts/sample-attested-review-queue.ts
           data/generated/attested-standalone-unlabeled-train-queue.json
           data/generated/attested-standalone-human-review-sample.json
+      - name: Compare existing experimental 種 role gate to shipping baseline without activation
+        run: >-
+          npx tsx scripts/compare-attested-zhong-role-ablation.ts
+          research/attested-reading-pilot/cases.json
+          data/generated/attested-zhong-role-opt-in-ablation.json
       - name: Explain what the metrics actually measure
         run: |
           node --input-type=module <<'NODE'
@@ -112,5 +120,6 @@ jobs:
             data/generated/attested-standalone-unlabeled-train-queue.json
             data/generated/attested-standalone-human-review-sample.json
             data/generated/attested-unresolved-catalog-provenance.json
+            data/generated/attested-zhong-role-opt-in-ablation.json
           if-no-files-found: error
           retention-days: 30
