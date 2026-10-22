@@ -41,6 +41,16 @@ describe("original-train-source-based counterexample to naive 種/VERB reading t
       roleTrialContainsProvisionalNominalReading:false,
       uniqueWrongIfProvisionalSenseConfirmed:true,
     });
+    expect(result.groupFrontiers.map(g=>[g.group,g.occurrences])).toEqual([
+      ["種/PART",5],["種/VERB",1],
+    ].sort((a,b)=>String(a[0]).localeCompare(String(b[0]))));
+    expect(result.occurrenceTotals).toMatchObject({
+      shippingUnique:0,shippingAmbiguous:6,
+      trialUnique:1,trialAmbiguous:5,
+      trainCasesWithIndependentlyApprovedReading:0,
+    });
+    expect(result.groupFrontiers.find(g=>g.group==="種/VERB"))
+      .toMatchObject({shippingStatus:"multiple-pronunciations",optInStatus:"one-pronunciation"});
     expect(result.suspectedSourcePosRows).toHaveLength(6);
     expect(result.independentSecondReviewComplete).toBe(false);
     expect(result.sourceSenseGoldApproval).toBe("provisional-human-interpretation-only");
