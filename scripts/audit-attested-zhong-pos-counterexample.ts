@@ -48,6 +48,45 @@ export function auditZhongSourcePosRisk(
   }
   if(Object.keys(groupCounts).length!==Object.keys(queue.groupCounts.train).length)
     throw new Error("unexpected new group");
+  // Evaluate only distinct written-form/UPOS keys once: all occurrences
+  // in a group share the exact same source metadata supplied to this audit.
+  // No reading labels or sentence content may enter the candidate frontier.
+  const groupFrontiers=Object.entries(groupCounts).sort(([a],[b])=>a.localeCompare(b))
+    .map(([group,occurrences])=>{
+      const exemplar=queue.trainReviewCandidates.find(row=>
+        row.word+"/"+row.corpusUpos===group)!;
+      const input={word:exemplar.word,sourceUpos:exemplar.corpusUpos,targetOffset:0};
+      const shipping=inferExistingReadingFrontier(input,catalog);
+      const optIn=inferExistingReadingFrontier(input,catalog,reviewedZhongRolePilotEligible);
+      const readings=(frontier:typeof shipping)=>frontier.distinctTargetPronunciations
+        .map(alt=>alt.targetTokens.join("|"));
+      return {
+        group,occurrences,
+        shippingStatus:shipping.frontierStatus,
+        optInStatus:optIn.frontierStatus,
+        shippingCandidateReadings:readings(shipping),
+        optInCandidateReadings:readings(optIn),
+        approvedCorrectReadingCount:0,
+      };
+    });
+  const occurrenceTotals={
+    shippingUnique:groupFrontiers.filter(x=>x.shippingStatus==="one-pronunciation")
+      .reduce((n,g)=>n+g.occurrences,0),
+    shippingAmbiguous:groupFrontiers.filter(x=>x.shippingStatus==="multiple-pronunciations")
+      .reduce((n,g)=>n+g.occurrences,0),
+    trialUnique:groupFrontiers.filter(x=>x.optInStatus==="one-pronunciation")
+      .reduce((n,g)=>n+g.occurrences,0),
+    trialAmbiguous:groupFrontiers.filter(x=>x.optInStatus==="multiple-pronunciations")
+      .reduce((n,g)=>n+g.occurrences,0),
+    trainCasesWithIndependentlyApprovedReading:0,
+  };
+  // Being uniquely selected under a supplied and potentially incorrect UPOS
+  // is a candidate-set statistic; it cannot be counted as correct pronunciation.
+  const unhandled=queue.trainQueueSize - occurrenceTotals.shippingUnique
+    - occurrenceTotals.shippingAmbiguous;
+  const trialUnhandled=queue.trainQueueSize - occurrenceTotals.trialUnique
+    - occurrenceTotals.trialAmbiguous;
+  if(unhandled<0||trialUnhandled<0)throw new Error("frontier occurrence totals overflow");
   const suspects=queue.trainReviewCandidates.filter(row=>
     row.word==="種" && (row.corpusUpos==="PART"||row.corpusUpos==="VERB"));
   const nounContextTags=suspects.map(row=>({
@@ -86,6 +125,8 @@ export function auditZhongSourcePosRisk(
     originalTrainBlobSha:queue.sourceBlobs.train,
     trainQueueSize:queue.trainQueueSize,
     sourceGroups:groupCounts,
+    groupFrontiers,
+    occurrenceTotals,
     suspectedSourcePosRows:nounContextTags,
     sourceSenseGoldApproval:"provisional-human-interpretation-only",
     independentSecondReviewComplete:false,
@@ -124,6 +165,8 @@ if(process.argv[1]&&fileURLToPath(import.meta.url)===process.argv[1]){
   writeFileSync(output,JSON.stringify(report,null,2)+"\n","utf8");
   console.log(JSON.stringify({
     sourceGroups:report.sourceGroups,
+    groupFrontiers:report.groupFrontiers,
+    occurrenceTotals:report.occurrenceTotals,
     suspectedPosCases:report.suspectedSourcePosRows.length,
     counterexample:report.counterexample,
     independentSecondReviewComplete:false,
