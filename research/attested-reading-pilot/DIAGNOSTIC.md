@@ -168,3 +168,61 @@ readings, and reserve a separate, genuinely disjoint evaluation split.
 If GSD contains no suitable `給/ㄐㄧˇ` standalone comparator, record that
 absence instead of constructing or relabeling examples to make the benchmark
 look balanced.
+
+
+## Independent follow-up: actual catalog identities and original corpus review
+
+The source-provenance audit now prints the exact catalog identities, runtime
+UPOS profiles, available syntactic functions, valency frames and whether a
+reading-specific reviewed gate applies. It identifies **no such active gate**
+for \`種\` or \`給\`; both pronunciation identities inherit matching runtime
+profiles. The reason is structural, not a simple missing hard-coded exception:
+\`src/syntax/profile-projection.ts\` joins upstream syntactic evidence by
+**written form**, then projects it onto each reading-specific identity.
+
+The original pinned train corpus supplied 190 unlabelled standalone
+occurrences across five raw written-form/UPOS groups:
+- \`種/NOUN\`: 148; \`種/PART\`: 5; \`種/VERB\`: 1.
+- \`給/VERB\`: 35; \`給/ADP\`: 1.
+
+The first deterministic, train-only review sample reveals potential
+**UPOS source annotation mistakes**, not merely missing target readings:
+
+| Source | Original snippet | Raw UPOS | Provisional linguistic finding |
+|---|---|---|---|
+| train-s3887#2 | 有些種的花是兩性同花的 | VERB | \`種\` refers to species, likely nominal, not a planting action |
+| train-s2794#9 | 聖赫勒拿島的特有種 | PART | \`種\` is the noun in \`特有種\`, not a grammatical particle |
+| train-s344#7 | 地方特有種 | PART | Same nominal usage |
+| train-s411#26 | 為特有種 | PART | Same nominal usage |
+| train-s712#32 | 為特有種 | PART | Same nominal usage |
+| train-s3068#6 | 歐亞種葡萄 | PART | Taxonomic noun/class compound, not grammatical particle |
+| train-s3250#21 | 提供給用戶 | ADP | Likely recipient marking (a plausible ADP role), with no automatic gold reading |
+| train-s1055#7 | 都給殺掉 | VERB | A constructional/functional \`給\` usage, not equivalent to every lexical transfer verb |
+
+These are **inspection flags**, not a second independent reviewer, not
+official MOE-approved per-sentence labels, and not training supervision.
+In particular, **the only standalone \`種/VERB\` in train appears
+to be nominal**. Do not use this apparent class balance as evidence
+that an unconditional \`VERB -> ㄓㄨㄥˋ\` rule is safe.
+
+The repository already has an **opt-in** \`reviewedZhongRolePilotEligible\`
+policy with \`NOUN -> ㄓㄨㄥ3\` and \`VERB -> ㄓㄨㄥ4\`. The new
+\`compare-attested-zhong-role-ablation.ts\` measures that existing policy
+on the pinned diagnostic cases without enabling it in shipping code.
+It must not be promoted merely because it resolves the exploratory
+\`種/NOUN\` example: generated grammar roles are inherited from the
+same surface-keyed evidence, which may not be reading-specific.
+
+**Split accounting correction:** the 18 already-labelled cases
+in \`cases.json\` come from **dev**, and have been inspected repeatedly
+to decide the next hypothesis. That makes dev an **exploratory
+diagnostic**, not a pristine held-out final benchmark. \`train\`
+can support independent review and development. No original \`test\`
+sentence text has been exposed through the queue or sample (group
+counts alone were inspected), so keep the future \`test\` evaluation
+sealed from manual rule crafting. Even a successful dev ablation must
+not be called unseen test accuracy.
+
+Next hard gate: independently validate suspicious train labels, seek true
+opposing same-form/same-role readings (especially standalone \`給/ㄐㄧˇ\`),
+then evaluate untouched test contexts only after method/threshold freeze.
