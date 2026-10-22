@@ -1,0 +1,268 @@
+{
+  "schemaVersion": "attested-train-give-preliminary-reading-review-v1",
+  "sourceRepository": "UniversalDependencies/UD_Chinese-GSD",
+  "originalTrainBlobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+  "split": "train",
+  "reviewerBasis": "First-pass contextual linguistic screening of all 36 original UD sentences; original UD Translit intentionally not used",
+  "dictionaryGuidance": "MOE 國語一字多音審訂表, 給 #2508: standalone verbs/colloquial more often ㄍㄟˇ; compound words more often ㄐㄧˇ; no absolute reading rule",
+  "dictionaryReference": "https://language.moe.gov.tw/001/Upload/Files/wxiao89/a.pdf",
+  "independentSecondReviewComplete": false,
+  "eligibleAsGold": false,
+  "eligibleForModelTraining": false,
+  "shouldTriggerProductionReadingGate": false,
+  "noConfirmedStandaloneJiInThisSample": true,
+  "entries": [
+    {
+      "sentenceId": "train-s1",
+      "tokenId": 26,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "giving-or-transfer",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s235",
+      "tokenId": 20,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "giving-or-transfer",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s1358",
+      "tokenId": 9,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "giving-or-transfer",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s1428",
+      "tokenId": 43,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "giving-or-transfer",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s2108",
+      "tokenId": 70,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "giving-or-transfer",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s2198",
+      "tokenId": 34,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "giving-or-transfer",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s2288",
+      "tokenId": 6,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "giving-or-transfer",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s2296",
+      "tokenId": 20,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "giving-or-transfer",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s3257",
+      "tokenId": 9,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "giving-or-transfer",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s3451",
+      "tokenId": 9,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "giving-or-transfer",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s600",
+      "tokenId": 10,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s600",
+      "tokenId": 15,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s1084",
+      "tokenId": 15,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s1113",
+      "tokenId": 12,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s1134",
+      "tokenId": 6,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s1748",
+      "tokenId": 24,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s1817",
+      "tokenId": 12,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s1817",
+      "tokenId": 37,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s2505",
+      "tokenId": 11,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s2505",
+      "tokenId": 17,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s2518",
+      "tokenId": 18,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s2621",
+      "tokenId": 18,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s2716",
+      "tokenId": 20,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s2773",
+      "tokenId": 7,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s2991",
+      "tokenId": 15,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s3033",
+      "tokenId": 51,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s3150",
+      "tokenId": 23,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s3250",
+      "tokenId": 21,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s3254",
+      "tokenId": 15,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s3398",
+      "tokenId": 24,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s3456",
+      "tokenId": 19,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s3484",
+      "tokenId": 13,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s3549",
+      "tokenId": 31,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s3657",
+      "tokenId": 16,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "recipient-or-benefactive",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s880",
+      "tokenId": 20,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "constructional-gei",
+      "reviewStatus": "first-pass-not-second-verified"
+    },
+    {
+      "sentenceId": "train-s1055",
+      "tokenId": 7,
+      "provisionalTargetReading": "ㄍㄟˇ",
+      "contextKind": "constructional-gei",
+      "reviewStatus": "first-pass-not-second-verified"
+    }
+  ]
+}
