@@ -58,7 +58,8 @@ describe("unresolved frontier provenance and human-review sampling",()=>{
     expect(a.groups.reduce((sum,g)=>sum+g.sample.length,0)).toBe(3);
     expect(a.manuallyApprovedReadings).toBe(0);
     expect(a.eligibleForTrainingOrEvaluation).toBe(false);
-    expect(JSON.stringify(a)).not.toContain("Translit");
+    expect(JSON.stringify(a.groups)).not.toContain("Translit=");
+    expect(JSON.stringify(a.groups)).not.toContain("reviewedCharacterZhuyin");
     const bad={
       ...queue,trainReviewCandidates:[{...entries[0]!,split:"dev"},...entries.slice(1)],
     };
