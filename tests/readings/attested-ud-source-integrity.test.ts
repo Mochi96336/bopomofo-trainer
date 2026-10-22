@@ -55,14 +55,12 @@ describe("independent original UD-source integrity gate",()=>{
       .toThrow(/Git blob mismatch/);
   });
   it("rejects a copied dependency edge that disagrees with the original CoNLL-U",()=>{
-    const changed=structuredClone(evidence) as {
-      cases:{rawUdEvidenceTokens:{deprel:string;headTokenId:number}[]}[];
-    };
-    changed.cases[0]!.rawUdEvidenceTokens[0]!.deprel="dep";
+    const changed=structuredClone(evidence);
+    (changed.cases[0]!.rawUdEvidenceTokens[0]! as {deprel:string}).deprel="dep";
     expect(()=>verifyAttestedSourceEvidence(ud,bank,changed))
       .toThrow(/source dependency mismatch/);
-    changed.cases[0]!.rawUdEvidenceTokens[0]!.deprel="root";
-    changed.cases[0]!.rawUdEvidenceTokens[0]!.headTokenId=3;
+    (changed.cases[0]!.rawUdEvidenceTokens[0]! as {deprel:string}).deprel="root";
+    (changed.cases[0]!.rawUdEvidenceTokens[0]! as {headTokenId:number}).headTokenId=3;
     expect(()=>verifyAttestedSourceEvidence(ud,bank,changed))
       .toThrow(/source dependency mismatch/);
   });
