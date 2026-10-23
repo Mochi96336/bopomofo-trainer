@@ -8,6 +8,8 @@ on:
       - "scripts/compare-zhong-role-trial.ts"
       - "scripts/audit-generated-polyphonic-risk.ts"
       - "scripts/verify-generated-polyphonic-first-pass.ts"
+      - "scripts/verify-generated-control-naturalness.ts"
+      - "research/attested-reading-pilot/generated-2048-hash-control-naturalness.json"
       - "research/attested-reading-pilot/generated-2048-first-pass-naturalness.json"
       - "scripts/audit-same-upos-polyphones.ts"
       - "scripts/audit-targeted-polyphonic-identities.ts"
@@ -89,6 +91,14 @@ jobs:
           data/generated/generated-polyphonic-first-pass-verification.json
       - name: Test complete qualitative source joins and no promotion of unreviewed labels
         run: npx vitest run tests/readings/generated-polyphonic-first-pass.test.ts
+      - name: Verify the hash-selected 30 non-polyphone controls against real generated outputs
+        run: >-
+          npx tsx scripts/verify-generated-control-naturalness.ts
+          data/generated/polyphonic-context-reviewed-roles.json
+          research/attested-reading-pilot/generated-2048-hash-control-naturalness.json
+          data/generated/generated-control-naturalness-verification.json
+      - name: Test non-polyphone controls use a fixed unbiased hash ranking
+        run: npx vitest run tests/readings/generated-nonpolyphone-control.test.ts
       - name: Prepare annotated review summary
         run: |
           node --input-type=module <<'NODE'
@@ -210,6 +220,7 @@ jobs:
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/generated-attested-polyphonic-risk.json
             data/generated/generated-polyphonic-first-pass-verification.json
+            data/generated/generated-control-naturalness-verification.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
             data/generated/polyphonic-lexeme-boundary-readiness.json
             data/generated/polyphonic-host-lexeme-reachability.json
