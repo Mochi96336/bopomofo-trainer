@@ -41,9 +41,10 @@ export function getFixedNonPolyphonicControlSample(
   const candidates=sentences.filter(x=>x.text!==null
     && !x.text.includes("種") && !x.text.includes("給"));
   const digest=(seed:number)=>createHash("sha256").update("control-v1:"+seed).digest("hex");
-  return [...candidates].sort((a,b)=>
-    digest(a.seedIndex).localeCompare(digest(b.seedIndex))
-    ||a.seedIndex-b.seedIndex).slice(0,n);
+  return [...candidates].sort((a,b)=>{
+    const ah=digest(a.seedIndex),bh=digest(b.seedIndex);
+    return ah<bh ? -1 : ah>bh ? 1 : a.seedIndex-b.seedIndex;
+  }).slice(0,n);
 }
 export function verifyGeneratedControlNaturalness(
   source:ControlSource,review:ControlReview,
