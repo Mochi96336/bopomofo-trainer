@@ -7,6 +7,8 @@ on:
       - "scripts/audit-polyphonic-context.ts"
       - "scripts/compare-zhong-role-trial.ts"
       - "scripts/audit-generated-polyphonic-risk.ts"
+      - "scripts/verify-generated-polyphonic-first-pass.ts"
+      - "research/attested-reading-pilot/generated-2048-first-pass-naturalness.json"
       - "scripts/audit-same-upos-polyphones.ts"
       - "scripts/audit-targeted-polyphonic-identities.ts"
       - "scripts/prepare-moe-sense-targets.ts"
@@ -79,6 +81,14 @@ jobs:
           data/generated/generated-attested-polyphonic-risk.json
       - name: Test seeded generation risk flags remain exposure-only
         run: npx vitest run tests/readings/attested-generated-polyphonic-risk.test.ts
+      - name: Verify all 30 first-pass qualitative examples against exact product generation
+        run: >-
+          npx tsx scripts/verify-generated-polyphonic-first-pass.ts
+          data/generated/generated-attested-polyphonic-risk.json
+          research/attested-reading-pilot/generated-2048-first-pass-naturalness.json
+          data/generated/generated-polyphonic-first-pass-verification.json
+      - name: Test complete qualitative source joins and no promotion of unreviewed labels
+        run: npx vitest run tests/readings/generated-polyphonic-first-pass.test.ts
       - name: Prepare annotated review summary
         run: |
           node --input-type=module <<'NODE'
@@ -199,6 +209,7 @@ jobs:
             data/generated/polyphonic-targeted-identity-coverage.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/generated-attested-polyphonic-risk.json
+            data/generated/generated-polyphonic-first-pass-verification.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
             data/generated/polyphonic-lexeme-boundary-readiness.json
             data/generated/polyphonic-host-lexeme-reachability.json
