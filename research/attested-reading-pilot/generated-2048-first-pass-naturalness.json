@@ -1,0 +1,283 @@
+{
+  "schemaVersion": "generated-polyphonic-first-pass-naturalness-v1",
+  "fromSeedNamespace": "formal-syntax-v2-phase1-product-baseline-v1",
+  "population": "all 30 種 or 給 exact selected-token occurrences in 2048 reviewed-roles composer outputs",
+  "reviewedDimension": "sentence intelligibility and lexical collocation only, not character readings",
+  "independentSecondReviewComplete": false,
+  "eligibleAsPronunciationGold": false,
+  "eligibleAsValidatedNaturalnessBenchmark": false,
+  "productionActivationAllowed": false,
+  "provisionalOnly": true,
+  "rows": [
+    {
+      "seedIndex": 121,
+      "sentence": "請其引導並且種",
+      "provisionalNaturalnessStatus": "incomplete-clause",
+      "reason": "並且後面的動作缺少必要語境與受詞",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 144,
+      "sentence": "給好幾著成份彼此",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "量詞、成分與彼此之間無可辨識結構",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 191,
+      "sentence": "給肉分數",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "肉與分數的搭配沒有可解釋的給予關係",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 255,
+      "sentence": "這裡給原料第一",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "原料與第一的後接關係無法解釋",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 268,
+      "sentence": "多種實用雌雄婚禮乘",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "多種後續名詞串列缺乏可辨識語意",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 442,
+      "sentence": "何和給這些那",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "疑問詞、連詞與指示詞組合不通",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 443,
+      "sentence": "多少種那為必須李",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "多少種的後接詞彙不能形成完整可辨識名詞片語",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 640,
+      "sentence": "種百幫快規則",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "分類或栽種義都無法支持後續搭配",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 808,
+      "sentence": "澳以及這些給",
+      "provisionalNaturalnessStatus": "incomplete-clause",
+      "reason": "給位於句尾且缺乏明確動詞或介詞補足",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 871,
+      "sentence": "給努爾哈赤那",
+      "provisionalNaturalnessStatus": "incomplete-clause",
+      "reason": "給予或接受者構式未完成",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 872,
+      "sentence": "她給第十三摩登",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "第十三摩登無法構成清晰受詞",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 900,
+      "sentence": "朝陽種並我們",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "並我們後接關係不成立",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1084,
+      "sentence": "對方給廣西",
+      "provisionalNaturalnessStatus": "context-needed",
+      "reason": "若廣西作接受者，仍缺交付物或更完整上下文",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1088,
+      "sentence": "給當時本人嗎",
+      "provisionalNaturalnessStatus": "context-needed",
+      "reason": "單獨作問句可能省略交付物，缺前文",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1196,
+      "sentence": "不犧牲二十五種",
+      "provisionalNaturalnessStatus": "incomplete-clause",
+      "reason": "二十五種後缺所指的類別或物件",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1214,
+      "sentence": "精湛過給團體安息",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "精湛過與給團體安息的連接不通",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1355,
+      "sentence": "前任數十億種伶在腳",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "量化短語與伶在腳不通",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1429,
+      "sentence": "藤及那給",
+      "provisionalNaturalnessStatus": "incomplete-clause",
+      "reason": "給在句尾但句法關係未完成",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1510,
+      "sentence": "健康未應該把種運用",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "否定與把字句的搭配不自然",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1516,
+      "sentence": "新澤西給命題",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "地名與命題的給予關係不清晰",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1627,
+      "sentence": "請俄羅斯種跟法拉利",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "栽種、分類與後續詞彙搭配不通",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1650,
+      "sentence": "地下給驚訝之保留",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "抽象詞與給的論元關係不通",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1680,
+      "sentence": "請她給高溫日",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "高溫日作給予內容不自然",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1774,
+      "sentence": "犬隻未大多種",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "未與大多種缺可辨識語法關係",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1783,
+      "sentence": "他們給對方",
+      "provisionalNaturalnessStatus": "incomplete-clause",
+      "reason": "交付物未出現，句子可能需要上下文",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1804,
+      "sentence": "何舒適大跟他們種",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "疑問詞、副詞與種植動詞搭配不通",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1902,
+      "sentence": "胡還是牠須給隊伍",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "代詞和須給隊伍的論元結構不清",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1908,
+      "sentence": "深港給應對汪",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "地名與後續動詞短語搭配不通",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 1930,
+      "sentence": "於初種段嗎",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "於初與種段難以構成可解釋句意",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    },
+    {
+      "seedIndex": 2039,
+      "sentence": "給十二所樣那自己",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "數量詞與指示代詞結構不通",
+      "reviewStatus": "first-pass-provisional",
+      "readingContextReviewStatus": "unreviewed",
+      "suitableAsStandalonePracticeItem": false
+    }
+  ]
+}
