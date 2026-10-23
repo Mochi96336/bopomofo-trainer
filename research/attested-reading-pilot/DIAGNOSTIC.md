@@ -384,3 +384,64 @@ phonetic reliability separately from sentence naturalness. A candidate
 with an explicit wrong/unknown context must not be treated as a safe
 one-answer practice item just because its reading identity exists
 in the lexical catalog.
+
+
+## 2026-10-23: generated exercise usability is a separate blocking dimension
+
+The latest 2,048-seed **reviewed-roles** output contains 30 occurrences of
+`種` / `給` (12 and 18, respectively). Of these, 14 match predefined
+reading-identity risk signatures. The full output was inspected (not only
+the 14 flagged examples) before making a first-pass naturalness assessment:
+
+| Provisional issue type | Occurrences |
+|---|---:|
+| Clearly incoherent lexical sequence | 22 |
+| Incomplete clause / missing complement | 6 |
+| Fragment requiring earlier discourse | 2 |
+| **Total examined** | **30** |
+
+All 30 are **unsuitable to accept automatically as independently verified,
+self-contained practice sentences without further review**. This is a
+**qualitative first-pass** assessment of this **biased target-word subset**,
+NOT a random sample of all generated sentences. Some fragments may be valid
+in a larger discourse, and this report does not assert that every
+pronunciation in them is incorrect. Separate sentence-naturalness and
+phonetic-reading approval are both still pending.
+
+The exact first-pass judgments and concise reasons are in
+`generated-2048-first-pass-naturalness.json`. CI compares all 30
+`seedIndex + original generated text` pairs with the source-generated JSON
+artifact, including all 16 non-flagged controls. It rejects omissions,
+fabricated sentences, duplicate annotations or a claim of validated gold.
+It does not repair/rewrite the source utterances.
+
+### Concrete generator boundary identified
+
+The product `selectFormalSyntaxUtterance` passes a reviewed reading
+eligibility gate and curriculum weights into
+`composeFormalSyntaxUtterances`, but does **not** pass an
+`input.lexicalCompatibility` evidence index. The composer has this
+optional interface, and `src/compatibility/lexical-pairs.ts` implements
+positive corpus-attested adjacent-word bonuses. Existing
+`docs/lexical-compatibility.md` explicitly states that the browser
+catalog does **not** yet ship a reviewed compatibility artifact. Thus
+sentence selection currently has no active co-occurrence score from that
+feature.
+
+Even activating its existing formula, `1 + score * maximumBoost`,
+would **not** be a semantic legality filter:
+missing pairs remain neutral and a boost to adjacent words cannot
+guarantee coherent multiword clauses, argument structure, word sense,
+or complete self-contained exercise text.
+
+**Bounded next decision:** independently review a controlled sample of
+generated practice utterances and their lexical roles **before** any
+production compatibility activation; distinguish
+(A) whole-lexeme target reading evidence,
+(B) sentence/slot lexical selectional compatibility,
+(C) discourse-complete exercise suitability,
+and (D) downstream learner weakness weighting.
+Keep training gold and production authorization **false** on these
+30 first-pass annotations. Do not use "unique pronunciation count",
+"positive corpus pair score" or "syntactically legal" alone as proof
+of a usable exercise.
