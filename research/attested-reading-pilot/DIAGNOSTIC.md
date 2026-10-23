@@ -445,3 +445,40 @@ Keep training gold and production authorization **false** on these
 30 first-pass annotations. Do not use "unique pronunciation count",
 "positive corpus pair score" or "syntactically legal" alone as proof
 of a usable exercise.
+
+
+### Fixed-hash control outside 種／給
+
+To test whether the above reflects polyphonic targets alone, we added an
+**independently selected 30-sentence control**, drawn from the **same 2,048
+reviewed-roles composer outputs**. The selection is deterministic:
+
+1. Keep generated utterances containing neither written character `種`
+   nor `給` (but do not filter by perceived quality).
+2. Rank eligible sentences by
+   `SHA256("control-v1:" + seedIndex)`, ascending bytewise hexadecimal
+   order; take the first 30.
+3. Inspect **all** chosen sentences. Preserve their exact generated strings,
+   original seed indices and first-pass rationales.
+
+The 30 controls give provisional counts: **23 incoherent lexical sequences**,
+**3 incomplete clauses or standalone phrases**, and **4 potentially
+context-dependent utterances**. Against the polyphone-target 30 (22/6/2),
+this indicates obvious generated-utterance issues **also exist outside
+polyphonic words**. No inferential comparison of error rates is justified,
+because these are not independently scored benchmark labels and the
+polyphonic sample was intentionally target-selected.
+
+The control review lives at
+`generated-2048-hash-control-naturalness.json`. Its source join runs
+in the already existing 2,048-seed workflow, re-derives the exact hash rank
+from the original generated sentences, and rejects edited or cherry-picked
+sample rows. Both reviews prohibit promotion to reading gold, approved
+sentence quality or production eligibility.
+
+**Evidence-based next investment:** evaluate semantic/selectional
+constraints and sentence completeness on a prospective independent
+human-reviewed set. Do not count POS correctness, semantic naturalness,
+word reading correctness, and learner weakness weights as interchangeable
+indicators. A better polyphone classifier cannot turn arbitrary word
+salads into pedagogically valid practice.
