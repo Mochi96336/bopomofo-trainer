@@ -10,6 +10,7 @@ export interface SourceSentence {
 export interface ControlSource {
   readonly readingEligibilityPolicy:string;
   readonly sampleCount:number;
+  readonly successfulSentences:number;
   readonly seedNamespace:string;
   readonly sentences:readonly SourceSentence[];
 }
@@ -49,7 +50,8 @@ export function verifyGeneratedControlNaturalness(
 ) {
   if(source.readingEligibilityPolicy!=="reviewed-roles"
     ||source.seedNamespace!==EXPECTED_NAMESPACE
-    ||source.sampleCount!==2048||source.sentences.length!==2048
+    ||source.sampleCount!==2048||source.successfulSentences!==2048
+    ||source.sentences.length!==2048
     ||source.sentences.some((x,i)=>x.seedIndex!==i))
     throw new Error("not the complete canonical 2048 reviewed-roles source");
   if(review.schemaVersion!=="generated-2048-hash-control-naturalness-v1"
