@@ -8,6 +8,7 @@ on:
       - "scripts/compare-zhong-role-trial.ts"
       - "scripts/compare-candidate-risk-abstention.ts"
       - "scripts/compare-candidate-preservation.ts"
+      - "scripts/compare-candidate-no-draw.ts"
       - "src/curriculum/formal-syntax-utterance.ts"
       - "tests/curriculum/formal-syntax-lexical-compatibility.test.ts"
       - "tests/readings/experimental-word-preservation.test.ts"
@@ -83,6 +84,22 @@ jobs:
           npx vitest run
           tests/curriculum/formal-syntax-lexical-compatibility.test.ts
           tests/readings/experimental-word-preservation.test.ts
+      - name: Research trial - consume no extra RNG on a sole same-word reading
+        run: >-
+          npm run readings:audit -- --policy candidate-risk-abstention-singleton-no-draw-trial
+          --output data/generated/polyphonic-context-singleton-no-draw-trial.json
+      - name: Compare whole-sentence context preservation on unchanged 2048 seeds
+        run: >-
+          npx tsx scripts/compare-candidate-no-draw.ts
+          data/generated/polyphonic-context-reviewed-roles.json
+          data/generated/polyphonic-context-preserve-word-reading-trial.json
+          data/generated/polyphonic-context-singleton-no-draw-trial.json
+          data/generated/polyphonic-candidate-singleton-no-draw-comparison.json
+      - name: Test singleton RNG boundary and exact-identity no-leakage
+        run: >-
+          npx vitest run
+          tests/curriculum/formal-syntax-lexical-compatibility.test.ts
+          tests/readings/experimental-singleton-no-draw.test.ts
       - name: Verify risk trial removes only flagged identities with no unrelated seed drift
         run: >-
           npx tsx scripts/compare-candidate-risk-abstention.ts
@@ -259,6 +276,8 @@ jobs:
             data/generated/polyphonic-candidate-risk-abstention-comparison.json
             data/generated/polyphonic-context-preserve-word-reading-trial.json
             data/generated/polyphonic-candidate-word-preservation-comparison.json
+            data/generated/polyphonic-context-singleton-no-draw-trial.json
+            data/generated/polyphonic-candidate-singleton-no-draw-comparison.json
             data/generated/polyphonic-lexeme-boundary-readiness.json
             data/generated/polyphonic-host-lexeme-reachability.json
             data/generated/dongxi-context-review.json
