@@ -10,6 +10,8 @@ on:
       - "scripts/sample-attested-review-queue.ts"
       - "scripts/audit-attested-frontier-provenance.ts"
       - "scripts/compare-attested-zhong-role-ablation.ts"
+      - "scripts/audit-candidate-risk-abstention-dev.ts"
+      - "src/readings/experimental-risk-abstention.ts"
       - "scripts/audit-attested-give-lexical-boundary.ts"
       - "scripts/audit-attested-zhong-pos-counterexample.ts"
       - "scripts/verify-attested-train-give-review.ts"
@@ -66,6 +68,7 @@ jobs:
           tests/readings/attested-standalone-queue.test.ts
           tests/readings/attested-frontier-provenance.test.ts
           tests/readings/attested-zhong-role-ablation.test.ts
+          tests/readings/experimental-risk-abstention.test.ts
           tests/readings/attested-give-lexical-boundary.test.ts
           tests/readings/attested-zhong-pos-counterexample.test.ts
           tests/readings/attested-train-give-first-pass.test.ts
@@ -95,6 +98,11 @@ jobs:
           npx tsx scripts/compare-attested-zhong-role-ablation.ts
           research/attested-reading-pilot/cases.json
           data/generated/attested-zhong-role-opt-in-ablation.json
+      - name: Compare opt-in candidate-risk abstention on inspected dev only (not heldout)
+        run: >-
+          npx tsx scripts/audit-candidate-risk-abstention-dev.ts
+          research/attested-reading-pilot/cases.json
+          data/generated/candidate-risk-abstention-dev-exploratory.json
       - name: Compare isolated 給 with MOE-reviewed compound-lexeme boundaries
         run: >-
           npx tsx scripts/audit-attested-give-lexical-boundary.ts
@@ -146,6 +154,7 @@ jobs:
             data/generated/attested-standalone-human-review-sample.json
             data/generated/attested-unresolved-catalog-provenance.json
             data/generated/attested-zhong-role-opt-in-ablation.json
+            data/generated/candidate-risk-abstention-dev-exploratory.json
             data/generated/attested-give-lexical-boundary-review.json
             data/generated/attested-zhong-pos-counterexample.json
             data/generated/attested-train-give-first-pass-verification.json
