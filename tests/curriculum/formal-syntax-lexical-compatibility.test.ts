@@ -197,6 +197,15 @@ describe("formal syntax lexical compatibility weighting", () => {
 });
 
 
+class CountingConstantRandom implements RandomSource {
+  public calls=0;
+  public constructor(private readonly value:number) {}
+  public next():number {
+    this.calls++;
+    return this.value;
+  }
+}
+
 describe("research-only same-written-lexeme reading fallback",()=>{
   const subject=entry("entry:research-subject","我");
   const rejected=entry("entry:research-j3","給");
@@ -252,5 +261,48 @@ describe("research-only same-written-lexeme reading fallback",()=>{
       random:new ConstantRandom(0.1),
     }).candidates[0];
     expect(b?.entries.map(x=>x.id)).toEqual(a?.entries.map(x=>x.id));
+  });
+  it("consumes no EXTRA random draw with a sole licensed same-word alternative",()=>{
+    const scenario=(preference:"same-surface-first"|"same-surface-singleton-no-draw")=>{
+      const random=new CountingConstantRandom(0.1);
+      const result=composeFormalSyntaxUtterances({
+        eligibleEntries:lexicon,profiles,
+        readingEligibility:(candidate)=>candidate.id!==rejected.id,
+        readingResamplePreference:()=>preference,
+        entryWeightsById:weights,
+        random,maximumCandidates:1,maximumAttempts:1,rules:[rule],
+      });
+      expect(result.candidates).toHaveLength(1);
+      return {result:result.candidates[0]!,calls:random.calls};
+    };
+    const old=scenario("same-surface-first");
+    const next=scenario("same-surface-singleton-no-draw");
+    expect(old.result.entries.map(x=>x.id))
+      .toEqual(next.result.entries.map(x=>x.id));
+    expect(next.result.entries[1]?.id).toBe(replacement.id);
+    expect(next.calls).toBe(old.calls-1);
+  });
+  it("still draws when more than one compatible same-written-word profile exists",()=>{
+    const another=entry("entry:research-gei-alternate","給");
+    const extraProfile=profile("profile:gei-alternate",another.id,
+      "VERB",["predicate"],["transitive"]);
+    const make=(preference:"same-surface-first"|"same-surface-singleton-no-draw")=>{
+      const random=new CountingConstantRandom(0.1);
+      const result=composeFormalSyntaxUtterances({
+        eligibleEntries:[...lexicon,another],
+        profiles:[...profiles,extraProfile],
+        readingEligibility:(entry)=>entry.id!==rejected.id,
+        readingResamplePreference:()=>preference,
+        entryWeightsById:{...weights,[another.id]:1},
+        random,maximumCandidates:1,maximumAttempts:1,rules:[rule],
+      });
+      expect(result.candidates).toHaveLength(1);
+      return {candidate:result.candidates[0]!,calls:random.calls};
+    };
+    const old=make("same-surface-first");
+    const next=make("same-surface-singleton-no-draw");
+    expect(next.calls).toBe(old.calls);
+    expect(next.candidate.entries.map(x=>x.id))
+      .toEqual(old.candidate.entries.map(x=>x.id));
   });
 });
