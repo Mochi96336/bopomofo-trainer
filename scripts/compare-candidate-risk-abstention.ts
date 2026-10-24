@@ -1,4 +1,5 @@
 import { readFileSync,writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { catalogEntryId } from "../src/core/catalog-entry-id.js";
 interface Sentence {
   readonly seedIndex:number; readonly text:string|null;
@@ -66,7 +67,7 @@ export function compareRiskAbstentionGenerations(base:Audit,trial:Audit){
     note:"The 2048-seed comparison quantifies risky selected IDs only. An unreviewed UPOS restriction can remove legitimate readings; candidate absence is NOT lower verified error rate.",
   };
 }
-if(process.argv[1]&&import.meta.url===new URL("file://"+process.argv[1]).href){
+if(process.argv[1]&&fileURLToPath(import.meta.url)===process.argv[1]){
   const [a,b,out]=process.argv.slice(2);
   if(!a||!b||!out)throw new Error("usage: tsx scripts/compare-candidate-risk-abstention.ts <shipping.json> <trial.json> <out.json>");
   const result=compareRiskAbstentionGenerations(
