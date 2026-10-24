@@ -40,3 +40,18 @@ export function experimentalRiskAbstentionEligible(
 /** REVIEW-ONLY: do not turn these raw surface+UPOS pairs into approved gold. */
 export const EXPERIMENTAL_RISK_ABSTENTION_BY_ROLE = RISK_IDENTITY_BY_ROLE;
 export const EXPERIMENTAL_RISK_ABSTENTION_APPROVED_FOR_PRODUCT = false;
+
+/** Opt-in rescue is applied only to the NEW research exclusions,
+ * never to unrelated already-reviewed production reading rejections. */
+export function experimentalRiskSameWordPreference(
+  entry: CatalogEntry,
+  profile: RuntimeSyntaxProfile,
+): "same-surface-first" | undefined {
+  if (profile.entryId !== entry.id) {
+    throw new Error("reading rescue requires the actually rejected catalog identity");
+  }
+  const key=entry.prompt.text + "/" + profile.upos;
+  return reviewedRoleReadingEligible(entry,profile)
+    && RISK_IDENTITY_BY_ROLE.get(key)===entry.id
+      ? "same-surface-first" : undefined;
+}
