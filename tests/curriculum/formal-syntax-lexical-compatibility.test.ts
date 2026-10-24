@@ -197,16 +197,6 @@ describe("formal syntax lexical compatibility weighting", () => {
 });
 
 
-class ReplayRandom implements RandomSource {
-  private current=0;
-  public constructor(private readonly picks:readonly number[]) {}
-  public next():number {
-    const value=this.picks[this.current++];
-    if(value===undefined) throw new Error("random replay exhausted");
-    return value;
-  }
-}
-
 describe("research-only same-written-lexeme reading fallback",()=>{
   const subject=entry("entry:research-subject","我");
   const rejected=entry("entry:research-j3","給");
@@ -221,14 +211,18 @@ describe("research-only same-written-lexeme reading fallback",()=>{
     profile("profile:rother",other.id,"VERB",["predicate"],["transitive"]),
     profile("profile:robject",object.id,"NOUN",["object"],["avalent"]),
   ];
+  const weights=Object.fromEntries(lexicon.map(x=>[x.id,
+    x.id===rejected.id||x.id===other.id?100:1,
+  ]));
   const create=(prefer:boolean)=>{
     const result=composeFormalSyntaxUtterances({
       eligibleEntries:lexicon,profiles,
       readingEligibility:(candidate)=>candidate.id!==rejected.id,
       ...(prefer?{readingResamplePreference:()=> "same-surface-first" as const}:{}),
-      entryWeightsById:Object.fromEntries(lexicon.map(x=>[x.id,1])),
-      // Subject draw, rejected word draw, rejection recovery, object draw.
-      random:new ReplayRandom([0.1,0.1,0.9,0.1,0.1,0.1]),
+      entryWeightsById:weights,
+      // A fixed draw selects rejected from high-weight entries, but without
+      // same-surface rescue a different high-weight word wins resampling.
+      random:new ConstantRandom(0.1),
       maximumCandidates:1,maximumAttempts:1,rules:[rule],
     });
     expect(result.candidates).toHaveLength(1);
@@ -247,15 +241,15 @@ describe("research-only same-written-lexeme reading fallback",()=>{
     const args={
       eligibleEntries:lexicon,profiles,
       readingEligibility:()=>true,
-      entryWeightsById:Object.fromEntries(lexicon.map(x=>[x.id,1])),
+      entryWeightsById:weights,
       maximumCandidates:1,maximumAttempts:1,rules:[rule],
     };
     const a=composeFormalSyntaxUtterances({
-      ...args,random:new ReplayRandom([0.1,0.1,0.9,0.1,0.1,0.1]),
+      ...args,random:new ConstantRandom(0.1),
     }).candidates[0];
     const b=composeFormalSyntaxUtterances({
       ...args,readingResamplePreference:()=> "same-surface-first" as const,
-      random:new ReplayRandom([0.1,0.1,0.9,0.1,0.1,0.1]),
+      random:new ConstantRandom(0.1),
     }).candidates[0];
     expect(b?.entries.map(x=>x.id)).toEqual(a?.entries.map(x=>x.id));
   });
