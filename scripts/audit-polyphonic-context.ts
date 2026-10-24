@@ -32,7 +32,7 @@ const PRODUCT_BOUNDS = {
   maximumLexicalEntriesPerUtterance: 6,
 } as const;
 
-type ReadingAuditPolicy = "none" | "reviewed-closed" | "reviewed-roles" | "zhong-role-trial" | "candidate-risk-abstention-trial";
+type ReadingAuditPolicy = "none" | "reviewed-closed" | "reviewed-roles" | "zhong-role-trial" | "candidate-risk-abstention-trial" | "candidate-risk-abstention-preserve-word-trial";
 
 function argumentsFromCli(): { samples: number; output: string; policy: ReadingAuditPolicy } {
   let samples = 2048;
@@ -50,8 +50,8 @@ function argumentsFromCli(): { samples: number; output: string; policy: ReadingA
     } else if (name === "--output") {
       output = value;
     } else if (name === "--policy") {
-      if (value !== "none" && value !== "reviewed-closed" && value !== "reviewed-roles" && value !== "zhong-role-trial" && value !== "candidate-risk-abstention-trial") {
-        throw new Error("--policy accepts none, reviewed-closed, reviewed-roles, zhong-role-trial or candidate-risk-abstention-trial");
+      if (value !== "none" && value !== "reviewed-closed" && value !== "reviewed-roles" && value !== "zhong-role-trial" && value !== "candidate-risk-abstention-trial" && value !== "candidate-risk-abstention-preserve-word-trial") {
+        throw new Error("--policy accepts none, reviewed-closed, reviewed-roles, zhong-role-trial or candidate-risk-abstention[-preserve-word]-trial");
       }
       policy = value;
     } else {
@@ -98,13 +98,15 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
     maximumCandidates: 1,
     maximumAttempts: 64,
     bounds: PRODUCT_BOUNDS,
+    ...(policy === "candidate-risk-abstention-preserve-word-trial"
+      ? { readingResamplePreference: "same-surface-first" as const } : {}),
     ...(policy === "reviewed-closed"
       ? { readingEligibility: reviewedClosedClassReadingEligible }
       : policy === "reviewed-roles"
         ? { readingEligibility: reviewedRoleReadingEligible }
         : policy === "zhong-role-trial"
           ? { readingEligibility: reviewedZhongRolePilotEligible }
-          : policy === "candidate-risk-abstention-trial"
+          : policy === "candidate-risk-abstention-trial" || policy === "candidate-risk-abstention-preserve-word-trial"
             ? { readingEligibility: experimentalRiskAbstentionEligible }
             : {}),
   });
