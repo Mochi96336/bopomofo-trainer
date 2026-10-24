@@ -19,7 +19,6 @@ const risks=[
 ] as const;
 const riskHit=(h:Hit)=>risks.some(r=>
   h.text===r.word && h.selectedUpos===r.upos && h.selectedEntryId===r.id);
-const targetHit=(h:Hit)=>h.text==="種"||h.text==="給";
 const counts=(report:Audit)=>({
   "種":report.hits.filter(h=>h.text==="種").length,
   "給":report.hits.filter(h=>h.text==="給").length,
