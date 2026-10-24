@@ -55,3 +55,14 @@ export function experimentalRiskSameWordPreference(
     && RISK_IDENTITY_BY_ROLE.get(key)===entry.id
       ? "same-surface-first" : undefined;
 }
+
+/** Same risk scope as the earlier opt-in trial, but allows the composer to
+ * accept its sole licensed same-word profile without advancing the RNG.
+ * If there is more than one profile it still draws (cannot invent a choice). */
+export function experimentalRiskSingleAlternativePreference(
+  entry: CatalogEntry,
+  profile: RuntimeSyntaxProfile,
+): "same-surface-singleton-no-draw" | undefined {
+  return experimentalRiskSameWordPreference(entry, profile) === "same-surface-first"
+    ? "same-surface-singleton-no-draw" : undefined;
+}
