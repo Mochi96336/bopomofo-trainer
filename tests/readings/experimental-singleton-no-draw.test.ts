@@ -58,7 +58,7 @@ describe("zero-extra-random singleton reading rescue",()=>{
     })).toThrow(/dropped target/);
     expect(()=>compareSingletonNoDraw(baseline,prior,{
       ...noDraw,hits:[...noDraw.hits,hits[0]!],
-    })).toThrow(/not backed|retained a predeclared risky reading/);
+    })).toThrow(/untraceable|retained a predeclared risky reading/);
     expect(()=>compareSingletonNoDraw(baseline,prior,{
       ...noDraw,sentences:noDraw.sentences.map(x=>x.seedIndex===32
         ? {...x,text:"an unrelated alteration"} : x),
