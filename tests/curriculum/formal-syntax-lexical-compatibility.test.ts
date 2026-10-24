@@ -305,4 +305,32 @@ describe("research-only same-written-lexeme reading fallback",()=>{
     expect(next.candidate.entries.map(x=>x.id))
       .toEqual(old.candidate.entries.map(x=>x.id));
   });
+  it("does not resuscitate a zero-weight licensed pronunciation",()=>{
+    const candidate=composeFormalSyntaxUtterances({
+      eligibleEntries:lexicon,profiles,
+      readingEligibility:(entry)=>entry.id!==rejected.id,
+      readingResamplePreference:()=> "same-surface-singleton-no-draw" as const,
+      entryWeightsById:{...weights,[replacement.id]:0},
+      random:new ConstantRandom(0.1),
+      maximumCandidates:1,maximumAttempts:1,rules:[rule],
+    }).candidates[0];
+    expect(candidate?.text).toBe("我寄送信");
+    expect(candidate?.entries[1]?.id).toBe(other.id);
+  });
+  it("does not reuse an already-selected identity during singleton rescue",()=>{
+    const candidate=composeFormalSyntaxUtterances({
+      eligibleEntries:[rejected,replacement,other,object],
+      profiles:[
+        profile("profile:used-gei-pronoun",replacement.id,"PRON",["subject"],["avalent"]),
+        ...profiles.filter(p=>p.entryId!==subject.id),
+      ],
+      readingEligibility:(entry)=>entry.id!==rejected.id,
+      readingResamplePreference:()=> "same-surface-singleton-no-draw" as const,
+      entryWeightsById:weights,random:new ConstantRandom(0.1),
+      maximumCandidates:1,maximumAttempts:1,rules:[rule],
+    }).candidates[0];
+    expect(candidate?.entries[0]?.id).toBe(replacement.id);
+    expect(candidate?.entries[1]?.id).toBe(other.id);
+    expect(candidate?.text).toBe("給寄送信");
+  });
 });
