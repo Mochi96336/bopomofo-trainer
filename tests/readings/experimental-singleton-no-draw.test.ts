@@ -72,7 +72,8 @@ describe("zero-extra-random singleton reading rescue",()=>{
       ...noDraw,seedNamespace:"different",
     })).toThrow(/incomparable/);
     expect(()=>compareSingletonNoDraw(baseline,prior,{
-      ...noDraw,sentences:prior.sentences,
+      ...noDraw,sentences:prior.sentences.map(x=>x.seedIndex===20
+        ? {...x,text:"我給甲"} : x),
     })).toThrow(/worsened/);
   });
 });
