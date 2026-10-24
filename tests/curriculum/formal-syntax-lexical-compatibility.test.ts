@@ -195,3 +195,68 @@ describe("formal syntax lexical compatibility weighting", () => {
     expect(result.candidates[0]?.text).toBe("我吃理論");
   });
 });
+
+
+class ReplayRandom implements RandomSource {
+  private current=0;
+  public constructor(private readonly picks:readonly number[]) {}
+  public next():number {
+    const value=this.picks[this.current++];
+    if(value===undefined) throw new Error("random replay exhausted");
+    return value;
+  }
+}
+
+describe("research-only same-written-lexeme reading fallback",()=>{
+  const subject=entry("entry:research-subject","我");
+  const rejected=entry("entry:research-j3","給");
+  const replacement=entry("entry:research-gei3","給");
+  const other=entry("entry:research-other","寄送");
+  const object=entry("entry:research-object","信");
+  const lexicon=[subject,rejected,replacement,other,object];
+  const profiles=[
+    profile("profile:rsubject",subject.id,"PRON",["subject"],["avalent"]),
+    profile("profile:rj3",rejected.id,"VERB",["predicate"],["transitive"]),
+    profile("profile:rgei3",replacement.id,"VERB",["predicate"],["transitive"]),
+    profile("profile:rother",other.id,"VERB",["predicate"],["transitive"]),
+    profile("profile:robject",object.id,"NOUN",["object"],["avalent"]),
+  ];
+  const create=(prefer:boolean)=>{
+    const result=composeFormalSyntaxUtterances({
+      eligibleEntries:lexicon,profiles,
+      readingEligibility:(candidate)=>candidate.id!==rejected.id,
+      ...(prefer?{readingResamplePreference:"same-surface-first" as const}:{}),
+      entryWeightsById:Object.fromEntries(lexicon.map(x=>[x.id,1])),
+      // Subject draw, rejected word draw, rejection recovery, object draw.
+      random:new ReplayRandom([0.1,0.1,0.9,0.1,0.1,0.1]),
+      maximumCandidates:1,maximumAttempts:1,rules:[rule],
+    });
+    expect(result.candidates).toHaveLength(1);
+    return result.candidates[0]!;
+  };
+  it("prefers another licensed pronunciation of the same exact written WORD",()=>{
+    const ordinary=create(false);
+    const preserve=create(true);
+    expect(ordinary.text).toBe("我寄送信");
+    expect(preserve.text).toBe("我給信");
+    expect(ordinary.entries[1]!.id).toBe(other.id);
+    expect(preserve.entries[1]!.id).toBe(replacement.id);
+    expect(preserve.entries[1]!.id).not.toBe(rejected.id);
+  });
+  it("never changes default selection or consumes an extra random draw when a reading is already licensed",()=>{
+    const args={
+      eligibleEntries:lexicon,profiles,
+      readingEligibility:()=>true,
+      entryWeightsById:Object.fromEntries(lexicon.map(x=>[x.id,1])),
+      maximumCandidates:1,maximumAttempts:1,rules:[rule],
+    };
+    const a=composeFormalSyntaxUtterances({
+      ...args,random:new ReplayRandom([0.1,0.1,0.9,0.1,0.1,0.1]),
+    }).candidates[0];
+    const b=composeFormalSyntaxUtterances({
+      ...args,readingResamplePreference:"same-surface-first",
+      random:new ReplayRandom([0.1,0.1,0.9,0.1,0.1,0.1]),
+    }).candidates[0];
+    expect(b?.entries.map(x=>x.id)).toEqual(a?.entries.map(x=>x.id));
+  });
+});
