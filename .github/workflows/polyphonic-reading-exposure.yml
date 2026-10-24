@@ -61,6 +61,12 @@ jobs:
         run: npx tsx scripts/probe-whole-lexeme-reachability.ts --probes 16
       - name: Record exact 東西 sense-context review candidates without declaring reading correctness
         run: npx tsx scripts/audit-dongxi-context.ts --samples-per-reading 24
+      - name: Trial reviewed 種 noun/verb reading identity restrictions
+        run: npm run readings:audit -- --policy zhong-role-trial --output data/generated/polyphonic-context-zhong-role-trial.json
+      - name: Run risk-abstention-only candidate trial on the same 2048 pinned seeds
+        run: >-
+          npm run readings:audit -- --policy candidate-risk-abstention-trial
+          --output data/generated/polyphonic-context-candidate-risk-abstention.json
       - name: Research trial - preserve the original written word on rejected reading
         run: >-
           npm run readings:audit -- --policy candidate-risk-abstention-preserve-word-trial
@@ -77,12 +83,6 @@ jobs:
           npx vitest run
           tests/curriculum/formal-syntax-lexical-compatibility.test.ts
           tests/readings/experimental-word-preservation.test.ts
-      - name: Trial reviewed 種 noun/verb reading identity restrictions
-        run: npm run readings:audit -- --policy zhong-role-trial --output data/generated/polyphonic-context-zhong-role-trial.json
-      - name: Run risk-abstention-only candidate trial on the same 2048 pinned seeds
-        run: >-
-          npm run readings:audit -- --policy candidate-risk-abstention-trial
-          --output data/generated/polyphonic-context-candidate-risk-abstention.json
       - name: Verify risk trial removes only flagged identities with no unrelated seed drift
         run: >-
           npx tsx scripts/compare-candidate-risk-abstention.ts
