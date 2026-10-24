@@ -482,3 +482,42 @@ human-reviewed set. Do not count POS correctness, semantic naturalness,
 word reading correctness, and learner weakness weights as interchangeable
 indicators. A better polyphone classifier cannot turn arbitrary word
 salads into pedagogically valid practice.
+
+
+## Opt-in candidate-risk abstention trial: do not force POS-based pronunciations
+
+A new research-only `experimentalRiskAbstentionEligible` policy compares
+a bounded **candidate rejection** against the current shipping
+`reviewedRoleReadingEligible` gate using identical seeded composer inputs.
+The proposal rejects **only**:
+- `種/NOUN` when the selected catalog identity is ㄓㄨㄥˋ; and
+- `給/VERB` when the selected identity is ㄐㄧˇ.
+
+It **does not** force `種/VERB` to any reading, because the pinned GSD
+original `train-s3887#2` mistakenly tags a biological species noun as
+VERB. `給/ADP`, `給予`, `補給` and unrelated forms keep the original
+product eligibility gate. The filter resamples a candidate; it neither
+edits/relables a catalog entry nor manufactures an approved alternative
+phonetic label.
+
+This is a **source/UPOS hypothesis**, not a verified sense-disambiguator.
+A source-VERB occurrence of standalone 給/ㄐㄧˇ could be legitimate in
+some independently attested register; no balanced verified opposite
+examples are available yet. Hence **do not use this trial in
+`src/product/session.ts`**, train learner skills from its excluded IDs, or
+claim a product phonetic error reduction. The previously inspected 18
+dev examples are explicitly *contaminated for held-out evaluation*.
+
+The original 2,048-seed `reviewed-roles` baseline has 14 flagged
+candidate identity exposures (6 種/NOUN/ㄓㄨㄥˋ + 8 給/VERB/ㄐㄧˇ).
+The new `candidate-risk-abstention-trial` audit checks whether those
+specific **flags** disappear, whether generation success remains 2,048/2,048
+and whether **every changed seed** was originally affected by one of the
+flags. It also preserves the full sentence-quality review; changing a
+reading cannot make an incoherent lexical sequence pedagogically valid.
+
+Do not promote until a **prospective independent reading review** on
+natural contexts tests both potentially valid and invalid readings,
+and a **separate generated-sentence quality test** measures usability.
+Learner weakness must influence the *frequency of approved items*, not
+whether their phonetic identity is correct.
