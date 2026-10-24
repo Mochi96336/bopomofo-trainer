@@ -6,6 +6,7 @@ on:
       - ".github/workflows/polyphonic-reading-exposure.yml"
       - "scripts/audit-polyphonic-context.ts"
       - "scripts/compare-zhong-role-trial.ts"
+      - "scripts/compare-candidate-risk-abstention.ts"
       - "scripts/audit-generated-polyphonic-risk.ts"
       - "scripts/verify-generated-polyphonic-first-pass.ts"
       - "scripts/verify-generated-control-naturalness.ts"
@@ -58,6 +59,18 @@ jobs:
         run: npx tsx scripts/audit-dongxi-context.ts --samples-per-reading 24
       - name: Trial reviewed 種 noun/verb reading identity restrictions
         run: npm run readings:audit -- --policy zhong-role-trial --output data/generated/polyphonic-context-zhong-role-trial.json
+      - name: Run risk-abstention-only candidate trial on the same 2048 pinned seeds
+        run: >-
+          npm run readings:audit -- --policy candidate-risk-abstention-trial
+          --output data/generated/polyphonic-context-candidate-risk-abstention.json
+      - name: Verify risk trial removes only flagged identities with no unrelated seed drift
+        run: >-
+          npx tsx scripts/compare-candidate-risk-abstention.ts
+          data/generated/polyphonic-context-reviewed-roles.json
+          data/generated/polyphonic-context-candidate-risk-abstention.json
+          data/generated/polyphonic-candidate-risk-abstention-comparison.json
+      - name: Test risk trial does not claim human-verified correctness
+        run: npx vitest run tests/readings/experimental-risk-abstention-comparison.test.ts
       - name: Verify 種 opt-in trial has zero unlicensed selection and unrelated seed drift
         run: >-
           npx tsx scripts/compare-zhong-role-trial.ts
@@ -222,6 +235,8 @@ jobs:
             data/generated/generated-polyphonic-first-pass-verification.json
             data/generated/generated-control-naturalness-verification.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
+            data/generated/polyphonic-context-candidate-risk-abstention.json
+            data/generated/polyphonic-candidate-risk-abstention-comparison.json
             data/generated/polyphonic-lexeme-boundary-readiness.json
             data/generated/polyphonic-host-lexeme-reachability.json
             data/generated/dongxi-context-review.json
