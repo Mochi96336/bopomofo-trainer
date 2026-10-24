@@ -38,7 +38,7 @@ describe("full generated-utterance first pass is not pronunciation gold",()=>{
   });
   it("rejects dropped, fabricated, modified, or duplicate generated contexts",()=>{
     expect(()=>verifyGeneratedFirstPassNaturalness({...report,
-      allTargetHits:report.allTargetHits.slice(1)},review)).toThrow(/not all source-generated/);
+      allTargetHits:report.allTargetHits.slice(1)},review)).toThrow(/inconsistent generated target universe/);
     expect(()=>verifyGeneratedFirstPassNaturalness(report,{
       ...review,rows:review.rows.map((x,i)=>i===0
         ? {...x,sentence:"invented"} : x),
