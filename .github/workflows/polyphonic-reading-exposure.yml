@@ -7,6 +7,9 @@ on:
       - "scripts/audit-polyphonic-context.ts"
       - "scripts/compare-zhong-role-trial.ts"
       - "scripts/compare-candidate-risk-abstention.ts"
+      - "scripts/compare-candidate-preservation.ts"
+      - "src/curriculum/formal-syntax-utterance.ts"
+      - "tests/curriculum/formal-syntax-lexical-compatibility.test.ts"
       - "scripts/audit-generated-polyphonic-risk.ts"
       - "scripts/verify-generated-polyphonic-first-pass.ts"
       - "scripts/verify-generated-control-naturalness.ts"
@@ -57,6 +60,19 @@ jobs:
         run: npx tsx scripts/probe-whole-lexeme-reachability.ts --probes 16
       - name: Record exact 東西 sense-context review candidates without declaring reading correctness
         run: npx tsx scripts/audit-dongxi-context.ts --samples-per-reading 24
+      - name: Research trial - preserve the original written word on rejected reading
+        run: >-
+          npm run readings:audit -- --policy candidate-risk-abstention-preserve-word-trial
+          --output data/generated/polyphonic-context-preserve-word-reading-trial.json
+      - name: Compare risk elimination and actual target-word retention
+        run: >-
+          npx tsx scripts/compare-candidate-preservation.ts
+          data/generated/polyphonic-context-reviewed-roles.json
+          data/generated/polyphonic-context-candidate-risk-abstention.json
+          data/generated/polyphonic-context-preserve-word-reading-trial.json
+          data/generated/polyphonic-candidate-word-preservation-comparison.json
+      - name: Test opt-in same-word rescue does not change licensed selections
+        run: npx vitest run tests/curriculum/formal-syntax-lexical-compatibility.test.ts
       - name: Trial reviewed 種 noun/verb reading identity restrictions
         run: npm run readings:audit -- --policy zhong-role-trial --output data/generated/polyphonic-context-zhong-role-trial.json
       - name: Run risk-abstention-only candidate trial on the same 2048 pinned seeds
@@ -237,6 +253,8 @@ jobs:
             data/generated/polyphonic-zhong-role-trial-comparison.json
             data/generated/polyphonic-context-candidate-risk-abstention.json
             data/generated/polyphonic-candidate-risk-abstention-comparison.json
+            data/generated/polyphonic-context-preserve-word-reading-trial.json
+            data/generated/polyphonic-candidate-word-preservation-comparison.json
             data/generated/polyphonic-lexeme-boundary-readiness.json
             data/generated/polyphonic-host-lexeme-reachability.json
             data/generated/dongxi-context-review.json
