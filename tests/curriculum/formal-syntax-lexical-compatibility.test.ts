@@ -225,7 +225,7 @@ describe("research-only same-written-lexeme reading fallback",()=>{
     const result=composeFormalSyntaxUtterances({
       eligibleEntries:lexicon,profiles,
       readingEligibility:(candidate)=>candidate.id!==rejected.id,
-      ...(prefer?{readingResamplePreference:"same-surface-first" as const}:{}),
+      ...(prefer?{readingResamplePreference:()=> "same-surface-first" as const}:{}),
       entryWeightsById:Object.fromEntries(lexicon.map(x=>[x.id,1])),
       // Subject draw, rejected word draw, rejection recovery, object draw.
       random:new ReplayRandom([0.1,0.1,0.9,0.1,0.1,0.1]),
@@ -254,7 +254,7 @@ describe("research-only same-written-lexeme reading fallback",()=>{
       ...args,random:new ReplayRandom([0.1,0.1,0.9,0.1,0.1,0.1]),
     }).candidates[0];
     const b=composeFormalSyntaxUtterances({
-      ...args,readingResamplePreference:"same-surface-first",
+      ...args,readingResamplePreference:()=> "same-surface-first" as const,
       random:new ReplayRandom([0.1,0.1,0.9,0.1,0.1,0.1]),
     }).candidates[0];
     expect(b?.entries.map(x=>x.id)).toEqual(a?.entries.map(x=>x.id));
