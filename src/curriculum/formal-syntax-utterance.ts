@@ -72,7 +72,11 @@ export interface FormalSyntaxUtteranceInput {
   /** Research opt-in only. After rejecting a selected pronunciation, try another
    * licensed pronunciation of the SAME exact written lexeme before drawing a
    * different word. Never makes the replacement phonetic sense approved. */
-  readonly readingResamplePreference?: "same-surface-first";
+  readonly readingResamplePreference?: (
+    rejectedEntry: CatalogEntry,
+    rejectedProfile: RuntimeSyntaxProfile,
+    slot: StructuralLexicalSlot,
+  ) => "same-surface-first" | undefined;
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
@@ -722,7 +726,7 @@ export function composeFormalSyntaxUtterances(
             }
             return readingEligibility(entry, profile, slot);
           });
-          if (input.readingResamplePreference === "same-surface-first") {
+          if (input.readingResamplePreference?.(initiallySelected, selectedProfile, slot) === "same-surface-first") {
             // Preserve the practice target when a different licensed catalog
             // reading has a compatible profile at this exact lexical slot.
             // No substring/compound matching: identical written WORD only.
@@ -730,7 +734,7 @@ export function composeFormalSyntaxUtterances(
               entriesById.get(profile.entryId)?.prompt.text === initiallySelected.prompt.text);
             selectedProfile = sameSurface.length > 0 ? draw(sameSurface) : null;
           }
-          if (selectedProfile === null || input.readingResamplePreference === undefined) {
+          if (selectedProfile === null || selectedProfile.entryId === initiallySelected.id) {
             selectedProfile = draw(licensed);
           }
         }
