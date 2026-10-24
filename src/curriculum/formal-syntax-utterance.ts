@@ -69,14 +69,15 @@ export interface FormalSyntaxUtteranceInput {
     profile: RuntimeSyntaxProfile,
     slot: StructuralLexicalSlot,
   ) => boolean;
-  /** Research opt-in only. After rejecting a selected pronunciation, try another
-   * licensed pronunciation of the SAME exact written lexeme before drawing a
-   * different word. Never makes the replacement phonetic sense approved. */
+  /** Research opt-in only. Following a rejected reading, prefer licensed
+   * profiles of the SAME exact written lexeme. The singleton alternative mode
+   * consumes no extra random draw only when exactly one profile can replace it.
+   * Neither mode certifies the reading's contextual correctness. */
   readonly readingResamplePreference?: (
     rejectedEntry: CatalogEntry,
     rejectedProfile: RuntimeSyntaxProfile,
     slot: StructuralLexicalSlot,
-  ) => "same-surface-first" | undefined;
+  ) => "same-surface-first" | "same-surface-singleton-no-draw" | undefined;
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
@@ -726,13 +727,20 @@ export function composeFormalSyntaxUtterances(
             }
             return readingEligibility(entry, profile, slot);
           });
-          if (input.readingResamplePreference?.(initiallySelected, selectedProfile, slot) === "same-surface-first") {
-            // Preserve the practice target when a different licensed catalog
-            // reading has a compatible profile at this exact lexical slot.
-            // No substring/compound matching: identical written WORD only.
+          const preference = input.readingResamplePreference?.(
+            initiallySelected, selectedProfile, slot,
+          );
+          if (preference === "same-surface-first"
+            || preference === "same-surface-singleton-no-draw") {
+            // A full-word identity is required: substrings of a compound are
+            // not interchangeable with isolated characters. Restricting to
+            // the already-licensed, bound-compatible set preserves slot rules.
             const sameSurface = licensed.filter((profile) =>
               entriesById.get(profile.entryId)?.prompt.text === initiallySelected.prompt.text);
-            selectedProfile = sameSurface.length > 0 ? draw(sameSurface) : null;
+            selectedProfile = preference === "same-surface-singleton-no-draw"
+              && sameSurface.length === 1
+              ? sameSurface[0]!
+              : sameSurface.length > 0 ? draw(sameSurface) : null;
           }
           if (selectedProfile === null || selectedProfile.entryId === initiallySelected.id) {
             selectedProfile = draw(licensed);
