@@ -1,0 +1,253 @@
+{
+  "schemaVersion": "generated-2048-hash-control-naturalness-v1",
+  "source": "2048 deterministic reviewed-roles formal composer utterances",
+  "controlSelection": "SHA-256('control-v1:' + seedIndex), sorted hexadecimal ascending; first 30 from sentences not containing either 種 or 給",
+  "samplingCodeVersion": "control-v1",
+  "seedNamespace": "formal-syntax-v2-phase1-product-baseline-v1",
+  "independentSecondReviewComplete": false,
+  "eligibleAsNaturalnessBenchmark": false,
+  "eligibleAsReadingGold": false,
+  "productionActivationAllowed": false,
+  "rows": [
+    {
+      "seedIndex": 1235,
+      "sentence": "其非能受著嘉玲",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "功能詞與姓名連接沒有可解釋的句法關係",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 1005,
+      "sentence": "什麼比也會議",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "比也與會議缺合理比較構式",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 1811,
+      "sentence": "末沒末",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "末與沒重複排列不能形成清楚語意",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 1861,
+      "sentence": "之沒至少剛剛在跨國",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "否定及時間副詞序列不成立",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 606,
+      "sentence": "這裡被想喝過嗎",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "被動結構與想喝過不相容",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 1139,
+      "sentence": "珊瑚寫存取甚至金門",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "珊瑚作施事與存取、金門搭配不通",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 833,
+      "sentence": "理想被保留",
+      "provisionalNaturalnessStatus": "context-needed",
+      "reason": "可作語法上完整的被動短句，但需語境確認指稱",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 802,
+      "sentence": "帶也歡非變調了",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "帶、歡、非、變調缺正常結構",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 745,
+      "sentence": "名物統稱",
+      "provisionalNaturalnessStatus": "incomplete-clause",
+      "reason": "較像名詞片語或說明標題，非完整句",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 1243,
+      "sentence": "請其它雪梨確定以及糟糕",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "雪梨、確定、糟糕不能如此直接並列",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 1201,
+      "sentence": "阿斗而信陪葬",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "人名與連詞、陪葬的結構不明",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 785,
+      "sentence": "那樣比含量好",
+      "provisionalNaturalnessStatus": "context-needed",
+      "reason": "比較標準與比較對象需前文才能判斷",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 778,
+      "sentence": "什麼回想",
+      "provisionalNaturalnessStatus": "incomplete-clause",
+      "reason": "疑問詞和回想未形成完整句",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 419,
+      "sentence": "接受甚麼",
+      "provisionalNaturalnessStatus": "context-needed",
+      "reason": "可作省略主語的問句，未必不自然",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 486,
+      "sentence": "星球號",
+      "provisionalNaturalnessStatus": "incomplete-clause",
+      "reason": "可能只是名稱，不是完整句子",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 1490,
+      "sentence": "胖子別困難不人",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "否定、形容詞與人缺合理關係",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 1407,
+      "sentence": "順被暫停嗎",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "順作被動受事缺明確可解釋指稱",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 4,
+      "sentence": "十五公里美觀茂不重大",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "數量、形容詞與專名搭配不通",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 1707,
+      "sentence": "百萬塊新聞劉嗎",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "數量詞、新聞和姓名不能形成清楚問句",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 1998,
+      "sentence": "妳還是法院約會",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "還是與地點、約會缺必要連接",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 1212,
+      "sentence": "感受和國中不得何",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "並列詞與不得何不能構成可解釋句義",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 1651,
+      "sentence": "歐洲至平方公里說服",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "地名、單位和說服的論元關係錯置",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 575,
+      "sentence": "彼此到西門上陣",
+      "provisionalNaturalnessStatus": "context-needed",
+      "reason": "可構成特殊語境描述，但動作及人物關係不明",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 384,
+      "sentence": "十六年輕清楚連河北嗎",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "年、輕、連與地名關係不成立",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 1962,
+      "sentence": "收購不要不肯治國了",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "否定與動詞連接不通",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 1216,
+      "sentence": "北極及個人無供徐",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "地名與功能詞及姓名搭配不通",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 753,
+      "sentence": "這些無敢需要回國了",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "無敢需要不合常用語法",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 523,
+      "sentence": "哪裡提供次里你公共",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "次里、你、公共語意與詞序不通",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 2010,
+      "sentence": "自我告訴治療及俄羅斯",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "告訴之論元與後續名詞串列不通",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    },
+    {
+      "seedIndex": 441,
+      "sentence": "睿智盧而伊朗",
+      "provisionalNaturalnessStatus": "incoherent-lexical-sequence",
+      "reason": "形容詞、姓名與地名連接缺句法意義",
+      "reviewStatus": "first-pass-provisional",
+      "readingStatus": "unreviewed"
+    }
+  ]
+}

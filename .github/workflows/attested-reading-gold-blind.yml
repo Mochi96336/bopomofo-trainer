@@ -1,0 +1,162 @@
+name: Attested reading gold-blind diagnostic
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/attested-reading-gold-blind.yml"
+      - "scripts/audit-attested-gold-blind-reading.ts"
+      - "scripts/verify-attested-ud-source.ts"
+      - "scripts/mine-attested-standalone-contexts.ts"
+      - "scripts/sample-attested-review-queue.ts"
+      - "scripts/audit-attested-frontier-provenance.ts"
+      - "scripts/compare-attested-zhong-role-ablation.ts"
+      - "scripts/audit-candidate-risk-abstention-dev.ts"
+      - "src/readings/experimental-risk-abstention.ts"
+      - "scripts/audit-attested-give-lexical-boundary.ts"
+      - "scripts/audit-attested-zhong-pos-counterexample.ts"
+      - "scripts/verify-attested-train-give-review.ts"
+      - "tests/readings/attested-gold-blind-diagnostic.test.ts"
+      - "tests/readings/attested-ud-source-integrity.test.ts"
+      - "tests/readings/attested-standalone-queue.test.ts"
+      - "tests/readings/attested-frontier-provenance.test.ts"
+      - "tests/readings/attested-zhong-role-ablation.test.ts"
+      - "tests/readings/attested-give-lexical-boundary.test.ts"
+      - "tests/readings/attested-zhong-pos-counterexample.test.ts"
+      - "tests/readings/attested-train-give-first-pass.test.ts"
+      - "research/attested-reading-pilot/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  oracle-upos-candidate-frontier:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install
+        run: npm ci --include=dev --ignore-scripts
+      - name: Generate current practice catalog and syntax profiles
+        run: npm run app:catalog
+      - name: Checkout pinned upstream CoNLL-U source
+        uses: actions/checkout@v6
+        with:
+          repository: UniversalDependencies/UD_Chinese-GSD
+          ref: 22f73e87f7ddc530bb131a6b7587971a03e1a712
+          path: .external/UD_Chinese-GSD
+          sparse-checkout: |
+            zh_gsd-ud-train.conllu
+            zh_gsd-ud-dev.conllu
+            zh_gsd-ud-test.conllu
+          persist-credentials: false
+      - name: Verify original text, token IDs, POS, Translit and dependency edges
+        run: >-
+          npx tsx scripts/verify-attested-ud-source.ts
+          .external/UD_Chinese-GSD/zh_gsd-ud-dev.conllu
+      - name: Test label-blind inference and original-source integrity guard
+        run: >-
+          npx vitest run
+          tests/readings/attested-gold-blind-diagnostic.test.ts
+          tests/readings/attested-ud-source-integrity.test.ts
+          tests/readings/attested-standalone-queue.test.ts
+          tests/readings/attested-frontier-provenance.test.ts
+          tests/readings/attested-zhong-role-ablation.test.ts
+          tests/readings/experimental-risk-abstention.test.ts
+          tests/readings/attested-give-lexical-boundary.test.ts
+          tests/readings/attested-zhong-pos-counterexample.test.ts
+          tests/readings/attested-train-give-first-pass.test.ts
+      - name: Evaluate original attested word plus oracle UD UPOS
+        run: >-
+          npx tsx scripts/audit-attested-gold-blind-reading.ts
+          research/attested-reading-pilot/cases.json
+          data/generated/attested-gold-blind-diagnostic.json
+      - name: Find unlabelled standalone 種 and 給 in pinned train data
+        run: >-
+          npx tsx scripts/mine-attested-standalone-contexts.ts
+          .external/UD_Chinese-GSD/zh_gsd-ud-train.conllu
+          .external/UD_Chinese-GSD/zh_gsd-ud-dev.conllu
+          .external/UD_Chinese-GSD/zh_gsd-ud-test.conllu
+          data/generated/attested-standalone-unlabeled-train-queue.json
+      - name: Trace both pronunciations to exact catalog ID, UPOS profiles and role-gate applicability
+        run: >-
+          npx tsx scripts/audit-attested-frontier-provenance.ts
+          data/generated/attested-unresolved-catalog-provenance.json
+      - name: Prepare deterministic gold-free human review sample
+        run: >-
+          npx tsx scripts/sample-attested-review-queue.ts
+          data/generated/attested-standalone-unlabeled-train-queue.json
+          data/generated/attested-standalone-human-review-sample.json
+      - name: Compare existing experimental 種 role gate to shipping baseline without activation
+        run: >-
+          npx tsx scripts/compare-attested-zhong-role-ablation.ts
+          research/attested-reading-pilot/cases.json
+          data/generated/attested-zhong-role-opt-in-ablation.json
+      - name: Compare opt-in candidate-risk abstention on inspected dev only (not heldout)
+        run: >-
+          npx tsx scripts/audit-candidate-risk-abstention-dev.ts
+          research/attested-reading-pilot/cases.json
+          data/generated/candidate-risk-abstention-dev-exploratory.json
+      - name: Compare isolated 給 with MOE-reviewed compound-lexeme boundaries
+        run: >-
+          npx tsx scripts/audit-attested-give-lexical-boundary.ts
+          research/attested-reading-pilot/cases.json
+          data/generated/attested-give-lexical-boundary-review.json
+      - name: Source-verified train counterexample to naïve 種 VERB pronunciation gate
+        run: >-
+          npx tsx scripts/audit-attested-zhong-pos-counterexample.ts
+          data/generated/attested-standalone-unlabeled-train-queue.json
+          data/generated/attested-zhong-pos-counterexample.json
+      - name: Validate all 36 first-pass 給 labels against pinned original train tokens
+        run: >-
+          npx tsx scripts/verify-attested-train-give-review.ts
+          data/generated/attested-standalone-unlabeled-train-queue.json
+          research/attested-reading-pilot/train-give-preliminary-review.json
+          data/generated/attested-train-give-first-pass-verification.json
+      - name: Explain what the metrics actually measure
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync,appendFileSync } from "node:fs";
+          const r=JSON.parse(readFileSync("data/generated/attested-gold-blind-diagnostic.json","utf8"));
+          const rows=[
+            "# Attested target-reading diagnostic — no gold leakage",
+            "",
+            "Input: original UD token + **oracle UD UPOS** + shipping practice catalog and reviewed role gate.",
+            "**No input of reviewed MOE correct reading or original UD Translit to the candidate filtering step.**",
+            "This is not the real app reading in a natural full sentence, nor a human-validated naturalness score.",
+            "",
+            "| Outcome | Count |",
+            "|---|---:|",
+            ...Object.entries(r.statusCounts).map(([k,v])=>`| ${k} | ${v} |`),
+            "",
+            "### Rows with more than one surviving phonetic answer",
+            "",
+            ...r.rows.filter(x=>x.frontierStatus==="multiple-pronunciations").map(x=>
+              `- ${x.id} ${x.sourceWord}/${x.sourceUpos}: ${x.distinctTargetPronunciations.map(y=>y.targetTokens.join(" ")).join(" ; ")} | reviewed target ${x.reviewedTargetReading}`),
+            "",
+            "No unique prediction = unresolved, **not** a correct contextual G2P output.",
+          ];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,rows.join("\n")+"\n");
+          NODE
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: attested-gold-blind-oracle-upos-json
+          path: |
+            data/generated/attested-gold-blind-diagnostic.json
+            data/generated/attested-standalone-unlabeled-train-queue.json
+            data/generated/attested-standalone-human-review-sample.json
+            data/generated/attested-unresolved-catalog-provenance.json
+            data/generated/attested-zhong-role-opt-in-ablation.json
+            data/generated/candidate-risk-abstention-dev-exploratory.json
+            data/generated/attested-give-lexical-boundary-review.json
+            data/generated/attested-zhong-pos-counterexample.json
+            data/generated/attested-train-give-first-pass-verification.json
+          if-no-files-found: error
+          retention-days: 30
