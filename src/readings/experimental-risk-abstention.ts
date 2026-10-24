@@ -1,0 +1,42 @@
+import { catalogEntryId } from "../core/catalog-entry-id.js";
+import type { CatalogEntry } from "../core/model.js";
+import type { RuntimeSyntaxProfile } from "../syntax/types.js";
+import { reviewedRoleReadingEligible } from "./pronominal-role-license.js";
+
+/**
+ * STRICTLY OPT-IN research gate for two observed candidate-identity risks.
+ *
+ * A generated syntax profile, often projected from the WRITTEN SURFACE, is
+ * NOT a verified sentence sense. Thus excluding either candidate is only
+ * an experimental "abstain from this candidate" test, not proof that its
+ * alternative reading is correct. Never wire into product/session.ts.
+ *
+ * Crucial counterexample: GSD train-s3887#2 marks the NOMINAL species 種
+ * as VERB. We must not force 種/VERB to the planting fourth tone. This gate
+ * deliberately leaves both source-VERB readings eligible.
+ *
+ * Source: pinned GSD original train + the existing 2048-seed generated output.
+ * Independent human approval/holdout verification is NOT available.
+ */
+const RISK_IDENTITY_BY_ROLE = new Map<string, string>([
+  ["種/NOUN", catalogEntryId("種", "ㄓㄨㄥ4")],
+  ["給/VERB", catalogEntryId("給", "ㄐㄧ3")],
+]);
+
+export function experimentalRiskAbstentionEligible(
+  entry: CatalogEntry,
+  profile: RuntimeSyntaxProfile,
+): boolean {
+  if (profile.entryId !== entry.id) {
+    throw new Error("reading eligibility must preserve exact catalog entry identity");
+  }
+  if (!reviewedRoleReadingEligible(entry, profile)) return false;
+  const flaggedIdentity = RISK_IDENTITY_BY_ROLE.get(
+    entry.prompt.text + "/" + profile.upos,
+  );
+  return flaggedIdentity === undefined || entry.id !== flaggedIdentity;
+}
+
+/** REVIEW-ONLY: do not turn these raw surface+UPOS pairs into approved gold. */
+export const EXPERIMENTAL_RISK_ABSTENTION_BY_ROLE = RISK_IDENTITY_BY_ROLE;
+export const EXPERIMENTAL_RISK_ABSTENTION_APPROVED_FOR_PRODUCT = false;
