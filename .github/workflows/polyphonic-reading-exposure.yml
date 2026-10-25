@@ -6,6 +6,17 @@ on:
       - ".github/workflows/polyphonic-reading-exposure.yml"
       - "scripts/audit-polyphonic-context.ts"
       - "scripts/compare-zhong-role-trial.ts"
+      - "scripts/compare-candidate-risk-abstention.ts"
+      - "scripts/compare-candidate-preservation.ts"
+      - "scripts/compare-candidate-no-draw.ts"
+      - "src/curriculum/formal-syntax-utterance.ts"
+      - "tests/curriculum/formal-syntax-lexical-compatibility.test.ts"
+      - "tests/readings/experimental-word-preservation.test.ts"
+      - "scripts/audit-generated-polyphonic-risk.ts"
+      - "scripts/verify-generated-polyphonic-first-pass.ts"
+      - "scripts/verify-generated-control-naturalness.ts"
+      - "research/attested-reading-pilot/generated-2048-hash-control-naturalness.json"
+      - "research/attested-reading-pilot/generated-2048-first-pass-naturalness.json"
       - "scripts/audit-same-upos-polyphones.ts"
       - "scripts/audit-targeted-polyphonic-identities.ts"
       - "scripts/prepare-moe-sense-targets.ts"
@@ -53,6 +64,50 @@ jobs:
         run: npx tsx scripts/audit-dongxi-context.ts --samples-per-reading 24
       - name: Trial reviewed 種 noun/verb reading identity restrictions
         run: npm run readings:audit -- --policy zhong-role-trial --output data/generated/polyphonic-context-zhong-role-trial.json
+      - name: Run risk-abstention-only candidate trial on the same 2048 pinned seeds
+        run: >-
+          npm run readings:audit -- --policy candidate-risk-abstention-trial
+          --output data/generated/polyphonic-context-candidate-risk-abstention.json
+      - name: Research trial - preserve the original written word on rejected reading
+        run: >-
+          npm run readings:audit -- --policy candidate-risk-abstention-preserve-word-trial
+          --output data/generated/polyphonic-context-preserve-word-reading-trial.json
+      - name: Compare risk elimination and actual target-word retention
+        run: >-
+          npx tsx scripts/compare-candidate-preservation.ts
+          data/generated/polyphonic-context-reviewed-roles.json
+          data/generated/polyphonic-context-candidate-risk-abstention.json
+          data/generated/polyphonic-context-preserve-word-reading-trial.json
+          data/generated/polyphonic-candidate-word-preservation-comparison.json
+      - name: Test opt-in same-word rescue does not change licensed selections
+        run: >-
+          npx vitest run
+          tests/curriculum/formal-syntax-lexical-compatibility.test.ts
+          tests/readings/experimental-word-preservation.test.ts
+      - name: Research trial - consume no extra RNG on a sole same-word reading
+        run: >-
+          npm run readings:audit -- --policy candidate-risk-abstention-singleton-no-draw-trial
+          --output data/generated/polyphonic-context-singleton-no-draw-trial.json
+      - name: Compare whole-sentence context preservation on unchanged 2048 seeds
+        run: >-
+          npx tsx scripts/compare-candidate-no-draw.ts
+          data/generated/polyphonic-context-reviewed-roles.json
+          data/generated/polyphonic-context-preserve-word-reading-trial.json
+          data/generated/polyphonic-context-singleton-no-draw-trial.json
+          data/generated/polyphonic-candidate-singleton-no-draw-comparison.json
+      - name: Test singleton RNG boundary and exact-identity no-leakage
+        run: >-
+          npx vitest run
+          tests/curriculum/formal-syntax-lexical-compatibility.test.ts
+          tests/readings/experimental-singleton-no-draw.test.ts
+      - name: Verify risk trial removes only flagged identities with no unrelated seed drift
+        run: >-
+          npx tsx scripts/compare-candidate-risk-abstention.ts
+          data/generated/polyphonic-context-reviewed-roles.json
+          data/generated/polyphonic-context-candidate-risk-abstention.json
+          data/generated/polyphonic-candidate-risk-abstention-comparison.json
+      - name: Test risk trial does not claim human-verified correctness
+        run: npx vitest run tests/readings/experimental-risk-abstention-comparison.test.ts
       - name: Verify 種 opt-in trial has zero unlicensed selection and unrelated seed drift
         run: >-
           npx tsx scripts/compare-zhong-role-trial.ts
@@ -70,6 +125,30 @@ jobs:
         run: npx tsx scripts/audit-same-upos-polyphones.ts
       - name: Probe missing reading identities in bounded biased generation
         run: npx tsx scripts/audit-targeted-polyphonic-identities.ts --probes 3
+      - name: Audit seeded product-generated 種 and 給 identity risks without assigning gold
+        run: >-
+          npx tsx scripts/audit-generated-polyphonic-risk.ts
+          data/generated/polyphonic-context-reviewed-roles.json
+          data/generated/polyphonic-context-zhong-role-trial.json
+          data/generated/generated-attested-polyphonic-risk.json
+      - name: Test seeded generation risk flags remain exposure-only
+        run: npx vitest run tests/readings/attested-generated-polyphonic-risk.test.ts
+      - name: Verify all 30 first-pass qualitative examples against exact product generation
+        run: >-
+          npx tsx scripts/verify-generated-polyphonic-first-pass.ts
+          data/generated/generated-attested-polyphonic-risk.json
+          research/attested-reading-pilot/generated-2048-first-pass-naturalness.json
+          data/generated/generated-polyphonic-first-pass-verification.json
+      - name: Test complete qualitative source joins and no promotion of unreviewed labels
+        run: npx vitest run tests/readings/generated-polyphonic-first-pass.test.ts
+      - name: Verify the hash-selected 30 non-polyphone controls against real generated outputs
+        run: >-
+          npx tsx scripts/verify-generated-control-naturalness.ts
+          data/generated/polyphonic-context-reviewed-roles.json
+          research/attested-reading-pilot/generated-2048-hash-control-naturalness.json
+          data/generated/generated-control-naturalness-verification.json
+      - name: Test non-polyphone controls use a fixed unbiased hash ranking
+        run: npx vitest run tests/readings/generated-nonpolyphone-control.test.ts
       - name: Prepare annotated review summary
         run: |
           node --input-type=module <<'NODE'
@@ -189,7 +268,16 @@ jobs:
             data/generated/same-upos-polyphone-review.json
             data/generated/polyphonic-targeted-identity-coverage.json
             data/generated/polyphonic-context-zhong-role-trial.json
+            data/generated/generated-attested-polyphonic-risk.json
+            data/generated/generated-polyphonic-first-pass-verification.json
+            data/generated/generated-control-naturalness-verification.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
+            data/generated/polyphonic-context-candidate-risk-abstention.json
+            data/generated/polyphonic-candidate-risk-abstention-comparison.json
+            data/generated/polyphonic-context-preserve-word-reading-trial.json
+            data/generated/polyphonic-candidate-word-preservation-comparison.json
+            data/generated/polyphonic-context-singleton-no-draw-trial.json
+            data/generated/polyphonic-candidate-singleton-no-draw-comparison.json
             data/generated/polyphonic-lexeme-boundary-readiness.json
             data/generated/polyphonic-host-lexeme-reachability.json
             data/generated/dongxi-context-review.json

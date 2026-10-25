@@ -1,0 +1,186 @@
+{
+  "schemaVersion": "attested-undecided-context-evidence-v1",
+  "purpose": "Exact raw UD token/dependency evidence for the 3 unresolved word+oracle-UPOS cases. Hypotheses are NOT executable pronunciation rules.",
+  "constraints": [
+    "Gold reading not supplied to a classifier by this file",
+    "UPOS dependency labels originate from source corpus and may contain annotation errors",
+    "Semantic cue interpretation is exploratory and unvalidated"
+  ],
+  "cases": [
+    {
+      "caseId": "gsd-012",
+      "sourceSentId": "dev-s241",
+      "sourceTokenId": 10,
+      "sourceWord": "種",
+      "sourceUpos": "NOUN",
+      "sourceCorpusBlobSha": "8b967948097a2e4bebe7f5d0e053c4fed4fe3baa",
+      "rawUdEvidenceTokens": [
+        {
+          "tokenId": 6,
+          "text": "成分",
+          "upos": "NOUN",
+          "headTokenId": 8,
+          "deprel": "nsubj"
+        },
+        {
+          "tokenId": 8,
+          "text": "有",
+          "upos": "VERB",
+          "headTokenId": 0,
+          "deprel": "root"
+        },
+        {
+          "tokenId": 9,
+          "text": "兩",
+          "upos": "NUM",
+          "headTokenId": 10,
+          "deprel": "nummod"
+        },
+        {
+          "tokenId": 10,
+          "text": "種",
+          "upos": "NOUN",
+          "headTokenId": 8,
+          "deprel": "obj"
+        },
+        {
+          "tokenId": 12,
+          "text": "分別",
+          "upos": "ADV",
+          "headTokenId": 14,
+          "deprel": "advmod"
+        },
+        {
+          "tokenId": 14,
+          "text": "古柯鹼",
+          "upos": "NOUN",
+          "headTokenId": 8,
+          "deprel": "parataxis"
+        },
+        {
+          "tokenId": 16,
+          "text": "咖啡因",
+          "upos": "NOUN",
+          "headTokenId": 14,
+          "deprel": "conj"
+        }
+      ],
+      "candidateCue": "numeral-and-class-membership",
+      "untestedHypothesis": "兩 modifies 種 (nummod), and the sentence describes two kinds of ingredients; investigate whether numeral/classifier constructions can license ㄓㄨㄥˇ without hard-coding every numeral.",
+      "reviewStatus": "to-review",
+      "sourceTranslitIsNotReadingGold": true
+    },
+    {
+      "caseId": "gsd-013",
+      "sourceSentId": "dev-s5",
+      "sourceTokenId": 17,
+      "sourceWord": "給",
+      "sourceUpos": "VERB",
+      "sourceCorpusBlobSha": "8b967948097a2e4bebe7f5d0e053c4fed4fe3baa",
+      "rawUdEvidenceTokens": [
+        {
+          "tokenId": 16,
+          "text": "同時",
+          "upos": "NOUN",
+          "headTokenId": 20,
+          "deprel": "nmod:tmod"
+        },
+        {
+          "tokenId": 17,
+          "text": "給",
+          "upos": "VERB",
+          "headTokenId": 20,
+          "deprel": "advcl"
+        },
+        {
+          "tokenId": 18,
+          "text": "行為",
+          "upos": "NOUN",
+          "headTokenId": 19,
+          "deprel": "nmod"
+        },
+        {
+          "tokenId": 19,
+          "text": "分析",
+          "upos": "NOUN",
+          "headTokenId": 17,
+          "deprel": "obj"
+        },
+        {
+          "tokenId": 20,
+          "text": "提供",
+          "upos": "VERB",
+          "headTokenId": 0,
+          "deprel": "root"
+        },
+        {
+          "tokenId": 28,
+          "text": "平台",
+          "upos": "NOUN",
+          "headTokenId": 20,
+          "deprel": "obj"
+        }
+      ],
+      "candidateCue": "beneficiary-phrase-plus-provision-verb",
+      "untestedHypothesis": "給 governs 行為分析 while 提供 is the main verb; test whether a recipient/beneficiary frame disambiguates ㄍㄟˇ versus ㄐㄧˇ.",
+      "reviewStatus": "to-review",
+      "sourceTranslitIsNotReadingGold": true
+    },
+    {
+      "caseId": "gsd-015",
+      "sourceSentId": "dev-s287",
+      "sourceTokenId": 15,
+      "sourceWord": "給",
+      "sourceUpos": "VERB",
+      "sourceCorpusBlobSha": "8b967948097a2e4bebe7f5d0e053c4fed4fe3baa",
+      "rawUdEvidenceTokens": [
+        {
+          "tokenId": 10,
+          "text": "侄子",
+          "upos": "NOUN",
+          "headTokenId": 15,
+          "deprel": "nsubj"
+        },
+        {
+          "tokenId": 13,
+          "text": "交",
+          "upos": "VERB",
+          "headTokenId": 15,
+          "deprel": "advcl"
+        },
+        {
+          "tokenId": 14,
+          "text": "工資",
+          "upos": "NOUN",
+          "headTokenId": 13,
+          "deprel": "obj"
+        },
+        {
+          "tokenId": 15,
+          "text": "給",
+          "upos": "VERB",
+          "headTokenId": 18,
+          "deprel": "advcl"
+        },
+        {
+          "tokenId": 16,
+          "text": "叔父",
+          "upos": "NOUN",
+          "headTokenId": 15,
+          "deprel": "obj"
+        },
+        {
+          "tokenId": 18,
+          "text": "發覺",
+          "upos": "VERB",
+          "headTokenId": 0,
+          "deprel": "root"
+        }
+      ],
+      "candidateCue": "transfer-event-to-recipient",
+      "untestedHypothesis": "交 工資 給 叔父 names a transfer event and its recipient; test role and adjacency evidence before adding a reading constraint.",
+      "reviewStatus": "to-review",
+      "sourceTranslitIsNotReadingGold": true
+    }
+  ]
+}

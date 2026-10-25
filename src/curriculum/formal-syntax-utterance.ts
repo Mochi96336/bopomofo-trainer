@@ -69,6 +69,15 @@ export interface FormalSyntaxUtteranceInput {
     profile: RuntimeSyntaxProfile,
     slot: StructuralLexicalSlot,
   ) => boolean;
+  /** Research opt-in only. Following a rejected reading, prefer licensed
+   * profiles of the SAME exact written lexeme. The singleton alternative mode
+   * consumes no extra random draw only when exactly one profile can replace it.
+   * Neither mode certifies the reading's contextual correctness. */
+  readonly readingResamplePreference?: (
+    rejectedEntry: CatalogEntry,
+    rejectedProfile: RuntimeSyntaxProfile,
+    slot: StructuralLexicalSlot,
+  ) => "same-surface-first" | "same-surface-singleton-no-draw" | undefined;
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
@@ -718,7 +727,43 @@ export function composeFormalSyntaxUtterances(
             }
             return readingEligibility(entry, profile, slot);
           });
-          selectedProfile = draw(licensed);
+          const preference = input.readingResamplePreference?.(
+            initiallySelected, selectedProfile, slot,
+          );
+          if (preference === "same-surface-first"
+            || preference === "same-surface-singleton-no-draw") {
+            // A full-word identity is required: substrings of a compound are
+            // not interchangeable with isolated characters. Restricting to
+            // the already-licensed, bound-compatible set preserves slot rules.
+            const sameSurface = licensed.filter((profile) =>
+              entriesById.get(profile.entryId)?.prompt.text === initiallySelected.prompt.text);
+            // A sole licensed profile is not automatically a SELECTABLE
+            // profile: normal weighted selection excludes previously used
+            // entry IDs (except an explicit binding), and ignores zero-weight
+            // catalog entries. Keep both restrictions before bypassing RNG.
+            const sole = sameSurface.length === 1 ? sameSurface[0]! : null;
+            const soleEntry = sole === null ? undefined : entriesById.get(sole.entryId);
+            if (sole !== null && soleEntry === undefined) {
+              throw new Error("formal syntax reading rescue references a missing catalog entry");
+            }
+            const soleWeight = soleEntry === undefined ? 0
+              : input.entryWeight?.(soleEntry)
+                ?? input.entryWeightsById?.[soleEntry.id]
+                ?? defaultEntryWeight(soleEntry);
+            if (!Number.isFinite(soleWeight) || soleWeight < 0) {
+              throw new Error("formal syntax reading rescue entry weight must be non-negative");
+            }
+            const singletonUsable = sole !== null
+              && (!usedEntryIds.has(sole.entryId) || sole.entryId === boundEntryId)
+              && soleWeight > 0;
+            selectedProfile = preference === "same-surface-singleton-no-draw"
+              && singletonUsable
+              ? sole
+              : sameSurface.length > 0 ? draw(sameSurface) : null;
+          }
+          if (selectedProfile === null || selectedProfile.entryId === initiallySelected.id) {
+            selectedProfile = draw(licensed);
+          }
         }
       }
       if (selectedProfile === null) {

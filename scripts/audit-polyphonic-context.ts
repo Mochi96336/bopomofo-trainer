@@ -6,6 +6,7 @@ import { createSeededRandom } from "../src/curriculum/random.js";
 import { reviewedClosedClassReadingEligible } from "../src/readings/closed-class-license.js";
 import { reviewedRoleReadingEligible } from "../src/readings/pronominal-role-license.js";
 import { reviewedZhongRolePilotEligible } from "../src/readings/zhong-role-pilot.js";
+import { experimentalRiskAbstentionEligible, experimentalRiskSameWordPreference, experimentalRiskSingleAlternativePreference } from "../src/readings/experimental-risk-abstention.js";
 import {
   auditPolyphonicCandidate,
   buildPolyphonicReadingIndex,
@@ -31,7 +32,7 @@ const PRODUCT_BOUNDS = {
   maximumLexicalEntriesPerUtterance: 6,
 } as const;
 
-type ReadingAuditPolicy = "none" | "reviewed-closed" | "reviewed-roles" | "zhong-role-trial";
+type ReadingAuditPolicy = "none" | "reviewed-closed" | "reviewed-roles" | "zhong-role-trial" | "candidate-risk-abstention-trial" | "candidate-risk-abstention-preserve-word-trial" | "candidate-risk-abstention-singleton-no-draw-trial";
 
 function argumentsFromCli(): { samples: number; output: string; policy: ReadingAuditPolicy } {
   let samples = 2048;
@@ -49,8 +50,8 @@ function argumentsFromCli(): { samples: number; output: string; policy: ReadingA
     } else if (name === "--output") {
       output = value;
     } else if (name === "--policy") {
-      if (value !== "none" && value !== "reviewed-closed" && value !== "reviewed-roles" && value !== "zhong-role-trial") {
-        throw new Error("--policy accepts none, reviewed-closed, reviewed-roles or zhong-role-trial");
+      if (value !== "none" && value !== "reviewed-closed" && value !== "reviewed-roles" && value !== "zhong-role-trial" && value !== "candidate-risk-abstention-trial" && value !== "candidate-risk-abstention-preserve-word-trial" && value !== "candidate-risk-abstention-singleton-no-draw-trial") {
+        throw new Error("--policy accepts none, reviewed-closed, reviewed-roles, zhong-role-trial or candidate-risk-abstention[-preserve-word|-singleton-no-draw]-trial");
       }
       policy = value;
     } else {
@@ -97,13 +98,20 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
     maximumCandidates: 1,
     maximumAttempts: 64,
     bounds: PRODUCT_BOUNDS,
+    ...(policy === "candidate-risk-abstention-preserve-word-trial"
+      ? { readingResamplePreference: experimentalRiskSameWordPreference }
+      : policy === "candidate-risk-abstention-singleton-no-draw-trial"
+        ? { readingResamplePreference: experimentalRiskSingleAlternativePreference }
+        : {}),
     ...(policy === "reviewed-closed"
       ? { readingEligibility: reviewedClosedClassReadingEligible }
       : policy === "reviewed-roles"
         ? { readingEligibility: reviewedRoleReadingEligible }
         : policy === "zhong-role-trial"
           ? { readingEligibility: reviewedZhongRolePilotEligible }
-          : {}),
+          : policy === "candidate-risk-abstention-trial" || policy === "candidate-risk-abstention-preserve-word-trial" || policy === "candidate-risk-abstention-singleton-no-draw-trial"
+            ? { readingEligibility: experimentalRiskAbstentionEligible }
+            : {}),
   });
   for (const reason of composition.fallbackReasons) increment(fallbacks, reason);
   const candidate = composition.candidates[0];
