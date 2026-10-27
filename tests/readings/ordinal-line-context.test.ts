@@ -3,6 +3,11 @@ import { catalogEntryId } from "../../src/core/catalog-entry-id.js";
 import type { CatalogEntry } from "../../src/core/model.js";
 import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
 import {
+  FREQUENCY_FIRST_UTTERANCE_POLICY,
+  selectFormalSyntaxUtterance,
+} from "../../src/curriculum/frequency-first-utterance.js";
+import { createSeededRandom } from "../../src/curriculum/random.js";
+import {
   reviewedOrdinalLineReadingEligible,
   reviewedRoleAndOrdinalLineReadingEligible,
 } from "../../src/readings/ordinal-line-context.js";
@@ -140,4 +145,60 @@ describe("reviewed adjacent 第N行 reading", () => {
     expect(result.candidates[0]?.entries.map(x => x.id)).toEqual([ordinal.id, row.id]);
     expect(result.candidates[0]?.text).toBe("第三行");
   });
+
+  it("keeps 第N行 legal even when the learner repeatedly misses ㄒ", () => {
+    // The production selector, not a hand-chosen entryWeight fixture, must
+    // disallow the incorrectly pronounced 行 before applying weak-key weights.
+    const moveWithActualTokens: CatalogEntry = {
+      ...move,
+      syllables: [{ tokens: ["zhuyin:ㄒ", "zhuyin:ㄧ", "zhuyin:ㄥ", "tone:2"] }],
+    };
+    const rowWithActualTokens: CatalogEntry = {
+      ...row,
+      syllables: [{ tokens: ["zhuyin:ㄏ", "zhuyin:ㄤ", "tone:2"] }],
+    };
+    const otherWithActualTokens: CatalogEntry = {
+      ...different,
+      syllables: [{ tokens: ["zhuyin:ㄏ", "zhuyin:ㄤ", "tone:2"] }],
+    };
+    const entries = [ordinal, moveWithActualTokens, rowWithActualTokens, otherWithActualTokens];
+    const profiles = [
+      { ...profile(ordinal, "NUM"), functions: ["subject" as const] },
+      profile(move, "NOUN"), profile(row, "NOUN"), profile(different, "NOUN"),
+    ];
+    let originallyWrong = 0;
+    let invalidAfter = 0;
+    let validAfter = 0;
+    for (let i = 0; i < 256; i += 1) {
+      const base = {
+        entries, profiles, mode: "guided" as const,
+        layoutId: "standard",
+        history: { recentEntryIds: [], recentUtteranceIds: [], recentTemplateIds: [] },
+        policy: FREQUENCY_FIRST_UTTERANCE_POLICY,
+        formalSyntaxComposition: { rules: [rule], samplingMode: "raw" as const },
+        bindingEvidence: [{
+          scope: { mode: "guided" as const, layoutId: "standard", tokenId: "zhuyin:ㄒ" },
+          attempts: 20, errors: 19, timingSamples: 0,
+          currentTimeToTypeMs: null, bestTimeToTypeMs: null,
+        }],
+      };
+      const seed = "ordinal-weak-incorrect-reading:" + i;
+      const raw = selectFormalSyntaxUtterance({
+        ...base, random: createSeededRandom(seed),
+      }).utterance.entries[1]!;
+      const licensed = selectFormalSyntaxUtterance({
+        ...base, random: createSeededRandom(seed),
+        readingEligibility: reviewedRoleAndOrdinalLineReadingEligible,
+        preDrawReadingEligibility: (entry, selectedProfile, _slot, previousEntry) =>
+          reviewedOrdinalLineReadingEligible(entry, selectedProfile, previousEntry),
+      }).utterance.entries[1]!;
+      originallyWrong += Number(raw.id === move.id);
+      invalidAfter += Number(licensed.id === move.id);
+      validAfter += Number(licensed.id === row.id || licensed.id === different.id);
+    }
+    expect(originallyWrong).toBeGreaterThan(0);
+    expect(invalidAfter).toBe(0);
+    expect(validAfter).toBe(256);
+  });
+
 });
