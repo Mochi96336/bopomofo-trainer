@@ -1,0 +1,87 @@
+name: Reviewed contextual valid-first A/B
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/reviewed-contextual-valid-first.yml"
+      - "src/readings/ordinal-line-context.ts"
+      - "scripts/audit-polyphonic-context.ts"
+      - "scripts/compare-contextual-valid-first.ts"
+      - "tests/readings/contextual-pre-draw.test.ts"
+      - "tests/readings/reviewed-natural-contexts.test.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contextual-legal-first:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Generate active catalog
+        run: npm run app:catalog
+      - name: Targeted legal-first semantic role tests
+        run: npx vitest run tests/readings/contextual-pre-draw.test.ts tests/readings/reviewed-natural-contexts.test.ts
+      - name: Pinned ordinal legal-first (2048)
+        run: >-
+          npx tsx scripts/audit-polyphonic-context.ts
+          --samples 2048 --policy ordinal-line-trial
+          --output data/generated/contextual-before.json
+      - name: Pinned 好 + ordinal legal-first (2048)
+        run: >-
+          npx tsx scripts/audit-polyphonic-context.ts
+          --samples 2048 --policy contextual-valid-first
+          --output data/generated/contextual-after.json
+      - name: Compare selection effects and correct reading identities
+        run: >-
+          npx tsx scripts/compare-contextual-valid-first.ts
+          data/generated/contextual-before.json
+          data/generated/contextual-after.json
+          data/generated/contextual-comparison.json
+      - name: Show scoped selection impact
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from "node:fs";
+          const data=JSON.parse(readFileSync("data/generated/contextual-comparison.json","utf8"));
+          const r=data.observations;
+          const lines=[
+            "# Reviewed contextual legality before learner weighting",
+            "",
+            "The experiment adds only the reviewed standalone 好/ADJ license to the existing 第N行 pre-draw scope.",
+            "This is NOT connected to production session selection.",
+            "",
+            "| Metric | Value |",
+            "|---|---:|",
+            `| Successful both cohorts | ${data.generatedBoth ?? data.sampleCount} |`,
+            `| Invalid reviewed reading identities in variant | ${data.reviewedInvalidReadingsVariant} |`,
+            `| Changed seeded sentences | ${r.changedSeeds} |`,
+            `| Changed with no previously selected 好/ADJ | ${r.changedSeedsWithoutPreviouslySelectedHao} |`,
+            `| Single lexical-slot changes | ${r.oneLexicalSlotOnlyChanges} |`,
+            `| Multiple lexical-slot changes | ${r.multipleLexicalSlotChanges} |`,
+            `| Changed grammar roots | ${r.changedGrammarRoots} |`,
+            `| Old vs variant 好/ADJ hits | ${r.adjectiveHaoOld} → ${r.adjectiveHaoVariant} |`,
+            "",
+            "Any change in sentence identity is a sampling effect, NOT a validated pronunciation error or naturalness improvement.",
+          ];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join("\n")+"\n");
+          NODE
+      - name: Upload exact seed data
+        uses: actions/upload-artifact@v4
+        with:
+          name: contextual-valid-first-2048
+          path: |
+            data/generated/contextual-before.json
+            data/generated/contextual-after.json
+            data/generated/contextual-comparison.json
+          if-no-files-found: error
+          retention-days: 14
