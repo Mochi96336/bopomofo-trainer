@@ -187,6 +187,7 @@ export interface FormalSyntaxUtteranceSelectionInput
   readonly profiles: readonly RuntimeSyntaxProfile[];
   /** Optional reading permission policy, independent of research/grammar overrides. */
   readonly readingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
+  readonly preDrawReadingEligibility?: FormalSyntaxUtteranceInput["preDrawReadingEligibility"];
   readonly formalSyntaxComposition?: FormalSyntaxCompositionOverride;
   readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
   readonly preparedFormalSyntaxExecution?: PreparedFormalSyntaxExecution;
@@ -549,6 +550,7 @@ function generateOnce(
     random: input.random,
     ...(useStaticFormalEntryWeight ? {} : { entryWeight }),
     ...(input.readingEligibility === undefined ? {} : { readingEligibility: input.readingEligibility }),
+    ...(input.preDrawReadingEligibility === undefined ? {} : { preDrawReadingEligibility: input.preDrawReadingEligibility }),
     minimumLexicalEntries: 2,
     maximumCandidates: 1,
     maximumAttempts: 64,
