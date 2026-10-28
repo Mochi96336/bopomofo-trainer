@@ -1,0 +1,78 @@
+name: Attested polyphone candidate pilot
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/attested-polyphone-pilot.yml"
+      - "data/research/attested-polyphones-v1.json"
+      - "src/research/attested-sentence-selector.ts"
+      - "scripts/audit-attested-sentence-weighting.ts"
+      - "scripts/verify-attested-gsd-source.ts"
+      - "tests/readings/attested-sentence-selector.test.ts"
+      - "docs/attested-polyphone-pilot.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  auditable-target-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Fetch exact pinned GSD source (research verification only)
+        uses: actions/checkout@v6
+        with:
+          repository: UniversalDependencies/UD_Chinese-GSD
+          ref: 22f73e87f7ddc530bb131a6b7587971a03e1a712
+          path: .external/ud-chinese-gsd
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Verify all original GSD sentences against pinned git blobs
+        run: npx tsx scripts/verify-attested-gsd-source.ts .external/ud-chinese-gsd
+      - name: Confirm TypeScript source contracts
+        run: npm run typecheck
+      - name: Validate corpus-backed target syllables and learner independence
+        run: npx vitest run tests/readings/attested-sentence-selector.test.ts
+      - name: Measure actual target exposure with 2048 paired draws
+        run: >-
+          npx tsx scripts/audit-attested-sentence-weighting.ts
+          --samples 2048
+          --output data/generated/attested-sentence-weighting-v1.json
+      - name: Report explicit boundaries
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from "node:fs";
+          const r=JSON.parse(readFileSync("data/generated/attested-sentence-weighting-v1.json","utf8"));
+          const lines=[
+            "# Attested natural-source polyphone prototype",
+            "",
+            "GSD: **real source sentences**, but only **one target syllable per sentence** has dictionary-backed reading evidence. No automatic G2P, naturalness certification, or full-sentence phonetic labeling.",
+            `Corpus items: ${r.bankCaseCount}; contrast characters: ${r.contrastCharacterCount}; paired draws: ${r.sampleCountPerCohort} per cohort.`,
+            "",
+            "| Synthetic error weakness | Normal target hits | With weakness | Net change |",
+            "|---|---:|---:|---:|",
+            ...r.contrasts.map(c=>
+              `| ${c.target} | ${c.baselineExposure} | ${c.weightedExposure} | ${c.netTargetExposure >= 0 ? "+" : ""}${c.netTargetExposure} |`
+            ),
+            "",
+            "Corpus `Translit` is **untrusted**: 銀行=yínxíng, 長度=zhǎngdù, 重新=zhòngxīn, 種植=zhǒngzhí contain wrong target readings. Independent MOE lexeme evidence supplies the expected reading.",
+            "",
+            "No product feature is enabled. The source texts' reuse rights require separate review: UD annotations are CC BY-SA 4.0 but underlying web content has independent rights.",
+          ];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join("\n")+"\n");
+          NODE
+      - name: Upload exact A/B evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: attested-target-only-exposure
+          path: data/generated/attested-sentence-weighting-v1.json
+          retention-days: 14
+          if-no-files-found: error
