@@ -1,0 +1,188 @@
+{
+  "schemaVersion": "attested-polyphonic-context-candidates-v1",
+  "corpus": {
+    "name": "UD Chinese GSD",
+    "repository": "UniversalDependencies/UD_Chinese-GSD",
+    "ref": "master",
+    "license": "CC BY-SA 4.0",
+    "blobShaBySplit": {
+      "train": "9aec4ae103fb5b7218f637afd686caf3b587a8e6",
+      "dev": "8b967948097a2e4bebe7f5d0e053c4fed4fe3baa",
+      "test": "3b15be45a96edcb21736f220e73fdccade231ca5"
+    }
+  },
+  "metadata": {
+    "status": "manually-curated-candidate-not-independent-second-review",
+    "sourceTextIsVerbatim": true,
+    "verifiedSoundLabels": "provisional-manual",
+    "wholeSentenceNaturalness": "unreviewed",
+    "selectionEligible": false
+  },
+  "records": [
+    {
+      "id": "gsd-train-715",
+      "source": {
+        "split": "train",
+        "sent_id": "train-s715"
+      },
+      "text": "在2009年，《破曉之戰II》發行，作為《破曉之戰》的二代，遊戲的許多要素都改變了，不過有相當好的評價。",
+      "contextSpan": "好",
+      "targetChar": "好",
+      "reading": "ㄏㄠ3",
+      "targetToken": "tone:3",
+      "sense": "good-adjective",
+      "reviewStatus": "pending-independent-reading-review",
+      "selectionEligible": false
+    },
+    {
+      "id": "gsd-train-2296",
+      "source": {
+        "split": "train",
+        "sent_id": "train-s2296"
+      },
+      "text": "各地的分部辦事處之前會準備好足夠的邀請單，以便在發放時給住戶。",
+      "contextSpan": "準備好",
+      "targetChar": "好",
+      "reading": "ㄏㄠ3",
+      "targetToken": "tone:3",
+      "sense": "resultative-good",
+      "reviewStatus": "pending-independent-reading-review",
+      "selectionEligible": false
+    },
+    {
+      "id": "gsd-test-335",
+      "source": {
+        "split": "test",
+        "sent_id": "test-s335"
+      },
+      "text": "李妍采從小跟母親相依為命，多年來努力存錢，願望是找個好男人結婚，然後買房子給母親。",
+      "contextSpan": "好男人",
+      "targetChar": "好",
+      "reading": "ㄏㄠ3",
+      "targetToken": "tone:3",
+      "sense": "good-adjective",
+      "reviewStatus": "pending-independent-reading-review",
+      "selectionEligible": false
+    },
+    {
+      "id": "gsd-train-1902",
+      "source": {
+        "split": "train",
+        "sent_id": "train-s1902"
+      },
+      "text": "另外，這標籤擁有的兩重特性，使其同時是同人文化也是獸人文化中一種愛好的分支。",
+      "contextSpan": "愛好",
+      "targetChar": "好",
+      "reading": "ㄏㄠ4",
+      "targetToken": "tone:4",
+      "sense": "hobby-noun",
+      "reviewStatus": "pending-independent-reading-review",
+      "selectionEligible": false
+    },
+    {
+      "id": "gsd-train-3133",
+      "source": {
+        "split": "train",
+        "sent_id": "train-s3133"
+      },
+      "text": "把土虱分魚頭、魚腹、魚尾切成三部份，配以當歸、枸杞等數種中藥置於鍋內，加水與米酒烹煮，再依據食用者的喜好，吩咐店家舀出魚頭、腹、尾任選一項食用。",
+      "contextSpan": "喜好",
+      "targetChar": "好",
+      "reading": "ㄏㄠ4",
+      "targetToken": "tone:4",
+      "sense": "preference-noun",
+      "reviewStatus": "pending-independent-reading-review",
+      "selectionEligible": false
+    },
+    {
+      "id": "gsd-dev-231",
+      "source": {
+        "split": "dev",
+        "sent_id": "dev-s231"
+      },
+      "text": "全詩計12卷，長達近萬行，是遵照奧古斯都的旨意創作出來的。",
+      "contextSpan": "萬行",
+      "targetChar": "行",
+      "reading": "ㄏㄤ2",
+      "targetToken": "tone:2",
+      "sense": "counted-lines",
+      "reviewStatus": "pending-independent-reading-review",
+      "selectionEligible": false
+    },
+    {
+      "id": "gsd-train-20",
+      "source": {
+        "split": "train",
+        "sent_id": "train-s20"
+      },
+      "text": "隔日義民軍啟程前往八卦山，吳湯興一行人皆壯烈成仁。",
+      "contextSpan": "一行人",
+      "targetChar": "行",
+      "reading": "ㄒㄧㄥ2",
+      "targetToken": "tone:2",
+      "sense": "group-people",
+      "reviewStatus": "pending-independent-reading-review",
+      "selectionEligible": false
+    },
+    {
+      "id": "gsd-dev-297",
+      "source": {
+        "split": "dev",
+        "sent_id": "dev-s297"
+      },
+      "text": "其後汲桑殺害東贏公司馬騰，號稱爲穎報仇，於是起出司馬穎的棺木，帶著它行軍，每有事都啓奏司馬穎，以行軍令。",
+      "contextSpan": "行軍",
+      "targetChar": "行",
+      "reading": "ㄒㄧㄥ2",
+      "targetToken": "tone:2",
+      "sense": "march-action",
+      "reviewStatus": "pending-independent-reading-review",
+      "selectionEligible": false
+    },
+    {
+      "id": "gsd-train-55",
+      "source": {
+        "split": "train",
+        "sent_id": "train-s55"
+      },
+      "text": "該屬共有2種，分布於印度東北部、錫金、不丹。",
+      "contextSpan": "2種",
+      "targetChar": "種",
+      "reading": "ㄓㄨㄥ3",
+      "targetToken": "tone:3",
+      "sense": "species-kind",
+      "reviewStatus": "pending-independent-reading-review",
+      "selectionEligible": false
+    },
+    {
+      "id": "gsd-train-514",
+      "source": {
+        "split": "train",
+        "sent_id": "train-s514"
+      },
+      "text": "弗吉尼亞商人約翰·羅爾夫發現印第安人栽種的煙草可以帶來財富，隨即開始在殖民地倡導種植煙草。",
+      "contextSpan": "種植",
+      "targetChar": "種",
+      "reading": "ㄓㄨㄥ4",
+      "targetToken": "tone:4",
+      "sense": "cultivate-verb",
+      "reviewStatus": "pending-independent-reading-review",
+      "selectionEligible": false
+    },
+    {
+      "id": "gsd-dev-267",
+      "source": {
+        "split": "dev",
+        "sent_id": "dev-s267"
+      },
+      "text": "嘉義縣是當前台灣生產高山茶的重要產區，種植的區域，以梅山鄉、竹崎鄉、番路鄉及阿里山鄉等四個山區鄉鎮為主。",
+      "contextSpan": "種植",
+      "targetChar": "種",
+      "reading": "ㄓㄨㄥ4",
+      "targetToken": "tone:4",
+      "sense": "cultivate-verb",
+      "reviewStatus": "pending-independent-reading-review",
+      "selectionEligible": false
+    }
+  ]
+}
