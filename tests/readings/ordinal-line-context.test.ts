@@ -201,4 +201,57 @@ describe("reviewed adjacent 第N行 reading", () => {
     expect(validAfter).toBe(256);
   });
 
+  it("does not erase a non-ordinal 行 reading under learner weakness", () => {
+    // Contrasting NON-ordinal frontiers are about eligibility, not asserting
+    // that either reading is correct in a complete generated sentence.
+    const bareNumber = entry("三", "ㄙㄢ1");
+    const moveWithTokens: CatalogEntry = {
+      ...move,
+      syllables: [{ tokens: ["zhuyin:ㄒ", "zhuyin:ㄧ", "zhuyin:ㄥ", "tone:2"] }],
+    };
+    const rowWithTokens: CatalogEntry = {
+      ...row,
+      syllables: [{ tokens: ["zhuyin:ㄏ", "zhuyin:ㄤ", "tone:2"] }],
+    };
+    const baseline = {
+      entries: [bareNumber, moveWithTokens, rowWithTokens],
+      profiles: [
+        { ...profile(bareNumber, "NUM"), functions: ["subject" as const] },
+        profile(move, "NOUN"),
+        profile(row, "NOUN"),
+      ],
+      mode: "guided" as const,
+      layoutId: "standard",
+      history: { recentEntryIds: [], recentUtteranceIds: [], recentTemplateIds: [] },
+      policy: FREQUENCY_FIRST_UTTERANCE_POLICY,
+      formalSyntaxComposition: { rules: [rule], samplingMode: "raw" as const },
+      bindingEvidence: [{
+        scope: { mode: "guided" as const, layoutId: "standard", tokenId: "zhuyin:ㄒ" },
+        attempts: 20, errors: 19, timingSamples: 0,
+        currentTimeToTypeMs: null, bestTimeToTypeMs: null,
+      }],
+    };
+    let moveSelected = 0;
+    let rowSelected = 0;
+    for (let i = 0; i < 64; i++) {
+      const seed = "nonordinal-line-contrast:" + i;
+      const before = selectFormalSyntaxUtterance({
+        ...baseline, random: createSeededRandom(seed),
+      }).utterance;
+      const after = selectFormalSyntaxUtterance({
+        ...baseline, random: createSeededRandom(seed),
+        readingEligibility: reviewedRoleAndOrdinalLineReadingEligible,
+        preDrawReadingEligibility: (entry, selectedProfile, _slot, previousEntry) =>
+          reviewedOrdinalLineReadingEligible(entry, selectedProfile, previousEntry),
+      }).utterance;
+      // This branch of the reading gate must not decide a bare 三 + 行
+      // sense, and must not consume extra randomness for that context.
+      expect(after.entries.map(x => x.id)).toEqual(before.entries.map(x => x.id));
+      moveSelected += Number(after.entries[1]?.id === move.id);
+      rowSelected += Number(after.entries[1]?.id === row.id);
+    }
+    expect(moveSelected).toBeGreaterThan(0);
+    expect(rowSelected).toBeGreaterThan(0);
+  });
+
 });
