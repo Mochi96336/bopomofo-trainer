@@ -11,6 +11,7 @@ on:
       - "scripts/audit-same-upos-polyphones.ts"
       - "scripts/audit-targeted-polyphonic-identities.ts"
       - "scripts/prepare-moe-sense-targets.ts"
+      - "scripts/audit-moe-single-reading-conflicts.ts"
       - "scripts/audit-dongxi-ud-intake.ts"
       - "data/readings/dongxi-ud-gsd-attested-review-candidates.json"
       - "src/readings/**"
@@ -41,6 +42,10 @@ jobs:
         run: npm run app:catalog
       - name: Prepare five-word exact reading identities for private MOE review
         run: npx tsx scripts/prepare-moe-sense-targets.ts
+      - name: Detect exact full-word reading disagreements against pinned MOE unique readings
+        run: |
+          npx vitest run tests/readings/moe-single-reading-catalog-crosscheck.test.ts
+          npx tsx scripts/audit-moe-single-reading-conflicts.ts
       - name: Assert legal-only lexical redraw and actual learner target weighting
         run: npx tsx scripts/audit-conflicting-reading-target.ts
       - name: Audit 2048 deterministic generated sentences
@@ -222,5 +227,6 @@ jobs:
             data/generated/dongxi-context-review.json
             data/generated/dongxi-ud-intake-summary.json
             data/generated/moe-sense-pilot-targets.json
+            data/generated/moe-single-reading-catalog-crosscheck.json
           retention-days: 14
           if-no-files-found: error
