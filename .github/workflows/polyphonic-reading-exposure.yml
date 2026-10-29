@@ -7,6 +7,7 @@ on:
       - "scripts/audit-polyphonic-context.ts"
       - "scripts/compare-zhong-role-trial.ts"
       - "scripts/compare-ordinal-line-trial.ts"
+      - "scripts/compare-duoshao-zhong-trial.ts"
       - "scripts/audit-conflicting-reading-target.ts"
       - "scripts/audit-same-upos-polyphones.ts"
       - "scripts/audit-targeted-polyphonic-identities.ts"
@@ -71,6 +72,14 @@ jobs:
           data/generated/polyphonic-context-reviewed-roles.json
           data/generated/polyphonic-context-ordinal-line-trial.json
           data/generated/polyphonic-ordinal-line-trial-comparison.json
+      - name: Replay scoped 多少種 correction on the same 2048 seeds
+        run: npm run readings:audit -- --policy duoshao-zhong-trial --output data/generated/polyphonic-context-duoshao-zhong-trial.json
+      - name: Verify no unrelated lexical drift in 多少種 paired comparison
+        run: >-
+          npx tsx scripts/compare-duoshao-zhong-trial.ts
+          data/generated/polyphonic-context-ordinal-line-trial.json
+          data/generated/polyphonic-context-duoshao-zhong-trial.json
+          data/generated/polyphonic-duoshao-zhong-trial-comparison.json
       - name: Verify exact-seed changes and reviewed-role rejection counts
         run: >-
           npx tsx scripts/compare-polyphonic-role-trial.ts
@@ -214,6 +223,8 @@ jobs:
             data/generated/polyphonic-targeted-identity-coverage.json
             data/generated/polyphonic-context-ordinal-line-trial.json
             data/generated/polyphonic-ordinal-line-trial-comparison.json
+            data/generated/polyphonic-context-duoshao-zhong-trial.json
+            data/generated/polyphonic-duoshao-zhong-trial-comparison.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
             data/generated/conflicting-target-exposure.json
