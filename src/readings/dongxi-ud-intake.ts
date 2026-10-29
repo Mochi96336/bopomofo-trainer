@@ -48,6 +48,63 @@ export interface DongxiUdCorpus {
   }[];
 }
 
+/** Verified against the immutable upstream UD CoNLL-U at source.commit.
+ * This second, independently pinned list prevents source JSON and review JSON
+ * drifting together while both continue to pass shape/count-only checks.
+ * Sentence strings are source provenance, not approved reading labels. */
+const PINNED_UPSTREAM_SOURCE_FACTS = {
+  "train-s681": {
+    "sentence": "有了這兩東西，人類生存了。",
+    "tokenId": 5,
+    "deprel": "obj"
+  },
+  "train-s1643": {
+    "sentence": "海光寺路口也成為天津市東西和南北方向的交通要衝，常年交通擁堵。",
+    "tokenId": 9,
+    "deprel": "nmod"
+  },
+  "train-s2287": {
+    "sentence": "我承認當時我踢的足球不像現在和在阿賈克斯踢的這麼漂亮，可是作為一名運動員，我學到了不少東西。",
+    "tokenId": 31,
+    "deprel": "obj"
+  },
+  "train-s2541": {
+    "sentence": "面對不可能和疑問，理性的人就只有放棄或否認，並永遠為失去的東西而悲傷。",
+    "tokenId": 21,
+    "deprel": "nmod"
+  },
+  "train-s3688": {
+    "sentence": "學民思潮召集人黃之鋒聞言舉起《中國模式國情專題教學手冊》，表示「此東西都是由大學所寫的」。",
+    "tokenId": 21,
+    "deprel": "ccomp"
+  },
+  "train-s3831": {
+    "sentence": "市境東西寬106公里，南北寬111公里，總面積4058平方公里。",
+    "tokenId": 2,
+    "deprel": "nsubj"
+  },
+  "dev-s34": {
+    "sentence": "北京外城共有七門，南面三門，東西各一門，此外還有兩座便門。",
+    "tokenId": 12,
+    "deprel": "conj"
+  },
+  "dev-s35": {
+    "sentence": "瓮城為元朝末年所修，因為當時崇仁門為東垣正中城門，因此瓮城幾乎為正方形，南北寬68米，東西深62米，南面辟閘樓、券門。",
+    "tokenId": 30,
+    "deprel": "nsubj"
+  },
+  "dev-s312": {
+    "sentence": "校園中有一條南北向的大道將校園分成東西兩部。",
+    "tokenId": 12,
+    "deprel": "obj"
+  },
+  "test-s354": {
+    "sentence": "始鏡猴科有可以抓住東西的手及腳，手指及腳趾有指甲而沒有爪。",
+    "tokenId": 6,
+    "deprel": "obj"
+  }
+} as const;
+
 export interface DongxiUdIntakeSummary {
   readonly schemaVersion: "dongxi-ud-gsd-intake-report-v1";
   readonly independentlyTokenizedOccurrences: number;
@@ -82,6 +139,12 @@ export function validateDongxiUdIntake(value: DongxiUdCorpus): DongxiUdIntakeSum
       throw new Error("invalid, duplicate, or relocated source sentence ID");
     }
     seen.add(row.id);
+    const pinned = PINNED_UPSTREAM_SOURCE_FACTS[row.sentId as keyof typeof PINNED_UPSTREAM_SOURCE_FACTS];
+    if (!pinned || row.sentence !== pinned.sentence
+      || row.lexicalSourceToken.id !== pinned.tokenId
+      || row.lexicalSourceToken.deprel !== pinned.deprel) {
+      throw new Error("pinned UD source sentence/token facts differ from verified upstream CoNLL-U");
+    }
     if ((row.sentence.match(/東西/gu) ?? []).length !== 1
       || !Number.isSafeInteger(row.lexicalSourceToken.id)
       || row.lexicalSourceToken.id < 1
