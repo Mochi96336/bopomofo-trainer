@@ -1,0 +1,69 @@
+name: Learner token exposure A/B
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/learner-token-exposure-ab.yml"
+      - "scripts/audit-learner-token-exposure.ts"
+      - "src/curriculum/frequency-first-utterance.ts"
+      - "src/curriculum/formal-syntax-utterance.ts"
+      - "src/product/session.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  paired-real-selector:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Generate active product catalog
+        run: npm run app:catalog
+      - name: Run paired production-selector weakness cohorts
+        run: >-
+          npx tsx scripts/audit-learner-token-exposure.ts
+          --samples 256
+          --output data/generated/learner-token-exposure-ab.json
+      - name: Summarize observed target-token exposure
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from "node:fs";
+          const report = JSON.parse(readFileSync("data/generated/learner-token-exposure-ab.json", "utf8"));
+          const targets = ["tone:4", "zhuyin:ㄗ", "tone:3"];
+          const lines = [
+            "# Actual learner-target exposure A/B",
+            "",
+            "Paired 256 fixed seeds and synthetic error evidence through the **real product selector**.",
+            "Counts are generated, valid expected tokens, not real users or learning outcomes.",
+            "",
+            "| Condition | tone:4 / 100 syllables | ㄗ / 100 syllables | tone:3 / 100 syllables |",
+            "|---|---:|---:|---:|",
+            ...Object.entries(report.cohorts).map(([name, row]) =>
+              `| ${name} | ${targets.map(t => row.exposureByToken[t].occurrencesPer100Syllables.toFixed(2)).join(" | ")} |`
+            ),
+            "",
+            ...report.weaknessVersusBaseline.map(row =>
+              `- ${row.targetToken}: ${row.netTokenOccurrenceDelta >= 0 ? "+" : ""}${row.netTokenOccurrenceDelta} token occurrences across ${report.sampleCountPerCohort} selected sentences; ${row.changedSentenceCount} paired outcomes changed`
+            ),
+            "",
+            "A candidate's post-generation totalWeight is **not** the measured exposure.",
+          ];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join("\n") + "\n");
+          NODE
+      - name: Publish full paired A/B JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: learner-token-exposure-ab-json
+          path: data/generated/learner-token-exposure-ab.json
+          retention-days: 14
+          if-no-files-found: error
