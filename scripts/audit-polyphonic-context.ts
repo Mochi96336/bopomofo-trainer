@@ -11,7 +11,6 @@ import {
   reviewedAdjacentReadingEligible,
   reviewedDuoshaoZhongReadingEligible,
 } from "../src/readings/reviewed-adjacent-context.js";
-import { reviewedAdjacentPreDrawReadingEligible, reviewedAdjacentReadingEligible } from "../src/readings/reviewed-adjacent-context.js";
 import { reviewedZhongRolePilotEligible } from "../src/readings/zhong-role-pilot.js";
 import {
   auditPolyphonicCandidate,
