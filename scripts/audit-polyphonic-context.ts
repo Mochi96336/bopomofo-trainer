@@ -11,6 +11,7 @@ import {
   reviewedAdjacentReadingEligible,
   reviewedDuoshaoZhongReadingEligible,
 } from "../src/readings/reviewed-adjacent-context.js";
+import { reviewedMoeStandardLeReadingEligible } from "../src/readings/moe-standard-le.js";
 import { reviewedZhongRolePilotEligible } from "../src/readings/zhong-role-pilot.js";
 import {
   auditPolyphonicCandidate,
@@ -46,6 +47,17 @@ const beforeMoeLePreDrawEligible = (
 ): boolean => reviewedOrdinalLineReadingEligible(entry, profile, previous)
   && reviewedDuoshaoZhongReadingEligible(entry, profile, previous);
 
+// The currently shipping #437 rule, deliberately frozen before the new
+// standalone 比 identity restriction. Prevent comparing the new gate to itself.
+const beforeMoeBiReadingEligible = (
+  entry: (typeof PRACTICE_CATALOG)[number],
+  profile: (typeof SYNTAX_PROFILES)[number],
+  slot: unknown,
+  previous: (typeof PRACTICE_CATALOG)[number] | null,
+): boolean => reviewedMoeStandardLeReadingEligible(entry, profile)
+  && reviewedRoleAndOrdinalLineReadingEligible(entry, profile, slot, previous)
+  && reviewedDuoshaoZhongReadingEligible(entry, profile, previous);
+
 const PRODUCT_BOUNDS = {
   maximumPhraseDepth: 3,
   maximumClauseNesting: 1,
@@ -56,7 +68,7 @@ const PRODUCT_BOUNDS = {
   maximumLexicalEntriesPerUtterance: 6,
 } as const;
 
-type ReadingAuditPolicy = "none" | "reviewed-closed" | "reviewed-roles" | "zhong-role-trial" | "ordinal-line-trial" | "duoshao-zhong-trial" | "standard-le-trial";
+type ReadingAuditPolicy = "none" | "reviewed-closed" | "reviewed-roles" | "zhong-role-trial" | "ordinal-line-trial" | "duoshao-zhong-trial" | "standard-le-trial" | "standard-bi-trial";
 
 function argumentsFromCli(): { samples: number; output: string; policy: ReadingAuditPolicy } {
   let samples = 2048;
@@ -74,8 +86,8 @@ function argumentsFromCli(): { samples: number; output: string; policy: ReadingA
     } else if (name === "--output") {
       output = value;
     } else if (name === "--policy") {
-      if (value !== "none" && value !== "reviewed-closed" && value !== "reviewed-roles" && value !== "zhong-role-trial" && value !== "ordinal-line-trial" && value !== "duoshao-zhong-trial" && value !== "standard-le-trial") {
-        throw new Error("--policy accepts none, reviewed-closed, reviewed-roles, zhong-role-trial, ordinal-line-trial, duoshao-zhong-trial or standard-le-trial");
+      if (value !== "none" && value !== "reviewed-closed" && value !== "reviewed-roles" && value !== "zhong-role-trial" && value !== "ordinal-line-trial" && value !== "duoshao-zhong-trial" && value !== "standard-le-trial" && value !== "standard-bi-trial") {
+        throw new Error("--policy accepts none, reviewed-closed, reviewed-roles, zhong-role-trial, ordinal-line-trial, duoshao-zhong-trial, standard-le-trial or standard-bi-trial");
       }
       policy = value;
     } else {
@@ -131,13 +143,15 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
         : policy === "duoshao-zhong-trial"
           ? { readingEligibility: beforeMoeLeReadingEligible }
         : policy === "standard-le-trial"
+          ? { readingEligibility: beforeMoeBiReadingEligible }
+        : policy === "standard-bi-trial"
           ? { readingEligibility: reviewedAdjacentReadingEligible }
         : policy === "zhong-role-trial"
           ? { readingEligibility: reviewedZhongRolePilotEligible }
           : {}),
     ...(policy === "duoshao-zhong-trial"
       ? { preDrawReadingEligibility: beforeMoeLePreDrawEligible }
-      : policy === "standard-le-trial"
+      : policy === "standard-le-trial" || policy === "standard-bi-trial"
       ? { preDrawReadingEligibility: reviewedAdjacentPreDrawReadingEligible }
       : policy === "ordinal-line-trial"
       ? { preDrawReadingEligibility: (
