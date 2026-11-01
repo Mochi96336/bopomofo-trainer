@@ -6,7 +6,11 @@ import { createSeededRandom } from "../src/curriculum/random.js";
 import { reviewedClosedClassReadingEligible } from "../src/readings/closed-class-license.js";
 import { reviewedRoleReadingEligible } from "../src/readings/pronominal-role-license.js";
 import { reviewedRoleAndOrdinalLineReadingEligible, reviewedOrdinalLineReadingEligible } from "../src/readings/ordinal-line-context.js";
-import { reviewedAdjacentPreDrawReadingEligible, reviewedAdjacentReadingEligible } from "../src/readings/reviewed-adjacent-context.js";
+import {
+  reviewedAdjacentPreDrawReadingEligible,
+  reviewedAdjacentReadingEligible,
+  reviewedDuoshaoZhongReadingEligible,
+} from "../src/readings/reviewed-adjacent-context.js";
 import { reviewedAdjacentPreDrawReadingEligible, reviewedAdjacentReadingEligible } from "../src/readings/reviewed-adjacent-context.js";
 import { reviewedZhongRolePilotEligible } from "../src/readings/zhong-role-pilot.js";
 import {
@@ -24,6 +28,25 @@ import {
  * npx tsx scripts/audit-polyphonic-context.ts --samples 100
  */
 const SEED_NAMESPACE = "formal-syntax-v2-phase1-product-baseline-v1";
+
+// Freeze the prior #436 shipping boundary for a true before/after comparison.
+// It deliberately must NOT call reviewedAdjacentReadingEligible, which now
+// contains the added MOE 了 standard gate in the trial branch.
+const beforeMoeLeReadingEligible = (
+  entry: (typeof PRACTICE_CATALOG)[number],
+  profile: (typeof SYNTAX_PROFILES)[number],
+  slot: unknown,
+  previous: (typeof PRACTICE_CATALOG)[number] | null,
+): boolean => reviewedRoleAndOrdinalLineReadingEligible(entry, profile, slot, previous)
+  && reviewedDuoshaoZhongReadingEligible(entry, profile, previous);
+const beforeMoeLePreDrawEligible = (
+  entry: (typeof PRACTICE_CATALOG)[number],
+  profile: (typeof SYNTAX_PROFILES)[number],
+  _slot: unknown,
+  previous: (typeof PRACTICE_CATALOG)[number] | null,
+): boolean => reviewedOrdinalLineReadingEligible(entry, profile, previous)
+  && reviewedDuoshaoZhongReadingEligible(entry, profile, previous);
+
 const PRODUCT_BOUNDS = {
   maximumPhraseDepth: 3,
   maximumClauseNesting: 1,
@@ -106,12 +129,16 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
         ? { readingEligibility: reviewedRoleReadingEligible }
         : policy === "ordinal-line-trial"
           ? { readingEligibility: reviewedRoleAndOrdinalLineReadingEligible }
-        : policy === "duoshao-zhong-trial" || policy === "standard-le-trial"
+        : policy === "duoshao-zhong-trial"
+          ? { readingEligibility: beforeMoeLeReadingEligible }
+        : policy === "standard-le-trial"
           ? { readingEligibility: reviewedAdjacentReadingEligible }
         : policy === "zhong-role-trial"
           ? { readingEligibility: reviewedZhongRolePilotEligible }
           : {}),
-    ...(policy === "duoshao-zhong-trial" || policy === "standard-le-trial"
+    ...(policy === "duoshao-zhong-trial"
+      ? { preDrawReadingEligibility: beforeMoeLePreDrawEligible }
+      : policy === "standard-le-trial"
       ? { preDrawReadingEligibility: reviewedAdjacentPreDrawReadingEligible }
       : policy === "ordinal-line-trial"
       ? { preDrawReadingEligibility: (
