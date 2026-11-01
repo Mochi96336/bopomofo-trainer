@@ -12,6 +12,7 @@ import {
   createProductState,
 } from "../../src/product/session.js";
 import { reviewedRoleReadingEligible } from "../../src/readings/pronominal-role-license.js";
+import { reviewedMoeStandardLeReadingEligible } from "../../src/readings/moe-standard-le.js";
 
 const wholeCatalogs = { practice: PRACTICE_CATALOG, syntaxProfiles: SYNTAX_PROFILES };
 const standardLayout = "standard";
@@ -33,13 +34,10 @@ function assertRoundReadings(
 }
 
 /**
- * Removing a nonstandard candidate from the weighted lexical frontier may
- * change exactly the current lexical slot even when the originally drawn
- * candidate was itself licensed. A separate pinned 2048-seed comparison
- * specifically proves the new 了 standard boundary; do not infer from
- * different written output alone that a pronunciation was corrected.
+ * A strictly legal 第N frontier may legitimately draw a different adjacent
+ * word without any change to the rest of the sentence/grammar.
  */
-function assertOnlyOneLexicalSlotChanged(
+function assertOnlyOrdinalAdjacentSlotChanged(
   original: ReturnType<typeof selectFormalSyntaxUtterance>["utterance"],
   next: ReturnType<typeof selectFormalSyntaxUtterance>["utterance"],
 ): void {
@@ -49,10 +47,10 @@ function assertOnlyOneLexicalSlotChanged(
     item.id === next.entries[i]?.id ? [] : [i]);
   expect(changed).toHaveLength(1);
   const at = changed[0]!;
-  expect(at).toBeGreaterThanOrEqual(0);
-  if (at > 0) {
-    expect(original.entries[at - 1]?.id).toBe(next.entries[at - 1]?.id);
-  }
+  expect(at).toBeGreaterThan(0);
+  expect(original.entries[at - 1]?.id).toBe(next.entries[at - 1]?.id);
+  expect(original.entries[at - 1]?.prompt.text)
+    .toMatch(/^第[一二三四五六七八九十百千萬兩零〇0-9０-９]+$/u);
 }
 
 describe("production reviewed reading disambiguation", () => {
@@ -84,7 +82,8 @@ describe("production reviewed reading disambiguation", () => {
       const originalRejected = originalCandidate.entries.some((entry, i) => {
         const profile = profilesById.get(originalCandidate.syntaxProfileIds?.[i] ?? "");
         if (profile === undefined) throw new Error("expected a profile for each selected entry");
-        return !reviewedRoleReadingEligible(entry, profile);
+        return !reviewedRoleReadingEligible(entry, profile)
+          || !reviewedMoeStandardLeReadingEligible(entry, profile);
       });
       const actual = createProductState(environment, progress, 0);
       assertRoundReadings(actual, profilesById);
@@ -93,7 +92,7 @@ describe("production reviewed reading disambiguation", () => {
         observedRejects += 1;
         expect(changed).toBe(true);
       } else if (changed) {
-        assertOnlyOneLexicalSlotChanged(originalCandidate, actual.round.selection.utterance);
+        assertOnlyOrdinalAdjacentSlotChanged(originalCandidate, actual.round.selection.utterance);
       }
       expect(actual.progress).toBe(progress);
       expect(actual.round.selection.score.entryIds).toEqual(
@@ -163,11 +162,12 @@ describe("production reviewed reading disambiguation", () => {
               const profileId = original!.utterance.syntaxProfileIds?.[index];
               const profile = profilesById.get(profileId ?? "");
               if (profile === undefined) throw new Error("missing original syntax profile");
-              return reviewedRoleReadingEligible(entry, profile);
+              return reviewedRoleReadingEligible(entry, profile)
+                && reviewedMoeStandardLeReadingEligible(entry, profile);
             });
             if (originalLicensed
               && product.round.selection.utterance.id !== original.utterance.id) {
-              assertOnlyOneLexicalSlotChanged(original.utterance, product.round.selection.utterance);
+              assertOnlyOrdinalAdjacentSlotChanged(original.utterance, product.round.selection.utterance);
             }
           }
         }
