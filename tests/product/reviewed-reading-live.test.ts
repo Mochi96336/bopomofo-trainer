@@ -12,6 +12,7 @@ import {
   createProductState,
 } from "../../src/product/session.js";
 import { reviewedRoleReadingEligible } from "../../src/readings/pronominal-role-license.js";
+import { reviewedMoeStandardLeReadingEligible } from "../../src/readings/moe-standard-le.js";
 
 const wholeCatalogs = { practice: PRACTICE_CATALOG, syntaxProfiles: SYNTAX_PROFILES };
 const standardLayout = "standard";
@@ -81,7 +82,8 @@ describe("production reviewed reading disambiguation", () => {
       const originalRejected = originalCandidate.entries.some((entry, i) => {
         const profile = profilesById.get(originalCandidate.syntaxProfileIds?.[i] ?? "");
         if (profile === undefined) throw new Error("expected a profile for each selected entry");
-        return !reviewedRoleReadingEligible(entry, profile);
+        return !reviewedRoleReadingEligible(entry, profile)
+          || !reviewedMoeStandardLeReadingEligible(entry, profile);
       });
       const actual = createProductState(environment, progress, 0);
       assertRoundReadings(actual, profilesById);
@@ -160,7 +162,8 @@ describe("production reviewed reading disambiguation", () => {
               const profileId = original!.utterance.syntaxProfileIds?.[index];
               const profile = profilesById.get(profileId ?? "");
               if (profile === undefined) throw new Error("missing original syntax profile");
-              return reviewedRoleReadingEligible(entry, profile);
+              return reviewedRoleReadingEligible(entry, profile)
+                && reviewedMoeStandardLeReadingEligible(entry, profile);
             });
             if (originalLicensed
               && product.round.selection.utterance.id !== original.utterance.id) {

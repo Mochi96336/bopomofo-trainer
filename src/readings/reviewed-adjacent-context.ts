@@ -1,6 +1,7 @@
 import { catalogEntryId } from "../core/catalog-entry-id.js";
 import type { CatalogEntry } from "../core/model.js";
 import type { RuntimeSyntaxProfile } from "../syntax/types.js";
+import { reviewedMoeStandardLeReadingEligible } from "./moe-standard-le.js";
 import {
   reviewedOrdinalLineReadingEligible,
   reviewedRoleAndOrdinalLineReadingEligible,
@@ -42,6 +43,9 @@ export function reviewedAdjacentPreDrawReadingEligible(
   _slot: unknown,
   previousEntry: CatalogEntry | null,
 ): boolean {
+  // The MOE 了 standard applies on *actual selected* reading via the
+  // post-draw gate below. Predraw filtering every ordinary lexical frontier
+  // unnecessarily shifts already-legal selections across other slots.
   return reviewedOrdinalLineReadingEligible(entry, profile, previousEntry)
     && reviewedDuoshaoZhongReadingEligible(entry, profile, previousEntry);
 }
@@ -53,6 +57,7 @@ export function reviewedAdjacentReadingEligible(
   slot: unknown,
   previousEntry: CatalogEntry | null,
 ): boolean {
-  return reviewedRoleAndOrdinalLineReadingEligible(entry, profile, slot, previousEntry)
+  return reviewedMoeStandardLeReadingEligible(entry, profile)
+    && reviewedRoleAndOrdinalLineReadingEligible(entry, profile, slot, previousEntry)
     && reviewedDuoshaoZhongReadingEligible(entry, profile, previousEntry);
 }
