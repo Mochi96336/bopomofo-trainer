@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/polyphonic-reading-exposure.yml"
       - "scripts/audit-polyphonic-context.ts"
+      - "scripts/compare-moe-standard-le.ts"
       - "scripts/compare-zhong-role-trial.ts"
       - "scripts/compare-ordinal-line-trial.ts"
       - "scripts/compare-duoshao-zhong-trial.ts"
@@ -80,6 +81,14 @@ jobs:
           data/generated/polyphonic-context-ordinal-line-trial.json
           data/generated/polyphonic-context-duoshao-zhong-trial.json
           data/generated/polyphonic-duoshao-zhong-trial-comparison.json
+      - name: Replay MOE-standard 了 pronunciation on same 2048 seeds
+        run: npm run readings:audit -- --policy standard-le-trial --output data/generated/polyphonic-context-standard-le-trial.json
+      - name: Compare 了 standard-reading identity and single-slot changes
+        run: >-
+          npx tsx scripts/compare-moe-standard-le.ts
+          data/generated/polyphonic-context-duoshao-zhong-trial.json
+          data/generated/polyphonic-context-standard-le-trial.json
+          data/generated/polyphonic-standard-le-trial-comparison.json
       - name: Verify exact-seed changes and reviewed-role rejection counts
         run: >-
           npx tsx scripts/compare-polyphonic-role-trial.ts
@@ -225,6 +234,8 @@ jobs:
             data/generated/polyphonic-ordinal-line-trial-comparison.json
             data/generated/polyphonic-context-duoshao-zhong-trial.json
             data/generated/polyphonic-duoshao-zhong-trial-comparison.json
+            data/generated/polyphonic-context-standard-le-trial.json
+            data/generated/polyphonic-standard-le-trial-comparison.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
             data/generated/conflicting-target-exposure.json
