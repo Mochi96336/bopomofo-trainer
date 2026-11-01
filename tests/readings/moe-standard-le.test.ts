@@ -44,7 +44,7 @@ describe("MOE Taiwan standard readings for standalone 了", () => {
       .toThrow("actual selected catalog identity");
   });
 
-  it("blocks unsupported fourth-tone before learner-frequency weights are sampled", () => {
+  it("resamples only the current invalid identity using legal candidate weights", () => {
     const subject = entry("幫助", "ㄅㄤ1 ㄓㄨ4");
     const goodOther = entry("能", "ㄋㄥ2");
     const p = (x: CatalogEntry, upos: Upos, fn: "subject" | "predicate") => ({
@@ -96,6 +96,24 @@ describe("MOE Taiwan standard readings for standalone 了", () => {
     expect(reviewed.entries[1]?.id).toBe(goodOther.id);
     expect(reviewed.syntaxRootRuleId).toBe(raw.syntaxRootRuleId);
     expect(reviewed.entries[0]?.id).toBe(raw.entries[0]?.id);
+
+    // A draw which is already licensed must not be changed just because an
+    // unapproved identity was present elsewhere in the weighted frontier.
+    const alreadyLegal = {
+      ...base,
+      entryWeightsById: {
+        [subject.id]: 1, [le.id]: 1, [liao3.id]: 1,
+        [liao4.id]: 0.01, [goodOther.id]: 1000000,
+      },
+    };
+    const legalBefore = composeFormalSyntaxUtterances(alreadyLegal).candidates[0]!;
+    const legalAfter = composeFormalSyntaxUtterances({
+      ...alreadyLegal,
+      readingEligibility: reviewedAdjacentReadingEligible,
+      preDrawReadingEligibility: reviewedAdjacentPreDrawReadingEligible,
+    }).candidates[0]!;
+    expect(legalBefore.entries[1]?.id).toBe(goodOther.id);
+    expect(legalAfter.entries.map(x => x.id)).toEqual(legalBefore.entries.map(x => x.id));
   });
 
   it("preserves the other reviewed 多少種 and 第N行 rules", () => {
