@@ -33,10 +33,13 @@ function assertRoundReadings(
 }
 
 /**
- * A strictly legal 第N frontier may legitimately draw a different adjacent
- * word without any change to the rest of the sentence/grammar.
+ * Removing a nonstandard candidate from the weighted lexical frontier may
+ * change exactly the current lexical slot even when the originally drawn
+ * candidate was itself licensed. A separate pinned 2048-seed comparison
+ * specifically proves the new 了 standard boundary; do not infer from
+ * different written output alone that a pronunciation was corrected.
  */
-function assertOnlyOrdinalAdjacentSlotChanged(
+function assertOnlyOneLexicalSlotChanged(
   original: ReturnType<typeof selectFormalSyntaxUtterance>["utterance"],
   next: ReturnType<typeof selectFormalSyntaxUtterance>["utterance"],
 ): void {
@@ -46,10 +49,10 @@ function assertOnlyOrdinalAdjacentSlotChanged(
     item.id === next.entries[i]?.id ? [] : [i]);
   expect(changed).toHaveLength(1);
   const at = changed[0]!;
-  expect(at).toBeGreaterThan(0);
-  expect(original.entries[at - 1]?.id).toBe(next.entries[at - 1]?.id);
-  expect(original.entries[at - 1]?.prompt.text)
-    .toMatch(/^第[一二三四五六七八九十百千萬兩零〇0-9０-９]+$/u);
+  expect(at).toBeGreaterThanOrEqual(0);
+  if (at > 0) {
+    expect(original.entries[at - 1]?.id).toBe(next.entries[at - 1]?.id);
+  }
 }
 
 describe("production reviewed reading disambiguation", () => {
@@ -90,7 +93,7 @@ describe("production reviewed reading disambiguation", () => {
         observedRejects += 1;
         expect(changed).toBe(true);
       } else if (changed) {
-        assertOnlyOrdinalAdjacentSlotChanged(originalCandidate, actual.round.selection.utterance);
+        assertOnlyOneLexicalSlotChanged(originalCandidate, actual.round.selection.utterance);
       }
       expect(actual.progress).toBe(progress);
       expect(actual.round.selection.score.entryIds).toEqual(
@@ -164,7 +167,7 @@ describe("production reviewed reading disambiguation", () => {
             });
             if (originalLicensed
               && product.round.selection.utterance.id !== original.utterance.id) {
-              assertOnlyOrdinalAdjacentSlotChanged(original.utterance, product.round.selection.utterance);
+              assertOnlyOneLexicalSlotChanged(original.utterance, product.round.selection.utterance);
             }
           }
         }
