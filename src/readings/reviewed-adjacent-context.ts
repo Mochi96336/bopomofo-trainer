@@ -43,8 +43,10 @@ export function reviewedAdjacentPreDrawReadingEligible(
   _slot: unknown,
   previousEntry: CatalogEntry | null,
 ): boolean {
-  return reviewedMoeStandardLeReadingEligible(entry, profile)
-    && reviewedOrdinalLineReadingEligible(entry, profile, previousEntry)
+  // The MOE 了 standard applies on *actual selected* reading via the
+  // post-draw gate below. Predraw filtering every ordinary lexical frontier
+  // unnecessarily shifts already-legal selections across other slots.
+  return reviewedOrdinalLineReadingEligible(entry, profile, previousEntry)
     && reviewedDuoshaoZhongReadingEligible(entry, profile, previousEntry);
 }
 
