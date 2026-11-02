@@ -189,6 +189,7 @@ export interface FormalSyntaxUtteranceSelectionInput
   readonly readingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
   readonly preDrawReadingEligibility?: FormalSyntaxUtteranceInput["preDrawReadingEligibility"];
   readonly finalCandidateReadingEligibility?: FormalSyntaxUtteranceInput["finalCandidateReadingEligibility"];
+  readonly subsequentFinalCandidateReadingEligibility?: FormalSyntaxUtteranceInput["subsequentFinalCandidateReadingEligibility"];
   readonly formalSyntaxComposition?: FormalSyntaxCompositionOverride;
   readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
   readonly preparedFormalSyntaxExecution?: PreparedFormalSyntaxExecution;
@@ -554,6 +555,8 @@ function generateOnce(
     ...(input.preDrawReadingEligibility === undefined ? {} : { preDrawReadingEligibility: input.preDrawReadingEligibility }),
     ...(input.finalCandidateReadingEligibility === undefined
       ? {} : { finalCandidateReadingEligibility: input.finalCandidateReadingEligibility }),
+    ...(input.subsequentFinalCandidateReadingEligibility === undefined
+      ? {} : { subsequentFinalCandidateReadingEligibility: input.subsequentFinalCandidateReadingEligibility }),
     minimumLexicalEntries: 2,
     maximumCandidates: 1,
     maximumAttempts: 64,
