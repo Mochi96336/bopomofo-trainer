@@ -16,6 +16,7 @@ import { reviewedMoeStandardLeReadingEligible } from "../../src/readings/moe-sta
 import { reviewedMoeStandardBiReadingEligible } from "../../src/readings/moe-standard-bi.js";
 import { reviewedMoeStandardDeReadingEligible } from "../../src/readings/moe-standard-de.js";
 import { reviewedMoeStandardYuReadingEligible } from "../../src/readings/moe-standard-yu.js";
+import { reviewedMoeStandardNanReadingEligible } from "../../src/readings/moe-standard-nan.js";
 
 const wholeCatalogs = { practice: PRACTICE_CATALOG, syntaxProfiles: SYNTAX_PROFILES };
 const standardLayout = "standard";
@@ -34,6 +35,7 @@ function assertRoundReadings(
     expect(reviewedMoeStandardBiReadingEligible(candidate.entries[i]!, profile!)).toBe(true);
     expect(reviewedMoeStandardDeReadingEligible(candidate.entries[i]!, profile!)).toBe(true);
     expect(reviewedMoeStandardYuReadingEligible(candidate.entries[i]!, profile!)).toBe(true);
+    expect(reviewedMoeStandardNanReadingEligible(candidate.entries[i]!, profile!)).toBe(true);
   }
   expect(state.round.exercise.entries.map(entry => entry.id)).toEqual(
     candidate.entries.map(entry => entry.id),
@@ -93,7 +95,8 @@ describe("production reviewed reading disambiguation", () => {
           || !reviewedMoeStandardLeReadingEligible(entry, profile)
           || !reviewedMoeStandardBiReadingEligible(entry, profile)
           || !reviewedMoeStandardDeReadingEligible(entry, profile)
-          || !reviewedMoeStandardYuReadingEligible(entry, profile);
+          || !reviewedMoeStandardYuReadingEligible(entry, profile)
+          || !reviewedMoeStandardNanReadingEligible(entry, profile);
       });
       const actual = createProductState(environment, progress, 0);
       assertRoundReadings(actual, profilesById);
@@ -176,7 +179,8 @@ describe("production reviewed reading disambiguation", () => {
                 && reviewedMoeStandardLeReadingEligible(entry, profile)
                 && reviewedMoeStandardBiReadingEligible(entry, profile)
                 && reviewedMoeStandardDeReadingEligible(entry, profile)
-                && reviewedMoeStandardYuReadingEligible(entry, profile);
+                && reviewedMoeStandardYuReadingEligible(entry, profile)
+                && reviewedMoeStandardNanReadingEligible(entry, profile);
             });
             if (originalLicensed
               && product.round.selection.utterance.id !== original.utterance.id) {
