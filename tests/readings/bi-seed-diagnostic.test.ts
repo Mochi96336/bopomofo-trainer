@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../../src/app/generated/catalog.js";
 import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
 import { createSeededRandom } from "../../src/curriculum/random.js";
-import { reviewedAdjacentReadingEligible, reviewedAdjacentPreDrawReadingEligible, reviewedDuoshaoZhongReadingEligible } from "../../src/readings/reviewed-adjacent-context.js";
+import { reviewedAdjacentPreDrawReadingEligible, reviewedDuoshaoZhongReadingEligible } from "../../src/readings/reviewed-adjacent-context.js";
 import { reviewedMoeStandardLeReadingEligible } from "../../src/readings/moe-standard-le.js";
 import { reviewedRoleAndOrdinalLineReadingEligible } from "../../src/readings/ordinal-line-context.js";
 import { reviewedMoeStandardBiReadingEligible } from "../../src/readings/moe-standard-bi.js";
