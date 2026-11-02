@@ -14,6 +14,8 @@ on:
       - "scripts/compare-moe-standard-yu.ts"
       - "scripts/compare-moe-standard-nan.ts"
       - "scripts/compare-moe-standard-xing.ts"
+      - "scripts/compare-moe-standard-guo.ts"
+      - "src/readings/moe-standard-guo.ts"
       - "src/readings/moe-standard-xing.ts"
       - "src/readings/moe-standard-nan.ts"
       - "src/readings/moe-standard-yu.ts"
@@ -141,6 +143,14 @@ jobs:
           data/generated/polyphonic-context-standard-nan-trial.json
           data/generated/polyphonic-context-standard-xing-trial.json
           data/generated/polyphonic-standard-xing-trial-comparison.json
+      - name: Replay MOE-standard 過 pronunciation against frozen 2048 seeds
+        run: npm run readings:audit -- --policy standard-guo-trial --output data/generated/polyphonic-context-standard-guo-trial.json
+      - name: Reject changes outside original 過 lexical slots and all known incorrect readings
+        run: >-
+          npx tsx scripts/compare-moe-standard-guo.ts
+          data/generated/polyphonic-context-standard-xing-trial.json
+          data/generated/polyphonic-context-standard-guo-trial.json
+          data/generated/polyphonic-standard-guo-trial-comparison.json
       - name: Inventory selected final readings against partial MOE projections without guessing correctness
         run: npx tsx scripts/audit-selected-moe-headword-coverage.ts
       - name: Verify exact-seed changes and reviewed-role rejection counts
@@ -300,6 +310,8 @@ jobs:
             data/generated/polyphonic-standard-nan-trial-comparison.json
             data/generated/polyphonic-context-standard-xing-trial.json
             data/generated/polyphonic-standard-xing-trial-comparison.json
+            data/generated/polyphonic-context-standard-guo-trial.json
+            data/generated/polyphonic-standard-guo-trial-comparison.json
             data/generated/selected-moe-headword-coverage.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
