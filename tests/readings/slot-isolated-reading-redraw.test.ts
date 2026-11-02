@@ -43,12 +43,6 @@ const rule:ProductionRule={
   surfaceOrders:[{id:"canonical",constituentKeys:["first","target","last"]}],
   constraints:[],positiveFixtureIds:["p"],negativeFixtureIds:["n"],
 };
-// Each structural slot gets a separate eligible identity through a focused
-// profile ID filter. The scorer still uses the real lexical weighted sampler.
-const singleSlotCompatible = (
-  _item:CatalogEntry,
-  _p:RuntimeSyntaxProfile,
-) => true;
 function run(seed:string, guard:boolean) {
   const source=counter(seed);
   const result=composeFormalSyntaxUtterances({
@@ -64,7 +58,9 @@ function run(seed:string, guard:boolean) {
     }:{}),
     maximumCandidates:1,maximumAttempts:1,minimumLexicalEntries:2,
   });
-  return {candidate:result.candidates[0],calls:source.count(),reason:result.fallbackReasons};
+  const calls=source.count();
+  const nextValue=source.random.next();
+  return {candidate:result.candidates[0],calls,nextValue,reason:result.fallbackReasons};
 }
 
 describe("opt-in pronunciation rejection does not advance parent RNG",()=>{
@@ -76,6 +72,7 @@ describe("opt-in pronunciation rejection does not advance parent RNG",()=>{
       expect(baseline.candidate).toBeDefined();
       expect(guarded.candidate?.entries.every(e=>e.id!==bad.id)).toBe(true);
       expect(guarded.calls).toBe(baseline.calls);
+      expect(guarded.nextValue).toBe(baseline.nextValue);
       expect(guarded.candidate?.syntaxRootRuleId).toBe(baseline.candidate?.syntaxRootRuleId);
     }
   });
