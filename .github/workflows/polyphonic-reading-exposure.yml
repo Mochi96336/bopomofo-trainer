@@ -15,6 +15,8 @@ on:
       - "scripts/compare-moe-standard-nan.ts"
       - "scripts/compare-moe-standard-xing.ts"
       - "scripts/compare-moe-standard-guo.ts"
+      - "scripts/compare-moe-na-surname.ts"
+      - "src/readings/moe-na-surname-role.ts"
       - "src/readings/moe-standard-guo.ts"
       - "src/readings/moe-standard-xing.ts"
       - "src/readings/moe-standard-nan.ts"
@@ -151,6 +153,14 @@ jobs:
           data/generated/polyphonic-context-standard-xing-trial.json
           data/generated/polyphonic-context-standard-guo-trial.json
           data/generated/polyphonic-standard-guo-trial-comparison.json
+      - name: Replay MOE surname-only 那 on the same 2048 seeds
+        run: npm run readings:audit -- --policy standard-na-surname-trial --output data/generated/polyphonic-context-standard-na-surname-trial.json
+      - name: Reject all off-target seeds or lexical slots for surname-tone 那
+        run: >-
+          npx tsx scripts/compare-moe-na-surname.ts
+          data/generated/polyphonic-context-standard-guo-trial.json
+          data/generated/polyphonic-context-standard-na-surname-trial.json
+          data/generated/polyphonic-na-surname-trial-comparison.json
       - name: Inventory selected final readings against partial MOE projections without guessing correctness
         run: npx tsx scripts/audit-selected-moe-headword-coverage.ts
       - name: Verify exact-seed changes and reviewed-role rejection counts
@@ -312,6 +322,8 @@ jobs:
             data/generated/polyphonic-standard-xing-trial-comparison.json
             data/generated/polyphonic-context-standard-guo-trial.json
             data/generated/polyphonic-standard-guo-trial-comparison.json
+            data/generated/polyphonic-context-standard-na-surname-trial.json
+            data/generated/polyphonic-na-surname-trial-comparison.json
             data/generated/selected-moe-headword-coverage.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
