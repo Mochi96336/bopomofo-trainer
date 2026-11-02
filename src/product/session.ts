@@ -23,7 +23,7 @@ import {
   reviewedAdjacentPreDrawReadingEligible,
   reviewedAdjacentReadingEligible,
 } from "../readings/reviewed-adjacent-context.js";
-import { NONSTANDARD_BI_FIRST_TONE_ID } from "../readings/moe-standard-bi.js";
+import { reviewedMoeStandardBiReadingEligible } from "../readings/moe-standard-bi.js";
 import { createSeededRandom } from "../curriculum/random.js";
 import { createCatalogSupportIndex } from "../curriculum/support.js";
 import {
@@ -119,10 +119,7 @@ function selectRound(
     // reviewed-role mismatch is resampled. No catalog/progress IDs are rewritten.
     readingEligibility: reviewedAdjacentReadingEligible,
     preDrawReadingEligibility: reviewedAdjacentPreDrawReadingEligible,
-    // Only activate with a verified source-backed reading correction.
-    // The first legal draw remains byte-identical; an invalid selected
-    // pronunciation receives its own local re-draw RNG.
-    isolatedReadingRedrawEntryIds: new Set([NONSTANDARD_BI_FIRST_TONE_ID]),
+    finalCandidateReadingEligibility: reviewedMoeStandardBiReadingEligible,
     preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
     preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
