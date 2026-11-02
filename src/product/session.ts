@@ -23,6 +23,7 @@ import {
   reviewedAdjacentPreDrawReadingEligible,
   reviewedAdjacentReadingEligible,
 } from "../readings/reviewed-adjacent-context.js";
+import { NONSTANDARD_BI_FIRST_TONE_ID } from "../readings/moe-standard-bi.js";
 import { createSeededRandom } from "../curriculum/random.js";
 import { createCatalogSupportIndex } from "../curriculum/support.js";
 import {
@@ -121,7 +122,7 @@ function selectRound(
     // Only activate with a verified source-backed reading correction.
     // The first legal draw remains byte-identical; an invalid selected
     // pronunciation receives its own local re-draw RNG.
-    isolateReadingRedrawRandom: true,
+    isolatedReadingRedrawEntryIds: new Set([NONSTANDARD_BI_FIRST_TONE_ID]),
     preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
     preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
