@@ -86,6 +86,12 @@ export interface FormalSyntaxUtteranceInput {
    * its legal compatible candidates with their original weights.
    */
   readonly finalCandidateReadingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
+  /**
+   * An optional, strictly later stage for a second exact identity restriction.
+   * The first final-candidate repair must finish with its original candidate
+   * frontier and weights before the next restriction is considered.
+   */
+  readonly subsequentFinalCandidateReadingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
@@ -797,8 +803,14 @@ export function composeFormalSyntaxUtterances(
       if (entry === undefined) throw new Error(`formal syntax selected missing entry ${entryId}`);
       return entry;
     });
-    const finalReadingPolicy = input.finalCandidateReadingEligibility;
-    if (finalReadingPolicy !== undefined) {
+    const finalReadingPolicies = [
+      input.finalCandidateReadingEligibility,
+      input.subsequentFinalCandidateReadingEligibility,
+    ].filter((policy): policy is NonNullable<FormalSyntaxUtteranceInput["readingEligibility"]> =>
+      policy !== undefined);
+    for (let stage = 0; stage < finalReadingPolicies.length; stage += 1) {
+      const finalReadingPolicy = finalReadingPolicies[stage]!;
+      const previousFinalPolicies = finalReadingPolicies.slice(0,stage);
       const practiceSlots = shape.lexicalSlots.filter(isPracticeLexicalSlot);
       if (practiceSlots.length !== entries.length
         || realization.syntaxProfileIds.length !== entries.length) {
@@ -827,6 +839,7 @@ export function composeFormalSyntaxUtterances(
           return alternative !== undefined
             && (input.preDrawReadingEligibility?.(alternative, profile, slot, previous) ?? true)
             && (input.readingEligibility?.(alternative, profile, slot, previous) ?? true)
+            && previousFinalPolicies.every(policy => policy(alternative, profile, slot, previous))
             && finalReadingPolicy(alternative, profile, slot, previous);
         });
         const usedElsewhere = new Set(entries.filter((_item, at) => at !== i).map(item => item.id));
@@ -866,6 +879,7 @@ export function composeFormalSyntaxUtterances(
           const previous = i === 0 ? null : entries[i-1]!;
           return !(input.preDrawReadingEligibility?.(entry, profile, slot, previous) ?? true)
             || !(input.readingEligibility?.(entry, profile, slot, previous) ?? true)
+            || previousFinalPolicies.some(policy => !policy(entry, profile, slot, previous))
             || !finalReadingPolicy(entry, profile, slot, previous);
         })) {
           throw new Error("final candidate repair still contains an unapproved reading");
