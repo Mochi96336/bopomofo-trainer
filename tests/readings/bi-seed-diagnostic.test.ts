@@ -10,6 +10,7 @@ import { reviewedMoeStandardDeReadingEligible } from "../../src/readings/moe-sta
 import { reviewedMoeStandardYuReadingEligible } from "../../src/readings/moe-standard-yu.js";
 import { reviewedMoeStandardNanReadingEligible } from "../../src/readings/moe-standard-nan.js";
 import { reviewedMoeStandardXingReadingEligible } from "../../src/readings/moe-standard-xing.js";
+import { reviewedMoeStandardGuoReadingEligible } from "../../src/readings/moe-standard-guo.js";
 
 const bounds = {
   maximumPhraseDepth:3,maximumClauseNesting:1,maximumClausesPerSentence:2,
@@ -24,7 +25,7 @@ const prior = (
 ) => reviewedMoeStandardLeReadingEligible(entry, profile)
     && reviewedRoleAndOrdinalLineReadingEligible(entry, profile, slot, previous)
     && reviewedDuoshaoZhongReadingEligible(entry, profile, previous);
-function run(seed:number, withBi:boolean, withDe=false, withYu=false, withNan=false, withXing=false) {
+function run(seed:number, withBi:boolean, withDe=false, withYu=false, withNan=false, withXing=false, withGuo=false) {
   const result=composeFormalSyntaxUtterances({
     eligibleEntries:PRACTICE_CATALOG,profiles:SYNTAX_PROFILES,
     random:createSeededRandom("formal-syntax-v2-phase1-product-baseline-v1:"+seed),
@@ -34,7 +35,7 @@ function run(seed:number, withBi:boolean, withDe=false, withYu=false, withNan=fa
     preDrawReadingEligibility:reviewedAdjacentPreDrawReadingEligible,
     ...(withBi?{finalCandidateReadingEligibility:reviewedMoeStandardBiReadingEligible}:{}),
     ...(withDe?{subsequentFinalCandidateReadingEligibility:reviewedMoeStandardDeReadingEligible}:{}),
-    ...(withYu?{additionalFinalCandidateReadingEligibilities:[reviewedMoeStandardYuReadingEligible,...(withNan?[reviewedMoeStandardNanReadingEligible]:[]),...(withXing?[reviewedMoeStandardXingReadingEligible]:[])]}:{}),
+    ...(withYu?{additionalFinalCandidateReadingEligibilities:[reviewedMoeStandardYuReadingEligible,...(withNan?[reviewedMoeStandardNanReadingEligible]:[]),...(withXing?[reviewedMoeStandardXingReadingEligible]:[]),...(withGuo?[reviewedMoeStandardGuoReadingEligible]:[])]}:{}),
   });
   const x=result.candidates[0];
   return {text:x?.text,root:x?.syntaxRootRuleId,entries:x?.entries.map(e=>e.id), profileIds:x?.syntaxProfileIds, fallback:[...result.fallbackReasons]};
@@ -135,6 +136,28 @@ describe("final 行 pronunciation cleanup cannot reintroduce another known bad r
       expect(after.entries?.[slot]).not.toBe("word:行:ㄏㄥ2");
       expect(after.root).toBe(before.root);
       expect(after.entries?.filter((id,i)=>id!==before.entries?.[i])).toHaveLength(1);
+    }
+  });
+});
+
+describe("final Taiwan MOE 過 neutral-tone policy",()=>{
+  it("leaves every previously fixed selected pronunciation and earlier drift seed unchanged",()=>{
+    for(const seed of [17,248,349,967,1013,1014,1665,1741]) {
+      expect(run(seed,true,true,true,true,true,true))
+        .toEqual(run(seed,true,true,true,true,true,false));
+    }
+  });
+  it("changes only the originally invalid 過 slots, including the repeated two slots of seed 1295",()=>{
+    for(const seed of [223,1295,1874,1959]) {
+      const before=run(seed,true,true,true,true,true,false);
+      const after=run(seed,true,true,true,true,true,true);
+      const badSlots=(before.entries??[]).flatMap((id,slot)=>id==="word:過:ㄍㄨㄛ5"?[slot]:[]);
+      expect(badSlots).toHaveLength(seed===1295?2:1);
+      expect(after.root).toBe(before.root);
+      expect(after.entries?.length).toBe(before.entries?.length);
+      const changed=(before.entries??[]).flatMap((id,slot)=>id===after.entries?.[slot]?[]:[slot]);
+      expect(changed).toEqual(badSlots);
+      expect(after.entries).not.toContain("word:過:ㄍㄨㄛ5");
     }
   });
 });

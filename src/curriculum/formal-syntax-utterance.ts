@@ -822,7 +822,11 @@ export function composeFormalSyntaxUtterances(
         throw new Error("final reading repair requires exact realized lexical-slot correspondence");
       }
       let repaired = false;
+      // A-not-A and other identity-bound constructions reuse one lexical
+      // identity in multiple practice slots. Update them as a single unit.
+      const repairedBoundSlots = new Set<number>();
       for (let i = 0; i < entries.length; i += 1) {
+        if (repairedBoundSlots.has(i)) continue;
         const entry = entries[i]!;
         const slot = practiceSlots[i]!;
         const compatible = compatibleProfilesForSlot(slot, index);
@@ -834,7 +838,64 @@ export function composeFormalSyntaxUtterances(
         const previous = i === 0 ? null : entries[i-1]!;
         if (finalReadingPolicy(entry, currentProfile, slot, previous)) continue;
         if (slot.entryBindingId !== undefined) {
-          throw new Error("final reading repair cannot replace a bound lexical slot");
+          const bindingId = slot.entryBindingId;
+          const group = practiceSlots.flatMap((member,at) =>
+            member.entryBindingId === bindingId ? [at] : []);
+          if (group.length < 2 || group.some(at => entries[at]!.id !== entry.id)) {
+            throw new Error("bound final reading repair requires a consistent repeated entry identity");
+          }
+          // The replacement must be legal in EVERY bound position. In
+          // particular, applying one local redraw while the other slot still
+          // selects the forbidden entry would break the same-lexeme contract.
+          const licensedBoundProfiles = compatible.filter((profile) => {
+            const alternative = entriesById.get(profile.entryId);
+            if (alternative === undefined) return false;
+            return group.every(at => {
+              const member = practiceSlots[at]!;
+              const preceding = at === 0 ? null
+                : group.includes(at-1) ? alternative : entries[at-1]!;
+              return compatibleProfilesForSlot(member,index).some(boundProfile =>
+                boundProfile.entryId === alternative.id
+                  && (input.preDrawReadingEligibility?.(alternative,boundProfile,member,preceding) ?? true)
+                  && (input.readingEligibility?.(alternative,boundProfile,member,preceding) ?? true)
+                  && previousFinalPolicies.every(policy =>
+                    policy(alternative,boundProfile,member,preceding))
+                  && finalReadingPolicy(alternative,boundProfile,member,preceding));
+            });
+          });
+          const usedOutsideBinding = new Set(
+            entries.filter((_item,at) => !group.includes(at)).map(item=>item.id),
+          );
+          const selectedBound = selectCompatibleProfile(
+            licensedBoundProfiles,usedOutsideBinding,undefined,
+            entriesById,input.entryWeightsById,input.entryWeight,
+            previous,input.lexicalCompatibility,compatibilityMaximumBoost,
+            createSeededRandom("final-reading-redraw-v1:"
+              + realization.id + ":" + slot.id + ":" + entry.id),
+          );
+          if (selectedBound === null) {
+            throw new Error("no permitted alternative for bound final candidate reading");
+          }
+          const newEntry = entriesById.get(selectedBound.entryId);
+          if (newEntry === undefined) throw new Error("bound reading redraw references missing catalog entry");
+          for (const at of group) {
+            const member = practiceSlots[at]!;
+            const frontier = compatibleProfilesForSlot(member,index);
+            const preceding = at === 0 ? null
+              : group.includes(at-1) ? newEntry : entries[at-1]!;
+            const selected = frontier.find(p =>
+              p.entryId === newEntry.id
+                && (input.preDrawReadingEligibility?.(newEntry,p,member,preceding) ?? true)
+                && (input.readingEligibility?.(newEntry,p,member,preceding) ?? true)
+                && previousFinalPolicies.every(policy => policy(newEntry,p,member,preceding))
+                && finalReadingPolicy(newEntry,p,member,preceding));
+            if (selected === undefined) throw new Error("bound reading frontier drift");
+            offsets[member.id] = frontier.findIndex(p => p.id === selected.id);
+            entries[at] = newEntry;
+            repairedBoundSlots.add(at);
+          }
+          repaired = true;
+          continue;
         }
         const licensed = compatible.filter((profile) => {
           const alternative = entriesById.get(profile.entryId);

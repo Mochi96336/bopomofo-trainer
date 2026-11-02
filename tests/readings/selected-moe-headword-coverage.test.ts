@@ -18,7 +18,7 @@ function fixture(){
   sentences[2]={...sentences[2]!,text:"南",entryIds:[revisedMatch]};
   sentences[3]={...sentences[3]!,text:"南",entryIds:[revisedDifference]};
   const audit:SelectedExposureReport={
-    schemaVersion:"polyphonic-context-exposure-v1",readingEligibilityPolicy:"standard-xing-trial",
+    schemaVersion:"polyphonic-context-exposure-v1",readingEligibilityPolicy:"standard-guo-trial",
     sampleCount:2048,catalogEntryCount:100,successfulSentences:2048,failedSentences:0,sentences,
   };
   const concised:Projection={
