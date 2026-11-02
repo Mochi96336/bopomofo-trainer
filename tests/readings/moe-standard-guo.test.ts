@@ -10,7 +10,7 @@ function entry(text:string,reading:string):CatalogEntry {
     syllables:[{tokens:["zhuyin:ㄍ","tone:1"]}],tags:[],provenanceIds:[]};
 }
 function profile(e:CatalogEntry):RuntimeSyntaxProfile {
-  return {id:e.id+"/PART",entryId:e.id,upos:"PART",functions:["particle"],
+  return {id:e.id+"/PART",entryId:e.id,upos:"PART",functions:["marker"],
     valencyFrames:["avalent"],dependencyEvidence:{dependencyRelationCounts:{},surfacePositionCounts:{}},
     provenanceIds:[]};
 }
