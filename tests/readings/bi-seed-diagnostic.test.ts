@@ -5,7 +5,7 @@ import { createSeededRandom } from "../../src/curriculum/random.js";
 import { reviewedAdjacentReadingEligible, reviewedAdjacentPreDrawReadingEligible, reviewedDuoshaoZhongReadingEligible } from "../../src/readings/reviewed-adjacent-context.js";
 import { reviewedMoeStandardLeReadingEligible } from "../../src/readings/moe-standard-le.js";
 import { reviewedRoleAndOrdinalLineReadingEligible } from "../../src/readings/ordinal-line-context.js";
-import { NONSTANDARD_BI_FIRST_TONE_ID } from "../../src/readings/moe-standard-bi.js";
+import { reviewedMoeStandardBiReadingEligible } from "../../src/readings/moe-standard-bi.js";
 
 const bounds = {
   maximumPhraseDepth:3,maximumClauseNesting:1,maximumClausesPerSentence:2,
@@ -26,20 +26,25 @@ function run(seed:number, withBi:boolean) {
     random:createSeededRandom("formal-syntax-v2-phase1-product-baseline-v1:"+seed),
     samplingMode:"product-family",
     minimumLexicalEntries:2,maximumCandidates:1,maximumAttempts:64,bounds,
-    readingEligibility:withBi?reviewedAdjacentReadingEligible:prior,
+    readingEligibility:prior,
     preDrawReadingEligibility:reviewedAdjacentPreDrawReadingEligible,
-    ...(withBi?{isolatedReadingRedrawEntryIds:new Set([NONSTANDARD_BI_FIRST_TONE_ID])}:{}),
+    ...(withBi?{finalCandidateReadingEligibility:reviewedMoeStandardBiReadingEligible}:{}),
   });
   const x=result.candidates[0];
   return {text:x?.text,root:x?.syntaxRootRuleId,entries:x?.entries.map(e=>e.id), fallback:[...result.fallbackReasons]};
 }
-describe("diagnose pinned 比 reading rewrite",()=>{
-  it("reports full before/after entries for seeds 60,84,349",()=>{
-    for(const seed of [60,84,349]){
-      const before=run(seed,false),after=run(seed,true);
-      expect(before.entries).toBeDefined();
-      expect(after.entries).toBeDefined();
-      console.log("BI_SEED_DIAGNOSTIC",JSON.stringify({seed,before,after}));
+describe("final-candidate 比 repair preserves otherwise legal shipped outputs",()=>{
+  it("leaves seeds 60 and 84 exactly unchanged (they were already legal)",()=>{
+    for(const seed of [60,84]){
+      expect(run(seed,true)).toEqual(run(seed,false));
     }
+  });
+  it("repairs previously observed seed 349 in only the rejected lexical slot",()=>{
+    const before=run(349,false),after=run(349,true);
+    expect(before.entries?.[1]).toBe("word:比:ㄅㄧ1");
+    expect(after.entries?.[1]).not.toBe("word:比:ㄅㄧ1");
+    expect(after.root).toBe(before.root);
+    expect(after.entries?.length).toBe(before.entries?.length);
+    expect(after.entries?.filter((id,i)=>id!==before.entries?.[i])).toHaveLength(1);
   });
 });
