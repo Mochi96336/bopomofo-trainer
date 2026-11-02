@@ -12,6 +12,7 @@ import {
   reviewedDuoshaoZhongReadingEligible,
 } from "../src/readings/reviewed-adjacent-context.js";
 import { reviewedMoeStandardLeReadingEligible } from "../src/readings/moe-standard-le.js";
+import { reviewedMoeStandardBiReadingEligible } from "../src/readings/moe-standard-bi.js";
 import { reviewedZhongRolePilotEligible } from "../src/readings/zhong-role-pilot.js";
 import {
   auditPolyphonicCandidate,
@@ -145,11 +146,11 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
         : policy === "standard-le-trial"
           ? { readingEligibility: beforeMoeBiReadingEligible }
         : policy === "standard-bi-trial"
-          ? { readingEligibility: reviewedAdjacentReadingEligible }
+          ? { readingEligibility: beforeMoeBiReadingEligible }
         : policy === "zhong-role-trial"
           ? { readingEligibility: reviewedZhongRolePilotEligible }
           : {}),
-    ...(policy === "standard-bi-trial" ? { isolatedReadingRedrawEntryIds: new Set(["word:比:ㄅㄧ1"]) } : {}),
+    ...(policy === "standard-bi-trial" ? { finalCandidateReadingEligibility: reviewedMoeStandardBiReadingEligible } : {}),
     ...(policy === "duoshao-zhong-trial"
       ? { preDrawReadingEligibility: beforeMoeLePreDrawEligible }
       : policy === "standard-le-trial" || policy === "standard-bi-trial"
