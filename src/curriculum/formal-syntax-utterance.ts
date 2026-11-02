@@ -92,6 +92,10 @@ export interface FormalSyntaxUtteranceInput {
    * frontier and weights before the next restriction is considered.
    */
   readonly subsequentFinalCandidateReadingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
+  /** Add later exact-identity repairs without changing earlier shipped repair frontiers. */
+  readonly additionalFinalCandidateReadingEligibilities?: readonly NonNullable<
+    FormalSyntaxUtteranceInput["readingEligibility"]
+  >[];
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
@@ -806,6 +810,7 @@ export function composeFormalSyntaxUtterances(
     const finalReadingPolicies = [
       input.finalCandidateReadingEligibility,
       input.subsequentFinalCandidateReadingEligibility,
+      ...(input.additionalFinalCandidateReadingEligibilities ?? []),
     ].filter((policy): policy is NonNullable<FormalSyntaxUtteranceInput["readingEligibility"]> =>
       policy !== undefined);
     for (let stage = 0; stage < finalReadingPolicies.length; stage += 1) {
