@@ -53,6 +53,7 @@ describe("MOE-approved exact standalone 比 reading identities",()=>{
     const fixed=composeFormalSyntaxUtterances({...config,
       readingEligibility:reviewedAdjacentReadingEligible,
       preDrawReadingEligibility:reviewedAdjacentPreDrawReadingEligible,
+      finalCandidateReadingEligibility:reviewedMoeStandardBiReadingEligible,
     }).candidates[0]!;
     expect(raw.entries[1]?.id).toBe(wrong.id);
     expect(fixed.entries[1]?.id).not.toBe(wrong.id);
@@ -64,6 +65,7 @@ describe("MOE-approved exact standalone 比 reading identities",()=>{
     const legalRaw=composeFormalSyntaxUtterances(legal).candidates[0]!;
     const legalFixed=composeFormalSyntaxUtterances({...legal,
       readingEligibility:reviewedAdjacentReadingEligible,preDrawReadingEligibility:reviewedAdjacentPreDrawReadingEligible,
+      finalCandidateReadingEligibility:reviewedMoeStandardBiReadingEligible,
     }).candidates[0]!;
     expect(legalRaw.entries[1]?.id).toBe(alternate.id);
     expect(legalFixed.entries.map(x=>x.id)).toEqual(legalRaw.entries.map(x=>x.id));
