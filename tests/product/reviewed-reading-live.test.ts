@@ -13,6 +13,7 @@ import {
 } from "../../src/product/session.js";
 import { reviewedRoleReadingEligible } from "../../src/readings/pronominal-role-license.js";
 import { reviewedMoeStandardLeReadingEligible } from "../../src/readings/moe-standard-le.js";
+import { reviewedMoeStandardBiReadingEligible } from "../../src/readings/moe-standard-bi.js";
 
 const wholeCatalogs = { practice: PRACTICE_CATALOG, syntaxProfiles: SYNTAX_PROFILES };
 const standardLayout = "standard";
@@ -27,6 +28,8 @@ function assertRoundReadings(
     const profile = profilesById.get(candidate.syntaxProfileIds![i]!);
     expect(profile).toBeDefined();
     expect(reviewedRoleReadingEligible(candidate.entries[i]!, profile!)).toBe(true);
+    expect(reviewedMoeStandardLeReadingEligible(candidate.entries[i]!, profile!)).toBe(true);
+    expect(reviewedMoeStandardBiReadingEligible(candidate.entries[i]!, profile!)).toBe(true);
   }
   expect(state.round.exercise.entries.map(entry => entry.id)).toEqual(
     candidate.entries.map(entry => entry.id),
@@ -83,7 +86,8 @@ describe("production reviewed reading disambiguation", () => {
         const profile = profilesById.get(originalCandidate.syntaxProfileIds?.[i] ?? "");
         if (profile === undefined) throw new Error("expected a profile for each selected entry");
         return !reviewedRoleReadingEligible(entry, profile)
-          || !reviewedMoeStandardLeReadingEligible(entry, profile);
+          || !reviewedMoeStandardLeReadingEligible(entry, profile)
+          || !reviewedMoeStandardBiReadingEligible(entry, profile);
       });
       const actual = createProductState(environment, progress, 0);
       assertRoundReadings(actual, profilesById);
@@ -163,7 +167,8 @@ describe("production reviewed reading disambiguation", () => {
               const profile = profilesById.get(profileId ?? "");
               if (profile === undefined) throw new Error("missing original syntax profile");
               return reviewedRoleReadingEligible(entry, profile)
-                && reviewedMoeStandardLeReadingEligible(entry, profile);
+                && reviewedMoeStandardLeReadingEligible(entry, profile)
+                && reviewedMoeStandardBiReadingEligible(entry, profile);
             });
             if (originalLicensed
               && product.round.selection.utterance.id !== original.utterance.id) {

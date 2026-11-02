@@ -31,6 +31,7 @@ import type {
   ProductionRule,
   RuntimeSyntaxProfile,
 } from "../syntax/types.js";
+import { createSeededRandom } from "./random.js";
 import { argumentRealizationStructuralPractice } from "./argument-realization-practice.js";
 import {
   argumentRealizationPracticeIntentForTicketUnit,
@@ -77,6 +78,14 @@ export interface FormalSyntaxUtteranceInput {
    * Omitted outside specifically reviewed contextual constructions.
    */
   readonly preDrawReadingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
+  /**
+   * An independently reviewed identity restriction applied ONLY to a fully
+   * realized, otherwise deliverable candidate. Invalid readings encountered
+   * in ultimately failed attempts must not perturb a successful legal output.
+   * The replacement is limited to the selected lexical slot and drawn from
+   * its legal compatible candidates with their original weights.
+   */
+  readonly finalCandidateReadingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
@@ -773,7 +782,7 @@ export function composeFormalSyntaxUtterances(
       continue;
     }
     const punctuation = punctuationForPath(shape.productionRulePath);
-    const realization = realizeStructuralDerivationWithIndex(shape, {
+    let realization = realizeStructuralDerivationWithIndex(shape, {
       index,
       profileOffsetsBySlotId: offsets,
       punctuationToken: punctuation,
@@ -783,11 +792,86 @@ export function composeFormalSyntaxUtterances(
       recordRootFamilyFailure();
       continue;
     }
-    const entries = realization.entryIds.map((entryId) => {
+    let entries = realization.entryIds.map((entryId) => {
       const entry = entriesById.get(entryId);
       if (entry === undefined) throw new Error(`formal syntax selected missing entry ${entryId}`);
       return entry;
     });
+    const finalReadingPolicy = input.finalCandidateReadingEligibility;
+    if (finalReadingPolicy !== undefined) {
+      const practiceSlots = shape.lexicalSlots.filter(isPracticeLexicalSlot);
+      if (practiceSlots.length !== entries.length
+        || realization.syntaxProfileIds.length !== entries.length) {
+        throw new Error("final reading repair requires exact realized lexical-slot correspondence");
+      }
+      let repaired = false;
+      for (let i = 0; i < entries.length; i += 1) {
+        const entry = entries[i]!;
+        const slot = practiceSlots[i]!;
+        const compatible = compatibleProfilesForSlot(slot, index);
+        const currentProfile = compatible.find((profile) =>
+          profile.id === realization!.syntaxProfileIds[i]);
+        if (currentProfile === undefined || currentProfile.entryId !== entry.id) {
+          throw new Error("final reading repair cannot align selected profile with lexical slot");
+        }
+        const previous = i === 0 ? null : entries[i-1]!;
+        if (finalReadingPolicy(entry, currentProfile, slot, previous)) continue;
+        if (slot.entryBindingId !== undefined) {
+          throw new Error("final reading repair cannot replace a bound lexical slot");
+        }
+        const licensed = compatible.filter((profile) => {
+          const alternative = entriesById.get(profile.entryId);
+          // A late replacement must satisfy EVERY gate that the original
+          // lexical draw already satisfied. Otherwise a different reading
+          // (e.g. 和/ㄏㄨ2 in a conjunction slot) could be reintroduced.
+          return alternative !== undefined
+            && (input.preDrawReadingEligibility?.(alternative, profile, slot, previous) ?? true)
+            && (input.readingEligibility?.(alternative, profile, slot, previous) ?? true)
+            && finalReadingPolicy(alternative, profile, slot, previous);
+        });
+        const usedElsewhere = new Set(entries.filter((_item, at) => at !== i).map(item => item.id));
+        const drawn = selectCompatibleProfile(
+          licensed, usedElsewhere, undefined,
+          entriesById, input.entryWeightsById, input.entryWeight,
+          previous, input.lexicalCompatibility,
+          compatibilityMaximumBoost,
+          createSeededRandom("final-reading-redraw-v1:"
+            + realization.id + ":" + slot.id + ":" + entry.id),
+        );
+        if (drawn === null) {
+          throw new Error("no permitted alternative for final candidate reading");
+        }
+        const replacementIndex = compatible.findIndex((profile) => profile.id === drawn.id);
+        if (replacementIndex < 0) throw new Error("repaired profile not in original slot frontier");
+        offsets[slot.id] = replacementIndex;
+        entries[i] = entriesById.get(drawn.entryId)!;
+        repaired = true;
+      }
+      if (repaired) {
+        const updated = realizeStructuralDerivationWithIndex(shape, {
+          index, profileOffsetsBySlotId: offsets, punctuationToken: punctuation,
+        });
+        if (updated === null) throw new Error("final candidate reading repair failed to realize");
+        realization = updated;
+        entries = realization.entryIds.map((id) => {
+          const entry = entriesById.get(id);
+          if (entry === undefined) throw new Error("repaired candidate contains missing catalog entry");
+          return entry;
+        });
+        if (entries.some((entry, i) => {
+          const slot = practiceSlots[i]!;
+          const profile = compatibleProfilesForSlot(slot, index).find((p) =>
+            p.id === realization!.syntaxProfileIds[i]);
+          if (profile === undefined) return true;
+          const previous = i === 0 ? null : entries[i-1]!;
+          return !(input.preDrawReadingEligibility?.(entry, profile, slot, previous) ?? true)
+            || !(input.readingEligibility?.(entry, profile, slot, previous) ?? true)
+            || !finalReadingPolicy(entry, profile, slot, previous);
+        })) {
+          throw new Error("final candidate repair still contains an unapproved reading");
+        }
+      }
+    }
     const text = realization.tokens
       .filter((token) => token.kind === "lexical-entry")
       .map((token) => token.value)
