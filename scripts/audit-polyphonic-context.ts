@@ -8,7 +8,6 @@ import { reviewedRoleReadingEligible } from "../src/readings/pronominal-role-lic
 import { reviewedRoleAndOrdinalLineReadingEligible, reviewedOrdinalLineReadingEligible } from "../src/readings/ordinal-line-context.js";
 import {
   reviewedAdjacentPreDrawReadingEligible,
-  reviewedAdjacentReadingEligible,
   reviewedDuoshaoZhongReadingEligible,
 } from "../src/readings/reviewed-adjacent-context.js";
 import { reviewedMoeStandardLeReadingEligible } from "../src/readings/moe-standard-le.js";
