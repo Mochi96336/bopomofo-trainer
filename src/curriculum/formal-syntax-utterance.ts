@@ -821,7 +821,12 @@ export function composeFormalSyntaxUtterances(
         }
         const licensed = compatible.filter((profile) => {
           const alternative = entriesById.get(profile.entryId);
+          // A late replacement must satisfy EVERY gate that the original
+          // lexical draw already satisfied. Otherwise a different reading
+          // (e.g. 和/ㄏㄨ2 in a conjunction slot) could be reintroduced.
           return alternative !== undefined
+            && (input.preDrawReadingEligibility?.(alternative, profile, slot, previous) ?? true)
+            && (input.readingEligibility?.(alternative, profile, slot, previous) ?? true)
             && finalReadingPolicy(alternative, profile, slot, previous);
         });
         const usedElsewhere = new Set(entries.filter((_item, at) => at !== i).map(item => item.id));
@@ -857,8 +862,11 @@ export function composeFormalSyntaxUtterances(
           const slot = practiceSlots[i]!;
           const profile = compatibleProfilesForSlot(slot, index).find((p) =>
             p.id === realization!.syntaxProfileIds[i]);
-          return profile === undefined
-            || !finalReadingPolicy(entry, profile, slot, i === 0 ? null : entries[i-1]!);
+          if (profile === undefined) return true;
+          const previous = i === 0 ? null : entries[i-1]!;
+          return !(input.preDrawReadingEligibility?.(entry, profile, slot, previous) ?? true)
+            || !(input.readingEligibility?.(entry, profile, slot, previous) ?? true)
+            || !finalReadingPolicy(entry, profile, slot, previous);
         })) {
           throw new Error("final candidate repair still contains an unapproved reading");
         }
