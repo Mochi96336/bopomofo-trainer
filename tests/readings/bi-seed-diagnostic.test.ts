@@ -7,6 +7,7 @@ import { reviewedMoeStandardLeReadingEligible } from "../../src/readings/moe-sta
 import { reviewedRoleAndOrdinalLineReadingEligible } from "../../src/readings/ordinal-line-context.js";
 import { reviewedMoeStandardBiReadingEligible } from "../../src/readings/moe-standard-bi.js";
 import { reviewedMoeStandardDeReadingEligible } from "../../src/readings/moe-standard-de.js";
+import { reviewedMoeStandardYuReadingEligible } from "../../src/readings/moe-standard-yu.js";
 
 const bounds = {
   maximumPhraseDepth:3,maximumClauseNesting:1,maximumClausesPerSentence:2,
@@ -21,7 +22,7 @@ const prior = (
 ) => reviewedMoeStandardLeReadingEligible(entry, profile)
     && reviewedRoleAndOrdinalLineReadingEligible(entry, profile, slot, previous)
     && reviewedDuoshaoZhongReadingEligible(entry, profile, previous);
-function run(seed:number, withBi:boolean, withDe=false) {
+function run(seed:number, withBi:boolean, withDe=false, withYu=false) {
   const result=composeFormalSyntaxUtterances({
     eligibleEntries:PRACTICE_CATALOG,profiles:SYNTAX_PROFILES,
     random:createSeededRandom("formal-syntax-v2-phase1-product-baseline-v1:"+seed),
@@ -31,6 +32,7 @@ function run(seed:number, withBi:boolean, withDe=false) {
     preDrawReadingEligibility:reviewedAdjacentPreDrawReadingEligible,
     ...(withBi?{finalCandidateReadingEligibility:reviewedMoeStandardBiReadingEligible}:{}),
     ...(withDe?{subsequentFinalCandidateReadingEligibility:reviewedMoeStandardDeReadingEligible}:{}),
+    ...(withYu?{additionalFinalCandidateReadingEligibilities:[reviewedMoeStandardYuReadingEligible]}:{}),
   });
   const x=result.candidates[0];
   return {text:x?.text,root:x?.syntaxRootRuleId,entries:x?.entries.map(e=>e.id), profileIds:x?.syntaxProfileIds, fallback:[...result.fallbackReasons]};
@@ -78,5 +80,21 @@ describe("independent final-candidate stage protects previously shipped 比 outp
       expect(after.root).toBe(before.root);
       expect(after.entries?.filter((id,i)=>id!==before.entries?.[i])).toHaveLength(1);
     }
+  });
+});
+
+describe("third final-candidate stage preserves existing 比 and 得 corrections",()=>{
+  it("does not alter previously changed seeds 349, 967, 1013, or 1741",()=>{
+    for (const seed of [349,967,1013,1741]) {
+      expect(run(seed,true,true,true)).toEqual(run(seed,true,true,false));
+    }
+  });
+  it("only corrects the disallowed 於 identity at seed 17",()=>{
+    const before=run(17,true,true,false), after=run(17,true,true,true);
+    const slot=before.entries?.indexOf("word:於:ㄩ1") ?? -1;
+    expect(slot).toBeGreaterThanOrEqual(0);
+    expect(after.entries?.[slot]).not.toBe("word:於:ㄩ1");
+    expect(after.root).toBe(before.root);
+    expect(after.entries?.filter((id,i)=>id!==before.entries?.[i])).toHaveLength(1);
   });
 });
