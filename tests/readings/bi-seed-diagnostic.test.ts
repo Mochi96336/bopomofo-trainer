@@ -11,6 +11,7 @@ import { reviewedMoeStandardYuReadingEligible } from "../../src/readings/moe-sta
 import { reviewedMoeStandardNanReadingEligible } from "../../src/readings/moe-standard-nan.js";
 import { reviewedMoeStandardXingReadingEligible } from "../../src/readings/moe-standard-xing.js";
 import { reviewedMoeStandardGuoReadingEligible } from "../../src/readings/moe-standard-guo.js";
+import { reviewedMoeNaSurnameRoleEligible } from "../../src/readings/moe-na-surname-role.js";
 
 const bounds = {
   maximumPhraseDepth:3,maximumClauseNesting:1,maximumClausesPerSentence:2,
@@ -25,7 +26,7 @@ const prior = (
 ) => reviewedMoeStandardLeReadingEligible(entry, profile)
     && reviewedRoleAndOrdinalLineReadingEligible(entry, profile, slot, previous)
     && reviewedDuoshaoZhongReadingEligible(entry, profile, previous);
-function run(seed:number, withBi:boolean, withDe=false, withYu=false, withNan=false, withXing=false, withGuo=false) {
+function run(seed:number, withBi:boolean, withDe=false, withYu=false, withNan=false, withXing=false, withGuo=false, withNa=false) {
   const result=composeFormalSyntaxUtterances({
     eligibleEntries:PRACTICE_CATALOG,profiles:SYNTAX_PROFILES,
     random:createSeededRandom("formal-syntax-v2-phase1-product-baseline-v1:"+seed),
@@ -35,7 +36,7 @@ function run(seed:number, withBi:boolean, withDe=false, withYu=false, withNan=fa
     preDrawReadingEligibility:reviewedAdjacentPreDrawReadingEligible,
     ...(withBi?{finalCandidateReadingEligibility:reviewedMoeStandardBiReadingEligible}:{}),
     ...(withDe?{subsequentFinalCandidateReadingEligibility:reviewedMoeStandardDeReadingEligible}:{}),
-    ...(withYu?{additionalFinalCandidateReadingEligibilities:[reviewedMoeStandardYuReadingEligible,...(withNan?[reviewedMoeStandardNanReadingEligible]:[]),...(withXing?[reviewedMoeStandardXingReadingEligible]:[]),...(withGuo?[reviewedMoeStandardGuoReadingEligible]:[])]}:{}),
+    ...(withYu?{additionalFinalCandidateReadingEligibilities:[reviewedMoeStandardYuReadingEligible,...(withNan?[reviewedMoeStandardNanReadingEligible]:[]),...(withXing?[reviewedMoeStandardXingReadingEligible]:[]),...(withGuo?[reviewedMoeStandardGuoReadingEligible]:[]),...(withNa?[reviewedMoeNaSurnameRoleEligible]:[])]}:{}),
   });
   const x=result.candidates[0];
   return {text:x?.text,root:x?.syntaxRootRuleId,entries:x?.entries.map(e=>e.id), profileIds:x?.syntaxProfileIds, fallback:[...result.fallbackReasons]};
@@ -158,6 +159,29 @@ describe("final Taiwan MOE 過 neutral-tone policy",()=>{
       const changed=(before.entries??[]).flatMap((id,slot)=>id===after.entries?.[slot]?[]:[slot]);
       expect(changed).toEqual(badSlots);
       expect(after.entries).not.toContain("word:過:ㄍㄨㄛ5");
+    }
+  });
+});
+
+describe("reviewed Na surname role does not alter previously verified readings",()=>{
+  it("leaves earlier corrected and unchanged legal seeds intact",()=>{
+    for(const seed of [17,60,223,248,349,967,1013,1014,1295,1665,1741,1874,1959]){
+      // 248 is a new surname-tone PRON/ADV target; it must change now.
+      if(seed===248)continue;
+      expect(run(seed,true,true,true,true,true,true,true))
+        .toEqual(run(seed,true,true,true,true,true,true,false));
+    }
+  });
+  it("repairs formerly sampled surname-tone 那 in PRON or ADV lexical positions",()=>{
+    for(const seed of [72,78,248,1292,2035]){
+      const before=run(seed,true,true,true,true,true,true,false);
+      const after=run(seed,true,true,true,true,true,true,true);
+      const slots=(before.entries??[]).flatMap((id,i)=>id==="word:那:ㄋㄚ1"?[i]:[]);
+      expect(slots).toHaveLength(1);
+      expect(after.entries?.length).toBe(before.entries?.length);
+      expect(after.root).toBe(before.root);
+      const changed=(before.entries??[]).flatMap((id,i)=>id===after.entries?.[i]?[]:[i]);
+      expect(changed).toEqual(slots);
     }
   });
 });
