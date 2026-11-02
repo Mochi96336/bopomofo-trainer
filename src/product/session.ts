@@ -23,7 +23,8 @@ import {
   reviewedAdjacentPreDrawReadingEligible,
   reviewedAdjacentReadingEligible,
 } from "../readings/reviewed-adjacent-context.js";
-import { reviewedMoeStandardBiAndDeReadingEligible } from "../readings/moe-standard-de.js";
+import { reviewedMoeStandardBiReadingEligible } from "../readings/moe-standard-bi.js";
+import { reviewedMoeStandardDeReadingEligible } from "../readings/moe-standard-de.js";
 import { createSeededRandom } from "../curriculum/random.js";
 import { createCatalogSupportIndex } from "../curriculum/support.js";
 import {
@@ -119,7 +120,8 @@ function selectRound(
     // reviewed-role mismatch is resampled. No catalog/progress IDs are rewritten.
     readingEligibility: reviewedAdjacentReadingEligible,
     preDrawReadingEligibility: reviewedAdjacentPreDrawReadingEligible,
-    finalCandidateReadingEligibility: reviewedMoeStandardBiAndDeReadingEligible,
+    finalCandidateReadingEligibility: reviewedMoeStandardBiReadingEligible,
+    subsequentFinalCandidateReadingEligibility: reviewedMoeStandardDeReadingEligible,
     preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
     preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
