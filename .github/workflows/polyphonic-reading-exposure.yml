@@ -5,6 +5,9 @@ on:
     paths:
       - ".github/workflows/polyphonic-reading-exposure.yml"
       - "scripts/audit-polyphonic-context.ts"
+      - "scripts/audit-selected-moe-headword-coverage.ts"
+      - "data/readings/moe-concised-2014_20260626-active-catalog.json"
+      - "data/readings/moe-revised-2015_20260625-active-catalog-fallback.json"
       - "scripts/compare-moe-standard-le.ts"
       - "scripts/compare-moe-standard-bi.ts"
       - "scripts/compare-moe-standard-de.ts"
@@ -138,6 +141,8 @@ jobs:
           data/generated/polyphonic-context-standard-nan-trial.json
           data/generated/polyphonic-context-standard-xing-trial.json
           data/generated/polyphonic-standard-xing-trial-comparison.json
+      - name: Inventory selected final readings against partial MOE projections without guessing correctness
+        run: npx tsx scripts/audit-selected-moe-headword-coverage.ts
       - name: Verify exact-seed changes and reviewed-role rejection counts
         run: >-
           npx tsx scripts/compare-polyphonic-role-trial.ts
@@ -295,6 +300,7 @@ jobs:
             data/generated/polyphonic-standard-nan-trial-comparison.json
             data/generated/polyphonic-context-standard-xing-trial.json
             data/generated/polyphonic-standard-xing-trial-comparison.json
+            data/generated/selected-moe-headword-coverage.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
             data/generated/conflicting-target-exposure.json

@@ -39,6 +39,7 @@
     "readings:moe-concised": "python scripts/project-moe-concised-readings.py",
     "readings:moe-revised": "python scripts/project-moe-revised-readings.py",
     "readings:audit": "tsx scripts/audit-polyphonic-context.ts",
+    "readings:moe-coverage": "tsx scripts/audit-selected-moe-headword-coverage.ts",
     "readings:sense-targets": "tsx scripts/prepare-moe-sense-targets.ts",
     "readings:moe-sense": "python scripts/project-moe-sense-evidence.py",
     "identity:cedict": "python scripts/project-cedict-identity-hints.py",
