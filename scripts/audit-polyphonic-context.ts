@@ -149,6 +149,7 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
         : policy === "zhong-role-trial"
           ? { readingEligibility: reviewedZhongRolePilotEligible }
           : {}),
+    ...(policy === "standard-bi-trial" ? { isolateReadingRedrawRandom: true } : {}),
     ...(policy === "duoshao-zhong-trial"
       ? { preDrawReadingEligibility: beforeMoeLePreDrawEligible }
       : policy === "standard-le-trial" || policy === "standard-bi-trial"
