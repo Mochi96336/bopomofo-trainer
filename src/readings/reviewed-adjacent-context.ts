@@ -2,7 +2,6 @@ import { catalogEntryId } from "../core/catalog-entry-id.js";
 import type { CatalogEntry } from "../core/model.js";
 import type { RuntimeSyntaxProfile } from "../syntax/types.js";
 import { reviewedMoeStandardLeReadingEligible } from "./moe-standard-le.js";
-import { reviewedMoeStandardBiReadingEligible } from "./moe-standard-bi.js";
 import {
   reviewedOrdinalLineReadingEligible,
   reviewedRoleAndOrdinalLineReadingEligible,
@@ -59,7 +58,6 @@ export function reviewedAdjacentReadingEligible(
   previousEntry: CatalogEntry | null,
 ): boolean {
   return reviewedMoeStandardLeReadingEligible(entry, profile)
-    && reviewedMoeStandardBiReadingEligible(entry, profile)
     && reviewedRoleAndOrdinalLineReadingEligible(entry, profile, slot, previousEntry)
     && reviewedDuoshaoZhongReadingEligible(entry, profile, previousEntry);
 }
