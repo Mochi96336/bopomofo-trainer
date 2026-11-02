@@ -188,7 +188,7 @@ export interface FormalSyntaxUtteranceSelectionInput
   /** Optional reading permission policy, independent of research/grammar overrides. */
   readonly readingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
   readonly preDrawReadingEligibility?: FormalSyntaxUtteranceInput["preDrawReadingEligibility"];
-  readonly isolatedReadingRedrawEntryIds?: FormalSyntaxUtteranceInput["isolatedReadingRedrawEntryIds"];
+  readonly finalCandidateReadingEligibility?: FormalSyntaxUtteranceInput["finalCandidateReadingEligibility"];
   readonly formalSyntaxComposition?: FormalSyntaxCompositionOverride;
   readonly preparedFormalSyntaxLexicon?: PreparedFormalSyntaxLexicon;
   readonly preparedFormalSyntaxExecution?: PreparedFormalSyntaxExecution;
@@ -552,8 +552,8 @@ function generateOnce(
     ...(useStaticFormalEntryWeight ? {} : { entryWeight }),
     ...(input.readingEligibility === undefined ? {} : { readingEligibility: input.readingEligibility }),
     ...(input.preDrawReadingEligibility === undefined ? {} : { preDrawReadingEligibility: input.preDrawReadingEligibility }),
-    ...(input.isolatedReadingRedrawEntryIds === undefined
-      ? {} : { isolatedReadingRedrawEntryIds: input.isolatedReadingRedrawEntryIds }),
+    ...(input.finalCandidateReadingEligibility === undefined
+      ? {} : { finalCandidateReadingEligibility: input.finalCandidateReadingEligibility }),
     minimumLexicalEntries: 2,
     maximumCandidates: 1,
     maximumAttempts: 64,
