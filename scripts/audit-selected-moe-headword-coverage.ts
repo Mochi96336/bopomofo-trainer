@@ -26,7 +26,11 @@ async function main(): Promise<void> {
     else if(name==="--output")output=value;
     else throw new Error("unknown option: "+name);
   }
-  const [a,b,c]=await Promise.all([baseline,concised,revised].map(path=>readFile(path,"utf8")));
+  const [a,b,c]=await Promise.all([
+    readFile(baseline,"utf8"),
+    readFile(concised,"utf8"),
+    readFile(revised,"utf8"),
+  ]);
   const result=buildSelectedMoeHeadwordCoverage(
     JSON.parse(a) as SelectedExposureReport,
     JSON.parse(b) as Projection,
