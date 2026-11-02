@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { compareMoeStandardBi } from "../../scripts/compare-moe-standard-bi.js";
 import { catalogEntryId } from "../../src/core/catalog-entry-id.js";
 import type { CatalogEntry } from "../../src/core/model.js";
 import { reviewedMoeStandardBiReadingEligible } from "../../src/readings/moe-standard-bi.js";
@@ -76,5 +77,45 @@ describe("MOE-approved exact standalone 比 reading identities",()=>{
     expect(reviewedMoeStandardLeReadingEligible(leWrong,profile(leWrong,"VERB"))).toBe(false);
     expect(reviewedAdjacentReadingEligible(leWrong,profile(leWrong,"VERB"),null,null)).toBe(false);
     expect(reviewedAdjacentReadingEligible(leGood,profile(leGood,"VERB"),null,null)).toBe(true);
+  });
+});
+
+describe("MOE 比 2048-seed paired comparison must fail closed",()=>{
+  function reports(){
+    const sentences=Array.from({length:2048},(_,seedIndex)=>({
+      seedIndex,text:"她好",root:"sentence",entryIds:[subject.id,alternate.id],
+    }));
+    sentences[349]={...sentences[349]!,text:"她比",entryIds:[subject.id,wrong.id]};
+    const before={
+      readingEligibilityPolicy:"standard-le-trial",seedNamespace:"fixed-2048",
+      catalogEntryCount:6,sampleCount:2048,failedSentences:0,successfulSentences:2048,
+      sentences,hits:[{seedIndex:349,text:"比",selectedEntryId:wrong.id}],
+    };
+    const after={
+      ...before,readingEligibilityPolicy:"standard-bi-trial",
+      sentences:sentences.map((sentence,i)=>i===349
+        ? {...sentence,entryIds:[subject.id,bi3.id]} : {...sentence}),
+      hits:[],
+    };
+    return {before,after};
+  }
+  it("accepts exactly one corrected invalid lexical identity",()=>{
+    const {before,after}=reports();
+    expect(compareMoeStandardBi(before,after).changedSeeds).toEqual([349]);
+  });
+  it("rejects an unrelated previously legal seed changing in one slot",()=>{
+    const {before,after}=reports();
+    after.sentences[60]={...after.sentences[60]!,text:"比好",entryIds:[bi3.id,alternate.id]};
+    expect(()=>compareMoeStandardBi(before,after)).toThrow(/non-target lexical replacement/);
+  });
+  it("rejects changing the wrong slot while leaving the invalid reading",()=>{
+    const {before,after}=reports();
+    after.sentences[349]={...after.sentences[349]!,text:"好比",entryIds:[alternate.id,wrong.id]};
+    expect(()=>compareMoeStandardBi(before,after)).toThrow(/non-target lexical replacement/);
+  });
+  it("rejects a previously invalid sentence changing two lexical slots",()=>{
+    const {before,after}=reports();
+    after.sentences[349]={...after.sentences[349]!,text:"好比",entryIds:[alternate.id,bi3.id]};
+    expect(()=>compareMoeStandardBi(before,after)).toThrow(/non-local lexical identity drift/);
   });
 });
