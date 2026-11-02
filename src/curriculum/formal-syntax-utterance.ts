@@ -31,6 +31,7 @@ import type {
   ProductionRule,
   RuntimeSyntaxProfile,
 } from "../syntax/types.js";
+import { createSeededRandom } from "./random.js";
 import { argumentRealizationStructuralPractice } from "./argument-realization-practice.js";
 import {
   argumentRealizationPracticeIntentForTicketUnit,
@@ -77,6 +78,13 @@ export interface FormalSyntaxUtteranceInput {
    * Omitted outside specifically reviewed contextual constructions.
    */
   readonly preDrawReadingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
+  /**
+   * Opt-in: rejected pronunciations redraw from a deterministic slot-local
+   * source, derived solely from the values consumed by the original lexical
+   * pick. Redraws then cannot advance the caller's structural/lexical RNG.
+   * False preserves prior shipped behavior; enable only after paired audits.
+   */
+  readonly isolateReadingRedrawRandom?: boolean;
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
@@ -699,7 +707,18 @@ export function composeFormalSyntaxUtterances(
       // Only explicitly scoped contexts may prelicense this lexical
       // frontier. Other reviewed-role gates preserve the prior local
       // post-draw check so unrelated selection paths remain unchanged.
-      const draw = (choices: readonly RuntimeSyntaxProfile[]) => selectCompatibleProfile(
+      const initialLexicalRandomValues: number[] = [];
+      const initiallyDrawFrom: RandomSource = input.isolateReadingRedrawRandom === true
+        ? { next: () => {
+            const value = input.random.next();
+            initialLexicalRandomValues.push(value);
+            return value;
+          } }
+        : input.random;
+      const draw = (
+        choices: readonly RuntimeSyntaxProfile[],
+        random: RandomSource = initiallyDrawFrom,
+      ) => selectCompatibleProfile(
         choices,
         usedEntryIds,
         boundEntryId,
@@ -709,7 +728,7 @@ export function composeFormalSyntaxUtterances(
         previousEntry,
         input.lexicalCompatibility,
         compatibilityMaximumBoost,
-        input.random,
+        random,
       );
       const readingEligibility = input.readingEligibility;
       const preDrawPolicy = input.preDrawReadingEligibility;
@@ -743,7 +762,18 @@ export function composeFormalSyntaxUtterances(
           // Earlier reviewed role gates retain their existing local legal
           // redraw. The explicitly reviewed ordinal context is already
           // licensed BEFORE weighting, so it never borrows mass from ㄒㄧㄥ2.
-          selectedProfile = draw(licensed);
+          // The original pick has already consumed the exact caller RNG
+          // values it would consume in an unguarded run. Only the rejection
+          // redraw uses a local, deterministic stream; no extra caller draw.
+          const redrawRandom = input.isolateReadingRedrawRandom === true
+            ? createSeededRandom(
+                "reading-redraw-slot-v1:"
+                + slot.id + ":"
+                + initiallySelected.id + ":"
+                + initialLexicalRandomValues.join(","),
+              )
+            : initiallyDrawFrom;
+          selectedProfile = draw(licensed, redrawRandom);
         }
       }
       if (selectedProfile === null) {
