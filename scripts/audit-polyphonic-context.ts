@@ -12,7 +12,7 @@ import {
 } from "../src/readings/reviewed-adjacent-context.js";
 import { reviewedMoeStandardLeReadingEligible } from "../src/readings/moe-standard-le.js";
 import { reviewedMoeStandardBiReadingEligible } from "../src/readings/moe-standard-bi.js";
-import { reviewedMoeStandardBiAndDeReadingEligible } from "../src/readings/moe-standard-de.js";
+import { reviewedMoeStandardDeReadingEligible } from "../src/readings/moe-standard-de.js";
 import { reviewedZhongRolePilotEligible } from "../src/readings/zhong-role-pilot.js";
 import {
   auditPolyphonicCandidate,
@@ -150,11 +150,10 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
         : policy === "zhong-role-trial"
           ? { readingEligibility: reviewedZhongRolePilotEligible }
           : {}),
-    ...(policy === "standard-bi-trial"
-      ? { finalCandidateReadingEligibility: reviewedMoeStandardBiReadingEligible }
-      : policy === "standard-de-trial"
-        ? { finalCandidateReadingEligibility: reviewedMoeStandardBiAndDeReadingEligible }
-        : {}),
+    ...(policy === "standard-bi-trial" || policy === "standard-de-trial"
+      ? { finalCandidateReadingEligibility: reviewedMoeStandardBiReadingEligible } : {}),
+    ...(policy === "standard-de-trial"
+      ? { subsequentFinalCandidateReadingEligibility: reviewedMoeStandardDeReadingEligible } : {}),
     ...(policy === "duoshao-zhong-trial"
       ? { preDrawReadingEligibility: beforeMoeLePreDrawEligible }
       : policy === "standard-le-trial" || policy === "standard-bi-trial" || policy === "standard-de-trial"
