@@ -3,7 +3,8 @@ import { catalogEntryId } from "../../src/core/catalog-entry-id.js";
 import type { CatalogEntry } from "../../src/core/model.js";
 import type { RuntimeSyntaxProfile } from "../../src/syntax/types.js";
 import { compareMoeStandardDe } from "../../scripts/compare-moe-standard-de.js";
-import { reviewedMoeStandardBiAndDeReadingEligible, reviewedMoeStandardDeReadingEligible } from "../../src/readings/moe-standard-de.js";
+import { reviewedMoeStandardDeReadingEligible } from "../../src/readings/moe-standard-de.js";
+import { reviewedMoeStandardBiReadingEligible } from "../../src/readings/moe-standard-bi.js";
 
 function entry(text: string, reading: string): CatalogEntry {
   return {
@@ -36,10 +37,11 @@ describe("narrow standalone 得 identity exclusion",()=>{
     expect(()=>reviewedMoeStandardDeReadingEligible(deWrong,profile(de2)))
       .toThrow(/identity and profile mismatch/);
   });
-  it("retains the already-shipped 比 gate",()=>{
-    expect(reviewedMoeStandardBiAndDeReadingEligible(biWrong,profile(biWrong))).toBe(false);
-    expect(reviewedMoeStandardBiAndDeReadingEligible(biGood,profile(biGood))).toBe(true);
-    expect(reviewedMoeStandardBiAndDeReadingEligible(deWrong,profile(deWrong))).toBe(false);
+  it("keeps the already-shipped 比 policy as a distinct first-stage gate",()=>{
+    expect(reviewedMoeStandardBiReadingEligible(biWrong,profile(biWrong))).toBe(false);
+    expect(reviewedMoeStandardBiReadingEligible(biGood,profile(biGood))).toBe(true);
+    expect(reviewedMoeStandardDeReadingEligible(biGood,profile(biGood))).toBe(true);
+    expect(reviewedMoeStandardDeReadingEligible(deWrong,profile(deWrong))).toBe(false);
   });
 });
 
