@@ -47,12 +47,19 @@ export function compareMoeStandardBi(before: Report, after: Report) {
     if (positions.length > 1 || (positions.length === 0 && left.text !== right.text)) {
       throw new Error("non-local lexical identity drift at seed "+i);
     }
-    if (positions.length === 0) continue;
+    if (positions.length === 0) {
+      if (left.entryIds.includes(rejectedId) || right.entryIds.includes(rejectedId)) {
+        throw new Error("unrepaired or newly introduced 比/ㄅㄧ1 at seed "+i);
+      }
+      continue;
+    }
     const at = positions[0]!;
-    // A prior initially-invalid draw in a failed intermediate attempt can
-    // advance the shared RNG and alter a later successful candidate. Such
-    // selections are side effects, NOT corrected pronunciation errors.
-    // Keep the strict one-slot + unchanged-syntax gate and report every case.
+    // A valid correction must replace the *previously wrong slot itself*,
+    // not just some other slot in a sentence that happened to contain 比.
+    if (left.entryIds[at] !== rejectedId || right.entryIds[at] === rejectedId
+      || right.entryIds.includes(rejectedId)) {
+      throw new Error("non-target lexical replacement at seed "+i+" slot "+at);
+    }
     changedSeeds.push(i);
     changedDetails.push({
       seedIndex:i, slot:at,
@@ -64,6 +71,10 @@ export function compareMoeStandardBi(before: Report, after: Report) {
     throw new Error("a previously unlicensed visible 比 identity was not replaced");
   }
   const changedWithoutInitiallyWrongBi = changedSeeds.filter(seed => !badSeeds.includes(seed));
+  // Keep the evidence-report field, but never silently accept side effects.
+  if (changedWithoutInitiallyWrongBi.length > 0) {
+    throw new Error("previously legal seeds changed: "+changedWithoutInitiallyWrongBi.join(","));
+  }
   return {
     schemaVersion:"moe-bi-paired-reading-diff-v1",
     sampleCount:2048,
