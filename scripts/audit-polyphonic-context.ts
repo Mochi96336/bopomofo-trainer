@@ -146,12 +146,12 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
           ? { readingEligibility: beforeMoeLeReadingEligible }
         : policy === "standard-le-trial"
           ? { readingEligibility: beforeMoeBiReadingEligible }
-        : policy === "standard-bi-trial" || policy === "standard-de-trial" || policy === "standard-yu-trial" || policy === "standard-yu-trial"
+        : policy === "standard-bi-trial" || policy === "standard-de-trial" || policy === "standard-yu-trial"
           ? { readingEligibility: beforeMoeBiReadingEligible }
         : policy === "zhong-role-trial"
           ? { readingEligibility: reviewedZhongRolePilotEligible }
           : {}),
-    ...(policy === "standard-bi-trial" || policy === "standard-de-trial"
+    ...(policy === "standard-bi-trial" || policy === "standard-de-trial" || policy === "standard-yu-trial"
       ? { finalCandidateReadingEligibility: reviewedMoeStandardBiReadingEligible } : {}),
     ...(policy === "standard-de-trial" || policy === "standard-yu-trial"
       ? { subsequentFinalCandidateReadingEligibility: reviewedMoeStandardDeReadingEligible } : {}),
