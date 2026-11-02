@@ -9,6 +9,7 @@ import { reviewedMoeStandardBiReadingEligible } from "../../src/readings/moe-sta
 import { reviewedMoeStandardDeReadingEligible } from "../../src/readings/moe-standard-de.js";
 import { reviewedMoeStandardYuReadingEligible } from "../../src/readings/moe-standard-yu.js";
 import { reviewedMoeStandardNanReadingEligible } from "../../src/readings/moe-standard-nan.js";
+import { reviewedMoeStandardXingReadingEligible } from "../../src/readings/moe-standard-xing.js";
 
 const bounds = {
   maximumPhraseDepth:3,maximumClauseNesting:1,maximumClausesPerSentence:2,
@@ -23,7 +24,7 @@ const prior = (
 ) => reviewedMoeStandardLeReadingEligible(entry, profile)
     && reviewedRoleAndOrdinalLineReadingEligible(entry, profile, slot, previous)
     && reviewedDuoshaoZhongReadingEligible(entry, profile, previous);
-function run(seed:number, withBi:boolean, withDe=false, withYu=false, withNan=false) {
+function run(seed:number, withBi:boolean, withDe=false, withYu=false, withNan=false, withXing=false) {
   const result=composeFormalSyntaxUtterances({
     eligibleEntries:PRACTICE_CATALOG,profiles:SYNTAX_PROFILES,
     random:createSeededRandom("formal-syntax-v2-phase1-product-baseline-v1:"+seed),
@@ -33,7 +34,7 @@ function run(seed:number, withBi:boolean, withDe=false, withYu=false, withNan=fa
     preDrawReadingEligibility:reviewedAdjacentPreDrawReadingEligible,
     ...(withBi?{finalCandidateReadingEligibility:reviewedMoeStandardBiReadingEligible}:{}),
     ...(withDe?{subsequentFinalCandidateReadingEligibility:reviewedMoeStandardDeReadingEligible}:{}),
-    ...(withYu?{additionalFinalCandidateReadingEligibilities:[reviewedMoeStandardYuReadingEligible,...(withNan?[reviewedMoeStandardNanReadingEligible]:[])]}:{}),
+    ...(withYu?{additionalFinalCandidateReadingEligibilities:[reviewedMoeStandardYuReadingEligible,...(withNan?[reviewedMoeStandardNanReadingEligible]:[]),...(withXing?[reviewedMoeStandardXingReadingEligible]:[])]}:{}),
   });
   const x=result.candidates[0];
   return {text:x?.text,root:x?.syntaxRootRuleId,entries:x?.entries.map(e=>e.id), profileIds:x?.syntaxProfileIds, fallback:[...result.fallbackReasons]};
@@ -113,6 +114,25 @@ describe("fourth final reading stage preserves all earlier final readings",()=>{
       const slot=before.entries?.indexOf("word:南:ㄋㄚ1") ?? -1;
       expect(slot).toBeGreaterThanOrEqual(0);
       expect(after.entries?.[slot]).not.toBe("word:南:ㄋㄚ1");
+      expect(after.root).toBe(before.root);
+      expect(after.entries?.filter((id,i)=>id!==before.entries?.[i])).toHaveLength(1);
+    }
+  });
+});
+
+describe("final 行 pronunciation cleanup cannot reintroduce another known bad reading",()=>{
+  it("leaves existing 比, 於, 南 repairs and other lawful seeds untouched",()=>{
+    for (const seed of [17,248,349,1013,1014,1741]) {
+      expect(run(seed,true,true,true,true,true)).toEqual(run(seed,true,true,true,true,false));
+    }
+  });
+  it("repairs both sampled 行/ㄏㄥ2 selected slots, including seed 967 formerly repaired from 得",()=>{
+    for (const seed of [967,1665]) {
+      const before=run(seed,true,true,true,true,false);
+      const after=run(seed,true,true,true,true,true);
+      const slot=before.entries?.indexOf("word:行:ㄏㄥ2") ?? -1;
+      expect(slot).toBeGreaterThanOrEqual(0);
+      expect(after.entries?.[slot]).not.toBe("word:行:ㄏㄥ2");
       expect(after.root).toBe(before.root);
       expect(after.entries?.filter((id,i)=>id!==before.entries?.[i])).toHaveLength(1);
     }

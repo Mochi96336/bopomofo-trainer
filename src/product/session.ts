@@ -27,6 +27,7 @@ import { reviewedMoeStandardBiReadingEligible } from "../readings/moe-standard-b
 import { reviewedMoeStandardDeReadingEligible } from "../readings/moe-standard-de.js";
 import { reviewedMoeStandardYuReadingEligible } from "../readings/moe-standard-yu.js";
 import { reviewedMoeStandardNanReadingEligible } from "../readings/moe-standard-nan.js";
+import { reviewedMoeStandardXingReadingEligible } from "../readings/moe-standard-xing.js";
 import { createSeededRandom } from "../curriculum/random.js";
 import { createCatalogSupportIndex } from "../curriculum/support.js";
 import {
@@ -127,6 +128,7 @@ function selectRound(
     additionalFinalCandidateReadingEligibilities: [
       reviewedMoeStandardYuReadingEligible,
       reviewedMoeStandardNanReadingEligible,
+      reviewedMoeStandardXingReadingEligible,
     ],
     preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
