@@ -84,7 +84,7 @@ export interface FormalSyntaxUtteranceInput {
    * pick. Redraws then cannot advance the caller's structural/lexical RNG.
    * False preserves prior shipped behavior; enable only after paired audits.
    */
-  readonly isolateReadingRedrawRandom?: boolean;
+  readonly isolatedReadingRedrawEntryIds?: ReadonlySet<string>;
   readonly lexicalCompatibilityMaximumBoost?: number;
   readonly minimumLexicalEntries?: number;
   readonly maximumCandidates: number;
@@ -708,7 +708,7 @@ export function composeFormalSyntaxUtterances(
       // frontier. Other reviewed-role gates preserve the prior local
       // post-draw check so unrelated selection paths remain unchanged.
       const initialLexicalRandomValues: number[] = [];
-      const initiallyDrawFrom: RandomSource = input.isolateReadingRedrawRandom === true
+      const initiallyDrawFrom: RandomSource = input.isolatedReadingRedrawEntryIds !== undefined
         ? { next: () => {
             const value = input.random.next();
             initialLexicalRandomValues.push(value);
@@ -765,7 +765,7 @@ export function composeFormalSyntaxUtterances(
           // The original pick has already consumed the exact caller RNG
           // values it would consume in an unguarded run. Only the rejection
           // redraw uses a local, deterministic stream; no extra caller draw.
-          const redrawRandom = input.isolateReadingRedrawRandom === true
+          const redrawRandom = input.isolatedReadingRedrawEntryIds?.has(initiallySelected.id) === true
             ? createSeededRandom(
                 "reading-redraw-slot-v1:"
                 + slot.id + ":"
