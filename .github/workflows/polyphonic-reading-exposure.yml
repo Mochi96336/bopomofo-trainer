@@ -8,6 +8,8 @@ on:
       - "scripts/compare-moe-standard-le.ts"
       - "scripts/compare-moe-standard-bi.ts"
       - "scripts/compare-moe-standard-de.ts"
+      - "scripts/compare-moe-standard-yu.ts"
+      - "src/readings/moe-standard-yu.ts"
       - "src/readings/moe-standard-de.ts"
       - "scripts/compare-zhong-role-trial.ts"
       - "scripts/compare-ordinal-line-trial.ts"
@@ -108,6 +110,14 @@ jobs:
           data/generated/polyphonic-context-standard-bi-trial.json
           data/generated/polyphonic-context-standard-de-trial.json
           data/generated/polyphonic-standard-de-trial-comparison.json
+      - name: Replay MOE-standard 於 reading against the same 2048 seeds
+        run: npm run readings:audit -- --policy standard-yu-trial --output data/generated/polyphonic-context-standard-yu-trial.json
+      - name: Reject any non-target seed or lexical-slot change in 於 trial
+        run: >-
+          npx tsx scripts/compare-moe-standard-yu.ts
+          data/generated/polyphonic-context-standard-de-trial.json
+          data/generated/polyphonic-context-standard-yu-trial.json
+          data/generated/polyphonic-standard-yu-trial-comparison.json
       - name: Verify exact-seed changes and reviewed-role rejection counts
         run: >-
           npx tsx scripts/compare-polyphonic-role-trial.ts
@@ -259,6 +269,8 @@ jobs:
             data/generated/polyphonic-standard-bi-trial-comparison.json
             data/generated/polyphonic-context-standard-de-trial.json
             data/generated/polyphonic-standard-de-trial-comparison.json
+            data/generated/polyphonic-context-standard-yu-trial.json
+            data/generated/polyphonic-standard-yu-trial-comparison.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
             data/generated/conflicting-target-exposure.json
