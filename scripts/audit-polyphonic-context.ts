@@ -149,7 +149,7 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
         : policy === "zhong-role-trial"
           ? { readingEligibility: reviewedZhongRolePilotEligible }
           : {}),
-    ...(policy === "standard-bi-trial" ? { isolateReadingRedrawRandom: true } : {}),
+    ...(policy === "standard-bi-trial" ? { isolatedReadingRedrawEntryIds: new Set(["word:比:ㄅㄧ1"]) } : {}),
     ...(policy === "duoshao-zhong-trial"
       ? { preDrawReadingEligibility: beforeMoeLePreDrawEligible }
       : policy === "standard-le-trial" || policy === "standard-bi-trial"
