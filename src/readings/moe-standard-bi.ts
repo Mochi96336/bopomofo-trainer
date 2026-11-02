@@ -14,6 +14,8 @@ import type { RuntimeSyntaxProfile } from "../syntax/types.js";
  * https://dict.concised.moe.edu.tw/dictView.jsp?ID=1285
  * https://dict.concised.moe.edu.tw/dictView.jsp?ID=2978
  */
+export const NONSTANDARD_BI_FIRST_TONE_ID = catalogEntryId("比", "ㄅㄧ1");
+
 const MOE_BI_IDENTITIES = new Set([
   catalogEntryId("比", "ㄅㄧ3"),
   catalogEntryId("比", "ㄅㄧ4"),
