@@ -95,7 +95,7 @@ export function buildSelectedMoeHeadwordCoverage(
   revised:Projection,
 ) {
   if(audit.schemaVersion!=="polyphonic-context-exposure-v1"
-    || audit.readingEligibilityPolicy!=="standard-xing-trial"
+    || audit.readingEligibilityPolicy!=="standard-guo-trial"
     || audit.sampleCount!==2048 || audit.sentences.length!==2048
     || audit.failedSentences!==0 || audit.successfulSentences!==2048
     || !Number.isSafeInteger(audit.catalogEntryCount) || audit.catalogEntryCount<=0){
