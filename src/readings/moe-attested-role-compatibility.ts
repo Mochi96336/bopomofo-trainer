@@ -102,3 +102,42 @@ export function reviewedMoeFollowupRoleEligible(
   }
   return !isMoeFollowupRoleMismatch(entry.id,profile.upos);
 }
+
+
+/**
+ * Evidence from the exact #448 final 2,048-seed product population.
+ * 24 selected lexical slots, in 24 distinct seeds. Restrict only the
+ * attested incompatible reading+UPOS; all other lexical roles survive.
+ *
+ * MOE Revised:
+ * - 為/ㄨㄟ4 is a preposition (for/because), not the copular AUX "is":
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=11447
+ * - 種/ㄓㄨㄥ4 is the verb plant/inoculate, not the noun/classifier kind:
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=8169
+ * - 上/ㄕㄤ3 is the tone name in 上聲, not "previous/upper" determiner:
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=9040
+ *
+ * The general noun 上/ㄕㄤ3 is NOT blanket-banned because the tone-name
+ * sense is dictionary-attested. No natural-language fluency judgment.
+ */
+export const MOE_THIRD_ROLE_RESTRICTIONS = [
+  { entryId: catalogEntryId("為","ㄨㄟ4"), rejectedUpos:["AUX"] },
+  { entryId: catalogEntryId("種","ㄓㄨㄥ4"), rejectedUpos:["NOUN"] },
+  { entryId: catalogEntryId("上","ㄕㄤ3"), rejectedUpos:["DET"] },
+] as const satisfies readonly { readonly entryId:string; readonly rejectedUpos:readonly Upos[] }[];
+
+const thirdMismatch = makeMismatchLookup(MOE_THIRD_ROLE_RESTRICTIONS);
+
+export function isMoeThirdRoleMismatch(entryId:string,upos:Upos):boolean {
+  return thirdMismatch(entryId,upos);
+}
+
+export function reviewedMoeThirdRoleEligible(
+  entry: CatalogEntry,
+  profile: RuntimeSyntaxProfile,
+):boolean {
+  if(entry.id!==profile.entryId) {
+    throw new Error("MOE role-specific reading policy must inspect actual selected catalog identity");
+  }
+  return !isMoeThirdRoleMismatch(entry.id,profile.upos);
+}

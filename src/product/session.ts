@@ -32,6 +32,7 @@ import { reviewedMoeStandardGuoReadingEligible } from "../readings/moe-standard-
 import { reviewedMoeNaSurnameRoleEligible } from "../readings/moe-na-surname-role.js";
 import { reviewedMoeAttestedRoleEligible } from "../readings/moe-attested-role-compatibility.js";
 import { reviewedMoeFollowupRoleEligible } from "../readings/moe-attested-role-compatibility.js";
+import { reviewedMoeThirdRoleEligible } from "../readings/moe-attested-role-compatibility.js";
 import { createSeededRandom } from "../curriculum/random.js";
 import { createCatalogSupportIndex } from "../curriculum/support.js";
 import {
@@ -137,6 +138,7 @@ function selectRound(
       reviewedMoeNaSurnameRoleEligible,
       reviewedMoeAttestedRoleEligible,
       reviewedMoeFollowupRoleEligible,
+      reviewedMoeThirdRoleEligible,
     ],
     preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
