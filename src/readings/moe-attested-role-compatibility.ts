@@ -275,3 +275,38 @@ export function reviewedMoeSixthRoleEligible(entry:CatalogEntry,profile:RuntimeS
   }
   return !isMoeSixthRoleMismatch(entry.id,profile.upos);
 }
+
+
+/**
+ * Seventh role-identity evidence: actual #453 sixth-stage final output.
+ * 18 selected incompatible 和 reading/UPOS slots in 17 frozen seeds.
+ *
+ * MOE Revised (https://dict.revised.moe.edu.tw/dictView.jsp?ID=4733):
+ * - 和/ㄏㄜ2 is attested as a noun (sum, peace, Japan) and surname.
+ * - 和/ㄏㄜ4 describes answering song or poetry (VERB), not a noun/name.
+ * - 和/ㄏㄨ2 denotes winning a mahjong hand (VERB), not a noun/name.
+ * - 和/ㄏㄨㄛ4 describes mixing (VERB), not a noun/name.
+ * Older MOE 一字多音審訂表 also attests 和/ㄏㄨㄛ2 as in 和麵:
+ * do not ban this pronunciation globally or infer it is impossible.
+ * It does not describe a PROPN in the cited examples.
+ *
+ * Only the seven exact reading/UPOS combinations are excluded. Legitimate
+ * surname 和/ㄏㄜ2 and action readings in verb roles remain available.
+ */
+export const MOE_SEVENTH_ROLE_RESTRICTIONS = [
+  { entryId: catalogEntryId("和","ㄏㄜ4"), rejectedUpos:["PROPN","NOUN"] },
+  { entryId: catalogEntryId("和","ㄏㄨ2"), rejectedUpos:["PROPN","NOUN"] },
+  { entryId: catalogEntryId("和","ㄏㄨㄛ4"), rejectedUpos:["PROPN","NOUN"] },
+  { entryId: catalogEntryId("和","ㄏㄨㄛ2"), rejectedUpos:["PROPN"] },
+] as const satisfies readonly {readonly entryId:string;readonly rejectedUpos:readonly Upos[]}[];
+
+const seventhMismatch = makeMismatchLookup(MOE_SEVENTH_ROLE_RESTRICTIONS);
+export function isMoeSeventhRoleMismatch(entryId:string,upos:Upos):boolean {
+  return seventhMismatch(entryId,upos);
+}
+export function reviewedMoeSeventhRoleEligible(entry:CatalogEntry,profile:RuntimeSyntaxProfile):boolean {
+  if(entry.id!==profile.entryId) {
+    throw new Error("MOE role-specific reading policy must inspect actual selected catalog identity");
+  }
+  return !isMoeSeventhRoleMismatch(entry.id,profile.upos);
+}
