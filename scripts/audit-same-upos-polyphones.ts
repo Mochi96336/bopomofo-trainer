@@ -9,14 +9,18 @@ import { buildSameUposReviewQueue } from "../src/readings/same-upos-review.js";
  *   npm run readings:audit -- --policy standard-role-third-trial --output data/generated/polyphonic-context-standard-role-third-trial.json
  *   npx tsx scripts/audit-same-upos-polyphones.ts
  *
- * Always derive the review queue from the *latest delivered* candidate stage,\n * not the historical reviewed-roles baseline that predates confirmed fixes.\n * No sentence is marked wrong by this tool. The reviewed-role variants are
+ * Always derive the review queue from the *latest delivered* candidate stage,
+ * not the historical reviewed-roles baseline that predates confirmed fixes.
+ * No sentence is marked wrong by this tool. The reviewed-role variants are
  * separated from truly unreviewed text/UPOS groups. Zero occurrences of a
  * lexical reading is missing coverage, not evidence of correctness.
  */
 interface Input {
   readonly schemaVersion: string;
   readonly readingEligibilityPolicy: string;
-  readonly sampleCount: number;\n  readonly successfulSentences: number;\n  readonly failedSentences: number;
+  readonly sampleCount: number;
+  readonly successfulSentences: number;
+  readonly failedSentences: number;
   readonly unsampledAmbiguousTexts: readonly string[];
   readonly hits: readonly PolyphonicContextHit[];
 }
@@ -33,7 +37,10 @@ for (let i = 0; i < args.length; i += 2) {
 }
 const source = JSON.parse(await readFile(inputPath, "utf8")) as Input;
 if (source.schemaVersion !== "polyphonic-context-exposure-v1"
-  || source.readingEligibilityPolicy !== "standard-role-third-trial"\n  || source.sampleCount !== 2048\n  || source.successfulSentences !== 2048\n  || source.failedSentences !== 0
+  || source.readingEligibilityPolicy !== "standard-role-third-trial"
+  || source.sampleCount !== 2048
+  || source.successfulSentences !== 2048
+  || source.failedSentences !== 0
   || !Array.isArray(source.hits)
   || !Array.isArray(source.unsampledAmbiguousTexts)) {
   throw new Error("same-UPOS review requires successful final standard-role-third-trial 2048-seed exposure");
@@ -50,7 +57,8 @@ await mkdir(dirname(outputPath), { recursive: true });
 await writeFile(outputPath, JSON.stringify(output, null, 2) + "\n", "utf8");
 console.log(JSON.stringify({
   outputPath,
-  sampleCount: output.sampleCount,\n  sourcePolicy: output.sourcePolicy,
+  sampleCount: output.sampleCount,
+  sourcePolicy: output.sourcePolicy,
   ambiguousGroupsInSample: output.ambiguousGroupsInSample,
   occurrencesInAmbiguousGroups: output.occurrencesInAmbiguousGroups,
   unreviewedGroups: output.unreviewedGroups,
