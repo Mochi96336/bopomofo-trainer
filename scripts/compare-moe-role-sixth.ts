@@ -15,7 +15,7 @@ interface Sentence { readonly seedIndex:number; readonly text:string|null; reado
 interface Hit { readonly seedIndex:number;readonly entryIndex:number;readonly selectedEntryId:string;readonly selectedUpos:string }
 interface Report {readonly readingEligibilityPolicy:string;readonly seedNamespace:string;readonly catalogEntryCount:number;readonly sampleCount:number;readonly successfulSentences:number;readonly failedSentences:number;readonly sentences:readonly Sentence[];readonly hits:readonly Hit[]}
 
-/** Frozen #451 final product sample: 7 invalid reading/UPOS slots across 11 seeds. */
+/** Frozen #452 final product sample: 9 invalid reading/UPOS slots across 8 seeds. */
 export const FROZEN_MOE_SIXTH_BAD_SLOTS = [
   {seed:7,slot:0,id:catalogEntryId("個","ㄍㄜ3"),upos:"NOUN"},
   {seed:150,slot:1,id:catalogEntryId("得","ㄉㄜ5"),upos:"VERB"},
