@@ -28,8 +28,9 @@ const filler=entry("不","ㄅㄨ4").id;
 const substitute=entry("不是","ㄅㄨ2-ㄕ4").id;
 
 describe("fourth MOE role mismatch evidence",()=>{
-  it("rejects only the three attested reading and UPOS combinations",()=>{
+  it("rejects exactly nine evidence-backed reading and UPOS combinations",()=>{
     expect(MOE_FOURTH_ROLE_RESTRICTIONS).toHaveLength(7);
+    expect(MOE_FOURTH_ROLE_RESTRICTIONS.reduce((n,row)=>n+row.rejectedUpos.length,0)).toBe(9);
     for(const row of MOE_FOURTH_ROLE_RESTRICTIONS){
       const at=row.entryId.lastIndexOf(":");
       const e=entry(row.entryId.slice(5,at),row.entryId.slice(at+1));
