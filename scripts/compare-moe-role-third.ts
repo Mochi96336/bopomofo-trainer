@@ -57,13 +57,13 @@ export function compareMoeRoleThird(before:Report,after:Report){
     || before.failedSentences!==0||after.failedSentences!==0
     || before.sentences.length!==2048||after.sentences.length!==2048
     || !Array.isArray(before.hits)||!Array.isArray(after.hits)) {
-    throw new Error("MOE role follow-up requires exact 2048 successful paired final product samples");
+    throw new Error("MOE third-role trial requires exact 2048 successful paired final product samples");
   }
   const observed=before.hits.filter(bad)
     .map(h=>({seed:h.seedIndex,slot:h.entryIndex,id:h.selectedEntryId,upos:h.selectedUpos}))
     .sort((a,b)=>a.seed-b.seed||a.slot-b.slot);
   if(JSON.stringify(observed)!==JSON.stringify(FROZEN_MOE_THIRD_BAD_SLOTS)){
-    throw new Error("prior shipping four-role exposure drifted: re-review source evidence");
+    throw new Error("prior #448 final 24-slot exposure drifted: re-review source evidence");
   }
   if(after.hits.some(bad))throw new Error("unsupported role pronunciation persists in final output");
   const changes:Array<{seedIndex:number;slot:number;priorId:string;newId:string}>=[];
@@ -89,7 +89,7 @@ export function compareMoeRoleThird(before:Report,after:Report){
     }
     if(changed.length)changedSeeds.push(i);
   }
-  if(changes.length!==24||changedSeeds.length!==24)throw new Error("role follow-up repair count mismatch");
+  if(changes.length!==24||changedSeeds.length!==24)throw new Error("third-role repair count mismatch");
   const globallyUnsupported=[
     catalogEntryId("比","ㄅㄧ1"),catalogEntryId("了","ㄌㄧㄠ4"),catalogEntryId("得","ㄉㄜ4"),
     catalogEntryId("於","ㄩ1"),catalogEntryId("南","ㄋㄚ1"),catalogEntryId("行","ㄏㄥ2"),
@@ -101,7 +101,7 @@ export function compareMoeRoleThird(before:Report,after:Report){
   for(const hit of after.hits){
     if(isMoeAttestedRoleMismatch(hit.selectedEntryId,hit.selectedUpos as Upos)
       || isMoeFollowupRoleMismatch(hit.selectedEntryId,hit.selectedUpos as Upos)) {
-      throw new Error("prior #447 role mismatch reappeared at "+hit.seedIndex);
+      throw new Error("previous role mismatch reappeared at "+hit.seedIndex);
     }
     if(hit.selectedEntryId===catalogEntryId("那","ㄋㄚ1")
       &&(hit.selectedUpos==="PRON"||hit.selectedUpos==="ADV")){
