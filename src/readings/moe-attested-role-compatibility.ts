@@ -190,3 +190,48 @@ export function reviewedMoeFourthRoleEligible(
   }
   return !isMoeFourthRoleMismatch(entry.id,profile.upos);
 }
+
+
+/**
+ * #451 final product 2,048-seed exposure: seven exact reading+UPOS mismatches
+ * in seven separate, frozen lexical slots. Other usages remain eligible.
+ *
+ * MOE Revised:
+ * - 與/ㄩ2 is a sentence-final particle (yú), not ADP (yǔ).
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=11662
+ * - 藏/ㄗㄤ4 denotes a noun (store, organ, Tibet, canon), not hide/store VERB.
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=9592
+ * - 任/ㄖㄣ2 is a surname or classical adjective, not the ordinal post NOUN
+ *   as in 第一任 (rèn, a term of office).
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=9258
+ * - 佛/ㄈㄨ2 is bound in 仿佛/彷彿, not standalone Buddha NOUN (fó).
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=1783
+ * - 陸/ㄌㄧㄡ4 is uppercase six, not the surname 陸 (lù) PROPN.
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=3784
+ * - 番/ㄆㄢ1 belongs to 番禺, not noun/classifier 番 (fān).
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=606
+ * - 把/ㄅㄚ4 means a handle (noun), not the verb bǎ.
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=137
+ *
+ * Never ban rare valid readings wholesale: only these selected roles.
+ */
+export const MOE_FIFTH_ROLE_RESTRICTIONS = [
+  { entryId: catalogEntryId("與","ㄩ2"), rejectedUpos:["ADP"] },
+  { entryId: catalogEntryId("藏","ㄗㄤ4"), rejectedUpos:["VERB"] },
+  { entryId: catalogEntryId("任","ㄖㄣ2"), rejectedUpos:["NOUN"] },
+  { entryId: catalogEntryId("佛","ㄈㄨ2"), rejectedUpos:["NOUN"] },
+  { entryId: catalogEntryId("陸","ㄌㄧㄡ4"), rejectedUpos:["PROPN"] },
+  { entryId: catalogEntryId("番","ㄆㄢ1"), rejectedUpos:["NOUN"] },
+  { entryId: catalogEntryId("把","ㄅㄚ4"), rejectedUpos:["VERB"] },
+] as const satisfies readonly {readonly entryId:string;readonly rejectedUpos:readonly Upos[]}[];
+
+const fifthMismatch = makeMismatchLookup(MOE_FIFTH_ROLE_RESTRICTIONS);
+export function isMoeFifthRoleMismatch(entryId:string,upos:Upos):boolean {
+  return fifthMismatch(entryId,upos);
+}
+export function reviewedMoeFifthRoleEligible(entry:CatalogEntry,profile:RuntimeSyntaxProfile):boolean {
+  if(entry.id!==profile.entryId) {
+    throw new Error("MOE role-specific reading policy must inspect actual selected catalog identity");
+  }
+  return !isMoeFifthRoleMismatch(entry.id,profile.upos);
+}
