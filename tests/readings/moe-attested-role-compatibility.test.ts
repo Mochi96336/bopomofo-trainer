@@ -87,7 +87,7 @@ describe("evidence-based batch is auditable at exact frozen selected slots",()=>
     };
     const after={
       ...before,readingEligibilityPolicy:"standard-role-evidence-trial",
-      hits:[],
+      hits:[] as typeof hits,
       sentences:sentences.map((s,i)=>({
         ...s,
         entryIds:FROZEN_MOE_ROLE_BAD_SLOTS.some(x=>x.seed===i)
