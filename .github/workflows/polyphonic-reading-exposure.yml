@@ -19,6 +19,7 @@ on:
       - "scripts/compare-moe-attested-roles.ts"
       - "scripts/compare-moe-role-followup.ts"
       - "scripts/compare-moe-role-third.ts"
+      - "scripts/compare-moe-role-fourth.ts"
       - "src/readings/moe-attested-role-compatibility.ts"
       - "src/readings/moe-na-surname-role.ts"
       - "src/readings/moe-standard-guo.ts"
@@ -189,6 +190,14 @@ jobs:
           data/generated/polyphonic-context-standard-role-followup-trial.json
           data/generated/polyphonic-context-standard-role-third-trial.json
           data/generated/polyphonic-standard-role-third-trial-comparison.json
+      - name: Replay fourth MOE role batch across same 2048 fixed seeds
+        run: npm run readings:audit -- --policy standard-role-fourth-trial --output data/generated/polyphonic-context-standard-role-fourth-trial.json
+      - name: Guard exactly 11 new invalid role slots and zero unrelated changes
+        run: >-
+          npx tsx scripts/compare-moe-role-fourth.ts
+          data/generated/polyphonic-context-standard-role-third-trial.json
+          data/generated/polyphonic-context-standard-role-fourth-trial.json
+          data/generated/polyphonic-standard-role-fourth-trial-comparison.json
       - name: Inventory selected final readings against partial MOE projections without guessing correctness
         run: npx tsx scripts/audit-selected-moe-headword-coverage.ts
       - name: Verify exact-seed changes and reviewed-role rejection counts
@@ -209,7 +218,7 @@ jobs:
           const report = JSON.parse(readFileSync('data/generated/polyphonic-context-exposure.json', 'utf8'));
           const gated = JSON.parse(readFileSync('data/generated/polyphonic-context-reviewed-closed.json', 'utf8'));
           const roles = JSON.parse(readFileSync('data/generated/polyphonic-context-reviewed-roles.json', 'utf8'));
-          const final = JSON.parse(readFileSync('data/generated/polyphonic-context-standard-role-third-trial.json', 'utf8'));
+          const final = JSON.parse(readFileSync('data/generated/polyphonic-context-standard-role-fourth-trial.json', 'utf8'));
           const comparison = JSON.parse(readFileSync('data/generated/polyphonic-role-trial-comparison.json', 'utf8'));
           const queue = JSON.parse(readFileSync('data/generated/same-upos-polyphone-review.json', 'utf8'));
           const targets = JSON.parse(readFileSync('data/generated/polyphonic-targeted-identity-coverage.json', 'utf8'));
@@ -217,7 +226,7 @@ jobs:
           const ordinalTrial = JSON.parse(readFileSync('data/generated/polyphonic-ordinal-line-trial-comparison.json', 'utf8'));
           const conflict = JSON.parse(readFileSync('data/generated/conflicting-target-exposure.json', 'utf8'));
           const escape = (value) => String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
-          if (final.readingEligibilityPolicy !== 'standard-role-third-trial'
+          if (final.readingEligibilityPolicy !== 'standard-role-fourth-trial'
             || final.sampleCount !== 2048 || final.successfulSentences !== 2048
             || final.failedSentences !== 0 || queue.sourcePolicy !== final.readingEligibilityPolicy
             || queue.sampleCount !== final.sampleCount) throw new Error('review queue must match latest successful final product exposure');
@@ -228,7 +237,7 @@ jobs:
             '### Final delivered polyphonic reading exposure: 2,048 deterministic seeds',
             '',
             '**Diagnostic only:** a sampled multireading entry is not necessarily a wrong pronunciation.',
-            'Current figures and example contexts are from final standard-role-third-trial output, not historical baselines; generated sentences are not user sessions.',
+            'Current figures and example contexts are from final standard-role-fourth-trial output, not historical baselines; generated sentences are not user sessions.',
             '',
             '| Measure | Result |',
             '|---|---:|',
@@ -363,6 +372,8 @@ jobs:
             data/generated/polyphonic-standard-role-followup-trial-comparison.json
             data/generated/polyphonic-context-standard-role-third-trial.json
             data/generated/polyphonic-standard-role-third-trial-comparison.json
+            data/generated/polyphonic-context-standard-role-fourth-trial.json
+            data/generated/polyphonic-standard-role-fourth-trial-comparison.json
             data/generated/selected-moe-headword-coverage.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
