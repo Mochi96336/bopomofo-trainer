@@ -12,6 +12,8 @@ import { reviewedMoeStandardNanReadingEligible } from "../../src/readings/moe-st
 import { reviewedMoeStandardXingReadingEligible } from "../../src/readings/moe-standard-xing.js";
 import { reviewedMoeStandardGuoReadingEligible } from "../../src/readings/moe-standard-guo.js";
 import { reviewedMoeNaSurnameRoleEligible } from "../../src/readings/moe-na-surname-role.js";
+import { reviewedMoeAttestedRoleEligible } from "../../src/readings/moe-attested-role-compatibility.js";
+import { FROZEN_MOE_ROLE_BAD_SLOTS } from "../../scripts/compare-moe-attested-roles.js";
 
 const bounds = {
   maximumPhraseDepth:3,maximumClauseNesting:1,maximumClausesPerSentence:2,
@@ -26,7 +28,7 @@ const prior = (
 ) => reviewedMoeStandardLeReadingEligible(entry, profile)
     && reviewedRoleAndOrdinalLineReadingEligible(entry, profile, slot, previous)
     && reviewedDuoshaoZhongReadingEligible(entry, profile, previous);
-function run(seed:number, withBi:boolean, withDe=false, withYu=false, withNan=false, withXing=false, withGuo=false, withNa=false) {
+function run(seed:number, withBi:boolean, withDe=false, withYu=false, withNan=false, withXing=false, withGuo=false, withNa=false, withRoles=false) {
   const result=composeFormalSyntaxUtterances({
     eligibleEntries:PRACTICE_CATALOG,profiles:SYNTAX_PROFILES,
     random:createSeededRandom("formal-syntax-v2-phase1-product-baseline-v1:"+seed),
@@ -36,7 +38,7 @@ function run(seed:number, withBi:boolean, withDe=false, withYu=false, withNan=fa
     preDrawReadingEligibility:reviewedAdjacentPreDrawReadingEligible,
     ...(withBi?{finalCandidateReadingEligibility:reviewedMoeStandardBiReadingEligible}:{}),
     ...(withDe?{subsequentFinalCandidateReadingEligibility:reviewedMoeStandardDeReadingEligible}:{}),
-    ...(withYu?{additionalFinalCandidateReadingEligibilities:[reviewedMoeStandardYuReadingEligible,...(withNan?[reviewedMoeStandardNanReadingEligible]:[]),...(withXing?[reviewedMoeStandardXingReadingEligible]:[]),...(withGuo?[reviewedMoeStandardGuoReadingEligible]:[]),...(withNa?[reviewedMoeNaSurnameRoleEligible]:[])]}:{}),
+    ...(withYu?{additionalFinalCandidateReadingEligibilities:[reviewedMoeStandardYuReadingEligible,...(withNan?[reviewedMoeStandardNanReadingEligible]:[]),...(withXing?[reviewedMoeStandardXingReadingEligible]:[]),...(withGuo?[reviewedMoeStandardGuoReadingEligible]:[]),...(withNa?[reviewedMoeNaSurnameRoleEligible]:[]),...(withRoles?[reviewedMoeAttestedRoleEligible]:[])]}:{}),
   });
   const x=result.candidates[0];
   return {text:x?.text,root:x?.syntaxRootRuleId,entries:x?.entries.map(e=>e.id), profileIds:x?.syntaxProfileIds, fallback:[...result.fallbackReasons]};
@@ -182,6 +184,27 @@ describe("reviewed Na surname role does not alter previously verified readings",
       expect(after.root).toBe(before.root);
       const changed=(before.entries??[]).flatMap((id,i)=>id===after.entries?.[i]?[]:[i]);
       expect(changed).toEqual(slots);
+    }
+  });
+});
+
+describe("MOE verified role-only batch preserves all other selected readings",()=>{
+  it("changes only the invalid sampled lexical slot for all 16 observed role mismatches",()=>{
+    for(const {seed,slot,id} of FROZEN_MOE_ROLE_BAD_SLOTS){
+      const before=run(seed,true,true,true,true,true,true,true,false);
+      const after=run(seed,true,true,true,true,true,true,true,true);
+      expect(before.entries?.[slot]).toBe(id);
+      expect(after.entries?.[slot]).not.toBe(id);
+      expect(after.root).toBe(before.root);
+      expect(after.entries?.length).toBe(before.entries?.length);
+      const changed=(before.entries??[]).flatMap((entry,i)=>entry===after.entries?.[i]?[]:[i]);
+      expect(changed).toEqual([slot]);
+    }
+  });
+  it("keeps preceding repaired and neutral lawful seed results identical",()=>{
+    for(const seed of [17,60,72,78,223,248,349,967,1013,1014,1295,1665,1741,1874,1959]){
+      expect(run(seed,true,true,true,true,true,true,true,true))
+        .toEqual(run(seed,true,true,true,true,true,true,true,false));
     }
   });
 });
