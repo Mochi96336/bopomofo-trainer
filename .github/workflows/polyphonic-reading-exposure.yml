@@ -17,6 +17,7 @@ on:
       - "scripts/compare-moe-standard-guo.ts"
       - "scripts/compare-moe-na-surname.ts"
       - "scripts/compare-moe-attested-roles.ts"
+      - "scripts/compare-moe-role-followup.ts"
       - "src/readings/moe-attested-role-compatibility.ts"
       - "src/readings/moe-na-surname-role.ts"
       - "src/readings/moe-standard-guo.ts"
@@ -171,6 +172,14 @@ jobs:
           data/generated/polyphonic-context-standard-na-surname-trial.json
           data/generated/polyphonic-context-standard-role-evidence-trial.json
           data/generated/polyphonic-standard-role-evidence-trial-comparison.json
+      - name: Replay MOE reviewed follow-up role pairs across the 2048 exact seeds
+        run: npm run readings:audit -- --policy standard-role-followup-trial --output data/generated/polyphonic-context-standard-role-followup-trial.json
+      - name: Guard exactly 27 original bad slots in 26 seeds, with no other drift
+        run: >-
+          npx tsx scripts/compare-moe-role-followup.ts
+          data/generated/polyphonic-context-standard-role-evidence-trial.json
+          data/generated/polyphonic-context-standard-role-followup-trial.json
+          data/generated/polyphonic-standard-role-followup-trial-comparison.json
       - name: Inventory selected final readings against partial MOE projections without guessing correctness
         run: npx tsx scripts/audit-selected-moe-headword-coverage.ts
       - name: Verify exact-seed changes and reviewed-role rejection counts
@@ -336,6 +345,8 @@ jobs:
             data/generated/polyphonic-na-surname-trial-comparison.json
             data/generated/polyphonic-context-standard-role-evidence-trial.json
             data/generated/polyphonic-standard-role-evidence-trial-comparison.json
+            data/generated/polyphonic-context-standard-role-followup-trial.json
+            data/generated/polyphonic-standard-role-followup-trial-comparison.json
             data/generated/selected-moe-headword-coverage.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
