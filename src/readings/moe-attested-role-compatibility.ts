@@ -235,3 +235,43 @@ export function reviewedMoeFifthRoleEligible(entry:CatalogEntry,profile:RuntimeS
   }
   return !isMoeFifthRoleMismatch(entry.id,profile.upos);
 }
+
+
+/**
+ * Sixth evidence-bounded role gate, frozen from #452's actual final fifth
+ * 2,048-seed product report: exactly 9 selected wrong lexical slots across
+ * 8 seeds. Restrict only these five exact reading/UPOS pairs; leave other
+ * attested pronunciations and lexical roles available.
+ *
+ * Official MOE Revised / Concised:
+ * - 個/ㄍㄜ3 is attested in the complete lexeme 自個兒, not the standalone
+ *   noun/classifier 個 (ㄍㄜ4). https://dict.revised.moe.edu.tw/dictView.jsp?ID=3969
+ * - 得/ㄉㄜ5 is a structural particle, not a lexical VERB (ㄉㄜ2/ㄉㄟ3).
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=1923
+ * - 惡/ㄜ3 describes feeling nauseated, not the adjective evil (ㄜ4).
+ *   https://dict.concised.moe.edu.tw/dictView.jsp?ID=39408
+ * - 著/ㄓㄜ5 is an aspectual particle, not lexical VERB.
+ *   https://dict.concised.moe.edu.tw/dictView.jsp?ID=29560
+ * - 處/ㄔㄨ3 is to stay/handle (VERB), not place/department NOUN (ㄔㄨ4).
+ *   https://dict.concised.moe.edu.tw/dictView.jsp?ID=32641
+ *
+ * Rare legitimate sounds are not global invalid readings.
+ */
+export const MOE_SIXTH_ROLE_RESTRICTIONS = [
+  { entryId: catalogEntryId("個","ㄍㄜ3"), rejectedUpos:["NOUN"] },
+  { entryId: catalogEntryId("得","ㄉㄜ5"), rejectedUpos:["VERB"] },
+  { entryId: catalogEntryId("惡","ㄜ3"), rejectedUpos:["ADJ"] },
+  { entryId: catalogEntryId("著","ㄓㄜ5"), rejectedUpos:["VERB"] },
+  { entryId: catalogEntryId("處","ㄔㄨ3"), rejectedUpos:["NOUN"] },
+] as const satisfies readonly {readonly entryId:string;readonly rejectedUpos:readonly Upos[]}[];
+
+const sixthMismatch = makeMismatchLookup(MOE_SIXTH_ROLE_RESTRICTIONS);
+export function isMoeSixthRoleMismatch(entryId:string,upos:Upos):boolean {
+  return sixthMismatch(entryId,upos);
+}
+export function reviewedMoeSixthRoleEligible(entry:CatalogEntry,profile:RuntimeSyntaxProfile):boolean {
+  if(entry.id!==profile.entryId) {
+    throw new Error("MOE role-specific reading policy must inspect actual selected catalog identity");
+  }
+  return !isMoeSixthRoleMismatch(entry.id,profile.upos);
+}
