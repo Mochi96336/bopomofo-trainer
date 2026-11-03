@@ -48,7 +48,9 @@ export const FROZEN_MOE_ROLE_BAD_SLOTS = [
   {seed:1897,slot:1,id:catalogEntryId("六","ㄌㄨ4")},
   {seed:2011,slot:3,id:catalogEntryId("數","ㄕㄨㄛ4")},
 ] as const;
-const badBySeed = new Map(FROZEN_MOE_ROLE_BAD_SLOTS.map(x=>[x.seed,x]));
+const badBySeed = new Map<number,{seed:number;slot:number;id:string}>(
+  FROZEN_MOE_ROLE_BAD_SLOTS.map(x=>[x.seed,x]),
+);
 
 function invalidRole(hit:Hit):boolean {
   return isMoeAttestedRoleMismatch(
