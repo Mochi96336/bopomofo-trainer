@@ -141,3 +141,52 @@ export function reviewedMoeThirdRoleEligible(
   }
   return !isMoeThirdRoleMismatch(entry.id,profile.upos);
 }
+
+
+/**
+ * Frozen from the #450 exact final delivered 2,048-seed product exposure,
+ * after all previous confirmed role gates. 11 wrong reading/UPOS uses in
+ * 11 distinct seeds; the whole word and its other legal senses survive.
+ *
+ * Official MOE Revised / Concised references:
+ * 上/ㄕㄤ3 names a tone, not ADV/VERB (Revised ID 9040; Concised ID 34855).
+ * 中/ㄓㄨㄥ4 denotes hitting/attaining as a VERB, not NOUN/PROPN
+ *   (Revised ID 8171).
+ * 少/ㄕㄠ4 means young as ADJ/NOUN/PROPN, not 'less' as ADV
+ *   (Revised ID 8899).
+ * 數/ㄕㄨ3 denotes counting as VERB, not a numeral
+ *   (Revised ID 9108; Concised ID 35410).
+ * 大/ㄉㄞ4 occurs in the full lexical word 大夫, not a standalone NOUN
+ *   (Revised ID 1936, compound ID 42277).
+ * 王/ㄨㄤ4 denotes reigning as VERB, not the name/title/surname
+ *   (Revised ID 11561).
+ * 正/ㄓㄥ1 appears in 正月 etc., not the grammatical PART
+ *   (Revised ID 7949).
+ *
+ * Proper-name ambiguity remains out of scope for 大/ㄉㄞ4 PROPN.
+ */
+export const MOE_FOURTH_ROLE_RESTRICTIONS = [
+  { entryId: catalogEntryId("上","ㄕㄤ3"), rejectedUpos:["ADV","VERB"] },
+  { entryId: catalogEntryId("中","ㄓㄨㄥ4"), rejectedUpos:["NOUN","PROPN"] },
+  { entryId: catalogEntryId("少","ㄕㄠ4"), rejectedUpos:["ADV"] },
+  { entryId: catalogEntryId("數","ㄕㄨ3"), rejectedUpos:["NUM"] },
+  { entryId: catalogEntryId("大","ㄉㄞ4"), rejectedUpos:["NOUN"] },
+  { entryId: catalogEntryId("王","ㄨㄤ4"), rejectedUpos:["PROPN"] },
+  { entryId: catalogEntryId("正","ㄓㄥ1"), rejectedUpos:["PART"] },
+] as const satisfies readonly {readonly entryId:string;readonly rejectedUpos:readonly Upos[]}[];
+
+const fourthMismatch = makeMismatchLookup(MOE_FOURTH_ROLE_RESTRICTIONS);
+
+export function isMoeFourthRoleMismatch(entryId:string,upos:Upos):boolean {
+  return fourthMismatch(entryId,upos);
+}
+
+export function reviewedMoeFourthRoleEligible(
+  entry:CatalogEntry,
+  profile:RuntimeSyntaxProfile,
+):boolean {
+  if(entry.id!==profile.entryId) {
+    throw new Error("MOE role-specific reading policy must inspect actual selected catalog identity");
+  }
+  return !isMoeFourthRoleMismatch(entry.id,profile.upos);
+}
