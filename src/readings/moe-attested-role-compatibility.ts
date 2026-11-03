@@ -71,15 +71,10 @@ function makeMismatchLookup(
   return (entryId,upos)=>map.get(entryId)?.has(upos)??false;
 }
 
-const incompatibleRoles = new Map<string, ReadonlySet<Upos>>(
-  MOE_ATTESTED_ROLE_RESTRICTIONS.map(rule => [
-    rule.entryId,
-    new Set<Upos>(rule.rejectedUpos),
-  ]),
-);
+const attestedMismatch = makeMismatchLookup(MOE_ATTESTED_ROLE_RESTRICTIONS);
 
 export function isMoeAttestedRoleMismatch(entryId: string, upos: Upos): boolean {
-  return incompatibleRoles.get(entryId)?.has(upos) ?? false;
+  return attestedMismatch(entryId, upos);
 }
 
 export function reviewedMoeAttestedRoleEligible(
