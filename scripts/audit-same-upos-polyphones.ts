@@ -6,7 +6,7 @@ import { buildSameUposReviewQueue } from "../src/readings/same-upos-review.js";
 /**
  * Run after the existing deterministic seed audit:
  *   npm run app:catalog
- *   npm run readings:audit -- --policy standard-role-fifth-trial --output data/generated/polyphonic-context-standard-role-fifth-trial.json
+ *   npm run readings:audit -- --policy standard-role-sixth-trial --output data/generated/polyphonic-context-standard-role-sixth-trial.json
  *   npx tsx scripts/audit-same-upos-polyphones.ts
  *
  * Always derive the review queue from the *latest delivered* candidate stage,
@@ -25,7 +25,7 @@ interface Input {
   readonly hits: readonly PolyphonicContextHit[];
 }
 const args = process.argv.slice(2);
-let inputPath = "data/generated/polyphonic-context-standard-role-fifth-trial.json";
+let inputPath = "data/generated/polyphonic-context-standard-role-sixth-trial.json";
 let outputPath = "data/generated/same-upos-polyphone-review.json";
 for (let i = 0; i < args.length; i += 2) {
   const name = args[i];
@@ -37,13 +37,13 @@ for (let i = 0; i < args.length; i += 2) {
 }
 const source = JSON.parse(await readFile(inputPath, "utf8")) as Input;
 if (source.schemaVersion !== "polyphonic-context-exposure-v1"
-  || source.readingEligibilityPolicy !== "standard-role-fifth-trial"
+  || source.readingEligibilityPolicy !== "standard-role-sixth-trial"
   || source.sampleCount !== 2048
   || source.successfulSentences !== 2048
   || source.failedSentences !== 0
   || !Array.isArray(source.hits)
   || !Array.isArray(source.unsampledAmbiguousTexts)) {
-  throw new Error("same-UPOS review requires successful final standard-role-fifth-trial 2048-seed exposure");
+  throw new Error("same-UPOS review requires successful final standard-role-sixth-trial 2048-seed exposure");
 }
 const review = buildSameUposReviewQueue(source.hits);
 const output = {
