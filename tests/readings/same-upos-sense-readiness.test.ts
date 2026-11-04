@@ -46,6 +46,11 @@ describe("MOE-attested same-UPOS sound evidence readiness", () => {
     expect(result.groups.every(g => g.perInstanceSenseEvidence === "not-collected")).toBe(true);
     expect(result.groups.find(g => g.text==="那")?.readingEvidence.map(r => r.occurrences)).toEqual([1,1,1]);
     expect(result.groups.every(g=>g.sourceUrl.includes("dict.revised.moe.edu.tw"))).toBe(true);
+    expect(Object.fromEntries(result.groups.map(g => [g.text,g.sourceUrl]))).toEqual({
+      "那": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=2960",
+      "給": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=3994",
+      "供": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=4405",
+    });
   });
   it("different profile function sets are not evidence of an actual sentence sense", () => {
     const altered = hits.map(h =>
