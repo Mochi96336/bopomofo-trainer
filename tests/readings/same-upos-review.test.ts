@@ -44,6 +44,8 @@ describe("same-UPOS context review queue", () => {
     expect(review.occurrencesInAmbiguousGroups).toBe(7);
     expect(review.unreviewedGroups).toBe(2);
     expect(review.unreviewedOccurrences).toBe(5);
+    expect(review.moeAttestedReadingGroups).toBe(0);
+    expect(review.moeAttestedReadingOccurrences).toBe(0);
 
     const na = review.groups.find(g => g.text === "那");
     expect(na?.upos).toBe("PRON");
@@ -54,6 +56,44 @@ describe("same-UPOS context review queue", () => {
     const question = review.groups.find(g => g.text === "哪");
     expect(question?.kind).toBe("reviewed-role-variation");
     expect(review.groups.some(g => g.text === "那" && g.upos === "DET")).toBe(false);
+  });
+
+  it("marks only exact MOE-attested reading sets without declaring contextual correctness", () => {
+    const evidence = buildSameUposReviewQueue([
+      hit("那", "PRON", "ㄋㄚ3", 1),
+      hit("那", "PRON", "ㄋㄚ4", 2),
+      hit("那", "PRON", "ㄋㄨㄛ2", 3),
+      hit("給", "VERB", "ㄐㄧ3", 4),
+      hit("給", "VERB", "ㄍㄟ3", 5),
+      hit("供", "VERB", "ㄍㄨㄥ1", 6),
+      hit("供", "VERB", "ㄍㄨㄥ4", 7),
+      hit("重", "PART", "ㄓㄨㄥ4", 8),
+      hit("重", "PART", "ㄔㄨㄥ2", 9),
+    ]);
+    expect(evidence.unreviewedGroups).toBe(4);
+    expect(evidence.unreviewedOccurrences).toBe(9);
+    expect(evidence.moeAttestedReadingGroups).toBe(3);
+    expect(evidence.moeAttestedReadingOccurrences).toBe(7);
+    const attested = evidence.groups.filter(g => g.moeAttestedReadings !== null);
+    expect(attested.map(g => g.text).sort()).toEqual(["供", "給", "那"].sort());
+    expect(attested.every(g => g.kind === "unreviewed-role-variation")).toBe(true);
+    expect(attested.every(g => g.moeAttestedReadings?.note.includes("unverified."))).toBe(true);
+    expect(evidence.groups.find(g => g.text === "重")?.moeAttestedReadings).toBeNull();
+
+    // Fails closed when new sound IDs appear or an observed sound is absent.
+    const unexpected = buildSameUposReviewQueue([
+      hit("給", "VERB", "ㄍㄟ3", 1),
+      hit("給", "VERB", "ㄐㄧ3", 2),
+      hit("給", "VERB", "ㄍㄟ4", 3),
+    ]);
+    expect(unexpected.moeAttestedReadingGroups).toBe(0);
+    expect(unexpected.groups[0]?.moeAttestedReadings).toBeNull();
+    const incomplete = buildSameUposReviewQueue([
+      hit("那", "PRON", "ㄋㄚ3", 1),
+      hit("那", "PRON", "ㄋㄚ4", 2),
+    ]);
+    expect(incomplete.moeAttestedReadingGroups).toBe(0);
+    expect(incomplete.groups[0]?.moeAttestedReadings).toBeNull();
   });
 
   it("rejects unjoined evidence and invalid example limits", () => {

@@ -63,6 +63,15 @@ console.log(JSON.stringify({
   occurrencesInAmbiguousGroups: output.occurrencesInAmbiguousGroups,
   unreviewedGroups: output.unreviewedGroups,
   unreviewedOccurrences: output.unreviewedOccurrences,
+  moeAttestedReadingGroups: output.moeAttestedReadingGroups,
+  moeAttestedReadingOccurrences: output.moeAttestedReadingOccurrences,
+  attestedButSenseUnverified: output.groups
+    .filter(g => g.moeAttestedReadings !== null)
+    .map(g => ({
+      key: g.text + "/" + g.upos, occurrences: g.occurrences,
+      sourceUrl: g.moeAttestedReadings?.sourceUrl,
+      note: "MOE attests the observed headword pronunciations; sentence sense is not evaluated",
+    })),
   topUnreviewed: output.groups.filter(g => g.kind === "unreviewed-role-variation")
     .slice(0, 15).map(g => ({ key: g.text + "/" + g.upos, occurrences: g.occurrences,
       readings: g.selectedReadingEntryIds })),
