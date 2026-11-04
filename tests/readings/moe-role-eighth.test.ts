@@ -39,7 +39,7 @@ describe("eighth MOE role mismatch evidence",()=>{
       }
     }
   });
-  it("preserves attested alternate readings and rare legitimate senses",()=>{
+  it("preserves dictionary-attested alternatives and does not expand role bans to other unreviewed uses",()=>{
     for(const [text,reading,upos] of [
       ["大","ㄉㄚ4","PROPN"], ["大","ㄉㄞ4","NOUN"],
       ["那","ㄋㄨㄛ2","PRON"], ["那","ㄋㄚ3","ADV"], ["那","ㄋㄚ4","ADV"],
