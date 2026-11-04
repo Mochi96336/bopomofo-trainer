@@ -35,6 +35,7 @@ on:
       - "scripts/compare-duoshao-zhong-trial.ts"
       - "scripts/audit-conflicting-reading-target.ts"
       - "scripts/audit-same-upos-polyphones.ts"
+      - "scripts/audit-same-upos-sense-readiness.ts"
       - "scripts/audit-targeted-polyphonic-identities.ts"
       - "scripts/prepare-moe-sense-targets.ts"
       - "scripts/audit-dongxi-ud-intake.ts"
@@ -236,6 +237,8 @@ jobs:
           data/generated/polyphonic-role-trial-comparison.json
       - name: Extract ranked same-UPOS pronunciation review queue
         run: npx tsx scripts/audit-same-upos-polyphones.ts
+      - name: Evaluate dictionary-attested same-UPOS pronunciation evidence readiness
+        run: npx tsx scripts/audit-same-upos-sense-readiness.ts
       - name: Probe missing reading identities in bounded biased generation
         run: npx tsx scripts/audit-targeted-polyphonic-identities.ts --probes 3
       - name: Prepare annotated review summary
@@ -248,6 +251,7 @@ jobs:
           const final = JSON.parse(readFileSync('data/generated/polyphonic-context-standard-role-seventh-trial.json', 'utf8'));
           const comparison = JSON.parse(readFileSync('data/generated/polyphonic-role-trial-comparison.json', 'utf8'));
           const queue = JSON.parse(readFileSync('data/generated/same-upos-polyphone-review.json', 'utf8'));
+          const senseReadiness = JSON.parse(readFileSync('data/generated/same-upos-sense-readiness.json', 'utf8'));
           const targets = JSON.parse(readFileSync('data/generated/polyphonic-targeted-identity-coverage.json', 'utf8'));
           const zhongTrial = JSON.parse(readFileSync('data/generated/polyphonic-zhong-role-trial-comparison.json', 'utf8'));
           const ordinalTrial = JSON.parse(readFileSync('data/generated/polyphonic-ordinal-line-trial-comparison.json', 'utf8'));
@@ -256,7 +260,14 @@ jobs:
           if (final.readingEligibilityPolicy !== 'standard-role-seventh-trial'
             || final.sampleCount !== 2048 || final.successfulSentences !== 2048
             || final.failedSentences !== 0 || queue.sourcePolicy !== final.readingEligibilityPolicy
-            || queue.sampleCount !== final.sampleCount) throw new Error('review queue must match latest successful final product exposure');
+            || queue.sampleCount !== final.sampleCount
+            || senseReadiness.sourcePolicy !== queue.sourcePolicy
+            || senseReadiness.sampleCount !== queue.sampleCount
+            || senseReadiness.unchangedUnreviewedGroups !== queue.unreviewedGroups
+            || senseReadiness.unchangedUnreviewedOccurrences !== queue.unreviewedOccurrences
+            || senseReadiness.moeAttestedGroups !== queue.moeAttestedReadingGroups
+            || senseReadiness.moeAttestedOccurrences !== queue.moeAttestedReadingOccurrences
+          ) throw new Error('review queue and sense-readiness audit must describe the same final product exposure');
           const count = Object.entries(final.occurrenceCountByText)
             .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
           const lines = [
@@ -329,6 +340,12 @@ jobs:
             `Of these, ${queue.moeAttestedReadingGroups} groups (${queue.moeAttestedReadingOccurrences} occurrences) have independently MOE-attested observed headword readings; sentence-specific senses remain unverified. These are still included among unreviewed groups.`,
             '',
             '',
+            `For ${senseReadiness.groupsWithIdenticalProfileFunctions} of these ${senseReadiness.moeAttestedGroups} groups, all sampled reading identities have exactly the same aggregate syntax-profile function sets; these cannot disambiguate the selected lexical sense. No per-instance sense label is available in this audit.`,
+            '',
+            '| Group | Profile function sets across readings | Same across all readings? | Sentence-specific sense |',
+            '|---|---:|---|---|',
+            ...senseReadiness.groups.map(g => `| ${escape(g.text)} / ${g.upos} | ${g.distinctProfileFunctionSets} | ${g.profileFunctionsAllReadingsIdentical ? 'yes' : 'no'} | not collected |`),
+            '',
             '| Written form / UPOS | Occurrences | Observed reading identities | Dictionary sound evidence |',
             '|---|---:|---:|---|',
             ...queue.groups.filter(g => g.kind === 'unreviewed-role-variation')
@@ -374,6 +391,7 @@ jobs:
             data/generated/polyphonic-context-reviewed-roles.json
             data/generated/polyphonic-role-trial-comparison.json
             data/generated/same-upos-polyphone-review.json
+            data/generated/same-upos-sense-readiness.json
             data/generated/polyphonic-targeted-identity-coverage.json
             data/generated/polyphonic-context-ordinal-line-trial.json
             data/generated/polyphonic-ordinal-line-trial-comparison.json
