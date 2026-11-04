@@ -351,3 +351,34 @@ export function reviewedMoeEighthRoleEligible(entry:CatalogEntry,profile:Runtime
   }
   return !isMoeEighthRoleMismatch(entry.id,profile.upos);
 }
+
+
+/**
+ * Tenth reviewed exact final-sample reading-role cases after #458:
+ * - 阿/ㄚ1 is an exclamation, utterance-final particle, or name/kinship
+ *   PREFIX, not a standalone personal proper name. The independent surname
+ *   阿 is ㄜ1 (e.g. 阿光進). MOE Revised 阿:
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=10250
+ * - 尉/ㄨㄟ4 is the rank/title and verb "comfort"; the independent surname
+ *   尉 is ㄩ4 (e.g. 尉止). MOE Revised 尉:
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=11717
+ *
+ * Do not forbid ㄚ1 in vocatives/prefix contexts, ㄨㄟ4 for ranks, or either
+ * legitimate ㄜ1/ㄩ4 surname reading. Only reject these two exact independent
+ * entryId × runtime PROPN profiles; no colloquial naturalness judgments.
+ */
+export const MOE_TENTH_ROLE_RESTRICTIONS = [
+  { entryId: catalogEntryId("阿","ㄚ1"), rejectedUpos:["PROPN"] },
+  { entryId: catalogEntryId("尉","ㄨㄟ4"), rejectedUpos:["PROPN"] },
+] as const satisfies readonly {readonly entryId:string;readonly rejectedUpos:readonly Upos[]}[];
+
+const tenthMismatch = makeMismatchLookup(MOE_TENTH_ROLE_RESTRICTIONS);
+export function isMoeTenthRoleMismatch(entryId:string,upos:Upos):boolean {
+  return tenthMismatch(entryId,upos);
+}
+export function reviewedMoeTenthRoleEligible(entry:CatalogEntry,profile:RuntimeSyntaxProfile):boolean {
+  if(entry.id!==profile.entryId) {
+    throw new Error("MOE role-specific reading policy must inspect actual selected catalog identity");
+  }
+  return !isMoeTenthRoleMismatch(entry.id,profile.upos);
+}
