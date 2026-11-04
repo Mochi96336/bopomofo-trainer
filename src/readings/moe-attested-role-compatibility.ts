@@ -310,3 +310,44 @@ export function reviewedMoeSeventhRoleEligible(entry:CatalogEntry,profile:Runtim
   }
   return !isMoeSeventhRoleMismatch(entry.id,profile.upos);
 }
+
+
+/**
+ * Exact eighth-batch reading × UPOS mismatches from the latest final seventh
+ * 2048-seed output (after merged #456). Seven actual lexical slots in seven
+ * distinct seeds. No blanket prohibition of any valid reading.
+ *
+ * MOE Revised:
+ * - 大/ㄉㄞ4 has the bound lexical reading in 大夫, not standalone PROPN.
+ *   大/ㄉㄚ4 has an attested surname reading.
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=1936
+ * - 那/ㄋㄨㄛ2 is classical PRON ("如何、奈何"), verb, adjective, or
+ *   title/noun, not ADV; 那/ㄋㄚ3 has a separately attested adverb meaning.
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=3142
+ * - 重/ㄔㄨㄥ2 and 重/ㄓㄨㄥ4 have noun, adjective, verb and/or adverb
+ *   uses, but neither is a grammatical PART. The exact PART profiles are
+ *   unsupported: reject both readings only for this incorrect role.
+ *   https://dict.revised.moe.edu.tw/dictView.jsp?ID=8701
+ *
+ * Do not infer that rare valid single-character proper names are invalid:
+ * 葛/ㄍㄜ2 also names an ancient state and 葛/ㄍㄜ3 is a surname;
+ * this review leaves both untouched.
+ * https://dict.revised.moe.edu.tw/dictView.jsp?ID=3973
+ */
+export const MOE_EIGHTH_ROLE_RESTRICTIONS = [
+  { entryId: catalogEntryId("大","ㄉㄞ4"), rejectedUpos:["PROPN"] },
+  { entryId: catalogEntryId("那","ㄋㄨㄛ2"), rejectedUpos:["ADV"] },
+  { entryId: catalogEntryId("重","ㄔㄨㄥ2"), rejectedUpos:["PART"] },
+  { entryId: catalogEntryId("重","ㄓㄨㄥ4"), rejectedUpos:["PART"] },
+] as const satisfies readonly {readonly entryId:string;readonly rejectedUpos:readonly Upos[]}[];
+
+const eighthMismatch = makeMismatchLookup(MOE_EIGHTH_ROLE_RESTRICTIONS);
+export function isMoeEighthRoleMismatch(entryId:string,upos:Upos):boolean {
+  return eighthMismatch(entryId,upos);
+}
+export function reviewedMoeEighthRoleEligible(entry:CatalogEntry,profile:RuntimeSyntaxProfile):boolean {
+  if(entry.id!==profile.entryId) {
+    throw new Error("MOE role-specific reading policy must inspect actual selected catalog identity");
+  }
+  return !isMoeEighthRoleMismatch(entry.id,profile.upos);
+}
