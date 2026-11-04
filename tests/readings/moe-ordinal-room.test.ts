@@ -92,7 +92,7 @@ describe("strict final ordinal-room 2048-seed paired comparison",()=>{
   });
   it("rejects sample drift and a reintroduced prior wrong reading",()=>{
     const {before,after}=reports();
-    before.hits[0].selectedEntryId=filler;
+    before.hits[0]!.selectedEntryId=filler;
     expect(()=>compareMoeOrdinalRoom(before,after)).toThrow(/frozen #457/);
     const {before:b,after:a}=reports();
     b.sentences[60]={...b.sentences[60]!,entryIds:[catalogEntryId("比","ㄅㄧ1")]};
