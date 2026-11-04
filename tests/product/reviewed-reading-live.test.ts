@@ -125,7 +125,7 @@ describe("production reviewed reading disambiguation", () => {
           || !reviewedMoeSixthRoleEligible(entry, profile)
           || !reviewedMoeSeventhRoleEligible(entry, profile)
           || !reviewedMoeEighthRoleEligible(entry, profile)
-          || !reviewedMoeOrdinalRoomReadingEligible(entry, profile, null, index===0?null:originalCandidate.entries[index-1]!);
+          || !reviewedMoeOrdinalRoomReadingEligible(entry, profile, null, i===0?null:originalCandidate.entries[i-1]!);
       });
       const actual = createProductState(environment, progress, 0);
       assertRoundReadings(actual, profilesById);
