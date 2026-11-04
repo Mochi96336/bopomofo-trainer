@@ -21,7 +21,7 @@ import { reviewedMoeStandardXingReadingEligible } from "../../src/readings/moe-s
 import { reviewedMoeStandardGuoReadingEligible } from "../../src/readings/moe-standard-guo.js";
 import { reviewedMoeNaSurnameRoleEligible } from "../../src/readings/moe-na-surname-role.js";
 import { reviewedMoeOrdinalRoomReadingEligible } from "../../src/readings/moe-ordinal-room.js";
-import { reviewedMoeAttestedRoleEligible, reviewedMoeFollowupRoleEligible, reviewedMoeThirdRoleEligible, reviewedMoeFourthRoleEligible, reviewedMoeFifthRoleEligible, reviewedMoeSixthRoleEligible, reviewedMoeSeventhRoleEligible, reviewedMoeEighthRoleEligible } from "../../src/readings/moe-attested-role-compatibility.js";
+import { reviewedMoeAttestedRoleEligible, reviewedMoeFollowupRoleEligible, reviewedMoeThirdRoleEligible, reviewedMoeFourthRoleEligible, reviewedMoeFifthRoleEligible, reviewedMoeSixthRoleEligible, reviewedMoeSeventhRoleEligible, reviewedMoeEighthRoleEligible, reviewedMoeTenthRoleEligible } from "../../src/readings/moe-attested-role-compatibility.js";
 
 const wholeCatalogs = { practice: PRACTICE_CATALOG, syntaxProfiles: SYNTAX_PROFILES };
 const standardLayout = "standard";
@@ -52,6 +52,7 @@ function assertRoundReadings(
     expect(reviewedMoeSixthRoleEligible(candidate.entries[i]!, profile!)).toBe(true);
     expect(reviewedMoeSeventhRoleEligible(candidate.entries[i]!, profile!)).toBe(true);
     expect(reviewedMoeEighthRoleEligible(candidate.entries[i]!, profile!)).toBe(true);
+    expect(reviewedMoeTenthRoleEligible(candidate.entries[i]!, profile!)).toBe(true);
     expect(reviewedMoeOrdinalRoomReadingEligible(candidate.entries[i]!, profile!, null, i===0?null:candidate.entries[i-1]!)).toBe(true);
   }
   expect(state.round.exercise.entries.map(entry => entry.id)).toEqual(
@@ -125,7 +126,8 @@ describe("production reviewed reading disambiguation", () => {
           || !reviewedMoeSixthRoleEligible(entry, profile)
           || !reviewedMoeSeventhRoleEligible(entry, profile)
           || !reviewedMoeEighthRoleEligible(entry, profile)
-          || !reviewedMoeOrdinalRoomReadingEligible(entry, profile, null, i===0?null:originalCandidate.entries[i-1]!);
+          || !reviewedMoeOrdinalRoomReadingEligible(entry, profile, null, i===0?null:originalCandidate.entries[i-1]!)
+          || !reviewedMoeTenthRoleEligible(entry, profile);
       });
       const actual = createProductState(environment, progress, 0);
       assertRoundReadings(actual, profilesById);
@@ -221,7 +223,8 @@ describe("production reviewed reading disambiguation", () => {
                 && reviewedMoeSixthRoleEligible(entry, profile)
                 && reviewedMoeSeventhRoleEligible(entry, profile)
                 && reviewedMoeEighthRoleEligible(entry, profile)
-                && reviewedMoeOrdinalRoomReadingEligible(entry, profile, null, index===0?null:original.utterance.entries[index-1]!);
+                && reviewedMoeOrdinalRoomReadingEligible(entry, profile, null, index===0?null:original.utterance.entries[index-1]!)
+                && reviewedMoeTenthRoleEligible(entry, profile);
             });
             if (originalLicensed
               && product.round.selection.utterance.id !== original.utterance.id) {
