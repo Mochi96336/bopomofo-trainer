@@ -44,10 +44,10 @@ export interface SameUposReviewQueue {
  * do NOT establish that the selected meaning fits the generated context.
  *
  * Evidence:
- * - 那: MOE Revised ID 3142, includes ㄋㄚ3 question pronoun,
+ * - 那: MOE Revised ID 2960, includes ㄋㄚ3 question pronoun,
  *   ㄋㄚ4 demonstrative (labeled 形) and classical ㄋㄨㄛ2 "如何" pronoun.
  *   PRON is a syntax profile grouping, not identical to MOE word-class labels.
- * - 給: MOE Revised ID 5423, both ㄍㄟ3 and ㄐㄧ3 have verb meanings.
+ * - 給: MOE Revised ID 3994, both ㄍㄟ3 and ㄐㄧ3 have verb meanings.
  * - 供: MOE Revised ID 4405, both ㄍㄨㄥ1 and ㄍㄨㄥ4 have verb meanings.
  *
  * Exact observed sets are mandatory: if new readings appear, the evidence
@@ -57,13 +57,13 @@ const MOE_ATTESTED_SAME_UPOS_READING_SETS = [
   {
     text: "那", upos: "PRON",
     entryIds: ["word:那:ㄋㄚ3", "word:那:ㄋㄚ4", "word:那:ㄋㄨㄛ2"],
-    sourceUrl: "https://dict.revised.moe.edu.tw/dictView.jsp?ID=3142",
+    sourceUrl: "https://dict.revised.moe.edu.tw/dictView.jsp?ID=2960",
     note: "Three valid headword pronunciations; demonstrative ㄋㄚ4 is labeled 形 by MOE, while ㄋㄚ3 and classical ㄋㄨㄛ2 have 代 meanings. Sentence-specific sense remains unverified.",
   },
   {
     text: "給", upos: "VERB",
     entryIds: ["word:給:ㄍㄟ3", "word:給:ㄐㄧ3"],
-    sourceUrl: "https://dict.revised.moe.edu.tw/dictView.jsp?ID=5423",
+    sourceUrl: "https://dict.revised.moe.edu.tw/dictView.jsp?ID=3994",
     note: "Both ㄍㄟ3 (hand over) and ㄐㄧ3 (supply, grant) have attested verbal meanings. Sentence-specific sense remains unverified.",
   },
   {
