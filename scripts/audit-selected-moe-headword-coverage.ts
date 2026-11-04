@@ -13,7 +13,7 @@ import {
  */
 async function main(): Promise<void> {
   const args=process.argv.slice(2);
-  let baseline="data/generated/polyphonic-context-standard-role-eighth-trial.json";
+  let baseline="data/generated/polyphonic-context-standard-ordinal-room-trial.json";
   let concised="data/readings/moe-concised-2014_20260626-active-catalog.json";
   let revised="data/readings/moe-revised-2015_20260625-active-catalog-fallback.json";
   let output="data/generated/selected-moe-headword-coverage.json";
