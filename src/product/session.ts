@@ -29,6 +29,7 @@ import { reviewedMoeStandardYuReadingEligible } from "../readings/moe-standard-y
 import { reviewedMoeStandardNanReadingEligible } from "../readings/moe-standard-nan.js";
 import { reviewedMoeStandardXingReadingEligible } from "../readings/moe-standard-xing.js";
 import { reviewedMoeOrdinalRoomReadingEligible } from "../readings/moe-ordinal-room.js";
+import { reviewedMoeNumericFenReadingEligible } from "../readings/moe-numeric-fen.js";
 import { reviewedMoeStandardGuoReadingEligible } from "../readings/moe-standard-guo.js";
 import { reviewedMoeNaSurnameRoleEligible } from "../readings/moe-na-surname-role.js";
 import { reviewedMoeAttestedRoleEligible } from "../readings/moe-attested-role-compatibility.js";
@@ -148,6 +149,7 @@ function selectRound(
       reviewedMoeEighthRoleEligible,
       reviewedMoeOrdinalRoomReadingEligible,
       reviewedMoeTenthRoleEligible,
+      reviewedMoeNumericFenReadingEligible,
     ],
     preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
