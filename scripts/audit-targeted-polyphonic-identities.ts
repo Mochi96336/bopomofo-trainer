@@ -7,6 +7,10 @@ import { createSeededRandom } from "../src/curriculum/random.js";
 import { auditPolyphonicCandidate, buildPolyphonicReadingIndex } from "../src/readings/polyphonic-audit.js";
 import { reviewedRoleReadingEligible } from "../src/readings/pronominal-role-license.js";
 import {
+  PRODUCT_READING_POLICY, PRODUCT_READING_POLICY_ID,
+  productReadingEligibleWithoutPreviousEntry,
+} from "../src/readings/product-reading-policy.js";
+import {
   buildPolyphonicIdentityTargets,
   classifyPolyphonicIdentityCoverage,
   type IdentityProbeOutcome,
@@ -21,6 +25,9 @@ import {
  * npm run app:catalog
  * npm run readings:audit -- --policy reviewed-roles --output data/generated/polyphonic-context-reviewed-roles.json
  * npx tsx scripts/audit-targeted-polyphonic-identities.ts --probes 3
+ *
+ * The historical default stays frozen. To inspect today's product, add
+ * --policy current-product --baseline <successful current-policy exposure>.
  */
 const BOUNDS = {
   maximumPhraseDepth: 3,
@@ -37,13 +44,20 @@ let outputPath = "data/generated/polyphonic-targeted-identity-coverage.json";
 let probes = 3;
 let maxTargets: number | null = null;
 let onlyId: string | null = null;
+let policy: "reviewed-roles" | "current-product" = "reviewed-roles";
+let explicitBaseline = false;
 for (let i = 0; i < argv.length; i += 2) {
   const flag = argv[i];
   const value = argv[i + 1];
   if (value === undefined) throw new Error("missing argument for " + flag);
-  if (flag === "--baseline") baselinePath = value;
+  if (flag === "--baseline") { baselinePath = value; explicitBaseline = true; }
   else if (flag === "--output") outputPath = value;
-  else if (flag === "--probes") {
+  else if (flag === "--policy") {
+    if (value !== "reviewed-roles" && value !== "current-product") {
+      throw new Error("--policy accepts reviewed-roles or current-product");
+    }
+    policy = value;
+  } else if (flag === "--probes") {
     probes = Number(value);
     if (!Number.isSafeInteger(probes) || probes < 1 || probes > 20) {
       throw new Error("--probes must be in [1, 20]");
@@ -56,23 +70,31 @@ for (let i = 0; i < argv.length; i += 2) {
   } else if (flag === "--entry-id") onlyId = value;
   else throw new Error("unknown argument: " + flag);
 }
+if (policy === "current-product" && !explicitBaseline) {
+  throw new Error("--policy current-product requires --baseline from " + PRODUCT_READING_POLICY_ID);
+}
 const baseline = JSON.parse(await readFile(baselinePath, "utf8")) as {
   readonly schemaVersion: string;
   readonly readingEligibilityPolicy: string;
   readonly occurrenceCountByEntryId: Readonly<Record<string, number>>;
   readonly sampleCount: number;
+  readonly successfulSentences: number;
+  readonly failedSentences: number;
   readonly catalogEntryCount: number;
 };
 if (baseline.schemaVersion !== "polyphonic-context-exposure-v1"
-  || baseline.readingEligibilityPolicy !== "reviewed-roles"
+  || baseline.readingEligibilityPolicy !== (policy === "current-product" ? PRODUCT_READING_POLICY_ID : "reviewed-roles")
   || baseline.catalogEntryCount !== PRACTICE_CATALOG.length
-  || baseline.sampleCount <= 0
+  || !Number.isSafeInteger(baseline.sampleCount) || baseline.sampleCount <= 0
+  || baseline.successfulSentences !== baseline.sampleCount || baseline.failedSentences !== 0
   || baseline.occurrenceCountByEntryId === null
+  || Array.isArray(baseline.occurrenceCountByEntryId)
   || typeof baseline.occurrenceCountByEntryId !== "object") {
-  throw new Error("targeted probes require a reviewed-roles baseline for the exact active practice catalog");
+  throw new Error("targeted probes require a successful baseline matching the selected reading policy and active practice catalog");
 }
 const targets = buildPolyphonicIdentityTargets(
   PRACTICE_CATALOG, SYNTAX_PROFILES, baseline.occurrenceCountByEntryId,
+  policy === "current-product" ? productReadingEligibleWithoutPreviousEntry : reviewedRoleReadingEligible,
 );
 if (onlyId !== null && !targets.some(target => target.entryId === onlyId)) {
   throw new Error("--entry-id does not identify an ambiguous active catalog entry");
@@ -100,7 +122,7 @@ for (const target of selected) {
       maximumCandidates: 1,
       maximumAttempts: 32,
       bounds: BOUNDS,
-      readingEligibility: reviewedRoleReadingEligible,
+      ...(policy === "current-product" ? PRODUCT_READING_POLICY : { readingEligibility: reviewedRoleReadingEligible }),
       // Deliberately not the shipped reading distribution: make a particular
       // reading easy to select IF a sampled lexical slot actually admits it.
       entryWeight: (entry) => entry.id === target.entryId
@@ -111,6 +133,16 @@ for (const target of selected) {
     if (candidate === undefined) {
       withoutCandidate++;
       continue;
+    }
+    if (policy === "current-product") {
+      for (let i = 0; i < candidate.entries.length; i++) {
+        const profile = profilesById.get(candidate.syntaxProfileIds?.[i] ?? "");
+        // Check the actual profile; do not infer adjacency across punctuation
+        // from the flattened entries array. The composer owns contextual gates.
+        if (profile === undefined || !productReadingEligibleWithoutPreviousEntry(candidate.entries[i]!, profile)) {
+          throw new Error("targeted probe delivered a reading rejected by the current product profile policy");
+        }
+      }
     }
     const matched = auditPolyphonicCandidate(seedIndex, candidate, polyphonicIndex, profilesById)
       .filter(hit => hit.selectedEntryId === target.entryId);
@@ -145,6 +177,10 @@ const rows = targets.map(target => {
 const report = {
   schemaVersion: "polyphonic-targeted-identity-coverage-v1",
   purpose: "Biased grammar selectability probes, not correct-pronunciation or naturalness evidence",
+  ...(policy === "current-product" ? {
+    readingEligibilityPolicy: PRODUCT_READING_POLICY_ID,
+    staticProfileContext: "no-preceding-lexical-entry",
+  } : {}),
   baselineSamples: baseline.sampleCount,
   targetProbeAttempts: probes,
   targetWeightOverride: 100_000_000,

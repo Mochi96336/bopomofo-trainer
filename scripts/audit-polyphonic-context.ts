@@ -4,6 +4,7 @@ import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.
 import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
 import { createSeededRandom } from "../src/curriculum/random.js";
 import { reviewedClosedClassReadingEligible } from "../src/readings/closed-class-license.js";
+import { PRODUCT_READING_POLICY, PRODUCT_READING_POLICY_ID } from "../src/readings/product-reading-policy.js";
 import { reviewedRoleReadingEligible } from "../src/readings/pronominal-role-license.js";
 import { reviewedRoleAndOrdinalLineReadingEligible, reviewedOrdinalLineReadingEligible } from "../src/readings/ordinal-line-context.js";
 import {
@@ -203,6 +204,9 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
           previousEntry: (typeof PRACTICE_CATALOG)[number] | null,
         ) => reviewedOrdinalLineReadingEligible(entry, profile, previousEntry) }
       : {}),
+    // Use the product's ordered stages for its current mode; older modes above
+    // retain their original frontiers for historical paired comparisons.
+    ...(requestedPolicy === PRODUCT_READING_POLICY_ID ? PRODUCT_READING_POLICY : {}),
   });
   for (const reason of composition.fallbackReasons) increment(fallbacks, reason);
   const candidate = composition.candidates[0];

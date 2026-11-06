@@ -126,6 +126,93 @@ bytes. The 4,096-seed A/B evidence above is local; no additional full historical
 CI replay job is implied by this report. `npx playwright test` passed all 62
 Chromium tests against the same production build.
 
+## Current-policy coverage and source recovery check
+
+The old targeted audit intentionally reproduced the early `reviewed-roles`
+boundary. It cannot establish current product eligibility: all six gaps above
+still had an allowed profile under that older policy. The product now exports
+its ordered configuration through `product-reading-policy.ts`; the current
+exposure mode and opt-in targeted audit consume that same configuration.
+Historical exposure modes and the default historical targeted mode keep their
+original policy. A conjunction of the gates is used only for static inspection,
+never as a new draw stage that would change earlier replacement frontiers.
+
+```sh
+npx tsx scripts/audit-targeted-polyphonic-identities.ts --policy current-product --baseline data/generated/polyphonic-role-extended-after.json --probes 3 --output data/generated/polyphonic-targeted-current-product.json
+```
+
+The current-policy mode requires an explicit successful baseline with the
+current policy ID and catalog size. Supplying the older follow-up baseline was
+checked to fail before probing. Static inspection supplies no preceding lexical
+entry, so context-sensitive rejection and complete-derivation reachability
+remain separate questions. Actual probes use all production stages, in order.
+They also check delivered entry/profile identities against the static gates.
+
+Results across all 402 ambiguous reading identities / 182 written forms:
+
+| Coverage status | Identities |
+| --- | ---: |
+| Observed in the 4,096-seed baseline | 194 |
+| Observed only in bounded targeted probes | 104 |
+| Not observed after bounded probes | 75 |
+| All existing profiles rejected by current reading policy | 29 |
+
+All 179 unseen identities with a permitted profile were probed, using 516 total
+attempts and zero candidate-generation failures. A failed target search is not
+proof of unreachability. The 29 rejected identities include unsupported standard
+readings as well as source-attested readings lacking appropriate profiles; they
+are not 29 newly verified linguistic errors. Targeted selections remain research
+exposure, not approved pronunciation contexts. The local report SHA-256 is
+`08f5c683a90a40d29aa134d077f22d50b32ff6ecb06ea3d16fd6737851196df2`.
+
+The six specific source-attested gaps were also checked against the actual
+June MOE ZIPs using `source_candidates` and `project_evidence` from the existing
+offline `project-moe-sense-evidence.py` adapter. Archive/workbook/header pins
+were enforced. Every identity matches exactly one row in each dictionary;
+definitions are present and remain private. The sanitized evidence is committed
+as `data/readings/moe-rare-profile-source-evidence.json`, SHA-256
+`4687885d0dcec53bcb5caad737ffac0a9fb8d9e1e024137e24cd5304ad8c8653`
+(the committed LF-normalized UTF-8 file).
+Its source-row IDs are not online dictionary page IDs and must not be turned
+into `dictView.jsp` URLs.
+
+| Exact reading | Concised bulk ID | Revised bulk ID | Exact-form GSD tokens / observed Translit and UPOS |
+| --- | --- | --- | --- |
+| 合/ㄍㄜ3 | 2218 | 03957 | 7: hé, 6 VERB + 1 PROPN |
+| 哈/ㄏㄚ3 | 2672 | 04716 | 2: hā, PROPN |
+| 洗/ㄒㄧㄢ3 | 4018 | 07109 | 3: xǐ, VERB |
+| 與/ㄩ4 | 6514 | 11716 | 485: yǔ, 242 ADP + 243 CCONJ |
+| 讀/ㄉㄡ4 | 1072 | 01995 | 8: dú, VERB |
+| 食/ㄙ4 | 5577 | 09973 | 3: shí, NOUN |
+
+The GSD check read exact independent FORM tokens across all three pinned r2.18
+files, verified their existing SHA-256 pins, and inspected their literal MISC
+`Translit` fields. No token was labeled with the requested rare pronunciation.
+Transliteration itself is not an independently adjudicated reading label.
+Consequently this corpus inspection supplies no new role evidence for those
+rare readings; dictionary attestation alone cannot manufacture a UD profile.
+No new profile or contextual pronunciation label was activated by this check.
+
+To reproduce source matching without weakening the five-word CLI's target
+validation, read the six exact `(text, reading, entryId)` targets from the
+committed source index, then pass them to the existing `project_evidence`
+function with `source_candidates` from both `load_adapter` instances. Use
+Concised `2014_20260626` archive SHA-256
+`fc83d27eb3fbf6fcfdb791e7d05ef60946b58ef8e8857ed165b612217b392806`
+and Revised `2015_20260625` archive SHA-256
+`64003a98fcc7097940e5a536c999bc08ba7c07e2c1be66448f01bf1ae10a53fc`.
+Any private definitions output must remain under ignored `data/external/`.
+
+After sharing the policy, the complete 4,096-seed exposure was regenerated and
+remains byte-identical to the pre-extraction after-report:
+`c1f2c6cdc468a1d409625ec8b0e2a5aeacad8050da7d0a11e6e39ffdc4d6e2d3`.
+`npm run check:pr` passed 1,379 Vitest tests, 76 Python source-adapter tests,
+type checking, catalog validation, build and size budget. JavaScript gzip size
+is 481.21 kB (decimal). The added real-catalog tests verify that the six gaps
+are reported as rejected under the current policy while nine existing legitimate
+role profiles remain allowed; they do not claim those roles have independent
+contextual-pronunciation approval.
+
 ## Rare readings explicitly retained after inspection
 
 - [稱](https://dict.revised.moe.edu.tw/dictView.jsp?ID=8546) permits chèng

@@ -19,24 +19,7 @@ import {
   type FrequencyFirstUtterancePolicy,
 } from "../curriculum/frequency-first-utterance.js";
 import { prepareFormalSyntaxLexicon } from "../curriculum/formal-syntax-utterance.js";
-import {
-  reviewedAdjacentPreDrawReadingEligible,
-  reviewedAdjacentReadingEligible,
-} from "../readings/reviewed-adjacent-context.js";
-import { reviewedMoeStandardBiReadingEligible } from "../readings/moe-standard-bi.js";
-import { reviewedMoeStandardDeReadingEligible } from "../readings/moe-standard-de.js";
-import { reviewedMoeStandardYuReadingEligible } from "../readings/moe-standard-yu.js";
-import { reviewedMoeStandardNanReadingEligible } from "../readings/moe-standard-nan.js";
-import { reviewedMoeStandardXingReadingEligible } from "../readings/moe-standard-xing.js";
-import { reviewedMoeOrdinalRoomReadingEligible } from "../readings/moe-ordinal-room.js";
-import { reviewedMoeNumericFenReadingEligible } from "../readings/moe-numeric-fen.js";
-import { reviewedMoeSupplementalRoleEligible, reviewedMoeSupplementFollowupRoleEligible, reviewedMoeExtendedRoleEligible } from "../readings/moe-supplemental-role-license.js";
-import { reviewedMoeStandardGuoReadingEligible } from "../readings/moe-standard-guo.js";
-import { reviewedMoeNaSurnameRoleEligible } from "../readings/moe-na-surname-role.js";
-import { reviewedMoeAttestedRoleEligible } from "../readings/moe-attested-role-compatibility.js";
-import { reviewedMoeFollowupRoleEligible } from "../readings/moe-attested-role-compatibility.js";
-import { reviewedMoeThirdRoleEligible } from "../readings/moe-attested-role-compatibility.js";
-import { reviewedMoeFourthRoleEligible, reviewedMoeFifthRoleEligible, reviewedMoeSixthRoleEligible, reviewedMoeSeventhRoleEligible, reviewedMoeEighthRoleEligible, reviewedMoeTenthRoleEligible } from "../readings/moe-attested-role-compatibility.js";
+import { PRODUCT_READING_POLICY } from "../readings/product-reading-policy.js";
 import { createSeededRandom } from "../curriculum/random.js";
 import { createCatalogSupportIndex } from "../curriculum/support.js";
 import {
@@ -130,31 +113,7 @@ function selectRound(
     profiles: environment.catalogs.syntaxProfiles,
     // Preserve the original draw for all licensed readings; only an actual
     // reviewed-role mismatch is resampled. No catalog/progress IDs are rewritten.
-    readingEligibility: reviewedAdjacentReadingEligible,
-    preDrawReadingEligibility: reviewedAdjacentPreDrawReadingEligible,
-    finalCandidateReadingEligibility: reviewedMoeStandardBiReadingEligible,
-    subsequentFinalCandidateReadingEligibility: reviewedMoeStandardDeReadingEligible,
-    additionalFinalCandidateReadingEligibilities: [
-      reviewedMoeStandardYuReadingEligible,
-      reviewedMoeStandardNanReadingEligible,
-      reviewedMoeStandardXingReadingEligible,
-      reviewedMoeStandardGuoReadingEligible,
-      reviewedMoeNaSurnameRoleEligible,
-      reviewedMoeAttestedRoleEligible,
-      reviewedMoeFollowupRoleEligible,
-      reviewedMoeThirdRoleEligible,
-      reviewedMoeFourthRoleEligible,
-      reviewedMoeFifthRoleEligible,
-      reviewedMoeSixthRoleEligible,
-      reviewedMoeSeventhRoleEligible,
-      reviewedMoeEighthRoleEligible,
-      reviewedMoeOrdinalRoomReadingEligible,
-      reviewedMoeTenthRoleEligible,
-      reviewedMoeNumericFenReadingEligible,
-      reviewedMoeSupplementalRoleEligible,
-      reviewedMoeSupplementFollowupRoleEligible,
-      reviewedMoeExtendedRoleEligible,
-    ],
+    ...PRODUCT_READING_POLICY,
     preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
     preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
