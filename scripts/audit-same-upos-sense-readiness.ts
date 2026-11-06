@@ -23,7 +23,7 @@ type Queue = SameUposReviewQueue & {
 };
 
 const args = process.argv.slice(2);
-let exposurePath = "data/generated/polyphonic-context-standard-role-tenth-trial.json";
+let exposurePath = "data/generated/polyphonic-context-standard-numeric-fen-trial.json";
 let queuePath = "data/generated/same-upos-polyphone-review.json";
 let outputPath = "data/generated/same-upos-sense-readiness.json";
 for(let i=0;i<args.length;i+=2){
@@ -37,7 +37,7 @@ for(let i=0;i<args.length;i+=2){
 const exposure=JSON.parse(await readFile(exposurePath,"utf8")) as Input;
 const queue=JSON.parse(await readFile(queuePath,"utf8")) as Queue;
 if(exposure.schemaVersion!=="polyphonic-context-exposure-v1"
-  || exposure.readingEligibilityPolicy!=="standard-role-tenth-trial"
+  || exposure.readingEligibilityPolicy!=="standard-numeric-fen-trial"
   || exposure.sampleCount!==2048
   || exposure.successfulSentences!==2048 || exposure.failedSentences!==0
   || !Array.isArray(exposure.hits)
