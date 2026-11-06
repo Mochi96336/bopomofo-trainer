@@ -1,6 +1,6 @@
 {
   "schemaVersion": "runtime-occurrence-capability-projection-v1",
-  "sourceProfileArtifactDigest": "a9aff6ea44978876526bac94bcb2b71fad451cca4871f7d117b30f59d3d5d00c",
+  "sourceProfileArtifactDigest": "82d2a35583af8f491f448fd873a710c05a3c3bb03bc72329f2272ec7b3350159",
   "sourceProvenanceId": "ud:chinese-gsd-r2.18",
   "sourceVersion": "r2.18",
   "sourceCommit": "e0d85a020182e264d6384be2a59c0f4879a1cc35",
@@ -12,5 +12,5 @@
   "profileIds": [
     "runtime-syntax-profile:22ea14b107a15cbe46f08b647e006e0e97e2d17f2f154d257dab14021c9de9c6"
   ],
-  "determinismDigest": "b6bf773fda97d4be98fada7a45565d2fba4075b2be097f5645acdf71c81b7c4b"
+  "determinismDigest": "f6c3df5e14a77da874b2ad4293ff916631c7a5f0c6dc1837b93185b6d10f5972"
 }

@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+import { readingAuditCatalog } from "./reading-audit-catalog.js";
 import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
 import { createSeededRandom } from "../src/curriculum/random.js";
 import { reviewedClosedClassReadingEligible } from "../src/readings/closed-class-license.js";
@@ -39,6 +39,7 @@ import {
  * npx tsx scripts/audit-polyphonic-context.ts --samples 100
  */
 const SEED_NAMESPACE = "formal-syntax-v2-phase1-product-baseline-v1";
+const { PRACTICE_CATALOG, SYNTAX_PROFILES } = readingAuditCatalog();
 
 // Freeze the prior #436 shipping boundary for a true before/after comparison.
 // It deliberately must NOT call reviewedAdjacentReadingEligible, which now

@@ -1,5 +1,10 @@
 # MOE reading-role supplement v1
 
+Historical report counts and fingerprints here use the pre-qiān 13,692-entry
+catalog. On a descendant checkout, `READING_AUDIT_CATALOG=before-qian` verifies
+and restores that audit population; product inputs remain current. See the
+[catalog addition record](readings-qian-catalog-supplement.md) for the new scope.
+
 This supplement continues the shipped numeric-fen policy from
 `main@22e77571b2b3702d881d2c4c27d2d222c497e08e`. It rejects only eighteen
 independently source-checked reading/role combinations. The existing catalog

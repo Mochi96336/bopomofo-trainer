@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+import { readingAuditCatalog } from "./reading-audit-catalog.js";
 import { catalogEntryFrequencyWeight } from "../src/commonness/catalog-projection.js";
 import { composeFormalSyntaxUtterances, prepareFormalSyntaxLexicon } from "../src/curriculum/formal-syntax-utterance.js";
 import { createSeededRandom } from "../src/curriculum/random.js";
@@ -29,6 +29,7 @@ import {
  * The historical default stays frozen. To inspect today's product, add
  * --policy current-product --baseline <successful current-policy exposure>.
  */
+const { PRACTICE_CATALOG, SYNTAX_PROFILES } = readingAuditCatalog();
 const BOUNDS = {
   maximumPhraseDepth: 3,
   maximumClauseNesting: 1,
@@ -72,6 +73,10 @@ for (let i = 0; i < argv.length; i += 2) {
 }
 if (policy === "current-product" && !explicitBaseline) {
   throw new Error("--policy current-product requires --baseline from " + PRODUCT_READING_POLICY_ID);
+}
+if (policy === "current-product" && process.env["READING_AUDIT_CATALOG"]
+  && process.env["READING_AUDIT_CATALOG"] !== "current") {
+  throw new Error("current-product probes require the current catalog snapshot");
 }
 const baseline = JSON.parse(await readFile(baselinePath, "utf8")) as {
   readonly schemaVersion: string;

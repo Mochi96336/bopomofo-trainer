@@ -1,5 +1,10 @@
 # Extended reading review queue
 
+The populations below precede the [嵌 qiān catalog addition](readings-qian-catalog-supplement.md).
+Their counts and fingerprints belong to the 13,692-entry catalog. Reproduce
+them at be37cac, or set `READING_AUDIT_CATALOG=before-qian` on a descendant
+checkout; ordinary audits now default to the enlarged current catalog.
+
 Source population: `98f47ff`, policy `standard-role-supplement-followup-trial`,
 the same seed namespace and bounds as the previous 2,048-seed comparisons.
 Generated locally on 2026-11-07:

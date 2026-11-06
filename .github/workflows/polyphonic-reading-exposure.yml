@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/polyphonic-reading-exposure.yml"
       - "scripts/audit-polyphonic-context.ts"
+      - "scripts/reading-audit-catalog.ts"
       - "scripts/audit-selected-moe-headword-coverage.ts"
       - "data/readings/moe-concised-2014_20260626-active-catalog.json"
       - "data/readings/moe-revised-2015_20260625-active-catalog-fallback.json"
@@ -59,6 +60,11 @@ jobs:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # These paired stage manifests predate the qiān catalog addition. Current
+    # product inputs are covered by check:pr; preserve the exact old population
+    # here rather than relabeling catalog-induced redraws as reading repairs.
+    env:
+      READING_AUDIT_CATALOG: before-qian
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
