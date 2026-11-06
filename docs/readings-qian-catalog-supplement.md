@@ -162,6 +162,9 @@ browser test run or independently approved whole-sentence readings.
 
 ## Other source-attested preservation cases
 
+The subsequent [whole-catalog main-reading inventory](readings-moe-main-reading-coverage.md)
+records additional source gaps separately from this completed 嵌 role comparison.
+
 The same source review confirmed two legitimate rare cases to preserve:
 [藏/cáng](https://dict.revised.moe.edu.tw/dictView.jsp?ID=9592) is an attested
 surname, and [弟/tì](https://dict.revised.moe.edu.tw/dictView.jsp?ID=2653) has
