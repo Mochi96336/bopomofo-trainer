@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { isMoeSupplementalRoleMismatch, isMoeSupplementFollowupRoleMismatch, isMoeExtendedRoleMismatch } from "../src/readings/moe-supplemental-role-license.js";
+import { isMoeSupplementalRoleMismatch, isMoeSupplementFollowupRoleMismatch, isMoeExtendedRoleMismatch, isMoeQianRoleMismatch } from "../src/readings/moe-supplemental-role-license.js";
 import type { Upos } from "../src/syntax/types.js";
 
 interface Sentence { seedIndex: number; text: string | null; root: string | null; entryIds: string[] }
@@ -71,6 +71,34 @@ interface Stage {
   mismatch: (hit: Hit) => boolean;
 }
 
+// b6e80fb enlarged-catalog exposure, SHA-256 5c1bd8c8…58beb4.
+export const FROZEN_QIAN_BAD_SLOTS = [
+  { seed: 2864, slot: 2, id: "word:嵌:ㄎㄢ3", upos: "VERB" },
+] as const;
+export const FROZEN_QIAN_PRESERVED_SLOTS = [
+  { seed: 24, slot: 3, id: "word:嵌:ㄑㄧㄢ1" },
+  { seed: 2257, slot: 3, id: "word:嵌:ㄑㄧㄢ1" },
+] as const;
+
+/** The three actual 嵌 profiles in this frozen catalog are all VERB. */
+function assertQianHitCoverage(exposure: Exposure): void {
+  const ids = new Set(["word:嵌:ㄑㄧㄢ1", "word:嵌:ㄑㄧㄢ4", "word:嵌:ㄎㄢ3"]);
+  const positions = new Map<string, number>();
+  for (const hit of exposure.hits.filter(h => ids.has(h.selectedEntryId))) {
+    if (exposure.sentences[hit.seedIndex]?.entryIds[hit.entryIndex] !== hit.selectedEntryId
+      || hit.selectedUpos !== "VERB") throw new Error("qian selected hit contradicts the frozen catalog/position");
+    const key = hit.seedIndex + "/" + hit.entryIndex;
+    positions.set(key, (positions.get(key) ?? 0) + 1);
+  }
+  for (const sentence of exposure.sentences) {
+    for (let slot = 0; slot < sentence.entryIds.length; slot++) {
+      if (ids.has(sentence.entryIds[slot]!) && positions.get(sentence.seedIndex + "/" + slot) !== 1) {
+        throw new Error("qian selected positions require complete, unique hit coverage");
+      }
+    }
+  }
+}
+
 function compareRoleStage(before: Exposure, after: Exposure, stage: Stage) {
   const count = stage.sampleCount;
   if (before.readingEligibilityPolicy !== stage.beforePolicy
@@ -134,12 +162,31 @@ export function compareMoeExtendedRoles(before: Exposure, after: Exposure) {
       && isMoeExtendedRoleMismatch(hit.selectedEntryId, hit.selectedUpos as Upos) });
 }
 
+export function compareMoeQianRoles(before: Exposure, after: Exposure) {
+  if (before.catalogEntryCount !== 13693 || after.catalogEntryCount !== 13693) {
+    throw new Error("qian comparison requires the enlarged 13693-entry catalog");
+  }
+  assertQianHitCoverage(before);
+  assertQianHitCoverage(after);
+  for (const target of FROZEN_QIAN_PRESERVED_SLOTS) {
+    if (before.sentences[target.seed]?.entryIds[target.slot] !== target.id
+      || after.sentences[target.seed]?.entryIds[target.slot] !== target.id) {
+      throw new Error("qian source preservation anchors drifted");
+    }
+  }
+  return compareRoleStage(before, after, { beforePolicy: "standard-role-extended-trial",
+    afterPolicy: "standard-qian-role-trial", schemaVersion: "moe-qian-role-paired-diff-v1",
+    targets: FROZEN_QIAN_BAD_SLOTS, sampleCount: 4096, mismatch: hit => hit.selectedUpos !== null
+      && isMoeQianRoleMismatch(hit.selectedEntryId, hit.selectedUpos as Upos) });
+}
+
 if (process.argv[1]?.endsWith("compare-moe-role-supplement.ts")) {
   const [before, after, output] = process.argv.slice(2);
   if (!before || !after || !output) throw new Error("usage: compare-moe-role-supplement <before> <after> <output>");
   const left = JSON.parse(readFileSync(before, "utf8")) as Exposure;
   const right = JSON.parse(readFileSync(after, "utf8")) as Exposure;
-  const compare = right.readingEligibilityPolicy === "standard-role-extended-trial"
+  const compare = right.readingEligibilityPolicy === "standard-qian-role-trial"
+    ? compareMoeQianRoles : right.readingEligibilityPolicy === "standard-role-extended-trial"
     ? compareMoeExtendedRoles : right.readingEligibilityPolicy === "standard-role-supplement-followup-trial"
       ? compareMoeRoleSupplementFollowup : compareMoeRoleSupplement;
   const result = compare(left, right);

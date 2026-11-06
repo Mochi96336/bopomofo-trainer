@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { catalogEntryId } from "../../src/core/catalog-entry-id.js";
 import type { CatalogEntry } from "../../src/core/model.js";
 import type { RuntimeSyntaxProfile, Upos } from "../../src/syntax/types.js";
-import { reviewedMoeSupplementalRoleEligible, reviewedMoeSupplementFollowupRoleEligible, reviewedMoeExtendedRoleEligible } from "../../src/readings/moe-supplemental-role-license.js";
+import { reviewedMoeSupplementalRoleEligible, reviewedMoeSupplementFollowupRoleEligible, reviewedMoeExtendedRoleEligible, reviewedMoeQianRoleEligible } from "../../src/readings/moe-supplemental-role-license.js";
 
 function eligible(text: string, reading: string, upos: Upos, policy = reviewedMoeSupplementalRoleEligible): boolean {
   const entry = { id: catalogEntryId(text, reading), prompt: { text, locale: "zh-TW" },
@@ -12,6 +12,23 @@ function eligible(text: string, reading: string, upos: Upos, policy = reviewedMo
     dependencyEvidence: { dependencyRelationCounts: {}, surfacePositionCounts: {} }, provenanceIds: [] };
   return policy(entry, profile);
 }
+
+describe("qian readings after adding the missing standard identity", () => {
+  it.each(["ㄎㄢ3", "ㄑㄧㄢ4"])("rejects %s only in the independent VERB role", reading => {
+    expect(eligible("嵌", reading, "VERB", reviewedMoeExtendedRoleEligible)).toBe(true);
+    expect(eligible("嵌", reading, "VERB", reviewedMoeQianRoleEligible)).toBe(false);
+  });
+  it.each([
+    ["嵌", "ㄑㄧㄢ1", "VERB"], ["嵌", "ㄑㄧㄢ1", "ADJ"], ["嵌", "ㄑㄧㄢ4", "ADJ"],
+    ["赤嵌樓", "ㄔ4-ㄎㄢ3-ㄌㄡ2", "NOUN"], ["藏", "ㄘㄤ2", "PROPN"], ["弟", "ㄊㄧ4", "NOUN"],
+  ] as const)("preserves source-attested or whole-word %s/%s/%s", (text, reading, upos) => {
+    expect(eligible(text, reading, upos, reviewedMoeQianRoleEligible)).toBe(true);
+  });
+  it("checks the actual selected identity", () => {
+    expect(() => reviewedMoeQianRoleEligible({ id: catalogEntryId("嵌", "ㄎㄢ3") } as CatalogEntry,
+      { entryId: catalogEntryId("嵌", "ㄑㄧㄢ1") } as RuntimeSyntaxProfile)).toThrow(/actual selected/);
+  });
+});
 
 describe("source-backed supplemental roles", () => {
   it.each([

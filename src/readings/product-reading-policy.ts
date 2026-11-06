@@ -12,7 +12,7 @@ import { reviewedMoeStandardNanReadingEligible } from "./moe-standard-nan.js";
 import { reviewedMoeStandardXingReadingEligible } from "./moe-standard-xing.js";
 import { reviewedMoeOrdinalRoomReadingEligible } from "./moe-ordinal-room.js";
 import { reviewedMoeNumericFenReadingEligible } from "./moe-numeric-fen.js";
-import { reviewedMoeSupplementalRoleEligible, reviewedMoeSupplementFollowupRoleEligible, reviewedMoeExtendedRoleEligible } from "./moe-supplemental-role-license.js";
+import { reviewedMoeSupplementalRoleEligible, reviewedMoeSupplementFollowupRoleEligible, reviewedMoeExtendedRoleEligible, reviewedMoeQianRoleEligible } from "./moe-supplemental-role-license.js";
 import { reviewedMoeStandardGuoReadingEligible } from "./moe-standard-guo.js";
 import { reviewedMoeNaSurnameRoleEligible } from "./moe-na-surname-role.js";
 import { reviewedMoeAttestedRoleEligible } from "./moe-attested-role-compatibility.js";
@@ -21,7 +21,7 @@ import { reviewedMoeThirdRoleEligible } from "./moe-attested-role-compatibility.
 import { reviewedMoeFourthRoleEligible, reviewedMoeFifthRoleEligible, reviewedMoeSixthRoleEligible, reviewedMoeSeventhRoleEligible, reviewedMoeEighthRoleEligible, reviewedMoeTenthRoleEligible } from "./moe-attested-role-compatibility.js";
 
 /** Current production boundary; historical audit modes remain separately frozen. */
-export const PRODUCT_READING_POLICY_ID = "standard-role-extended-trial";
+export const PRODUCT_READING_POLICY_ID = "standard-qian-role-trial";
 
 export const PRODUCT_READING_POLICY = {
   readingEligibility: reviewedAdjacentReadingEligible,
@@ -48,6 +48,7 @@ export const PRODUCT_READING_POLICY = {
     reviewedMoeSupplementalRoleEligible,
     reviewedMoeSupplementFollowupRoleEligible,
     reviewedMoeExtendedRoleEligible,
+    reviewedMoeQianRoleEligible,
   ],
 } as const satisfies Pick<FormalSyntaxUtteranceInput,
   "readingEligibility" | "preDrawReadingEligibility" | "finalCandidateReadingEligibility"

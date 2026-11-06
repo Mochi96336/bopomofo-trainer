@@ -112,12 +112,55 @@ $env:READING_AUDIT_CATALOG = 'current'
 npx tsx scripts/audit-polyphonic-context.ts --samples 4096 --policy standard-role-extended-trial --output data/generated/qian-catalog-stable-exposure.json
 ```
 
-## Scope still pending
+## Independent VERB restriction after the addition
 
-Adding qiān does not by itself license the existing qiàn or kǎn entries as
-independent verbs. Their contextual restrictions require a separate controlled
-comparison on the enlarged catalog. Bound place-name and adjective readings
-remain valid dictionary identities and must not be deleted to hide that gap.
+`standard-qian-role-trial` adds one later redraw stage after the frozen extended
+policy. It rejects only `嵌/ㄎㄢ3/VERB` and `嵌/ㄑㄧㄢ4/VERB`. The dictionary's
+qiàn ADJ and bound 赤嵌樓 readings remain outside that restriction, while qiān
+keeps its attested VERB and ADJ uses. This does not invent new runtime profiles.
+
+The before population is the enlarged 13,693-entry catalog at b6e80fb, with
+SHA-256 `5c1bd8c8770669d671650ec673149f8f2f5dab1dbd264642f6b7a2bd5058beb4`.
+The frozen incompatible position is seed 2864/slot 2, `嵌/ㄎㄢ3/VERB`; qiàn
+does not occur in this baseline. Both populations generate 4,096/4,096 sentences.
+The one reviewed mismatch becomes zero, and only that one lexical slot changes,
+from `word:嵌:ㄎㄢ3` to `word:攔截:ㄌㄢ2-ㄐㄧㄝ2`. The replacement reading
+matches committed Concised bulk row `181900003` (physical row 13521). Because
+the written word changes, this is candidate exclusion rather than a same-word
+tone correction. Sentence roots, entry counts and all other slots are unchanged.
+
+The two qiān selections at 24/3 and 2257/3 remain exact preservation controls.
+The comparison also requires complete, unique hit records for every selected
+嵌 identity, matching the actual sentence position and the three frozen VERB
+profiles. Omitting a bad replacement's hit, inventing another UPOS, or reusing
+the old 13,692-entry catalog cannot produce a passing comparison.
+
+```powershell
+$env:READING_AUDIT_CATALOG = 'current'
+npx tsx scripts/audit-polyphonic-context.ts --samples 4096 --policy standard-qian-role-trial --output data/generated/qian-role-after.json
+npx tsx scripts/compare-moe-role-supplement.ts data/generated/qian-catalog-stable-exposure.json data/generated/qian-role-after.json data/generated/qian-role-comparison.json
+```
+
+| Local artifact | SHA-256 |
+| --- | --- |
+| `qian-role-after.json` | `8f6ca923b1e960ecd8c43b458c3deb62d64d5c709853091243d39e15372f7e69` |
+| `qian-role-comparison.json` | `3298e8884fd1fd745003149d70307ac34136f307ed9fa8ef9877a4c0df01dede` |
+
+All three reading identities remain in the catalog. The two restricted readings
+currently have only VERB profiles, so they no longer have a selectable free-
+sentence profile; retaining their IDs does not prove practice availability.
+They still require an evidenced adjective/bound-word or separate practice route.
+The current targeted audit reports 403 ambiguous reading identities: 195 observed
+in the baseline, 104 selected only in targeted probes, 73 not observed after
+bounded probes, and 31 with all profiles rejected. None of these statuses is a
+human pronunciation label or proof that every rejected reading is invalid.
+
+Follow-up validation: `npm run check:pr` passed 1,400 Vitest tests, 76 Python
+source-adapter tests, type checking, catalog validation, build and bundle budget.
+JavaScript gzip size is 481.27 kB (decimal). This follow-up does not claim a new
+browser test run or independently approved whole-sentence readings.
+
+## Other source-attested preservation cases
 
 The same source review confirmed two legitimate rare cases to preserve:
 [藏/cáng](https://dict.revised.moe.edu.tw/dictView.jsp?ID=9592) is an attested

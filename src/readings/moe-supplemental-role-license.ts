@@ -168,3 +168,30 @@ export function reviewedMoeExtendedRoleEligible(entry: CatalogEntry, profile: Ru
   }
   return !isMoeExtendedRoleMismatch(entry.id, profile.upos);
 }
+
+/**
+ * After adding the missing qiān identity, reject the two other readings only
+ * in independent VERB profiles. Preserve qiàn adjectives and bound 赤嵌樓.
+ * https://dict.concised.moe.edu.tw/dictView.jsp?ID=25109
+ * https://dict.concised.moe.edu.tw/dictView.jsp?ID=18430
+ * https://dict.revised.moe.edu.tw/dictView.jsp?ID=4522
+ */
+export const MOE_QIAN_ROLE_RESTRICTIONS = [
+  { entryId: catalogEntryId("嵌", "ㄎㄢ3"), rejectedUpos: ["VERB"] },
+  { entryId: catalogEntryId("嵌", "ㄑㄧㄢ4"), rejectedUpos: ["VERB"] },
+] as const satisfies readonly { readonly entryId: string; readonly rejectedUpos: readonly Upos[] }[];
+
+const qianRejected = new Map<string, ReadonlySet<Upos>>(
+  MOE_QIAN_ROLE_RESTRICTIONS.map(row => [row.entryId, new Set<Upos>(row.rejectedUpos)]),
+);
+
+export function isMoeQianRoleMismatch(entryId: string, upos: Upos): boolean {
+  return qianRejected.get(entryId)?.has(upos) ?? false;
+}
+
+export function reviewedMoeQianRoleEligible(entry: CatalogEntry, profile: RuntimeSyntaxProfile): boolean {
+  if (entry.id !== profile.entryId) {
+    throw new Error("qian reading policy must inspect actual selected catalog identity");
+  }
+  return !isMoeQianRoleMismatch(entry.id, profile.upos);
+}
