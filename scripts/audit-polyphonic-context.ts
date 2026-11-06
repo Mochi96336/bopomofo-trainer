@@ -80,7 +80,7 @@ const PRODUCT_BOUNDS = {
   maximumLexicalEntriesPerUtterance: 6,
 } as const;
 
-type ReadingAuditPolicy = "none" | "reviewed-closed" | "reviewed-roles" | "zhong-role-trial" | "ordinal-line-trial" | "duoshao-zhong-trial" | "standard-le-trial" | "standard-bi-trial" | "standard-de-trial" | "standard-yu-trial" | "standard-nan-trial" | "standard-xing-trial" | "standard-guo-trial" | "standard-na-surname-trial" | "standard-role-evidence-trial" | "standard-role-followup-trial" | "standard-role-third-trial" | "standard-role-fourth-trial" | "standard-role-fifth-trial" | "standard-role-sixth-trial" | "standard-role-seventh-trial" | "standard-role-eighth-trial" | "standard-ordinal-room-trial" | "standard-role-tenth-trial" | "standard-numeric-fen-trial" | "standard-role-supplement-trial" | "standard-role-supplement-followup-trial" | "standard-role-extended-trial" | "standard-qian-role-trial";
+type ReadingAuditPolicy = "none" | "reviewed-closed" | "reviewed-roles" | "zhong-role-trial" | "ordinal-line-trial" | "duoshao-zhong-trial" | "standard-le-trial" | "standard-bi-trial" | "standard-de-trial" | "standard-yu-trial" | "standard-nan-trial" | "standard-xing-trial" | "standard-guo-trial" | "standard-na-surname-trial" | "standard-role-evidence-trial" | "standard-role-followup-trial" | "standard-role-third-trial" | "standard-role-fourth-trial" | "standard-role-fifth-trial" | "standard-role-sixth-trial" | "standard-role-seventh-trial" | "standard-role-eighth-trial" | "standard-ordinal-room-trial" | "standard-role-tenth-trial" | "standard-numeric-fen-trial" | "standard-role-supplement-trial" | "standard-role-supplement-followup-trial" | "standard-role-extended-trial" | "standard-qian-role-trial" | "standard-han-coordination-trial";
 
 function argumentsFromCli(): { samples: number; output: string; policy: ReadingAuditPolicy } {
   let samples = 2048;
@@ -98,8 +98,8 @@ function argumentsFromCli(): { samples: number; output: string; policy: ReadingA
     } else if (name === "--output") {
       output = value;
     } else if (name === "--policy") {
-      if (value !== "none" && value !== "reviewed-closed" && value !== "reviewed-roles" && value !== "zhong-role-trial" && value !== "ordinal-line-trial" && value !== "duoshao-zhong-trial" && value !== "standard-le-trial" && value !== "standard-bi-trial" && value !== "standard-de-trial" && value !== "standard-yu-trial" && value !== "standard-nan-trial" && value !== "standard-xing-trial" && value !== "standard-guo-trial" && value !== "standard-na-surname-trial" && value !== "standard-role-evidence-trial" && value !== "standard-role-followup-trial" && value !== "standard-role-third-trial" && value !== "standard-role-fourth-trial" && value !== "standard-role-fifth-trial" && value !== "standard-role-sixth-trial" && value !== "standard-role-seventh-trial" && value !== "standard-role-eighth-trial" && value !== "standard-ordinal-room-trial" && value !== "standard-role-tenth-trial" && value !== "standard-numeric-fen-trial" && value !== "standard-role-supplement-trial" && value !== "standard-role-supplement-followup-trial" && value !== "standard-role-extended-trial" && value !== "standard-qian-role-trial") {
-        throw new Error("--policy accepts none, reviewed-closed, reviewed-roles, zhong-role-trial, ordinal-line-trial, duoshao-zhong-trial, standard-le-trial, standard-bi-trial, standard-de-trial standard-yu-trial standard-nan-trial standard-xing-trial standard-guo-trial standard-na-surname-trial standard-role-evidence-trial or standard-role-followup-trial or standard-role-third-trial or standard-role-fourth-trial or standard-role-fifth-trial or standard-role-sixth-trial or standard-role-seventh-trial or standard-role-eighth-trial or standard-ordinal-room-trial or standard-role-tenth-trial");
+      if (value !== "none" && value !== "reviewed-closed" && value !== "reviewed-roles" && value !== "zhong-role-trial" && value !== "ordinal-line-trial" && value !== "duoshao-zhong-trial" && value !== "standard-le-trial" && value !== "standard-bi-trial" && value !== "standard-de-trial" && value !== "standard-yu-trial" && value !== "standard-nan-trial" && value !== "standard-xing-trial" && value !== "standard-guo-trial" && value !== "standard-na-surname-trial" && value !== "standard-role-evidence-trial" && value !== "standard-role-followup-trial" && value !== "standard-role-third-trial" && value !== "standard-role-fourth-trial" && value !== "standard-role-fifth-trial" && value !== "standard-role-sixth-trial" && value !== "standard-role-seventh-trial" && value !== "standard-role-eighth-trial" && value !== "standard-ordinal-room-trial" && value !== "standard-role-tenth-trial" && value !== "standard-numeric-fen-trial" && value !== "standard-role-supplement-trial" && value !== "standard-role-supplement-followup-trial" && value !== "standard-role-extended-trial" && value !== "standard-qian-role-trial" && value !== "standard-han-coordination-trial") {
+        throw new Error("--policy accepts none, reviewed-closed, reviewed-roles, zhong-role-trial, ordinal-line-trial, duoshao-zhong-trial, standard-le-trial, standard-bi-trial, standard-de-trial standard-yu-trial standard-nan-trial standard-xing-trial standard-guo-trial standard-na-surname-trial standard-role-evidence-trial or standard-role-followup-trial or standard-role-third-trial or standard-role-fourth-trial or standard-role-fifth-trial or standard-role-sixth-trial or standard-role-seventh-trial or standard-role-eighth-trial or standard-ordinal-room-trial or standard-role-tenth-trial or standard-numeric-fen-trial or standard-role-supplement-trial or standard-role-supplement-followup-trial or standard-role-extended-trial or standard-qian-role-trial or standard-han-coordination-trial");
       }
       policy = value;
     } else {
@@ -122,8 +122,8 @@ function sortedCounts(map: ReadonlyMap<string, number>): Readonly<Record<string,
 const { samples, output, policy: requestedPolicy } = argumentsFromCli();
 // Reuse the frozen pre-supplement chain without editing historical stages.
 const usesSupplement = requestedPolicy === "standard-role-supplement-trial"
-  || requestedPolicy === "standard-role-supplement-followup-trial" || requestedPolicy === "standard-role-extended-trial" || requestedPolicy === "standard-qian-role-trial";
-const usesSupplementFollowup = requestedPolicy === "standard-role-supplement-followup-trial" || requestedPolicy === "standard-role-extended-trial" || requestedPolicy === "standard-qian-role-trial";
+  || requestedPolicy === "standard-role-supplement-followup-trial" || requestedPolicy === "standard-role-extended-trial" || requestedPolicy === "standard-qian-role-trial" || requestedPolicy === "standard-han-coordination-trial";
+const usesSupplementFollowup = requestedPolicy === "standard-role-supplement-followup-trial" || requestedPolicy === "standard-role-extended-trial" || requestedPolicy === "standard-qian-role-trial" || requestedPolicy === "standard-han-coordination-trial";
 const policy = usesSupplement
   ? "standard-numeric-fen-trial" : requestedPolicy;
 const ambiguous = buildPolyphonicReadingIndex(PRACTICE_CATALOG);
@@ -191,8 +191,8 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
           ...(policy === "standard-numeric-fen-trial" ? [reviewedMoeNumericFenReadingEligible] : []),
           ...(usesSupplement ? [reviewedMoeSupplementalRoleEligible] : []),
           ...(usesSupplementFollowup ? [reviewedMoeSupplementFollowupRoleEligible] : []),
-          ...(requestedPolicy === "standard-role-extended-trial" || requestedPolicy === "standard-qian-role-trial" ? [reviewedMoeExtendedRoleEligible] : []),
-          ...(requestedPolicy === "standard-qian-role-trial" ? [reviewedMoeQianRoleEligible] : []),
+          ...(requestedPolicy === "standard-role-extended-trial" || requestedPolicy === "standard-qian-role-trial" || requestedPolicy === "standard-han-coordination-trial" ? [reviewedMoeExtendedRoleEligible] : []),
+          ...(requestedPolicy === "standard-qian-role-trial" || requestedPolicy === "standard-han-coordination-trial" ? [reviewedMoeQianRoleEligible] : []),
         ] } : {}),
     ...(policy === "duoshao-zhong-trial"
       ? { preDrawReadingEligibility: beforeMoeLePreDrawEligible }

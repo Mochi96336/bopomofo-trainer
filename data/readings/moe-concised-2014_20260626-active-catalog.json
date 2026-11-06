@@ -39,7 +39,7 @@
     "redistributionBoundary": "official bulk archive remains local; committed outputs must be candidate-scoped and preserve exact source evidence"
   },
   "candidateSet": {
-    "entryCount": 13898,
+    "entryCount": 13899,
     "normalizedTextCount": 13653,
     "identityRule": "NFC(trim(text)) exact headword lookup; exactly one candidate and source row required"
   },

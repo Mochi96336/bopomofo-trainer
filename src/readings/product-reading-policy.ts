@@ -19,13 +19,24 @@ import { reviewedMoeAttestedRoleEligible } from "./moe-attested-role-compatibili
 import { reviewedMoeFollowupRoleEligible } from "./moe-attested-role-compatibility.js";
 import { reviewedMoeThirdRoleEligible } from "./moe-attested-role-compatibility.js";
 import { reviewedMoeFourthRoleEligible, reviewedMoeFifthRoleEligible, reviewedMoeSixthRoleEligible, reviewedMoeSeventhRoleEligible, reviewedMoeEighthRoleEligible, reviewedMoeTenthRoleEligible } from "./moe-attested-role-compatibility.js";
+import { reviewedHanCoordinationReadingEligible } from "./han-coordination-license.js";
 
 /** Current production boundary; historical audit modes remain separately frozen. */
-export const PRODUCT_READING_POLICY_ID = "standard-qian-role-trial";
+export const PRODUCT_READING_POLICY_ID = "standard-han-coordination-trial";
 
 export const PRODUCT_READING_POLICY = {
-  readingEligibility: reviewedAdjacentReadingEligible,
-  preDrawReadingEligibility: reviewedAdjacentPreDrawReadingEligible,
+  readingEligibility: (
+    entry: CatalogEntry, profile: RuntimeSyntaxProfile, slot: unknown,
+    previousEntry: CatalogEntry | null,
+  ) =>
+    reviewedHanCoordinationReadingEligible(entry, profile)
+      && reviewedAdjacentReadingEligible(entry, profile, slot, previousEntry),
+  preDrawReadingEligibility: (
+    entry: CatalogEntry, profile: RuntimeSyntaxProfile, slot: unknown,
+    previousEntry: CatalogEntry | null,
+  ) =>
+    reviewedHanCoordinationReadingEligible(entry, profile)
+      && reviewedAdjacentPreDrawReadingEligible(entry, profile, slot, previousEntry),
   finalCandidateReadingEligibility: reviewedMoeStandardBiReadingEligible,
   subsequentFinalCandidateReadingEligibility: reviewedMoeStandardDeReadingEligible,
   additionalFinalCandidateReadingEligibilities: [

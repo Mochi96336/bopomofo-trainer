@@ -38,6 +38,11 @@ The just-added `嵌/ㄑㄧㄢ1` is no longer a missing-source-reading candidate.
 
 ## Concrete follow-up leads
 
+The table below records the b792f75 inventory, before the subsequent
+[hàn coordinator supplement](readings-han-catalog-supplement.md). That supplement
+has since added `和/ㄏㄢ4` with a scoped coordinator license; the frozen inventory
+counts and report fingerprint above have not been rewritten.
+
 | Written form | Current catalog readings | Absent Concised reading | Concised / Revised bulk IDs |
 | --- | --- | --- | --- |
 | 和 | ㄏㄜ2, ㄏㄜ4, ㄏㄨ2, ㄏㄨㄛ2, ㄏㄨㄛ4 | ㄏㄢ4 | 2771 / 04883 |
@@ -52,16 +57,15 @@ The just-added `嵌/ㄑㄧㄢ1` is no longer a missing-source-reading candidate.
 These bulk IDs are not online dictionary page IDs. A missing Revised main-row
 match is not evidence against the Concised reading.
 
-The hàn coordinator is the first source-confirmed construction lead:
+The hàn coordinator was the first source-confirmed construction lead:
 [Concised 和/hàn](https://dict.concised.moe.edu.tw/dictView.jsp?ID=19725)
 identifies it as the spoken pronunciation of sense 7 under
 [和/hé](https://dict.concised.moe.edu.tw/dictView.jsp?ID=19016), the coordinating
-usage. The active catalog lacks that identity, and the current
-`CONSTRUCTION_READINGS["和"]` allows only `ㄏㄜ2`. Adding a catalog row alone
-would therefore not provide correct coordination practice. A follow-up should
-add the source-backed identity and its reviewed coordinator license together,
-confirm real coordinator dependency evidence, retain hé, and leave other hàn
-roles context-required until separately supported.
+usage. At the inventory commit, the catalog lacked that identity and
+`CONSTRUCTION_READINGS["和"]` allowed only `ㄏㄜ2`. The linked supplement adds
+the source-backed identity and coordinator license together, confirms the real
+coordinator dependency evidence, retains hé, and leaves other hàn roles
+context-required until separately supported.
 
 The separate [和/huo](https://dict.concised.moe.edu.tw/dictView.jsp?ID=20436)
 entry is bound in warming words such as 暖和. It is not a reason to permit a

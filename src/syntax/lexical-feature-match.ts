@@ -1,4 +1,8 @@
 import { catalogEntryId } from "../core/catalog-entry-id.js";
+import {
+  HAN_COORDINATION_ENTRY_ID,
+  hanCoordinationProfileLicensed,
+} from "../readings/han-coordination-license.js";
 import type {
   RuntimeSyntaxProfile,
   SyntaxFeatureName,
@@ -89,7 +93,7 @@ export const CONSTRUCTION_READINGS: Readonly<Record<string, readonly string[]>> 
   嗎: ["ㄇㄚ5"],
   沒: ["ㄇㄟ2"],
   無: ["ㄨ2"],
-  和: ["ㄏㄜ2"],
+  和: ["ㄏㄜ2", "ㄏㄢ4"],
   與: ["ㄩ3"],
   幾: ["ㄐㄧ3"],
   哪: ["ㄋㄚ3", "ㄋㄟ3"],
@@ -170,6 +174,14 @@ export function lexicalConstructionFeatureMatches(
   value: SyntaxFeatureValue,
 ): boolean {
   if (!formMatchesIdentity(entryId, text)) return false;
+  // hàn is reviewed for coordination only. The shared identity table also
+  // serves ADP relational-ccomp, which must retain its existing hé boundary.
+  if (entryId === HAN_COORDINATION_ENTRY_ID) {
+    return text === "和"
+      && feature === "coordinationType"
+      && value === "coordination"
+      && hanCoordinationProfileLicensed(entryId, profile);
+  }
   switch (featureKey(feature, value)) {
     case "polarity:negative":
       return NEGATORS.has(text) && negatorEvidence(profile);

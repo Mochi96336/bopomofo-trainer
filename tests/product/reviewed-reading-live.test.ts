@@ -23,10 +23,50 @@ import { reviewedMoeStandardGuoReadingEligible } from "../../src/readings/moe-st
 import { reviewedMoeNaSurnameRoleEligible } from "../../src/readings/moe-na-surname-role.js";
 import { reviewedMoeOrdinalRoomReadingEligible } from "../../src/readings/moe-ordinal-room.js";
 import { reviewedMoeNumericFenReadingEligible } from "../../src/readings/moe-numeric-fen.js";
+import { reviewedHanCoordinationReadingEligible } from "../../src/readings/han-coordination-license.js";
 import { reviewedMoeAttestedRoleEligible, reviewedMoeFollowupRoleEligible, reviewedMoeThirdRoleEligible, reviewedMoeFourthRoleEligible, reviewedMoeFifthRoleEligible, reviewedMoeSixthRoleEligible, reviewedMoeSeventhRoleEligible, reviewedMoeEighthRoleEligible, reviewedMoeTenthRoleEligible } from "../../src/readings/moe-attested-role-compatibility.js";
 
 const wholeCatalogs = { practice: PRACTICE_CATALOG, syntaxProfiles: SYNTAX_PROFILES };
 const standardLayout = "standard";
+
+function selectionInput(
+  environment: ReturnType<typeof createProductEnvironment>,
+  progress: ReturnType<typeof createFreshProgressForEnvironment>,
+) {
+  return {
+    entries: environment.catalogs.practice,
+    profiles: environment.catalogs.syntaxProfiles,
+    bindingEvidence: [],
+    mode: progress.mode,
+    layoutId: progress.layoutId,
+    history: {
+      recentEntryIds: progress.selection.recentEntryIds,
+      recentUtteranceIds: progress.selection.recentUtteranceIds,
+      recentTemplateIds: progress.selection.recentTemplateIds,
+    },
+    policy: environment.utterancePolicy,
+    preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
+    preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
+    preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
+    random: createSeededRandom(progress.seed + ":practice:0"),
+  };
+}
+
+/**
+ * Share the hàn pre-draw frontier before comparing the remaining reviewed
+ * repairs. Removing unlicensed hàn profiles changes a weighted draw's landing
+ * point even when the previously selected entry was legal. Other product
+ * reading gates remain absent here and their limited repairs are checked below.
+ */
+function selectComparisonBaseline(
+  environment: ReturnType<typeof createProductEnvironment>,
+  progress: ReturnType<typeof createFreshProgressForEnvironment>,
+) {
+  return selectFormalSyntaxUtterance({
+    ...selectionInput(environment, progress),
+    preDrawReadingEligibility: reviewedHanCoordinationReadingEligible,
+  });
+}
 
 function assertRoundReadings(
   state: ReturnType<typeof createProductState>,
@@ -59,6 +99,7 @@ function assertRoundReadings(
     expect(reviewedMoeSupplementFollowupRoleEligible(candidate.entries[i]!, profile!)).toBe(true);
     expect(reviewedMoeExtendedRoleEligible(candidate.entries[i]!, profile!)).toBe(true);
     expect(reviewedMoeQianRoleEligible(candidate.entries[i]!, profile!)).toBe(true);
+    expect(reviewedHanCoordinationReadingEligible(candidate.entries[i]!, profile!)).toBe(true);
     expect(reviewedMoeNumericFenReadingEligible(candidate.entries[i]!, profile!, null, i===0?null:candidate.entries[i-1]!)).toBe(true);
     expect(reviewedMoeOrdinalRoomReadingEligible(candidate.entries[i]!, profile!, null, i===0?null:candidate.entries[i-1]!)).toBe(true);
   }
@@ -74,6 +115,7 @@ function assertRoundReadings(
 function assertOnlyOrdinalAdjacentSlotChanged(
   original: ReturnType<typeof selectFormalSyntaxUtterance>["utterance"],
   next: ReturnType<typeof selectFormalSyntaxUtterance>["utterance"],
+  seed: string,
 ): void {
   expect(next.syntaxRootRuleId).toBe(original.syntaxRootRuleId);
   expect(next.entries.length).toBe(original.entries.length);
@@ -81,37 +123,22 @@ function assertOnlyOrdinalAdjacentSlotChanged(
     item.id === next.entries[i]?.id ? [] : [i]);
   expect(changed).toHaveLength(1);
   const at = changed[0]!;
-  expect(at).toBeGreaterThan(0);
+  expect(at, JSON.stringify({ seed, original: original.entries.map(entry => entry.id),
+    next: next.entries.map(entry => entry.id) })).toBeGreaterThan(0);
   expect(original.entries[at - 1]?.id).toBe(next.entries[at - 1]?.id);
   expect(original.entries[at - 1]?.prompt.text)
     .toMatch(/^第[一二三四五六七八九十百千萬兩零〇0-9０-９]+$/u);
 }
 
 describe("production reviewed reading disambiguation", () => {
-  it("only changes a fresh-user round if its unguarded reading was rejected", () => {
+  it("only repairs a fresh-user round's rejected reading after sharing the hàn pre-draw frontier", () => {
     const environment = createProductEnvironment(wholeCatalogs);
     const profilesById = new Map(environment.catalogs.syntaxProfiles.map(p => [p.id, p]));
     let observedRejects = 0;
     for (let seedIndex = 0; seedIndex < 128; seedIndex += 1) {
       const seed = "reading-live-" + seedIndex;
       const progress = createFreshProgressForEnvironment(environment, seed, "guided", standardLayout);
-      const original = selectFormalSyntaxUtterance({
-        entries: environment.catalogs.practice,
-        profiles: environment.catalogs.syntaxProfiles,
-        bindingEvidence: [],
-        mode: progress.mode,
-        layoutId: progress.layoutId,
-        history: {
-          recentEntryIds: progress.selection.recentEntryIds,
-          recentUtteranceIds: progress.selection.recentUtteranceIds,
-          recentTemplateIds: progress.selection.recentTemplateIds,
-        },
-        policy: environment.utterancePolicy,
-        preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
-        preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
-        preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
-        random: createSeededRandom(seed + ":practice:0"),
-      });
+      const original = selectComparisonBaseline(environment, progress);
       const originalCandidate = original.utterance;
       const originalRejected = originalCandidate.entries.some((entry, i) => {
         const profile = profilesById.get(originalCandidate.syntaxProfileIds?.[i] ?? "");
@@ -139,6 +166,7 @@ describe("production reviewed reading disambiguation", () => {
           || !reviewedMoeSupplementFollowupRoleEligible(entry, profile)
           || !reviewedMoeExtendedRoleEligible(entry, profile)
           || !reviewedMoeQianRoleEligible(entry, profile)
+          || !reviewedHanCoordinationReadingEligible(entry, profile)
           || !reviewedMoeNumericFenReadingEligible(entry, profile, null, i===0?null:originalCandidate.entries[i-1]!);
       });
       const actual = createProductState(environment, progress, 0);
@@ -148,7 +176,7 @@ describe("production reviewed reading disambiguation", () => {
         observedRejects += 1;
         expect(changed).toBe(true);
       } else if (changed) {
-        assertOnlyOrdinalAdjacentSlotChanged(originalCandidate, actual.round.selection.utterance);
+        assertOnlyOrdinalAdjacentSlotChanged(originalCandidate, actual.round.selection.utterance, seed);
       }
       expect(actual.progress).toBe(progress);
       expect(actual.round.selection.score.entryIds).toEqual(
@@ -175,26 +203,9 @@ describe("production reviewed reading disambiguation", () => {
           i % 2 === 0 ? "guided" : "recall",
           standardLayout,
         );
-        const selectionInput = {
-          entries: environment.catalogs.practice,
-          profiles: environment.catalogs.syntaxProfiles,
-          bindingEvidence: [],
-          mode: progress.mode,
-          layoutId: progress.layoutId,
-          history: {
-            recentEntryIds: progress.selection.recentEntryIds,
-            recentUtteranceIds: progress.selection.recentUtteranceIds,
-            recentTemplateIds: progress.selection.recentTemplateIds,
-          },
-          policy: environment.utterancePolicy,
-          preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
-          preparedFrequencyFirstEntries: environment.preparedPracticeEntries,
-          preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
-          random: createSeededRandom(progress.seed + ":practice:0"),
-        };
         let original: ReturnType<typeof selectFormalSyntaxUtterance> | null = null;
         try {
-          original = selectFormalSyntaxUtterance(selectionInput);
+          original = selectComparisonBaseline(environment, progress);
         } catch {
           baselineFailures += 1;
         }
@@ -241,11 +252,12 @@ describe("production reviewed reading disambiguation", () => {
                 && reviewedMoeSupplementFollowupRoleEligible(entry, profile)
                 && reviewedMoeExtendedRoleEligible(entry, profile)
                 && reviewedMoeQianRoleEligible(entry, profile)
+                && reviewedHanCoordinationReadingEligible(entry, profile)
                 && reviewedMoeNumericFenReadingEligible(entry, profile, null, index===0?null:original.utterance.entries[index-1]!);
             });
             if (originalLicensed
               && product.round.selection.utterance.id !== original.utterance.id) {
-              assertOnlyOrdinalAdjacentSlotChanged(original.utterance, product.round.selection.utterance);
+              assertOnlyOrdinalAdjacentSlotChanged(original.utterance, product.round.selection.utterance, progress.seed);
             }
           }
         }
@@ -255,4 +267,43 @@ describe("production reviewed reading disambiguation", () => {
     },
     20000,
   );
+
+  it("replays the two observed hàn frontier changes in only slot zero through the real product", () => {
+    const cases = [
+      {
+        seed: "reading-live-2", tier: null,
+        original: ["word:香:ㄒㄧㄤ1", "word:沒:ㄇㄟ2", "word:不會:ㄅㄨ4-ㄏㄨㄟ4",
+          "word:想:ㄒㄧㄤ3", "word:投入:ㄊㄡ2-ㄖㄨ4", "word:什麼:ㄕㄣ2-ㄇㄜ5"],
+        replacement: "word:裴林:ㄆㄟ2-ㄌㄧㄣ2",
+      },
+      {
+        seed: "reading-tier-1:4", tier: 1,
+        original: ["word:元:ㄩㄢ2", "word:非:ㄈㄟ1", "word:必須:ㄅㄧ4-ㄒㄩ1",
+          "word:把:ㄅㄚ3", "word:成:ㄔㄥ2", "word:結合:ㄐㄧㄝ2-ㄏㄜ2"],
+        replacement: "word:法:ㄈㄚ3",
+      },
+    ] as const;
+    for (const fixture of cases) {
+      const catalogs = fixture.tier === null ? wholeCatalogs
+        : catalogsForCommonnessTiers(wholeCatalogs, COMMONNESS_TIER_THRESHOLDS, [fixture.tier]);
+      const environment = createProductEnvironment(catalogs);
+      const profilesById = new Map(environment.catalogs.syntaxProfiles.map(profile => [profile.id, profile]));
+      const progress = createFreshProgressForEnvironment(environment, fixture.seed, "guided", standardLayout);
+      const unguarded = selectFormalSyntaxUtterance(selectionInput(environment, progress)).utterance;
+      const frontier = selectComparisonBaseline(environment, progress).utterance;
+      expect(unguarded.entries.map(entry => entry.id)).toEqual(fixture.original);
+      for (let i = 0; i < unguarded.entries.length; i += 1) {
+        const profile = profilesById.get(unguarded.syntaxProfileIds![i]!)!;
+        expect(reviewedHanCoordinationReadingEligible(unguarded.entries[i]!, profile)).toBe(true);
+      }
+      expect(frontier.syntaxRootRuleId).toBe(unguarded.syntaxRootRuleId);
+      expect(frontier.entries.map(entry => entry.id)).toEqual([
+        fixture.replacement, ...fixture.original.slice(1),
+      ]);
+      expect(frontier.syntaxProfileIds?.slice(1)).toEqual(unguarded.syntaxProfileIds?.slice(1));
+      const product = createProductState(environment, progress, 0);
+      assertRoundReadings(product, profilesById);
+      expect(product.round.selection.utterance.id).toBe(frontier.id);
+    }
+  });
 });
