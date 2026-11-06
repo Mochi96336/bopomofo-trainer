@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 import { catalogEntryId } from "../../src/core/catalog-entry-id.js";
 import type { CatalogEntry } from "../../src/core/model.js";
 import type { RuntimeSyntaxProfile, Upos } from "../../src/syntax/types.js";
-import { reviewedMoeSupplementalRoleEligible } from "../../src/readings/moe-supplemental-role-license.js";
+import { reviewedMoeSupplementalRoleEligible, reviewedMoeSupplementFollowupRoleEligible } from "../../src/readings/moe-supplemental-role-license.js";
 
-function eligible(text: string, reading: string, upos: Upos): boolean {
+function eligible(text: string, reading: string, upos: Upos, policy = reviewedMoeSupplementalRoleEligible): boolean {
   const entry = { id: catalogEntryId(text, reading), prompt: { text, locale: "zh-TW" },
     syllables: [], tags: [], provenanceIds: [] } satisfies CatalogEntry;
   const profile: RuntimeSyntaxProfile = { id: "test/" + entry.id, entryId: entry.id,
     upos, functions: ["unspecified"], valencyFrames: ["avalent"],
     dependencyEvidence: { dependencyRelationCounts: {}, surfacePositionCounts: {} }, provenanceIds: [] };
-  return reviewedMoeSupplementalRoleEligible(entry, profile);
+  return policy(entry, profile);
 }
 
 describe("source-backed supplemental roles", () => {
@@ -63,5 +63,32 @@ describe("source-backed supplemental roles", () => {
     const entry = { id: catalogEntryId("爲", "ㄨㄟ4") } as CatalogEntry;
     const profile = { entryId: catalogEntryId("爲", "ㄨㄟ2") } as RuntimeSyntaxProfile;
     expect(() => reviewedMoeSupplementalRoleEligible(entry, profile)).toThrow(/actual selected/);
+  });
+});
+
+describe("follow-up source distinctions without changing the frozen v1 policy", () => {
+  it.each([
+    ["為", "ㄨㄟ4", "PROPN", "ㄨㄟ2"],
+    ["好", "ㄏㄠ4", "ADV", "ㄏㄠ3"],
+  ] as const)("rejects reviewed %s/%s/%s only in the later stage", (text, wrong, upos, valid) => {
+    expect(eligible(text, wrong, upos)).toBe(true);
+    expect(eligible(text, wrong, upos, reviewedMoeSupplementFollowupRoleEligible)).toBe(false);
+    expect(eligible(text, valid, upos, reviewedMoeSupplementFollowupRoleEligible)).toBe(true);
+  });
+
+  it.each([
+    ["為", "ㄨㄟ4", "ADP"], ["為", "ㄨㄟ4", "VERB"], ["為", "ㄨㄟ4", "ADV"],
+    ["好", "ㄏㄠ4", "VERB"], ["好", "ㄏㄠ4", "NOUN"], ["好", "ㄏㄠ3", "VERB"],
+    ["解", "ㄐㄧㄝ4", "NOUN"], ["強", "ㄑㄧㄤ3", "VERB"], ["強", "ㄑㄧㄤ3", "ADV"],
+    ["強", "ㄑㄧㄤ3", "ADJ"], ["強", "ㄑㄧㄤ3", "NOUN"],
+    ["好學", "ㄏㄠ4-ㄒㄩㄝ2", "ADJ"], ["愛好", "ㄞ4-ㄏㄠ4", "NOUN"],
+  ] as const)("preserves source-attested or unreviewed %s/%s/%s", (text, reading, upos) => {
+    expect(eligible(text, reading, upos, reviewedMoeSupplementFollowupRoleEligible)).toBe(true);
+  });
+
+  it("rejects a mismatched selected profile in the follow-up stage", () => {
+    const entry = { id: catalogEntryId("好", "ㄏㄠ4") } as CatalogEntry;
+    const profile = { entryId: catalogEntryId("好", "ㄏㄠ3") } as RuntimeSyntaxProfile;
+    expect(() => reviewedMoeSupplementFollowupRoleEligible(entry, profile)).toThrow(/actual selected/);
   });
 });

@@ -84,3 +84,30 @@ export function reviewedMoeSupplementalRoleEligible(
   }
   return !isMoeSupplementalRoleMismatch(entry.id, profile.upos);
 }
+
+/**
+ * Follow-up to the frozen v1 population (a2de4f5). Keep this as a later
+ * redraw stage so already-reviewed v1 replacements retain their distribution.
+ * MOE Revised: surname 為 is wéi; hào is noun/verb, not adverbial hǎo.
+ * https://dict.revised.moe.edu.tw/dictView.jsp?ID=11447
+ * https://dict.revised.moe.edu.tw/dictView.jsp?ID=4814
+ */
+export const MOE_SUPPLEMENT_FOLLOWUP_ROLE_RESTRICTIONS = [
+  { entryId: catalogEntryId("為", "ㄨㄟ4"), rejectedUpos: ["PROPN"] },
+  { entryId: catalogEntryId("好", "ㄏㄠ4"), rejectedUpos: ["ADV"] },
+] as const satisfies readonly { readonly entryId: string; readonly rejectedUpos: readonly Upos[] }[];
+
+const followupRejected = new Map<string, ReadonlySet<Upos>>(
+  MOE_SUPPLEMENT_FOLLOWUP_ROLE_RESTRICTIONS.map(row => [row.entryId, new Set<Upos>(row.rejectedUpos)]),
+);
+
+export function isMoeSupplementFollowupRoleMismatch(entryId: string, upos: Upos): boolean {
+  return followupRejected.get(entryId)?.has(upos) ?? false;
+}
+
+export function reviewedMoeSupplementFollowupRoleEligible(entry: CatalogEntry, profile: RuntimeSyntaxProfile): boolean {
+  if (entry.id !== profile.entryId) {
+    throw new Error("supplemental follow-up must inspect actual selected catalog identity");
+  }
+  return !isMoeSupplementFollowupRoleMismatch(entry.id, profile.upos);
+}

@@ -277,6 +277,17 @@ jobs:
           data/generated/polyphonic-context-standard-numeric-fen-trial.json
           data/generated/polyphonic-role-supplement-after.json
           data/generated/polyphonic-role-supplement-comparison.json
+      - name: Replay the source-backed surname and adverb follow-up
+        run: >-
+          npx tsx scripts/audit-polyphonic-context.ts
+          --policy standard-role-supplement-followup-trial
+          --output data/generated/polyphonic-role-supplement-followup-after.json
+      - name: Preserve the v1 population outside the two follow-up slots
+        run: >-
+          npx tsx scripts/compare-moe-role-supplement.ts
+          data/generated/polyphonic-role-supplement-after.json
+          data/generated/polyphonic-role-supplement-followup-after.json
+          data/generated/polyphonic-role-supplement-followup-comparison.json
       - name: Verify exact-seed changes and reviewed-role rejection counts
         run: >-
           npx tsx scripts/compare-polyphonic-role-trial.ts
@@ -487,6 +498,8 @@ jobs:
             data/generated/selected-moe-headword-coverage.json
             data/generated/polyphonic-role-supplement-after.json
             data/generated/polyphonic-role-supplement-comparison.json
+            data/generated/polyphonic-role-supplement-followup-after.json
+            data/generated/polyphonic-role-supplement-followup-comparison.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
             data/generated/conflicting-target-exposure.json

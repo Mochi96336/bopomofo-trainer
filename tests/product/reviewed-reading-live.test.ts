@@ -1,4 +1,4 @@
-import { reviewedMoeSupplementalRoleEligible } from "../../src/readings/moe-supplemental-role-license.js";
+import { reviewedMoeSupplementalRoleEligible, reviewedMoeSupplementFollowupRoleEligible } from "../../src/readings/moe-supplemental-role-license.js";
 import { describe, expect, it } from "vitest";
 import { COMMONNESS_TIER_THRESHOLDS, PRACTICE_CATALOG, SYNTAX_PROFILES } from "../../src/app/generated/catalog.js";
 import { COMMONNESS_TIERS } from "../../src/commonness/tiers.js";
@@ -56,6 +56,7 @@ function assertRoundReadings(
     expect(reviewedMoeEighthRoleEligible(candidate.entries[i]!, profile!)).toBe(true);
     expect(reviewedMoeTenthRoleEligible(candidate.entries[i]!, profile!)).toBe(true);
     expect(reviewedMoeSupplementalRoleEligible(candidate.entries[i]!, profile!)).toBe(true);
+    expect(reviewedMoeSupplementFollowupRoleEligible(candidate.entries[i]!, profile!)).toBe(true);
     expect(reviewedMoeNumericFenReadingEligible(candidate.entries[i]!, profile!, null, i===0?null:candidate.entries[i-1]!)).toBe(true);
     expect(reviewedMoeOrdinalRoomReadingEligible(candidate.entries[i]!, profile!, null, i===0?null:candidate.entries[i-1]!)).toBe(true);
   }
@@ -133,6 +134,7 @@ describe("production reviewed reading disambiguation", () => {
           || !reviewedMoeOrdinalRoomReadingEligible(entry, profile, null, i===0?null:originalCandidate.entries[i-1]!)
           || !reviewedMoeTenthRoleEligible(entry, profile)
           || !reviewedMoeSupplementalRoleEligible(entry, profile)
+          || !reviewedMoeSupplementFollowupRoleEligible(entry, profile)
           || !reviewedMoeNumericFenReadingEligible(entry, profile, null, i===0?null:originalCandidate.entries[i-1]!);
       });
       const actual = createProductState(environment, progress, 0);
@@ -232,6 +234,7 @@ describe("production reviewed reading disambiguation", () => {
                 && reviewedMoeOrdinalRoomReadingEligible(entry, profile, null, index===0?null:original.utterance.entries[index-1]!)
                 && reviewedMoeTenthRoleEligible(entry, profile)
                 && reviewedMoeSupplementalRoleEligible(entry, profile)
+                && reviewedMoeSupplementFollowupRoleEligible(entry, profile)
                 && reviewedMoeNumericFenReadingEligible(entry, profile, null, index===0?null:original.utterance.entries[index-1]!);
             });
             if (originalLicensed

@@ -96,3 +96,53 @@ entry above lists its surname under ㄨㄟ2. Confirm the actual selected profile
 and its preservation cases before adding any restriction. Other rare or
 grammatically anomalous slots need separate evidence; do not infer their
 pronunciation from a desired common reading or sentence naturalness.
+
+## Follow-up: surname 為 and adverbial 好
+
+Reviewed against the actual v1 after-population at `a2de4f5`, not the earlier
+numeric-fen population. The exact selected source cases are:
+
+| Seed / lexical slot | Exact selected reading / role | Source distinction |
+| --- | --- | --- |
+| 473 / 0 | `word:為:ㄨㄟ4`, PROPN, `runtime-syntax-profile:14080` | [MOE 為](https://dict.revised.moe.edu.tw/dictView.jsp?ID=11447) lists the independent surname under wéi. Wèi retains independently attested prepositional, verbal and adverbial uses; none of those roles is rejected. |
+| 1354 / 3 | `word:好:ㄏㄠ4`, ADV, `runtime-syntax-profile:15422` | [MOE 好](https://dict.revised.moe.edu.tw/dictView.jsp?ID=4814) assigns the degree, ease and purpose adverbs to hǎo. Hào's liking verb and nominal senses, including a jade aperture, remain eligible. Exact whole-word entries such as 愛好 and 好學 are unchanged. |
+
+The follow-up is a separate ordered redraw stage. Editing the original v1
+frontier would also alter candidate weights during some v1 repairs; that would
+reopen already-reviewed replacements merely to fix these two later cases.
+Both the v1 and follow-up comparisons reuse the same strict comparison engine,
+with separate frozen targets and source/after-policy identities.
+
+Source review also confirmed that [解/ㄐㄧㄝ4](https://dict.revised.moe.edu.tw/dictView.jsp?ID=5627)
+has a historical government-office NOUN sense. It must not be blanket-rejected
+as a noun. [強/ㄑㄧㄤ3](https://dict.revised.moe.edu.tw/dictView.jsp?ID=6580)
+has force/effort VERB and ADV senses; the remaining anomalous ADJ/NOUN profiles
+are left unreviewed. The generated written output and raw UD label do not
+independently adjudicate those contextual readings. Preservation tests keep
+all these cases unchanged.
+
+Reproduce the next population and compare against the pinned v1 report:
+
+```sh
+npx tsx scripts/audit-polyphonic-context.ts --policy standard-role-supplement-followup-trial --output data/generated/polyphonic-role-supplement-followup-after.json
+npx tsx scripts/compare-moe-role-supplement.ts data/generated/polyphonic-role-supplement-after.json data/generated/polyphonic-role-supplement-followup-after.json data/generated/polyphonic-role-supplement-followup-comparison.json
+```
+
+Follow-up results: both populations generated 2,048/2,048 sentences, the two
+reviewed incompatible uses became zero, and only seed 473 / slot 0 and seed
+1354 / slot 3 changed. Their replacements are `word:島:ㄉㄠ3` and
+`word:早:ㄗㄠ3`; both exact readings match the committed Concised source
+projection (bulk source IDs 1047 and 5332 respectively). These source-row IDs
+are not online dictionary page IDs. Both are different written words, so the
+result is candidate exclusion rather than same-word phonetic correction.
+
+Every v1 replacement is preserved. Rechecking the original v1 comparison with
+the shared engine reproduces its original `ff121ac7…367269` SHA-256 exactly.
+The follow-up after-population SHA-256 is
+`26e637c0d47f04a6f886bd88aa27f353a07069052fc0884b38076e66cf288cb1`;
+its comparison SHA-256 is
+`c3b0233713c618ff5c98e3567f3ad466304a0251dede00a59e0cc9f219d0cf03`.
+
+Follow-up local validation: `npm run check:pr` passed (241 Vitest files /
+1,322 tests, 76 Python tests, typecheck, catalog validation, build and size
+budget); `npx playwright test` passed all 62 Chromium tests against that build.
