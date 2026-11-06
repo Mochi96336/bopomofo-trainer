@@ -27,6 +27,7 @@ on:
       - "scripts/compare-moe-ordinal-room.ts"
       - "scripts/compare-moe-role-tenth.ts"
       - "scripts/compare-moe-numeric-fen.ts"
+      - "scripts/compare-moe-role-supplement.ts"
       - "src/readings/moe-numeric-fen.ts"
       - "src/readings/moe-attested-role-compatibility.ts"
       - "src/readings/moe-na-surname-role.ts"
@@ -265,6 +266,17 @@ jobs:
           data/generated/polyphonic-standard-numeric-fen-comparison.json
       - name: Inventory selected final readings against partial MOE projections without guessing correctness
         run: npx tsx scripts/audit-selected-moe-headword-coverage.ts
+      - name: Replay source-backed supplemental reading roles
+        run: >-
+          npx tsx scripts/audit-polyphonic-context.ts
+          --policy standard-role-supplement-trial
+          --output data/generated/polyphonic-role-supplement-after.json
+      - name: Verify supplemental roles change only the twenty-two reviewed slots
+        run: >-
+          npx tsx scripts/compare-moe-role-supplement.ts
+          data/generated/polyphonic-context-standard-numeric-fen-trial.json
+          data/generated/polyphonic-role-supplement-after.json
+          data/generated/polyphonic-role-supplement-comparison.json
       - name: Verify exact-seed changes and reviewed-role rejection counts
         run: >-
           npx tsx scripts/compare-polyphonic-role-trial.ts
@@ -473,6 +485,8 @@ jobs:
             data/generated/polyphonic-context-standard-numeric-fen-trial.json
             data/generated/polyphonic-standard-numeric-fen-comparison.json
             data/generated/selected-moe-headword-coverage.json
+            data/generated/polyphonic-role-supplement-after.json
+            data/generated/polyphonic-role-supplement-comparison.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
             data/generated/conflicting-target-exposure.json
