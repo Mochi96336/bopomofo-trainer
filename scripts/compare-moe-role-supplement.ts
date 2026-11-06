@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { isMoeSupplementalRoleMismatch, isMoeSupplementFollowupRoleMismatch } from "../src/readings/moe-supplemental-role-license.js";
+import { isMoeSupplementalRoleMismatch, isMoeSupplementFollowupRoleMismatch, isMoeExtendedRoleMismatch } from "../src/readings/moe-supplemental-role-license.js";
 import type { Upos } from "../src/syntax/types.js";
 
 interface Sentence { seedIndex: number; text: string | null; root: string | null; entryIds: string[] }
@@ -45,22 +45,43 @@ export const FROZEN_SUPPLEMENT_FOLLOWUP_BAD_SLOTS = [
   { seed: 1354, slot: 3, id: "word:好:ㄏㄠ4", upos: "ADV" },
 ] as const;
 
+// Frozen from the 98f47ff 4,096-seed report, SHA-256 b81ea9c6…8b0394.
+export const FROZEN_EXTENDED_BAD_SLOTS = [
+  { seed: 2216, slot: 2, id: "word:食:ㄙ4", upos: "NOUN" },
+  { seed: 2377, slot: 0, id: "word:哈:ㄏㄚ3", upos: "PROPN" },
+  { seed: 2612, slot: 2, id: "word:大:ㄉㄞ4", upos: "ADV" },
+  { seed: 2709, slot: 0, id: "word:任:ㄖㄣ4", upos: "PROPN" },
+  { seed: 2710, slot: 0, id: "word:曾:ㄘㄥ2", upos: "PROPN" },
+  { seed: 2781, slot: 2, id: "word:處:ㄔㄨ4", upos: "VERB" },
+  { seed: 3127, slot: 2, id: "word:合:ㄍㄜ3", upos: "PROPN" },
+  { seed: 3159, slot: 3, id: "word:讀:ㄉㄡ4", upos: "VERB" },
+  { seed: 3264, slot: 0, id: "word:與:ㄩ4", upos: "ADP" },
+  { seed: 3371, slot: 3, id: "word:處:ㄔㄨ4", upos: "VERB" },
+  { seed: 3385, slot: 1, id: "word:親:ㄑㄧㄥ4", upos: "VERB" },
+  { seed: 3485, slot: 4, id: "word:哈:ㄏㄚ3", upos: "PROPN" },
+  { seed: 3571, slot: 2, id: "word:曾:ㄘㄥ2", upos: "PROPN" },
+  { seed: 3642, slot: 0, id: "word:與:ㄩ4", upos: "ADP" },
+  { seed: 3651, slot: 0, id: "word:與:ㄩ4", upos: "ADP" },
+  { seed: 3945, slot: 1, id: "word:洗:ㄒㄧㄢ3", upos: "VERB" },
+] as const;
+
 interface Stage {
-  beforePolicy: string; afterPolicy: string; schemaVersion: string;
+  beforePolicy: string; afterPolicy: string; schemaVersion: string; sampleCount: number;
   targets: readonly { readonly seed: number; readonly slot: number; readonly id: string; readonly upos: string }[];
   mismatch: (hit: Hit) => boolean;
 }
 
 function compareRoleStage(before: Exposure, after: Exposure, stage: Stage) {
+  const count = stage.sampleCount;
   if (before.readingEligibilityPolicy !== stage.beforePolicy
     || after.readingEligibilityPolicy !== stage.afterPolicy
     || before.seedNamespace !== after.seedNamespace
     || before.catalogEntryCount !== after.catalogEntryCount
-    || before.sampleCount !== 2048 || after.sampleCount !== 2048
-    || before.successfulSentences !== 2048 || after.successfulSentences !== 2048
+    || before.sampleCount !== count || after.sampleCount !== count
+    || before.successfulSentences !== count || after.successfulSentences !== count
     || before.failedSentences !== 0 || after.failedSentences !== 0
-    || before.sentences.length !== 2048 || after.sentences.length !== 2048) {
-    throw new Error("supplement comparison requires matching successful 2048-seed populations");
+    || before.sentences.length !== count || after.sentences.length !== count) {
+    throw new Error("supplement comparison requires matching successful " + count + "-seed populations");
   }
   const observed = before.hits.filter(stage.mismatch).map(hit => ({ seed: hit.seedIndex,
     slot: hit.entryIndex, id: hit.selectedEntryId, upos: hit.selectedUpos,
@@ -71,7 +92,7 @@ function compareRoleStage(before: Exposure, after: Exposure, stage: Stage) {
   if (after.hits.some(stage.mismatch)) throw new Error("supplemental reading/role mismatch remains");
 
   const changes: { seedIndex: number; slot: number; priorId: string; newId: string }[] = [];
-  for (let i = 0; i < 2048; i++) {
+  for (let i = 0; i < count; i++) {
     const left = before.sentences[i], right = after.sentences[i];
     if (left?.seedIndex !== i || right?.seedIndex !== i || left.root !== right.root
       || left.entryIds.length !== right.entryIds.length) throw new Error("seed/root/length drift at " + i);
@@ -86,7 +107,7 @@ function compareRoleStage(before: Exposure, after: Exposure, stage: Stage) {
       changes.push({ seedIndex: i, slot: target.slot, priorId: target.id, newId: right.entryIds[target.slot]! });
     }
   }
-  return { schemaVersion: stage.schemaVersion, sampleCount: 2048,
+  return { schemaVersion: stage.schemaVersion, sampleCount: count,
     incompatibleRoleUsesBefore: observed.length, incompatibleRoleUsesAfter: 0,
     changedSeeds: [...new Set(changes.map(row => row.seedIndex))],
     changedSlotCount: changes.length, changedOutsideReviewedSlots: 0, changes,
@@ -96,14 +117,21 @@ function compareRoleStage(before: Exposure, after: Exposure, stage: Stage) {
 export function compareMoeRoleSupplement(before: Exposure, after: Exposure) {
   return compareRoleStage(before, after, { beforePolicy: "standard-numeric-fen-trial",
     afterPolicy: "standard-role-supplement-trial", schemaVersion: "moe-role-supplement-paired-diff-v1",
-    targets: FROZEN_SUPPLEMENT_BAD_SLOTS, mismatch });
+    targets: FROZEN_SUPPLEMENT_BAD_SLOTS, mismatch, sampleCount: 2048 });
 }
 
 export function compareMoeRoleSupplementFollowup(before: Exposure, after: Exposure) {
   return compareRoleStage(before, after, { beforePolicy: "standard-role-supplement-trial",
     afterPolicy: "standard-role-supplement-followup-trial", schemaVersion: "moe-role-supplement-followup-paired-diff-v1",
-    targets: FROZEN_SUPPLEMENT_FOLLOWUP_BAD_SLOTS, mismatch: hit => hit.selectedUpos !== null
+    targets: FROZEN_SUPPLEMENT_FOLLOWUP_BAD_SLOTS, sampleCount: 2048, mismatch: hit => hit.selectedUpos !== null
       && isMoeSupplementFollowupRoleMismatch(hit.selectedEntryId, hit.selectedUpos as Upos) });
+}
+
+export function compareMoeExtendedRoles(before: Exposure, after: Exposure) {
+  return compareRoleStage(before, after, { beforePolicy: "standard-role-supplement-followup-trial",
+    afterPolicy: "standard-role-extended-trial", schemaVersion: "moe-extended-role-paired-diff-v1",
+    targets: FROZEN_EXTENDED_BAD_SLOTS, sampleCount: 4096, mismatch: hit => hit.selectedUpos !== null
+      && isMoeExtendedRoleMismatch(hit.selectedEntryId, hit.selectedUpos as Upos) });
 }
 
 if (process.argv[1]?.endsWith("compare-moe-role-supplement.ts")) {
@@ -111,8 +139,9 @@ if (process.argv[1]?.endsWith("compare-moe-role-supplement.ts")) {
   if (!before || !after || !output) throw new Error("usage: compare-moe-role-supplement <before> <after> <output>");
   const left = JSON.parse(readFileSync(before, "utf8")) as Exposure;
   const right = JSON.parse(readFileSync(after, "utf8")) as Exposure;
-  const compare = right.readingEligibilityPolicy === "standard-role-supplement-followup-trial"
-    ? compareMoeRoleSupplementFollowup : compareMoeRoleSupplement;
+  const compare = right.readingEligibilityPolicy === "standard-role-extended-trial"
+    ? compareMoeExtendedRoles : right.readingEligibilityPolicy === "standard-role-supplement-followup-trial"
+      ? compareMoeRoleSupplementFollowup : compareMoeRoleSupplement;
   const result = compare(left, right);
   writeFileSync(output, JSON.stringify(result, null, 2) + "\n");
   console.log(JSON.stringify(result, null, 2));

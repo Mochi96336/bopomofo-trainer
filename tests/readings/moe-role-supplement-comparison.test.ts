@@ -1,19 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { compareMoeRoleSupplement, compareMoeRoleSupplementFollowup, FROZEN_SUPPLEMENT_BAD_SLOTS, FROZEN_SUPPLEMENT_FOLLOWUP_BAD_SLOTS } from "../../scripts/compare-moe-role-supplement.js";
+import { compareMoeRoleSupplement, compareMoeRoleSupplementFollowup, compareMoeExtendedRoles, FROZEN_SUPPLEMENT_BAD_SLOTS, FROZEN_SUPPLEMENT_FOLLOWUP_BAD_SLOTS, FROZEN_EXTENDED_BAD_SLOTS } from "../../scripts/compare-moe-role-supplement.js";
 
-function fixture(followup = false) {
-  const targets = followup ? FROZEN_SUPPLEMENT_FOLLOWUP_BAD_SLOTS : FROZEN_SUPPLEMENT_BAD_SLOTS;
-  const sentences = Array.from({ length: 2048 }, (_, seedIndex) => ({ seedIndex,
+function fixture(stage: boolean | "extended" = false) {
+  const extended = stage === "extended";
+  const followup = stage === true;
+  const count = extended ? 4096 : 2048;
+  const targets = extended ? FROZEN_EXTENDED_BAD_SLOTS : followup ? FROZEN_SUPPLEMENT_FOLLOWUP_BAD_SLOTS : FROZEN_SUPPLEMENT_BAD_SLOTS;
+  const sentences = Array.from({ length: count }, (_, seedIndex) => ({ seedIndex,
     text: "非", root: "sentence.declarative", entryIds: ["word:非:ㄈㄟ1"] as string[] }));
   for (const target of targets) {
     while (sentences[target.seed]!.entryIds.length <= target.slot) sentences[target.seed]!.entryIds.push("word:非:ㄈㄟ1");
     sentences[target.seed]!.entryIds[target.slot] = target.id;
   }
-  const before = { readingEligibilityPolicy: followup ? "standard-role-supplement-trial" : "standard-numeric-fen-trial", seedNamespace: "fixed",
-    catalogEntryCount: 13692, sampleCount: 2048, successfulSentences: 2048, failedSentences: 0,
+  const before = { readingEligibilityPolicy: extended ? "standard-role-supplement-followup-trial" : followup ? "standard-role-supplement-trial" : "standard-numeric-fen-trial", seedNamespace: "fixed",
+    catalogEntryCount: 13692, sampleCount: count, successfulSentences: count, failedSentences: 0,
     sentences, hits: targets.map(row => ({ seedIndex: row.seed,
       entryIndex: row.slot, selectedEntryId: row.id, selectedUpos: row.upos })) };
-  const after = { ...before, readingEligibilityPolicy: followup ? "standard-role-supplement-followup-trial" : "standard-role-supplement-trial",
+  const after = { ...before, readingEligibilityPolicy: extended ? "standard-role-extended-trial" : followup ? "standard-role-supplement-followup-trial" : "standard-role-supplement-trial",
     sentences: sentences.map(s => ({ ...s, entryIds: s.entryIds.map((id, slot) =>
       targets.some(t => t.seed === s.seedIndex && t.slot === slot) ? "word:非:ㄈㄟ1" : id) })),
     hits: [] as { seedIndex: number; entryIndex: number; selectedEntryId: string; selectedUpos: string }[] };
@@ -63,5 +66,29 @@ describe("later-stage comparison preserves the v1 population", () => {
     expect(() => compareMoeRoleSupplementFollowup(a.before, a.after)).toThrow(/outside frozen/);
     const b = fixture(true); b.before.readingEligibilityPolicy = "standard-numeric-fen-trial";
     expect(() => compareMoeRoleSupplementFollowup(b.before, b.after)).toThrow(/matching successful/);
+  });
+});
+
+describe("4,096-seed extended comparison", () => {
+  it("checks every reviewed position in the second half", () => {
+    const { before, after } = fixture("extended");
+    expect(compareMoeExtendedRoles(before, after)).toMatchObject({ sampleCount: 4096,
+      incompatibleRoleUsesBefore: 16, incompatibleRoleUsesAfter: 0,
+      changedSlotCount: 16, changedOutsideReviewedSlots: 0 });
+    after.sentences[3945]!.entryIds[1] = before.sentences[3945]!.entryIds[1]!;
+    expect(() => compareMoeExtendedRoles(before, after)).toThrow(/outside frozen/);
+  });
+  it("rejects collateral changes at either end of the population", () => {
+    const a = fixture("extended"); a.after.sentences[0]!.text = "unreported";
+    expect(() => compareMoeExtendedRoles(a.before, a.after)).toThrow(/text drift/);
+    const b = fixture("extended"); b.after.sentences[4095]!.entryIds = ["word:外:ㄨㄞ4"];
+    expect(() => compareMoeExtendedRoles(b.before, b.after)).toThrow(/outside frozen/);
+  });
+  it("rejects truncated evidence and wrong reading/role replacements", () => {
+    const a = fixture("extended"); a.after.sentences = a.after.sentences.slice(0, 2048);
+    expect(() => compareMoeExtendedRoles(a.before, a.after)).toThrow(/4096-seed/);
+    const b = fixture("extended"); b.after.hits.push({ seedIndex: 4095,
+      entryIndex: 0, selectedEntryId: "word:與:ㄩ4", selectedUpos: "ADP" });
+    expect(() => compareMoeExtendedRoles(b.before, b.after)).toThrow(/mismatch remains/);
   });
 });

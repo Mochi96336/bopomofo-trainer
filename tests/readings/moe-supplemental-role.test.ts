@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { catalogEntryId } from "../../src/core/catalog-entry-id.js";
 import type { CatalogEntry } from "../../src/core/model.js";
 import type { RuntimeSyntaxProfile, Upos } from "../../src/syntax/types.js";
-import { reviewedMoeSupplementalRoleEligible, reviewedMoeSupplementFollowupRoleEligible } from "../../src/readings/moe-supplemental-role-license.js";
+import { reviewedMoeSupplementalRoleEligible, reviewedMoeSupplementFollowupRoleEligible, reviewedMoeExtendedRoleEligible } from "../../src/readings/moe-supplemental-role-license.js";
 
 function eligible(text: string, reading: string, upos: Upos, policy = reviewedMoeSupplementalRoleEligible): boolean {
   const entry = { id: catalogEntryId(text, reading), prompt: { text, locale: "zh-TW" },
@@ -90,5 +90,46 @@ describe("follow-up source distinctions without changing the frozen v1 policy", 
     const entry = { id: catalogEntryId("好", "ㄏㄠ4") } as CatalogEntry;
     const profile = { entryId: catalogEntryId("好", "ㄏㄠ3") } as RuntimeSyntaxProfile;
     expect(() => reviewedMoeSupplementFollowupRoleEligible(entry, profile)).toThrow(/actual selected/);
+  });
+});
+
+describe("extended source-backed reading/role distinctions", () => {
+  it.each([
+    ["與", "ㄩ4", "ADP", "ㄩ3"], ["處", "ㄔㄨ4", "VERB", "ㄔㄨ3"],
+    ["讀", "ㄉㄡ4", "VERB", "ㄉㄨ2"], ["食", "ㄙ4", "NOUN", "ㄕ2"],
+    ["洗", "ㄒㄧㄢ3", "VERB", "ㄒㄧ3"], ["哈", "ㄏㄚ3", "PROPN", "ㄏㄚ1"],
+    ["曾", "ㄘㄥ2", "PROPN", "ㄗㄥ1"], ["任", "ㄖㄣ4", "PROPN", "ㄖㄣ2"],
+    ["親", "ㄑㄧㄥ4", "VERB", "ㄑㄧㄣ1"], ["合", "ㄍㄜ3", "PROPN", "ㄏㄜ2"],
+    ["大", "ㄉㄞ4", "ADV", "ㄉㄚ4"],
+  ] as const)("distinguishes reviewed %s readings in %s/%s", (text, wrong, upos, valid) => {
+    expect(eligible(text, wrong, upos, reviewedMoeSupplementFollowupRoleEligible)).toBe(true);
+    expect(eligible(text, wrong, upos, reviewedMoeExtendedRoleEligible)).toBe(false);
+    expect(eligible(text, valid, upos, reviewedMoeExtendedRoleEligible)).toBe(true);
+  });
+
+  it.each([
+    ["與", "ㄩ4", "VERB"], ["與", "ㄩ2", "PART"], ["處", "ㄔㄨ4", "NOUN"],
+    ["處", "ㄔㄨ3", "PROPN"], ["處", "ㄔㄨ3", "ADJ"],
+    ["讀", "ㄉㄡ4", "NOUN"], ["句讀", "ㄐㄩ4-ㄉㄡ4", "NOUN"],
+    ["食", "ㄙ4", "VERB"], ["食", "ㄧ4", "PROPN"],
+    ["洗", "ㄒㄧㄢ3", "NOUN"], ["洗", "ㄒㄧㄢ3", "PROPN"],
+    ["哈巴", "ㄏㄚ3-ㄅㄚ1", "ADJ"], ["曾", "ㄘㄥ2", "ADV"], ["曾", "ㄘㄥ2", "ADJ"],
+    ["曾", "ㄗㄥ1", "ADV"], ["任", "ㄖㄣ4", "NOUN"], ["任", "ㄖㄣ4", "VERB"],
+    ["任", "ㄖㄣ4", "ADV"], ["任", "ㄖㄣ2", "ADJ"],
+    ["親家", "ㄑㄧㄥ4-ㄐㄧㄚ5", "NOUN"], ["合", "ㄍㄜ3", "NOUN"],
+    ["公合", "ㄍㄨㄥ1-ㄍㄜ3", "NOUN"], ["稱", "ㄔㄥ4", "VERB"],
+    ["稱", "ㄔㄣ4", "NOUN"], ["解", "ㄐㄧㄝ4", "NOUN"],
+    ["大夫", "ㄉㄞ4-ㄈㄨ5", "NOUN"],
+  ] as const)("preserves legitimate rare or whole-word %s/%s/%s", (text, reading, upos) => {
+    expect(eligible(text, reading, upos, reviewedMoeExtendedRoleEligible)).toBe(true);
+  });
+
+  it("rejects a mismatched selected profile rather than borrowing its reading", () => {
+    const entry = { id: catalogEntryId("處", "ㄔㄨ4") } as CatalogEntry;
+    const profile = { entryId: catalogEntryId("處", "ㄔㄨ3") } as RuntimeSyntaxProfile;
+    expect(() => reviewedMoeExtendedRoleEligible(entry, profile)).toThrow(/actual selected/);
+  });
+  it("rejects the incompatible 大 replacement instead of stopping at the original 與", () => {
+    expect(eligible("大", "ㄉㄞ4", "ADP", reviewedMoeExtendedRoleEligible)).toBe(false);
   });
 });

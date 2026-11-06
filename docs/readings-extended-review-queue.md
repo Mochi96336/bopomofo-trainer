@@ -19,12 +19,11 @@ These outputs extend the exposure inventory. They are not independent human
 pronunciation gold or a blind accuracy benchmark. Counts below are exact
 selected positions, not a product-wide pronunciation error rate.
 
-## Next source-backed role leads
+## Initial source-backed queue
 
-The dictionary distinctions below were inspected; the next implementation must
-still bind them to the exact selected entry/profile, preserve legitimate
-alternative usages, and verify the whole paired population. None of this
-queue is automatically a new runtime restriction.
+The dictionary distinctions below were inspected before implementation. The
+initial queue was not itself a runtime restriction. The implemented result,
+including the additional replacement defect found during replay, follows below.
 
 | Reading / selected role | Second-half seed / zero-based slot | Source and preservation boundary |
 | --- | --- | --- |
@@ -41,8 +40,91 @@ queue is automatically a new runtime restriction.
 
 There are ten groups and fifteen selected positions in this initial queue.
 It deliberately does not classify every one of the 106 newly exposed groups.
-Start the next batch from this immutable source population; use the separate
-ordered redraw stage to preserve earlier accepted output distribution.
+The implementation starts from this immutable source population and uses a
+separate ordered redraw stage to preserve earlier accepted output distribution.
+
+## Implemented extended stage
+
+`MOE_EXTENDED_ROLE_RESTRICTIONS` binds the selected catalog identity and UPOS;
+the product and `standard-role-extended-trial` audit use it after the two
+frozen supplement stages. It does not rewrite catalog identities or learner
+progress. The previous 2,048-seed comparison outputs remain byte-identical:
+`ff121ac797b43815405464187503dbd1686d1b81aa7091b2ba47d30566367269`
+and `c3b0233713c618ff5c98e3567f3ad466304a0251dede00a59e0cc9f219d0cf03`.
+
+The first replay of the fifteen initial positions delivered another incompatible
+candidate at seed 3651/slot 0: standalone `大/ㄉㄞ4/ADP`. [大](https://dict.revised.moe.edu.tw/dictView.jsp?ID=1936)
+lists dài through bound words such as 大夫; its independent degree adverb uses
+dà. The extended stage therefore also rejects `大/ㄉㄞ4` in ADV and ADP, while
+leaving exact whole words and unreviewed roles unchanged. This adds the existing
+source exposure at seed 2612/slot 2 (ADV) to the frozen manifest. The final scope
+is eleven reading identities, twelve reading/role pairs, and sixteen selected
+source positions; the intermediate 大 replacement is not counted as a separate
+source position.
+
+```sh
+npx tsx scripts/audit-polyphonic-context.ts --samples 4096 --policy standard-role-extended-trial --output data/generated/polyphonic-role-extended-after.json
+npx tsx scripts/compare-moe-role-supplement.ts data/generated/polyphonic-role-supplement-extended.json data/generated/polyphonic-role-extended-after.json data/generated/polyphonic-role-extended-comparison.json
+```
+
+The final replay has 4,096 successful generations and zero failures. Reviewed
+incompatible uses fall from 16 to 0. Exactly sixteen seeds change one lexical
+slot each, with no changes to other slots, roots, entry counts, or unrelated
+sentence text. All sixteen replacements change the written word: this is
+exclusion of incompatible candidates, not sixteen same-word tone repairs.
+Polyphonic occurrences change from 2,077 to 2,062, and observed ambiguous
+written forms from 133 to 131; these are exposure counts, not accuracy scores.
+
+| Local artifact | SHA-256 |
+| --- | --- |
+| `polyphonic-role-extended-after.json` | `c1f2c6cdc468a1d409625ec8b0e2a5aeacad8050da7d0a11e6e39ffdc4d6e2d3` |
+| `polyphonic-role-extended-comparison.json` | `6e663e320fd23d376bd7bd096f7bfe7b0da764312ddb2807133895932649b825` |
+
+Ten replacement readings match committed MOE bulk rows. The remaining six
+(`院校`, `小津`, `安徽`, `升到`, `弗蘭克`, `為/ㄨㄟ4`) have no matching row
+in those partial projections; that absence is not evidence of an error. The
+separately inspected [為](https://dict.revised.moe.edu.tw/dictView.jsp?ID=11447)
+entry supports wèi as ADP, the role delivered at 3651/0. Neither this comparison
+nor those lookup matches constitute independent full-sentence reading approval.
+
+## Catalog retention and actual profile gaps
+
+All eleven reading identities remain in the real practice catalog. The policy
+unit tests additionally demonstrate allowed dictionary senses with constructed
+profiles; they do not prove that matching real profiles exist or are sampled.
+A read-only inspection of the actual product gates, applied to each existing
+profile with no preceding word, gives these surviving roles:
+
+| Reading identity | Existing roles surviving the full current reading policy |
+| --- | --- |
+| 與/ㄩ4 | none |
+| 處/ㄔㄨ4 | PART, NOUN |
+| 讀/ㄉㄡ4 | none |
+| 食/ㄙ4 | none |
+| 洗/ㄒㄧㄢ3 | none |
+| 哈/ㄏㄚ3 | none |
+| 曾/ㄘㄥ2 | ADV |
+| 任/ㄖㄣ4 | NOUN, VERB, DET |
+| 親/ㄑㄧㄥ4 | PART, NOUN |
+| 合/ㄍㄜ3 | none |
+| 大/ㄉㄞ4 | PART |
+
+These are policy eligibility results, not independent approval of every surviving
+raw UD role or proof of generation probability. In particular, PART/DET roles
+left outside this review are not newly dictionary-approved. Six identities have
+no existing compatible profile: 與/ㄩ4, 讀/ㄉㄡ4, 食/ㄙ4, 洗/ㄒㄧㄢ3,
+哈/ㄏㄚ3, 合/ㄍㄜ3. They currently cannot be selected in a generated sentence.
+Preserving their catalog IDs is therefore weaker than preserving practice
+availability. A future batch must supply source-backed appropriate lexical
+profiles or a suitable bound-word practice context; do not manufacture a profile
+merely to make a preservation test pass.
+
+Validation on 2026-11-07: `npm run check:pr` passed 1,364 Vitest tests, 76 Python
+source-adapter tests, type checking, catalog validation, production build, and
+the bundle budget. JavaScript gzip size is 481.18 kB (decimal), below 500,000
+bytes. The 4,096-seed A/B evidence above is local; no additional full historical
+CI replay job is implied by this report. `npx playwright test` passed all 62
+Chromium tests against the same production build.
 
 ## Rare readings explicitly retained after inspection
 
