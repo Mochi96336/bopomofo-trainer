@@ -43,6 +43,11 @@ The table below records the b792f75 inventory, before the subsequent
 has since added `和/ㄏㄢ4` with a scoped coordinator license; the frozen inventory
 counts and report fingerprint above have not been rewritten.
 
+The later [full-tone 便宜 supplement](readings-pianyi-catalog-supplement.md)
+adds `便宜/ㄆㄧㄢ2 ㄧ2`. It also records why the listed 比 and 姑娘 leads cannot
+safely inherit their forms' existing profiles. This table remains a snapshot of
+the original inventory rather than a mutable current-state report.
+
 | Written form | Current catalog readings | Absent Concised reading | Concised / Revised bulk IDs |
 | --- | --- | --- | --- |
 | 和 | ㄏㄜ2, ㄏㄜ4, ㄏㄨ2, ㄏㄨㄛ2, ㄏㄨㄛ4 | ㄏㄢ4 | 2771 / 04883 |
