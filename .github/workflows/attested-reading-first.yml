@@ -1,0 +1,66 @@
+name: Attested reading before learner weighting
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/attested-reading-first.yml"
+      - "research/attested-context-v1.json"
+      - "src/research/attested-reading-selector.ts"
+      - "scripts/audit-attested-reading-first.ts"
+      - "tests/readings/attested-reading-first.test.ts"
+      - "docs/attested-reading-first.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  attested-pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install pinned dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Compile application catalog and check TypeScript
+        run: npm run typecheck
+      - name: Validate attested gold context and holdout tests
+        run: npx vitest run tests/readings/attested-reading-first.test.ts
+      - name: Pair actual target-token exposure with production learner scorer
+        run: >-
+          npx tsx scripts/audit-attested-reading-first.ts
+          data/generated/attested-reading-first-audit.json
+      - name: Publish research-only summary
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from "node:fs";
+          const r=JSON.parse(readFileSync("data/generated/attested-reading-first-audit.json","utf8"));
+          const rows=[
+            "# Context-backed target readings, then learner weighting",
+            "",
+            "Research-only target-character drills: corpus-attested excerpts, independently dictionary-anchored target readings. NOT a complete sentence-level G2P system.",
+            "",
+            `- ${r.sourceCases} reviewed context mappings for 4 distinct Hanzi`,
+            `- ${r.practiceCandidates} selection cases, ${r.heldOutForAuditOnly} held-out test cases`,
+            `- ${r.sampleCountPerCohort} paired fixed samples per cohort`,
+            "",
+            "| Simulated learner weakness | Extra correctly labeled target occurrences vs baseline |",
+            "|---|---:|",
+            ...Object.entries(r.netAdditionalLegitimateTargetExposures).map(([name,delta])=>`| ${name} | +${delta} |`),
+            "",
+            "**Limits:** UD transliterations are not trusted labels; no non-target syllables are annotated; no claim of learned disambiguation, natural sentence generation or learner improvement.",
+          ];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,rows.join("\n")+"\n");
+          NODE
+      - name: Upload reproducible exposure report
+        uses: actions/upload-artifact@v4
+        with:
+          name: attested-reading-first-research-json
+          path: data/generated/attested-reading-first-audit.json
+          retention-days: 21
+          if-no-files-found: error
