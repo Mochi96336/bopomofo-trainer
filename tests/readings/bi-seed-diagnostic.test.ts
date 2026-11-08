@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../../src/app/generated/catalog.js";
+import { readingAuditCatalog } from "../../scripts/reading-audit-catalog.js";
 import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
 import { createSeededRandom } from "../../src/curriculum/random.js";
 import { reviewedAdjacentReadingEligible, reviewedAdjacentPreDrawReadingEligible, reviewedDuoshaoZhongReadingEligible } from "../../src/readings/reviewed-adjacent-context.js";
@@ -14,6 +14,11 @@ import { reviewedMoeStandardGuoReadingEligible } from "../../src/readings/moe-st
 import { reviewedMoeNaSurnameRoleEligible } from "../../src/readings/moe-na-surname-role.js";
 import { reviewedMoeAttestedRoleEligible } from "../../src/readings/moe-attested-role-compatibility.js";
 import { FROZEN_MOE_ROLE_BAD_SLOTS } from "../../scripts/compare-moe-attested-roles.js";
+
+// These seeds diagnose the frozen role-stage frontiers against their original
+// sampling population. Later reading additions change draws even when every
+// existing identity and profile remains unchanged.
+const { PRACTICE_CATALOG, SYNTAX_PROFILES } = readingAuditCatalog("before-qian");
 
 const bounds = {
   maximumPhraseDepth:3,maximumClauseNesting:1,maximumClausesPerSentence:2,

@@ -1,9 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+import { readingAuditCatalog } from "./reading-audit-catalog.js";
 import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
 import { createSeededRandom } from "../src/curriculum/random.js";
 import { reviewedClosedClassReadingEligible } from "../src/readings/closed-class-license.js";
+import { PRODUCT_READING_POLICY, PRODUCT_READING_POLICY_ID } from "../src/readings/product-reading-policy.js";
 import { reviewedRoleReadingEligible } from "../src/readings/pronominal-role-license.js";
 import { reviewedRoleAndOrdinalLineReadingEligible, reviewedOrdinalLineReadingEligible } from "../src/readings/ordinal-line-context.js";
 import {
@@ -18,6 +19,7 @@ import { reviewedMoeStandardNanReadingEligible } from "../src/readings/moe-stand
 import { reviewedMoeStandardXingReadingEligible } from "../src/readings/moe-standard-xing.js";
 import { reviewedMoeOrdinalRoomReadingEligible } from "../src/readings/moe-ordinal-room.js";
 import { reviewedMoeNumericFenReadingEligible } from "../src/readings/moe-numeric-fen.js";
+import { reviewedMoeSupplementalRoleEligible, reviewedMoeSupplementFollowupRoleEligible, reviewedMoeExtendedRoleEligible, reviewedMoeQianRoleEligible } from "../src/readings/moe-supplemental-role-license.js";
 import { reviewedMoeStandardGuoReadingEligible } from "../src/readings/moe-standard-guo.js";
 import { reviewedMoeNaSurnameRoleEligible } from "../src/readings/moe-na-surname-role.js";
 import { reviewedMoeAttestedRoleEligible, reviewedMoeFollowupRoleEligible, reviewedMoeThirdRoleEligible, reviewedMoeFourthRoleEligible, reviewedMoeFifthRoleEligible, reviewedMoeSixthRoleEligible, reviewedMoeSeventhRoleEligible, reviewedMoeEighthRoleEligible, reviewedMoeTenthRoleEligible } from "../src/readings/moe-attested-role-compatibility.js";
@@ -37,6 +39,7 @@ import {
  * npx tsx scripts/audit-polyphonic-context.ts --samples 100
  */
 const SEED_NAMESPACE = "formal-syntax-v2-phase1-product-baseline-v1";
+const { PRACTICE_CATALOG, SYNTAX_PROFILES } = readingAuditCatalog();
 
 // Freeze the prior #436 shipping boundary for a true before/after comparison.
 // It deliberately must NOT call reviewedAdjacentReadingEligible, which now
@@ -77,7 +80,7 @@ const PRODUCT_BOUNDS = {
   maximumLexicalEntriesPerUtterance: 6,
 } as const;
 
-type ReadingAuditPolicy = "none" | "reviewed-closed" | "reviewed-roles" | "zhong-role-trial" | "ordinal-line-trial" | "duoshao-zhong-trial" | "standard-le-trial" | "standard-bi-trial" | "standard-de-trial" | "standard-yu-trial" | "standard-nan-trial" | "standard-xing-trial" | "standard-guo-trial" | "standard-na-surname-trial" | "standard-role-evidence-trial" | "standard-role-followup-trial" | "standard-role-third-trial" | "standard-role-fourth-trial" | "standard-role-fifth-trial" | "standard-role-sixth-trial" | "standard-role-seventh-trial" | "standard-role-eighth-trial" | "standard-ordinal-room-trial" | "standard-role-tenth-trial" | "standard-numeric-fen-trial";
+type ReadingAuditPolicy = "none" | "reviewed-closed" | "reviewed-roles" | "zhong-role-trial" | "ordinal-line-trial" | "duoshao-zhong-trial" | "standard-le-trial" | "standard-bi-trial" | "standard-de-trial" | "standard-yu-trial" | "standard-nan-trial" | "standard-xing-trial" | "standard-guo-trial" | "standard-na-surname-trial" | "standard-role-evidence-trial" | "standard-role-followup-trial" | "standard-role-third-trial" | "standard-role-fourth-trial" | "standard-role-fifth-trial" | "standard-role-sixth-trial" | "standard-role-seventh-trial" | "standard-role-eighth-trial" | "standard-ordinal-room-trial" | "standard-role-tenth-trial" | "standard-numeric-fen-trial" | "standard-role-supplement-trial" | "standard-role-supplement-followup-trial" | "standard-role-extended-trial" | "standard-qian-role-trial" | "standard-han-coordination-trial";
 
 function argumentsFromCli(): { samples: number; output: string; policy: ReadingAuditPolicy } {
   let samples = 2048;
@@ -95,8 +98,8 @@ function argumentsFromCli(): { samples: number; output: string; policy: ReadingA
     } else if (name === "--output") {
       output = value;
     } else if (name === "--policy") {
-      if (value !== "none" && value !== "reviewed-closed" && value !== "reviewed-roles" && value !== "zhong-role-trial" && value !== "ordinal-line-trial" && value !== "duoshao-zhong-trial" && value !== "standard-le-trial" && value !== "standard-bi-trial" && value !== "standard-de-trial" && value !== "standard-yu-trial" && value !== "standard-nan-trial" && value !== "standard-xing-trial" && value !== "standard-guo-trial" && value !== "standard-na-surname-trial" && value !== "standard-role-evidence-trial" && value !== "standard-role-followup-trial" && value !== "standard-role-third-trial" && value !== "standard-role-fourth-trial" && value !== "standard-role-fifth-trial" && value !== "standard-role-sixth-trial" && value !== "standard-role-seventh-trial" && value !== "standard-role-eighth-trial" && value !== "standard-ordinal-room-trial" && value !== "standard-role-tenth-trial" && value !== "standard-numeric-fen-trial") {
-        throw new Error("--policy accepts none, reviewed-closed, reviewed-roles, zhong-role-trial, ordinal-line-trial, duoshao-zhong-trial, standard-le-trial, standard-bi-trial, standard-de-trial standard-yu-trial standard-nan-trial standard-xing-trial standard-guo-trial standard-na-surname-trial standard-role-evidence-trial or standard-role-followup-trial or standard-role-third-trial or standard-role-fourth-trial or standard-role-fifth-trial or standard-role-sixth-trial or standard-role-seventh-trial or standard-role-eighth-trial or standard-ordinal-room-trial or standard-role-tenth-trial");
+      if (value !== "none" && value !== "reviewed-closed" && value !== "reviewed-roles" && value !== "zhong-role-trial" && value !== "ordinal-line-trial" && value !== "duoshao-zhong-trial" && value !== "standard-le-trial" && value !== "standard-bi-trial" && value !== "standard-de-trial" && value !== "standard-yu-trial" && value !== "standard-nan-trial" && value !== "standard-xing-trial" && value !== "standard-guo-trial" && value !== "standard-na-surname-trial" && value !== "standard-role-evidence-trial" && value !== "standard-role-followup-trial" && value !== "standard-role-third-trial" && value !== "standard-role-fourth-trial" && value !== "standard-role-fifth-trial" && value !== "standard-role-sixth-trial" && value !== "standard-role-seventh-trial" && value !== "standard-role-eighth-trial" && value !== "standard-ordinal-room-trial" && value !== "standard-role-tenth-trial" && value !== "standard-numeric-fen-trial" && value !== "standard-role-supplement-trial" && value !== "standard-role-supplement-followup-trial" && value !== "standard-role-extended-trial" && value !== "standard-qian-role-trial" && value !== "standard-han-coordination-trial") {
+        throw new Error("--policy accepts none, reviewed-closed, reviewed-roles, zhong-role-trial, ordinal-line-trial, duoshao-zhong-trial, standard-le-trial, standard-bi-trial, standard-de-trial standard-yu-trial standard-nan-trial standard-xing-trial standard-guo-trial standard-na-surname-trial standard-role-evidence-trial or standard-role-followup-trial or standard-role-third-trial or standard-role-fourth-trial or standard-role-fifth-trial or standard-role-sixth-trial or standard-role-seventh-trial or standard-role-eighth-trial or standard-ordinal-room-trial or standard-role-tenth-trial or standard-numeric-fen-trial or standard-role-supplement-trial or standard-role-supplement-followup-trial or standard-role-extended-trial or standard-qian-role-trial or standard-han-coordination-trial");
       }
       policy = value;
     } else {
@@ -116,7 +119,13 @@ function sortedCounts(map: ReadonlyMap<string, number>): Readonly<Record<string,
   );
 }
 
-const { samples, output, policy } = argumentsFromCli();
+const { samples, output, policy: requestedPolicy } = argumentsFromCli();
+// Reuse the frozen pre-supplement chain without editing historical stages.
+const usesSupplement = requestedPolicy === "standard-role-supplement-trial"
+  || requestedPolicy === "standard-role-supplement-followup-trial" || requestedPolicy === "standard-role-extended-trial" || requestedPolicy === "standard-qian-role-trial" || requestedPolicy === "standard-han-coordination-trial";
+const usesSupplementFollowup = requestedPolicy === "standard-role-supplement-followup-trial" || requestedPolicy === "standard-role-extended-trial" || requestedPolicy === "standard-qian-role-trial" || requestedPolicy === "standard-han-coordination-trial";
+const policy = usesSupplement
+  ? "standard-numeric-fen-trial" : requestedPolicy;
 const ambiguous = buildPolyphonicReadingIndex(PRACTICE_CATALOG);
 const profilesById = new Map(SYNTAX_PROFILES.map((profile) => [profile.id, profile]));
 const hits: PolyphonicContextHit[] = [];
@@ -180,6 +189,10 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
           ...((policy === "standard-ordinal-room-trial" || (policy === "standard-role-tenth-trial" || policy === "standard-numeric-fen-trial")) ? [reviewedMoeOrdinalRoomReadingEligible] : []),
           ...((policy === "standard-role-tenth-trial" || policy === "standard-numeric-fen-trial") ? [reviewedMoeTenthRoleEligible] : []),
           ...(policy === "standard-numeric-fen-trial" ? [reviewedMoeNumericFenReadingEligible] : []),
+          ...(usesSupplement ? [reviewedMoeSupplementalRoleEligible] : []),
+          ...(usesSupplementFollowup ? [reviewedMoeSupplementFollowupRoleEligible] : []),
+          ...(requestedPolicy === "standard-role-extended-trial" || requestedPolicy === "standard-qian-role-trial" || requestedPolicy === "standard-han-coordination-trial" ? [reviewedMoeExtendedRoleEligible] : []),
+          ...(requestedPolicy === "standard-qian-role-trial" || requestedPolicy === "standard-han-coordination-trial" ? [reviewedMoeQianRoleEligible] : []),
         ] } : {}),
     ...(policy === "duoshao-zhong-trial"
       ? { preDrawReadingEligibility: beforeMoeLePreDrawEligible }
@@ -193,6 +206,9 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
           previousEntry: (typeof PRACTICE_CATALOG)[number] | null,
         ) => reviewedOrdinalLineReadingEligible(entry, profile, previousEntry) }
       : {}),
+    // Use the product's ordered stages for its current mode; older modes above
+    // retain their original frontiers for historical paired comparisons.
+    ...(requestedPolicy === PRODUCT_READING_POLICY_ID ? PRODUCT_READING_POLICY : {}),
   });
   for (const reason of composition.fallbackReasons) increment(fallbacks, reason);
   const candidate = composition.candidates[0];
@@ -218,7 +234,7 @@ const unsampledTexts = [...ambiguous.keys()].filter((text) => !perText.has(text)
 const report = {
   schemaVersion: "polyphonic-context-exposure-v1",
   purpose: "Read-only exposure audit; no judgement of reading correctness.",
-  readingEligibilityPolicy: policy,
+  readingEligibilityPolicy: requestedPolicy,
   seedNamespace: SEED_NAMESPACE,
   productBounds: PRODUCT_BOUNDS,
   sampleCount: samples,
@@ -245,7 +261,7 @@ await writeFile(output, JSON.stringify(report, null, 2) + "\n", "utf8");
 console.log(JSON.stringify({
   output,
   samples,
-  policy,
+  policy: requestedPolicy,
   successfulSentences,
   ambiguousTextCount: ambiguous.size,
   observedAmbiguousTextCount: perText.size,

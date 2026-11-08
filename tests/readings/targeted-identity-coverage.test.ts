@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../../src/app/generated/catalog.js";
 import { catalogEntryId } from "../../src/core/catalog-entry-id.js";
 import type { CatalogEntry } from "../../src/core/model.js";
 import {
@@ -7,6 +8,7 @@ import {
   type IdentityProbeOutcome,
 } from "../../src/readings/targeted-identity-coverage.js";
 import type { RuntimeSyntaxProfile, Upos } from "../../src/syntax/types.js";
+import { productReadingEligibleWithoutPreviousEntry } from "../../src/readings/product-reading-policy.js";
 
 function entry(text: string, reading: string): CatalogEntry {
   return {
@@ -91,5 +93,36 @@ describe("polyphonic exact reading-identity coverage", () => {
       .toThrow("invalid baseline occurrence");
     expect(() => buildPolyphonicIdentityTargets(source, [profile(entry("不存在", "ㄌㄧㄠ3"), "NOUN")], {}))
       .toThrow("unknown catalog entry");
+  });
+});
+
+describe("current product coverage uses actual retained catalog profiles", () => {
+  const current = buildPolyphonicIdentityTargets(
+    PRACTICE_CATALOG, SYNTAX_PROFILES, {}, productReadingEligibleWithoutPreviousEntry,
+  );
+  const legacy = buildPolyphonicIdentityTargets(PRACTICE_CATALOG, SYNTAX_PROFILES, {});
+
+  it.each([
+    ["與", "ㄩ4"], ["讀", "ㄉㄡ4"], ["食", "ㄙ4"],
+    ["洗", "ㄒㄧㄢ3"], ["哈", "ㄏㄚ3"], ["合", "ㄍㄜ3"],
+  ] as const)("reports the genuine profile gap for %s/%s instead of reusing old role gates", (text, reading) => {
+    const id = catalogEntryId(text, reading);
+    const target = current.find(t => t.entryId === id)!;
+    expect(PRACTICE_CATALOG.some(e => e.id === id)).toBe(true);
+    expect(target.profileCount).toBeGreaterThan(0);
+    expect(legacy.find(t => t.entryId === id)?.staticStatus).toBe("has-licensed-profile");
+    expect(target.allowedProfileIds).toEqual([]);
+    expect(classifyPolyphonicIdentityCoverage(target, undefined)).toBe("all-profiles-role-rejected");
+  });
+
+  it.each([
+    ["與", "ㄩ3", "ADP"], ["讀", "ㄉㄨ2", "VERB"], ["食", "ㄕ2", "NOUN"],
+    ["洗", "ㄒㄧ3", "VERB"], ["哈", "ㄏㄚ1", "PROPN"], ["合", "ㄏㄜ2", "PROPN"],
+    ["曾", "ㄗㄥ1", "ADV"], ["任", "ㄖㄣ2", "PROPN"], ["處", "ㄔㄨ4", "NOUN"],
+  ] as const)("retains the real %s/%s/%s profile allowed by reading policy", (text, reading, upos) => {
+    const target = current.find(t => t.entryId === catalogEntryId(text, reading))!;
+    expect(target.staticStatus).toBe("has-licensed-profile");
+    expect(target.allowedUpos).toContain(upos);
+    expect(classifyPolyphonicIdentityCoverage(target, undefined)).toBe("not-probed");
   });
 });
