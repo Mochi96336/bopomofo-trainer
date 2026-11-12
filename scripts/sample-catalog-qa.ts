@@ -9,7 +9,7 @@ import {
 } from "../src/commonness/naer-general-frequency.js";
 import {
   catalogEntryCommonnessTier,
-  commonnessTierThresholds,
+  writtenFormCommonnessTierThresholds,
 } from "../src/commonness/tiers.js";
 import type { CatalogEntry } from "../src/core/model.js";
 import {
@@ -239,11 +239,7 @@ async function loadCatalog(): Promise<{
   // The shipped catalog, which is the only one worth sampling: entries the
   // legality gate excludes never reach a learner.
   const entries = withCommonness.entries.filter((entry) => legality.legalEntryIds.has(entry.id));
-  const thresholds = commonnessTierThresholds(
-    entries
-      .map((entry) => entry.commonnessBase?.selectionWeight)
-      .filter((weight): weight is number => weight !== undefined),
-  );
+  const thresholds = writtenFormCommonnessTierThresholds(entries);
 
   const profilesFile = JSON.parse(profilesSource) as {
     readonly profiles: readonly GrammarProfile[];
