@@ -99,12 +99,12 @@ const conflictExamples: Array<{
   seedIndex: number; initial: string; corrected: string; withTone4Weakness: boolean;
 }> = [];
 
-function sample(cohort: Cohort, seedIndex: number): CatalogEntry {
+function sample(cohort: Cohort, seedIndex: number, cleanPool = false): CatalogEntry {
   const weak = cohort.endsWith("weak-tone4");
   const guarded = cohort.startsWith("legal");
   const selection = selectFormalSyntaxUtterance({
-    entries,
-    profiles,
+    entries: cleanPool ? entries.filter(entry => entry.id !== fond.id) : entries,
+    profiles: cleanPool ? profiles.filter(profile => profile.entryId !== fond.id) : profiles,
     mode,
     layoutId,
     history,
@@ -114,6 +114,7 @@ function sample(cohort: Cohort, seedIndex: number): CatalogEntry {
     bindingEvidence: weak ? [{
       scope: { mode, layoutId, tokenId: "tone:4" },
       attempts: 16, errors: 12, timingSamples: 0,
+      selectionEvidence: { correctness: [...Array<boolean>(4).fill(true), ...Array<boolean>(12).fill(false)], timingMs: [] },
       currentTimeToTypeMs: null, bestTimeToTypeMs: null,
     }] : [],
     ...(guarded ? { readingEligibility: reviewedRoleReadingEligible } : {}),
@@ -130,6 +131,7 @@ function sample(cohort: Cohort, seedIndex: number): CatalogEntry {
       throw new Error("protected selector emitted invalid 好/ADJ reading");
     }
   }
+  if (cleanPool) return adjective;
   const stats = counts[cohort];
   stats.sentenceCount++;
   stats.wrongHaoAdjectiveCount += Number(adjective.id === fond.id);
@@ -157,16 +159,19 @@ for (let seedIndex = 0; seedIndex < sampleCount; seedIndex++) {
         withTone4Weakness: weak,
       });
     } else if (legallySelected.id !== originallySelected.id) {
+      // Pre-licensing changes the frontier even when the old unguarded draw
+      // happened to select a valid identity. That is intentional in v2.
       legal.nonConflictingDrawsChanged++;
-      throw new Error("valid initial word/readings changed without a legal conflict");
+    }
+    if (legallySelected.id !== sample(licensedGroup, seedIndex, true).id) {
+      throw new Error("an unsupported reading changed the licensed weighted frontier");
     }
   }
 }
 
 for (const name of ["legal-no-weakness", "legal-weak-tone4"] as const) {
-  if (counts[name].wrongHaoAdjectiveCount !== 0 || counts[name].invalidDrawsCorrected === 0
-    || counts[name].nonConflictingDrawsChanged !== 0) {
-    throw new Error("reviewed reading was not contextually stable");
+  if (counts[name].wrongHaoAdjectiveCount !== 0 || counts[name].invalidDrawsCorrected === 0) {
+    throw new Error("pre-licensed reading gate was not exercised");
   }
 }
 if (!(counts["legal-weak-tone4"].validFourthToneCount
@@ -175,16 +180,17 @@ if (!(counts["legal-weak-tone4"].validFourthToneCount
 }
 
 const summary = {
-  schemaVersion: "legally-weighted-lexical-redraw-v3",
-  purpose: "reading validity is independent of learner weakness; lexical-slot legal redraw uses legal target weights",
+  schemaVersion: "prelicensed-lexical-target-v4",
+  purpose: "reading validity precedes learner weighting; unsupported readings contribute no mass",
   sampleCount,
   entries: [good.id, fond.id, bad.id],
   syntheticLearnerWeakness: { tokenId: "tone:4", attempts: 16, errors: 12 },
   counts,
+  licensedPoolInvarianceChecks: sampleCount * 2,
   conflictExamples,
   limitations: [
     "Restricted three-adjective fixture, not representative of full catalog",
-    "The original word may change upon an invalid reading; that is lexical selection, not reinterpretation of its pronunciation",
+    "Pre-licensing can change formerly legal unguarded draws; clean licensed pools must replay identically",
     "There is no gold label for naturalness or real user learning effectiveness",
   ],
 };

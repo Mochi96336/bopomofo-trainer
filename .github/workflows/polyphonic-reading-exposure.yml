@@ -81,7 +81,7 @@ jobs:
         run: npm run app:catalog
       - name: Prepare five-word exact reading identities for private MOE review
         run: npx tsx scripts/prepare-moe-sense-targets.ts
-      - name: Assert legal-only lexical redraw and actual learner target weighting
+      - name: Assert pre-licensed lexical mass and actual learner target weighting
         run: npx tsx scripts/audit-conflicting-reading-target.ts
       - name: Audit 2048 deterministic generated sentences
         run: npm run readings:audit
@@ -326,7 +326,7 @@ jobs:
         run: npx tsx scripts/audit-same-upos-sense-readiness.ts
       - name: Probe missing reading identities in bounded biased generation
         run: npx tsx scripts/audit-targeted-polyphonic-identities.ts --probes 3
-      - name: Prepare annotated review summary
+      - name: Prepare frozen historical reading-chain review summary
         run: |
           node --input-type=module <<'NODE'
           import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
@@ -357,10 +357,10 @@ jobs:
             .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]));
           const lines = [
             '<!-- polyphonic-reading-exposure-report-v1 -->',
-            '### Final delivered polyphonic reading exposure: 2,048 deterministic seeds',
+            '### Historical reading-policy exposure: 2,048 seeds, frozen before-qian catalog',
             '',
             '**Diagnostic only:** a sampled multireading entry is not necessarily a wrong pronunciation.',
-            'Current figures and example contexts are from final standard-numeric-fen-trial output, not historical baselines; generated sentences are not user sessions.',
+            'This replays reading-identity sampling and standard-numeric-fen-trial on the checksum-pinned before-qian population. Current selection v2 is measured separately in the check workflow product-quality artifacts; these generated examples are not user sessions.',
             '',
             '| Measure | Result |',
             '|---|---:|',
@@ -374,7 +374,7 @@ jobs:
               ['Total sampled multireading occurrences', final.polyphonicOccurrences],
             ].map(([key,val]) => `| ${key} | ${val} |`),
             '',
-            '#### Historical deterministic controls (not the current final stage)',
+            '#### Earlier stages in the frozen historical chain',
             '',
             '| Metric | Original | Closed-class trial | + Reviewed lexical roles |',
             '|---|---:|---:|---:|',
@@ -409,17 +409,17 @@ jobs:
             '',
             `Reviewed NOUN/VERB mismatches: ${zhongTrial.priorDisallowedOccurrences} → ${zhongTrial.trialDisallowedOccurrences}. Changed seeds: ${zhongTrial.alteredSeeds}; unrelated changes: ${zhongTrial.unrelatedAlteredSeeds}.`,
             '',
-            '#### Legal pronunciation and target weighting are separate',
+            '#### Current product v2: pre-licensed probability and target weighting',
             '',
-            `In a 1,024-seed restricted lexical fixture, illegal 好/ADJ:ㄏㄠ4 was rejected in ${conflict.counts['legal-weak-tone4'].invalidDrawsCorrected} cases with four-tone weakness, and ${conflict.counts['legal-no-weakness'].invalidDrawsCorrected} cases without weakness.`,
-            `Legitimate four-tone exercises: without weakness ${conflict.counts['legal-no-weakness'].validFourthToneCount}, with weakness ${conflict.counts['legal-weak-tone4'].validFourthToneCount}. Already-valid draws changed in neither cohort.`,
+            `In a 1,024-seed restricted lexical fixture, illegal 好/ADJ:ㄏㄠ4 was excluded before weighting in ${conflict.counts['legal-weak-tone4'].invalidDrawsCorrected} cases with four-tone weakness, and ${conflict.counts['legal-no-weakness'].invalidDrawsCorrected} cases without weakness.`,
+            `Legitimate four-tone exercises: without weakness ${conflict.counts['legal-no-weakness'].validFourthToneCount}, with weakness ${conflict.counts['legal-weak-tone4'].validFourthToneCount}. All ${conflict.licensedPoolInvarianceChecks} clean-versus-filtered pool comparisons retained identical legal selections.`,
             'These are controlled, synthetic samples, not observed learner accuracy or validated natural sentences.',
             '',
             '#### Reviewed 第N行 context at lexical slot',
             '',
             `Disallowed 第N行 readings: ${ordinalTrial.wrongOrdinalLineHitsBefore} → ${ordinalTrial.wrongOrdinalLineHitsAfter}. Changed seed count: ${ordinalTrial.alteredSeeds.length}; changes outside the single ordinal-adjacent lexical slot: ${ordinalTrial.changedSeedsOutsideOrdinalLexicalSlot}. No whole-utterance rejection. A fixed-seed candidate distribution is expected to change when illegal reading weights are removed.`,
             '',
-            '#### Final-delivered same-UPOS sense-review queue (not error labels)',
+            '#### Frozen final-stage same-UPOS sense-review queue (not error labels)',
             '',
             `Observed ${queue.unreviewedGroups} unreviewed multi-reading text/UPOS groups, ${queue.unreviewedOccurrences} occurrences; examples need human review.`,
             `Of these, ${queue.moeAttestedReadingGroups} groups (${queue.moeAttestedReadingOccurrences} occurrences) have independently MOE-attested observed headword readings; sentence-specific senses remain unverified. These are still included among unreviewed groups.`,
@@ -436,7 +436,7 @@ jobs:
             ...queue.groups.filter(g => g.kind === 'unreviewed-role-variation')
               .slice(0, 12).map(g => `| ${escape(g.text)} / ${g.upos} | ${g.occurrences} | ${g.selectedReadingEntryIds.length} | ${g.moeAttestedReadings ? '[MOE-listed sounds](' + g.moeAttestedReadings.sourceUrl + '), sense unverified' : 'not independently checked'} |`),
             '',
-            '#### Most exposed written forms in the final delivered sample',
+            '#### Most exposed written forms in the frozen final-stage sample',
             '',
             '| Text | Occurrences | Distinct readings sampled |',
             '|---|---:|---:|',
@@ -445,7 +445,7 @@ jobs:
               return `| ${escape(text)} | ${num} | ${ids.size} |`;
             }),
             '',
-            '#### Final delivered representative contexts (not labeled incorrect)',
+            '#### Frozen final-stage representative contexts (not labeled incorrect)',
             '',
             '| Seed | Sentence | Reading identity | UPOS / functions | Previous / next entry |',
             '|---:|---|---|---|---|',
