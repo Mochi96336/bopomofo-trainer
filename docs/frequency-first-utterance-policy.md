@@ -2,10 +2,17 @@
 
 ## Executable policy
 
-Production uses `frequency-first-utterance-v2`. The selector is hierarchical:
+Production uses `frequency-first-utterance-v3`. The selector is hierarchical:
 
-1. Sample a bounded formal Sentence using the root-family training prior.
+1. Compile bounded lexical feasibility for the current catalog. Remove roots
+   with zero potential lexical shapes from the root-family prior, then sample.
+   A positive abstract shape count does not prove joint reading/binding or
+   uniqueness feasibility; actual realization remains mandatory.
 2. Filter each lexical frontier by syntax and **all** reviewed reading licenses.
+   Within that complete licensed slot frontier, exclude every reading of a
+   written-form/UPOS group that still has unresolved alternatives. Only explicit
+   reviewed free alternants (哪/PRON and 和/CCONJ) are exempt. This happens before
+   identity binding, used-word exclusion, zero weights or learner adaptation.
 3. Draw a written form, then a permitted reading, then a compatible profile.
 4. Assess the completed candidate for visible repetition, construction recency,
    and typing burden. Accept probabilistically or draw another complete candidate.
@@ -29,16 +36,17 @@ For each eligible reading identity:
 
 ```text
 readingWeight = reviewedFrequencyWeight * boundedLearnerBoost * writtenRecencyFactor
-writtenFormWeight = maximum readingWeight among its eligible readings
+writtenFormWeight = mean readingWeight among its eligible readings
 P(text | slot) = writtenFormWeight / sum of eligible writtenFormWeights
 P(reading | text, slot) = readingWeight / sum of that text's readingWeights
 P(profile | reading, slot) = 1 / number of compatible profiles
 ```
 
 A form owns one ticket. Adding another identical-weight reading or another
-compatible profile does not multiply that form's frequency mass. The maximum
-retains a weak reading's opportunity without dividing its boost by how many
-other readings happen to be cataloged. Reading probabilities are a training
+compatible profile does not multiply that form's frequency mass. This is the expected reading weight under the explicit uniform licensed-reading
+training prior. Text mass and conditional reading probability therefore compose
+into one joint weight proportional to frequency times reading prior times learner
+boost. There is no independent maximum aggregation. Reading probabilities are a training
 allocation, not an assertion of pronunciation frequencies: NAER frequency is
 written-form evidence, not reading-frequency evidence.
 
@@ -134,8 +142,11 @@ catalog, prepared execution, complete reading policy, and delivery recency for
 the full catalog and each individual commonness tier. It advances delivery
 history without inventing typing observations. The generated report includes:
 
-- root and nested clause family counts;
-- visible term diversity and token exposure;
+- root availability, configured/conditioned first-attempt priors, delivered root
+  and nested clause family counts;
+- complete written-form, reading, tier and token exposure and distinct counts;
+- overlapping frame-capability counts on selected profiles (not sentence-frame
+  probabilities), and same-UPOS multi-reading context-review leads;
 - repeated sentences, consecutive constructions, recent terms;
 - syllable/keystroke distributions, candidate attempts and best effort;
 - structural and availability fallback reasons;
@@ -147,7 +158,7 @@ or evidence of human learning effectiveness. Run larger samples before changing
 training priors; the routine gate uses 128 deliveries per scenario.
 
 `npm run selection:exposure` additionally compares 256 identical fresh-user
-seeds for baseline, weak tone 3, weak tone 4 and weak zhuyin ? cohorts. The
+seeds for baseline, weak tone 3, weak tone 4 and weak zhuyin token cohorts. The
 synthetic cohort has 24 errors in a 32-observation recent window, with all other
 inputs fixed. Every delivered reading is checked against the same licenses.
 It reports target occurrences per 100 syllables, sentence coverage and changed
@@ -156,7 +167,11 @@ check; this is not a significance test or an estimate of human improvement.
 
 ## Persistence and historical evidence
 
-Product progress is schema 9, measurement epoch `coordination-v1`. Schema 8
+Product progress is schema 9, measurement epoch `coordination-v1`. Selection v2
+migrates to v3 without resetting recency or measurements, because the stored
+identities and observation semantics remain compatible. Written-form tier cuts
+are computed on distinct forms, so adding a reading cannot move unrelated words
+between tiers. Schema 8
 selection v1 migrates entry history into written-form recency, preserving
 measurements, completed rounds and recent summaries. Old derivation IDs and
 empty template history cannot reconstruct visible/construction recency, so
@@ -167,7 +182,7 @@ migrations; schema 6 still resets incompatible measurement evidence. Schemas
 The generic composer retains explicit `reading-identity` sampling for historical
 comparison tools. The browser explicitly chooses `written-form` sampling.
 Ordered post-draw reading repairs and geometric sentence scores belong only to
-that historical compatibility surface; they do not determine product v2 output.
+that historical compatibility surface; they do not determine product v3 output.
 Same-version seed/catalog/progress replay is deterministic. Preserving v1's
 exact sentences across this intentional version change is not a requirement.
 

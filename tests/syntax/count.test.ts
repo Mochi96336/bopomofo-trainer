@@ -61,6 +61,26 @@ const alternateSentenceRule: ProductionRule = {
 };
 
 describe("exact structural derivation shape counting", () => {
+  it("propagates inherited lexical requirements and counts only practice entries", () => {
+    const rules: readonly ProductionRule[] = [
+      { ...baseRules[0]!, constituents: [{ ...baseRules[0]!.constituents[0]!, requiredFunctions: ["subject"] }] },
+      { ...baseRules[1]!, constituents: [{ ...baseRules[1]!.constituents[0]!, inheritFunctions: true }] },
+    ];
+    const count = (supportsSubject: boolean, minimumPracticeLexicalEntries: number) => countStructuralDerivationShapes({
+      rootCategory: "Sentence", rules, minimumPracticeLexicalEntries,
+      isLexicalRequirementsReachable: (_constituent, requirements) =>
+        !requirements.requiredFunctions.includes("subject") || supportsSubject,
+    });
+    expect(count(false, 1)).toBe("0");
+    expect(count(true, 1)).toBe("1");
+    expect(count(true, 2)).toBe("0");
+    const literal = [{ ...rules[0]! }, { ...rules[1]!, constituents: [{
+      ...rules[1]!.constituents[0]!, formalLiteral: "literal",
+    }] }];
+    expect(countStructuralDerivationShapes({ rootCategory: "Sentence", rules: literal,
+      minimumPracticeLexicalEntries: 1, isLexicalRequirementsReachable: () => true })).toBe("0");
+  });
+
   it("counts the complete non-recursive closure without materializing shapes", () => {
     expect(countStructuralDerivationShapes({
       rootCategory: "Sentence",

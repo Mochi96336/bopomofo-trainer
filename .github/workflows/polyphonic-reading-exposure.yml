@@ -49,6 +49,12 @@ on:
       - "scripts/audit-dongxi-ud-intake.ts"
       - "data/readings/dongxi-ud-gsd-attested-review-candidates.json"
       - "src/readings/**"
+      - "src/curriculum/**"
+      - "src/syntax/**"
+      - "src/commonness/**"
+      - "scripts/compile-app-catalog.ts"
+      - "scripts/audit-product-selection.ts"
+      - "scripts/audit-product-learner-exposure.ts"
       - "tests/readings/**"
       - "package.json"
   workflow_dispatch:
