@@ -9,6 +9,10 @@ Production uses `frequency-first-utterance-v3`. The selector is hierarchical:
    A positive abstract shape count does not prove joint reading/binding or
    uniqueness feasibility; actual realization remains mandatory.
 2. Filter each lexical frontier by syntax and **all** reviewed reading licenses.
+   Within that complete licensed slot frontier, exclude every reading of a
+   written-form/UPOS group that still has unresolved alternatives. Only explicit
+   reviewed free alternants (哪/PRON and 和/CCONJ) are exempt. This happens before
+   identity binding, used-word exclusion, zero weights or learner adaptation.
 3. Draw a written form, then a permitted reading, then a compatible profile.
 4. Assess the completed candidate for visible repetition, construction recency,
    and typing burden. Accept probabilistically or draw another complete candidate.

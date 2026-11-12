@@ -135,11 +135,19 @@ correctness. Reviewed free alternants, formally conditioned readings and
 unresolved contextual readings need distinct evidence states. A blanket ban
 based only on same-UPOS multiplicity would discard legitimate alternants.
 
+The user selected conservative abstention. Product v3 now removes the entire
+unresolved written-form/UPOS group from the complete licensed slot frontier,
+before binding, used-word exclusion and learner weights. Explicit reviewed
+哪/PRON and 和/CCONJ alternants remain eligible. Original reading identities and
+learner records are retained; this policy restricts sentence practice only.
+The final context is rechecked, rebuilding the frontier if lexical adjacency
+changed. Exhaustion fails closed with an unresolved-frontier diagnostic.
+
 Remote research #434 documents source-UPOS counterexamples and pending
 independent review; #431's attested contexts remain ineligible. These branches
 are not production fixes and have not been activated. The appropriate next
-reading work is a reviewed context contract and an abstention policy with a
-coverage denominator, followed by an independent held-out assessment. It is
+reading work is independently reviewed context contracts and a coverage
+denominator, followed by an independent held-out assessment. It is
 not a guessed distribution from corpus POS or an unreviewed semantic model.
 
 ## v3 delivery observations
@@ -151,7 +159,7 @@ bounded-best-effort deliveries. This is an engineering observation, not
 calibration against natural-language construction frequency.
 
 Matched fresh-user cohorts of 256 seeds increased target occurrences per 100
-syllables by 2.44 for tone 3, 5.11 for tone 4 and 0.97 for zhuyin ㄗ. These are
+syllables by 3.15 for tone 3, 3.17 for tone 4 and 0.91 for zhuyin ㄗ. These are
 synthetic recent-error responses, not estimates of human learning improvement.
 The full generated report records nominal and availability-conditioned first
 root priors alongside actual deliveries, nested Clause families, selected
@@ -160,24 +168,32 @@ context-review leads. Counts from different identity scopes are never treated
 as interchangeable frequencies.
 
 Of the full-catalog sample's 544 lexical occurrences, tiers 1..4 supplied
-303/79/84/78 (55.7%/14.5%/15.4%/14.3%). Function-word and construction frontiers
+302/87/89/66 (55.5%/16.0%/16.4%/12.1%). Function-word and construction frontiers
 make this different from the hypothetical shared-frontier weight sums above.
 Tier-only scopes 3 and 4 had only declarative roots potentially available;
 tier 2 also admitted constituent questions. This is now visible before drawing.
 
-The tier-1 sample observed multiple same-UPOS readings in three groups: 那/PRON,
-給/VERB and 哪/PRON. The first two remain unreviewed context variation in this
-queue (ten occurrences), while 哪 has a reviewed role-alternant contract.
-Neither figure is a pronunciation-error rate. The full-catalog sample happened
-not to observe two readings in one UPOS group; that does not clear the problem.
+Before abstention, the tier-1 sample observed multiple same-UPOS readings in
+three groups: 那/PRON, 給/VERB and 哪/PRON. The first two were unreviewed context
+variation (ten occurrences). After abstention, that same seed namespace retained
+only the reviewed 哪/PRON variation and no sampled unreviewed same-UPOS groups
+across the five scopes. This is policy behavior, not a pronunciation-error rate;
+unobserved or singleton readings still require independent context validation.
 
 ## Validation
 
-`npm run check:pr` passed 1,435 Vitest tests, 76 Python tests, current-product
-selection/exposure audits, catalog validation, typecheck, build and bundle
-budget. Playwright passed 62 tests, including real-round backup restoration;
+The full product gate, fast suite and final targeted regressions passed.
+Validation also includes 76 Python tests, current-product selection and
+exposure audits, catalog validation, typecheck, build and bundle budget.
+Playwright passed 62 tests, including real-round backup restoration;
 the simulation suite passed 43 tests. Explicit regression coverage checks
 nonempty selection-v2 migration, inherited lexical requirements, synthetic
 literal practice counts, reading-multiplicity-invariant tiers and the exact
 joint word/reading distribution. Historical replay remains a separate frozen
 population, not an accuracy label for the revised product.
+Abstention regressions cover whole-group exclusion, approved alternants,
+zero/large learner weights, license-established singletons, repeated bindings,
+fail-closed exhaustion and product-boundary forwarding. Caching the unchanged
+final reading context preserved the full 640-delivery report byte-for-byte.
+An explicit literal-boundary regression verifies rechecking the full set when
+the final context differs from the draw context.

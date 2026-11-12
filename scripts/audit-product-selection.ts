@@ -12,6 +12,7 @@ import { createProductEnvironment, createFreshProgressForEnvironment, createProd
 import { PRODUCT_READING_POLICY } from "../src/readings/product-reading-policy.js";
 import { auditPolyphonicCandidate, buildPolyphonicReadingIndex, type PolyphonicContextHit } from "../src/readings/polyphonic-audit.js";
 import { buildSameUposReviewQueue } from "../src/readings/same-upos-review.js";
+import { READING_ABSTENTION_POLICY } from "../src/readings/reading-frontier.js";
 import { quantile } from "../src/measurement-v2/selection-evidence.js";
 import { sha256Canonical } from "../src/reference/importers/canonical-json.js";
 
@@ -116,7 +117,8 @@ for (const tier of [null, ...COMMONNESS_TIERS]) {
     fallbacks: sorted(fallbacks),
   });
 }
-const report = { schemaVersion: "product-selection-quality-v3", readingAllocation: READING_ALLOCATION_POLICY, policyVersion: FREQUENCY_FIRST_UTTERANCE_POLICY.version,
+const report = { schemaVersion: "product-selection-quality-v3", readingAllocation: READING_ALLOCATION_POLICY,
+  readingAbstention: READING_ABSTENTION_POLICY, policyVersion: FREQUENCY_FIRST_UTTERANCE_POLICY.version,
   catalogDigest: sha256Canonical(PRACTICE_CATALOG), profilesDigest: sha256Canonical(SYNTAX_PROFILES), scenarios,
   boundary: "Deterministic delivery sampling, not natural Mandarin frequency or learning-effectiveness evidence." };
 await mkdir(dirname(output), { recursive: true });

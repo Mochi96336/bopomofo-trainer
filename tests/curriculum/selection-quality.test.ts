@@ -8,6 +8,7 @@ import {
   updateFrequencyFirstSelectionState,
 } from "../../src/curriculum/frequency-first-utterance.js";
 import { createSeededRandom } from "../../src/curriculum/random.js";
+import { excludeUnresolvedReadingGroups } from "../../src/readings/reading-frontier.js";
 import type { CatalogEntry } from "../../src/core/model.js";
 import type { ProductionRule, RuntimeSyntaxProfile } from "../../src/syntax/types.js";
 import { FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";
@@ -54,6 +55,7 @@ function select(options: {
   readonly bindingEvidence?: Parameters<typeof selectFormalSyntaxUtterance>[0]["bindingEvidence"];
   readonly maximumCandidateDraws?: number;
   readonly readingGate?: Parameters<typeof selectFormalSyntaxUtterance>[0]["finalCandidateReadingEligibility"];
+  readonly frontierFilter?: Parameters<typeof selectFormalSyntaxUtterance>[0]["readingFrontierFilter"];
   readonly random?: Parameters<typeof selectFormalSyntaxUtterance>[0]["random"];
 } = {}) {
   const entries = options.entries ?? [first, second];
@@ -65,10 +67,18 @@ function select(options: {
     random: options.random ?? createSeededRandom("quality"),
     formalSyntaxComposition: { rules, samplingMode: "raw" },
     ...(options.readingGate === undefined ? {} : { finalCandidateReadingEligibility: options.readingGate }),
+    ...(options.frontierFilter === undefined ? {} : { readingFrontierFilter: options.frontierFilter }),
   });
 }
 
 describe("hierarchical product selection quality", () => {
+  it("carries reading abstention through the product selection boundary", () => {
+    const third = { ...second, id: "c", prompt: { ...second.prompt, text: "丙" } };
+    const result = select({ entries: [first, alternate, second, third],
+      frontierFilter: excludeUnresolvedReadingGroups, random: { next: () => 0 } });
+    expect(result.utterance.entries.map(entry => entry.id).sort()).toEqual([second.id, third.id].sort());
+  });
+
   it("distinguishes clause constructions inside statements while sharing A-not-A variant identity", () => {
     const candidate = select().utterance;
     const identity = (root: string, clauses: readonly string[] = []) => constructionIdentity({

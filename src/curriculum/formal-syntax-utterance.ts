@@ -69,6 +69,11 @@ export interface FormalSyntaxUtteranceInput {
   /** Lazy equivalent used when scoring only the compatible lexical frontier. */
   readonly entryWeight?: (entry: CatalogEntry) => number;
   readonly lexicalCompatibility?: LexicalCompatibilityIndex;
+  /** Set-level reading abstention, after all licenses and before binding/weights. */
+  readonly readingFrontierFilter?: (
+    frontier: readonly RuntimeSyntaxProfile[],
+    entriesById: ReadonlyMap<string, CatalogEntry>,
+  ) => readonly RuntimeSyntaxProfile[];
   /** Reviewed lexical-role/context license, applied before product weighting. */
   readonly readingEligibility?: (
     entry: CatalogEntry,
@@ -552,6 +557,7 @@ export function composeFormalSyntaxUtterances(
     const offsets: Record<string, number> = {};
     const usedEntryIds = new Set<string>();
     const entryIdByBinding = new Map<string, string>();
+    const readingContextBySlot = new Map<string, string | null>();
     let previousEntry: CatalogEntry | null = null;
     let unrealizable = false;
     for (const slot of shape.lexicalSlots) {
@@ -561,6 +567,7 @@ export function composeFormalSyntaxUtterances(
         continue;
       }
       const allCompatible = compatibleProfilesForSlot(slot, index);
+      readingContextBySlot.set(slot.id, previousEntry?.id ?? null);
       const boundEntryId = slot.entryBindingId === undefined
         ? undefined
         : entryIdByBinding.get(slot.entryBindingId);
@@ -583,12 +590,21 @@ export function composeFormalSyntaxUtterances(
       );
       const readingEligibility = input.readingEligibility;
       const preDrawPolicy = input.preDrawReadingEligibility;
-      const currentLegalFrontier = input.lexicalSampling === "written-form"
-        ? boundCompatible.filter(profile => {
+      const licensedProductFrontier = input.lexicalSampling === "written-form"
+        ? allCompatible.filter(profile => {
           const entry = entriesById.get(profile.entryId);
           if (entry === undefined) throw new Error("reading frontier references missing entry");
           return productReadingGates.every(gate => gate(entry, profile, slot, previousEntry));
         })
+        : [];
+      const unambiguousFrontier = input.lexicalSampling !== "written-form" ? []
+        : input.readingFrontierFilter?.(licensedProductFrontier, entriesById) ?? licensedProductFrontier;
+      if (licensedProductFrontier.length > 0 && unambiguousFrontier.length === 0) {
+        fallbackReasons.add("formal-syntax-unresolved-reading-frontier");
+      }
+      const currentLegalFrontier = input.lexicalSampling === "written-form"
+        ? boundEntryId === undefined ? unambiguousFrontier
+          : unambiguousFrontier.filter(profile => profile.entryId === boundEntryId)
         : preDrawPolicy === undefined ? boundCompatible
         : boundCompatible.filter((profile) => {
             const entry = entriesById.get(profile.entryId);
@@ -670,8 +686,17 @@ export function composeFormalSyntaxUtterances(
       const slots = shape.lexicalSlots.filter(isPracticeLexicalSlot);
       const licensed = entries.every((entry, at) => {
         const profile = compatibleProfilesForSlot(slots[at]!, index).find(p => p.id === realization!.syntaxProfileIds[at]);
-        return profile !== undefined && productReadingGates.every(gate =>
-          gate(entry, profile, slots[at]!, entries[at - 1] ?? null));
+        const previous = entries[at - 1] ?? null;
+        if (profile === undefined || !productReadingGates.every(gate => gate(entry, profile, slots[at]!, previous))) return false;
+        // The draw already checked the full frontier in this exact context.
+        // Rebuild it only if final lexical adjacency changed (e.g. a literal).
+        if (input.readingFrontierFilter === undefined
+          || readingContextBySlot.get(slots[at]!.id) === (previous?.id ?? null)) return true;
+        const frontier = compatibleProfilesForSlot(slots[at]!, index).filter(candidateProfile =>
+          productReadingGates.every(gate => gate(entriesById.get(candidateProfile.entryId)!,
+            candidateProfile, slots[at]!, previous)));
+        return input.readingFrontierFilter(frontier, entriesById)
+          .some(candidateProfile => candidateProfile.id === profile.id);
       });
       if (!licensed) {
         fallbackReasons.add("formal-syntax-reading-context-rejected");
