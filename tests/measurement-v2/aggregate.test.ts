@@ -45,6 +45,7 @@ describe("measurement v2 aggregation", () => {
     const summary = aggregateMeasurementObservationsV2(observations);
     expect(summary.semantic.bindings[bindingAggregateKey(scope)]).toEqual({
       scope,
+      selectionEvidence: { correctness: [true, false], timingMs: [100] },
       attempts: 2,
       errors: 1,
       timingSamples: 1,

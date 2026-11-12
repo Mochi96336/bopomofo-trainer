@@ -385,21 +385,19 @@ jobs:
       # it to CI.
       - name: Bundle size budget
         run: npm run size:check
-      - name: Add phase-one baseline audit-only production path trace
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path("src/curriculum/formal-syntax-utterance.ts")
-          text = path.read_text()
-          needle = "      syntaxProfileIds: realization.syntaxProfileIds,\n"
-          if text.count(needle) != 1:
-              raise SystemExit("unexpected formal-syntax candidate shape")
-          path.write_text(text.replace(
-              needle,
-              needle + "      __auditProductionRulePath: shape.productionRulePath,\n",
-          ))
-          PY
+      - name: Audit current product selection across commonness tiers
+        run: npm run selection:audit
+      - name: Verify actual learner-target exposure under matched seeds
+        run: npm run selection:exposure
+      - name: Upload product selection quality measurements
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-selection-quality
+          path: |
+            data/generated/product-selection-quality.json
+            data/generated/product-learner-exposure.json
+          if-no-files-found: ignore
       - name: Verify Formal Syntax V2 phase-one product baseline
         shell: bash
         run: |

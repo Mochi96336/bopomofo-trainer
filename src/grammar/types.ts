@@ -103,6 +103,8 @@ export interface GrammarUtteranceCandidate {
   readonly syntaxDerivationId?: string;
   /** Root production trace for formal-syntax diagnostics/curriculum classification. */
   readonly syntaxRootRuleId?: string;
+  /** Complete realized rule path, including nested constructions. */
+  readonly syntaxProductionRuleIds?: readonly string[];
   readonly syntaxProfileIds?: readonly string[];
 }
 

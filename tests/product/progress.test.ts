@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createCatalogSupportIndex } from "../../src/curriculum/support.js";
 import { FREQUENCY_FIRST_UTTERANCE_POLICY } from "../../src/curriculum/frequency-first-utterance.js";
 import {
+  bindingAggregateKey,
   confusionAggregateKey,
   createEmptyMeasurementSummaryV2,
 } from "../../src/measurement-v2/aggregate.js";
@@ -55,17 +56,46 @@ function summary() {
 }
 
 describe("product progress codec", () => {
-  it("round-trips schema 8 with current selection recency", () => {
+  it("migrates actual schema 8 / selection v1 without losing measurements or completed rounds", () => {
+    const fresh = createProgress();
+    const scope = { mode: "guided" as const, layoutId: "standard", tokenId: "zhuyin:ㄇ" };
+    const current = {
+      ...fresh, practiceRoundsCompleted: 12, recentSummaries: [summary()],
+      measurements: { ...fresh.measurements, semantic: { ...fresh.measurements.semantic,
+        bindings: { [bindingAggregateKey(scope)]: { scope, attempts: 100, errors: 7,
+          timingSamples: 80, currentTimeToTypeMs: 200, bestTimeToTypeMs: 100 } },
+      } },
+    };
+    const legacy = {
+      ...current, schemaVersion: 8,
+      selection: {
+        policyVersion: "frequency-first-utterance-v1",
+        recentEntryIds: [PRACTICE[0]!.id],
+        recentUtteranceIds: ["old-derivation-id"], recentTemplateIds: [],
+      },
+    };
+    const migrated = parse(JSON.stringify(legacy))!;
+    expect(migrated.measurements).toEqual(current.measurements);
+    expect(migrated.practiceRoundsCompleted).toBe(12);
+    expect(migrated.recentSummaries).toEqual(current.recentSummaries);
+    expect(migrated.selection.recentWrittenForms).toEqual([PRACTICE[0]!.prompt.text]);
+    expect(migrated.selection.recentUtteranceIds).toEqual([]);
+    expect(migrated.selection.recentConstructionIds).toEqual([]);
+    expect(parse(serializeProductProgress(migrated))).toEqual(migrated);
+  });
+
+  it("round-trips schema 9 with current selection recency", () => {
     const progress = createProgress();
     const parsed = parse(serializeProductProgress(progress));
     expect(parsed).toEqual(progress);
     expect(parsed!.schemaVersion).toBe(PRODUCT_PROGRESS_SCHEMA_VERSION);
     expect(parsed!.measurementEpoch).toBe(PRODUCT_MEASUREMENT_EPOCH);
     expect(parsed!.selection).toEqual({
-      policyVersion: "frequency-first-utterance-v1",
+      policyVersion: "frequency-first-utterance-v2",
       recentEntryIds: [],
       recentUtteranceIds: [],
-      recentTemplateIds: [],
+      recentWrittenForms: [],
+      recentConstructionIds: [],
     });
   });
 

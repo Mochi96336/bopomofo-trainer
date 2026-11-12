@@ -44,7 +44,7 @@ describe("progress load notices", () => {
     expect((JSON.parse(persisted) as Record<string, unknown>).schemaVersion).toBe(PRODUCT_PROGRESS_SCHEMA_VERSION);
   });
 
-  it("announces schema 6 measurement reset and writes schema 8 immediately", () => {
+  it("announces schema 6 measurement reset and writes schema 9 immediately", () => {
     const current = JSON.parse(freshStoredProgress()) as ProductProgress;
     const legacy = legacyProgressDraft(current, 6);
     legacy.measurements = { policyVersion: "phase-3-v2", legacy: true };

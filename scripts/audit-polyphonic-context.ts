@@ -1,7 +1,9 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { readingAuditCatalog } from "./reading-audit-catalog.js";
-import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
+import { composeFormalSyntaxUtterances, prepareFormalSyntaxLexicon } from "../src/curriculum/formal-syntax-utterance.js";
+import { FORMAL_SYNTAX_RULES } from "../src/syntax/grammar.js";
+import { prepareStructuralSamplingContext } from "../src/syntax/sample.js";
 import { createSeededRandom } from "../src/curriculum/random.js";
 import { reviewedClosedClassReadingEligible } from "../src/readings/closed-class-license.js";
 import { PRODUCT_READING_POLICY, PRODUCT_READING_POLICY_ID } from "../src/readings/product-reading-policy.js";
@@ -126,6 +128,8 @@ const usesSupplement = requestedPolicy === "standard-role-supplement-trial"
 const usesSupplementFollowup = requestedPolicy === "standard-role-supplement-followup-trial" || requestedPolicy === "standard-role-extended-trial" || requestedPolicy === "standard-qian-role-trial" || requestedPolicy === "standard-han-coordination-trial";
 const policy = usesSupplement
   ? "standard-numeric-fen-trial" : requestedPolicy;
+const preparedLexicon = prepareFormalSyntaxLexicon(PRACTICE_CATALOG, SYNTAX_PROFILES);
+const preparedStructure = prepareStructuralSamplingContext(FORMAL_SYNTAX_RULES, PRODUCT_BOUNDS);
 const ambiguous = buildPolyphonicReadingIndex(PRACTICE_CATALOG);
 const profilesById = new Map(SYNTAX_PROFILES.map((profile) => [profile.id, profile]));
 const hits: PolyphonicContextHit[] = [];
@@ -209,7 +213,7 @@ for (let seedIndex = 0; seedIndex < samples; seedIndex += 1) {
     // Use the product's ordered stages for its current mode; older modes above
     // retain their original frontiers for historical paired comparisons.
     ...(requestedPolicy === PRODUCT_READING_POLICY_ID ? PRODUCT_READING_POLICY : {}),
-  });
+  }, preparedLexicon, preparedStructure);
   for (const reason of composition.fallbackReasons) increment(fallbacks, reason);
   const candidate = composition.candidates[0];
   sentences.push({

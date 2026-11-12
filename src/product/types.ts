@@ -15,7 +15,7 @@ import type { MeasurementSummaryV2 } from "../measurement-v2/aggregate.js";
 import type { InteractionSessionStateV2 } from "../practice/interaction-session-v2.js";
 import type { RuntimeSyntaxProfile } from "../syntax/types.js";
 
-export const PRODUCT_PROGRESS_SCHEMA_VERSION = 8 as const;
+export const PRODUCT_PROGRESS_SCHEMA_VERSION = 9 as const;
 export const PRODUCT_MEASUREMENT_EPOCH = "coordination-v1" as const;
 
 /** Historical persistence may still contain retired evaluation records. */

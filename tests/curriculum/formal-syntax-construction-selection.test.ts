@@ -181,7 +181,7 @@ describe("formal syntax construction selection", () => {
       syntaxRootRuleId: "sentence.declarative",
       entries: [LET_ENTRY, HE_ENTRY, WALK_ENTRY],
     });
-    expect(selection.score.frequencyBase).toBeGreaterThan(0);
+    expect(selection.score.entries.every(entry => entry.frequencyBase > 0)).toBe(true);
     expect("transitionBoost" in selection.score).toBe(false);
     expect("transitionTrace" in selection.score).toBe(false);
     expect("slotSelections" in selection).toBe(false);

@@ -107,12 +107,13 @@ function selectRound(
     history: {
       recentEntryIds: progress.selection.recentEntryIds,
       recentUtteranceIds: progress.selection.recentUtteranceIds,
-      recentTemplateIds: progress.selection.recentTemplateIds,
+      recentWrittenForms: progress.selection.recentWrittenForms,
+      recentConstructionIds: progress.selection.recentConstructionIds,
     },
     policy: environment.utterancePolicy,
     profiles: environment.catalogs.syntaxProfiles,
-    // Preserve the original draw for all licensed readings; only an actual
-    // reviewed-role mismatch is resampled. No catalog/progress IDs are rewritten.
+    // License every reading before assigning lexical probability mass.
+    // The selector version owns intentional sampling changes.
     ...PRODUCT_READING_POLICY,
     preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: environment.preparedPracticeEntries,

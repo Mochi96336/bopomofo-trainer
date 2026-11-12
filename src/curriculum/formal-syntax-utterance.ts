@@ -32,6 +32,7 @@ import type {
   RuntimeSyntaxProfile,
 } from "../syntax/types.js";
 import { createSeededRandom } from "./random.js";
+import { selectLexicalProfile } from "./lexical-selection.js";
 import { argumentRealizationStructuralPractice } from "./argument-realization-practice.js";
 import {
   argumentRealizationPracticeIntentForTicketUnit,
@@ -57,6 +58,8 @@ export interface FormalSyntaxStructuralTarget {
 }
 
 export interface FormalSyntaxUtteranceInput {
+  /** Reading-identity mode exists for historical evidence replay. Production explicitly uses written-form. */
+  readonly lexicalSampling?: "written-form" | "reading-identity";
   readonly eligibleEntries: readonly CatalogEntry[];
   readonly profiles: readonly RuntimeSyntaxProfile[];
   readonly random: RandomSource;
@@ -64,7 +67,7 @@ export interface FormalSyntaxUtteranceInput {
   /** Lazy equivalent used when scoring only the compatible lexical frontier. */
   readonly entryWeight?: (entry: CatalogEntry) => number;
   readonly lexicalCompatibility?: LexicalCompatibilityIndex;
-  /** Optional experimental reading policy. Omitted in the shipping product. */
+  /** Reviewed lexical-role/context license, applied before product weighting. */
   readonly readingEligibility?: (
     entry: CatalogEntry,
     profile: RuntimeSyntaxProfile,
@@ -79,8 +82,9 @@ export interface FormalSyntaxUtteranceInput {
    */
   readonly preDrawReadingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
   /**
-   * An independently reviewed identity restriction applied ONLY to a fully
-   * realized, otherwise deliverable candidate. Invalid readings encountered
+   * A reviewed identity restriction. Written-form product sampling combines
+   * all such gates before weighting. Reading-identity historical replay applies
+   * this gate ONLY to a fully realized, otherwise deliverable candidate. Invalid readings encountered
    * in ultimately failed attempts must not perturb a successful legal output.
    * The replacement is limited to the selected lexical slot and drawn from
    * its legal compatible candidates with their original weights.
@@ -141,14 +145,6 @@ export function prepareFormalSyntaxLexicon(
   };
 }
 
-function nextUnit(random: RandomSource): number {
-  const value = random.next();
-  if (!Number.isFinite(value) || value < 0 || value >= 1) {
-    throw new Error("RandomSource.next() must return a finite value in [0, 1)");
-  }
-  return value;
-}
-
 function defaultEntryWeight(entry: CatalogEntry): number {
   return catalogEntryFrequencyWeight(entry);
 }
@@ -156,99 +152,6 @@ function defaultEntryWeight(entry: CatalogEntry): number {
 function isPracticeLexicalSlot(slot: StructuralLexicalSlot): boolean {
   return slot.formalLiteral === undefined
     && !(slot.allowedUpos.length === 1 && slot.allowedUpos[0] === "PUNCT");
-}
-
-interface CompatibleProfileGroup {
-  readonly entryId: string;
-  readonly profiles: readonly RuntimeSyntaxProfile[];
-}
-
-const compatibleProfileGroupsCache = new WeakMap<
-  readonly RuntimeSyntaxProfile[],
-  readonly CompatibleProfileGroup[]
->();
-
-function groupedCompatibleProfiles(
-  compatible: readonly RuntimeSyntaxProfile[],
-): readonly CompatibleProfileGroup[] {
-  const cached = compatibleProfileGroupsCache.get(compatible);
-  if (cached !== undefined) return cached;
-  const profilesByEntryId = new Map<string, RuntimeSyntaxProfile[]>();
-  for (const profile of compatible) {
-    const profiles = profilesByEntryId.get(profile.entryId) ?? [];
-    profiles.push(profile);
-    profilesByEntryId.set(profile.entryId, profiles);
-  }
-  const groups = [...profilesByEntryId].map(([entryId, profiles]) => ({
-    entryId,
-    profiles,
-  }));
-  compatibleProfileGroupsCache.set(compatible, groups);
-  return groups;
-}
-
-
-interface StaticCompatibleProfileWeights {
-  readonly groups: readonly CompatibleProfileGroup[];
-  readonly weights: readonly number[];
-  readonly totalWeight: number;
-}
-
-const compatibleProfileGroupIndexCache = new WeakMap<
-  readonly RuntimeSyntaxProfile[],
-  ReadonlyMap<string, number>
->();
-
-const staticCompatibleProfileWeightsCache = new WeakMap<
-  readonly RuntimeSyntaxProfile[],
-  WeakMap<ReadonlyMap<string, CatalogEntry>, StaticCompatibleProfileWeights>
->();
-
-function compatibleProfileGroupIndex(
-  compatible: readonly RuntimeSyntaxProfile[],
-): ReadonlyMap<string, number> {
-  const cached = compatibleProfileGroupIndexCache.get(compatible);
-  if (cached !== undefined) return cached;
-  const groups = groupedCompatibleProfiles(compatible);
-  const index = new Map<string, number>();
-  for (let groupIndex = 0; groupIndex < groups.length; groupIndex += 1) {
-    index.set(groups[groupIndex]!.entryId, groupIndex);
-  }
-  compatibleProfileGroupIndexCache.set(compatible, index);
-  return index;
-}
-
-function preparedStaticCompatibleProfileWeights(
-  compatible: readonly RuntimeSyntaxProfile[],
-  entriesById: ReadonlyMap<string, CatalogEntry>,
-): StaticCompatibleProfileWeights {
-  let byEntries = staticCompatibleProfileWeightsCache.get(compatible);
-  if (byEntries === undefined) {
-    byEntries = new WeakMap<ReadonlyMap<string, CatalogEntry>, StaticCompatibleProfileWeights>();
-    staticCompatibleProfileWeightsCache.set(compatible, byEntries);
-  }
-  const cached = byEntries.get(entriesById);
-  if (cached !== undefined) return cached;
-
-  const groups = groupedCompatibleProfiles(compatible);
-  const weights = new Array<number>(groups.length);
-  let totalWeight = 0;
-  for (let index = 0; index < groups.length; index += 1) {
-    const group = groups[index]!;
-    const entry = entriesById.get(group.entryId);
-    if (entry === undefined) {
-      throw new Error(`formal syntax profile references missing entry ${group.entryId}`);
-    }
-    const weight = defaultEntryWeight(entry);
-    if (!Number.isFinite(weight) || weight < 0) {
-      throw new Error("formal syntax entry weights must be finite and non-negative");
-    }
-    weights[index] = weight;
-    totalWeight += weight;
-  }
-  const prepared = { groups, weights, totalWeight };
-  byEntries.set(entriesById, prepared);
-  return prepared;
 }
 
 function selectCompatibleProfile(
@@ -262,109 +165,22 @@ function selectCompatibleProfile(
   lexicalCompatibility: LexicalCompatibilityIndex | undefined,
   lexicalCompatibilityMaximumBoost: number,
   random: RandomSource,
+  sampling: "written-form" | "reading-identity",
 ): RuntimeSyntaxProfile | null {
-  const useStaticDefaultWeights = entryWeight === undefined
-    && entryWeightsById === undefined
-    && (previousEntry === null || lexicalCompatibility === undefined);
-  if (useStaticDefaultWeights) {
-    const groupIndexByEntryId = compatibleProfileGroupIndex(compatible);
-    const prepared = preparedStaticCompatibleProfileWeights(compatible, entriesById);
-    let hasExcludedCompatibleEntry = false;
-    for (const entryId of usedEntryIds) {
-      if (entryId !== reusableEntryId && groupIndexByEntryId.has(entryId)) {
-        hasExcludedCompatibleEntry = true;
-        break;
-      }
-    }
-
-    let totalWeight = prepared.totalWeight;
-    if (hasExcludedCompatibleEntry) {
-      totalWeight = 0;
-      for (let index = 0; index < prepared.groups.length; index += 1) {
-        const group = prepared.groups[index]!;
-        if (usedEntryIds.has(group.entryId) && group.entryId !== reusableEntryId) continue;
-        totalWeight += prepared.weights[index] ?? 0;
-      }
-    }
-    if (!(totalWeight > 0)) return null;
-
-    let target = nextUnit(random) * totalWeight;
-    let selectedGroup: CompatibleProfileGroup | undefined;
-    let lastEligibleGroup: CompatibleProfileGroup | undefined;
-    for (let index = 0; index < prepared.groups.length; index += 1) {
-      const group = prepared.groups[index]!;
-      if (hasExcludedCompatibleEntry
-        && usedEntryIds.has(group.entryId)
-        && group.entryId !== reusableEntryId) continue;
-      lastEligibleGroup = group;
-      target -= prepared.weights[index] ?? 0;
-      if (target < 0) {
-        selectedGroup = group;
-        break;
-      }
-    }
-    selectedGroup ??= lastEligibleGroup;
-    if (selectedGroup === undefined) throw new Error("formal syntax entry selection failed");
-    const entryProfiles = selectedGroup.profiles;
-    if (entryProfiles.length === 0) throw new Error("formal syntax profile group is empty");
-    const selectedProfileIndex = entryProfiles.length === 1
-      ? 0
-      : Math.floor(nextUnit(random) * entryProfiles.length);
-    return entryProfiles[selectedProfileIndex] ?? null;
-  }
-
-  const groups = groupedCompatibleProfiles(compatible);
-  const weights = new Array<number>(groups.length);
-  let totalWeight = 0;
-  let lastEligibleGroup: CompatibleProfileGroup | undefined;
-  for (let index = 0; index < groups.length; index += 1) {
-    const group = groups[index]!;
-    if (usedEntryIds.has(group.entryId) && group.entryId !== reusableEntryId) {
-      weights[index] = 0;
-      continue;
-    }
-    lastEligibleGroup = group;
-    const entry = entriesById.get(group.entryId);
-    if (entry === undefined) {
-      throw new Error(`formal syntax profile references missing entry ${group.entryId}`);
-    }
-    const baseWeight = entryWeight?.(entry)
-      ?? entryWeightsById?.[entry.id]
-      ?? defaultEntryWeight(entry);
-    const weight = previousEntry === null || lexicalCompatibility === undefined
-      ? baseWeight
-      : baseWeight * lexicalCompatibilityMultiplier(
-          surfaceCompatibilityScore(
-            lexicalCompatibility,
-            previousEntry.prompt.text,
-            entry.prompt.text,
-          ),
+  return selectLexicalProfile({
+    frontier: compatible, usedEntryIds, reusableEntryId, entriesById, random, sampling,
+    ...(entryWeight === undefined && entryWeightsById === undefined
+      && (previousEntry === null || lexicalCompatibility === undefined)
+      ? { staticWeightKey: entriesById } : {}),
+    weight: (entry) => {
+      const base = entryWeight?.(entry) ?? entryWeightsById?.[entry.id] ?? defaultEntryWeight(entry);
+      return previousEntry === null || lexicalCompatibility === undefined ? base
+        : base * lexicalCompatibilityMultiplier(
+          surfaceCompatibilityScore(lexicalCompatibility, previousEntry.prompt.text, entry.prompt.text),
           lexicalCompatibilityMaximumBoost,
         );
-    if (!Number.isFinite(weight) || weight < 0) {
-      throw new Error("formal syntax entry weights must be finite and non-negative");
-    }
-    weights[index] = weight;
-    totalWeight += weight;
-  }
-  if (!(totalWeight > 0)) return null;
-  let target = nextUnit(random) * totalWeight;
-  let selectedGroup: CompatibleProfileGroup | undefined;
-  for (let index = 0; index < groups.length; index += 1) {
-    target -= weights[index] ?? 0;
-    if (target < 0) {
-      selectedGroup = groups[index];
-      break;
-    }
-  }
-  selectedGroup ??= lastEligibleGroup;
-  if (selectedGroup === undefined) throw new Error("formal syntax entry selection failed");
-  const entryProfiles = selectedGroup.profiles;
-  if (entryProfiles.length === 0) throw new Error("formal syntax profile group is empty");
-  const selectedProfileIndex = entryProfiles.length === 1
-    ? 0
-    : Math.floor(nextUnit(random) * entryProfiles.length);
-  return entryProfiles[selectedProfileIndex] ?? null;
+    },
+  });
 }
 
 function punctuationForPath(path: readonly string[]): "。" | "！" | "？" {
@@ -402,6 +218,12 @@ export function composeFormalSyntaxUtterances(
   if (!Number.isInteger(input.maximumAttempts) || input.maximumAttempts <= 0) {
     throw new Error("maximumAttempts must be a positive integer");
   }
+  const finalPolicies = [input.finalCandidateReadingEligibility,
+    input.subsequentFinalCandidateReadingEligibility,
+    ...(input.additionalFinalCandidateReadingEligibilities ?? [])]
+    .filter((gate): gate is NonNullable<FormalSyntaxUtteranceInput["readingEligibility"]> => gate !== undefined);
+  const productReadingGates = [input.readingEligibility, input.preDrawReadingEligibility, ...finalPolicies]
+    .filter((gate): gate is NonNullable<FormalSyntaxUtteranceInput["readingEligibility"]> => gate !== undefined);
   const minimumLexicalEntries = input.minimumLexicalEntries ?? 1;
   if (!Number.isInteger(minimumLexicalEntries) || minimumLexicalEntries <= 0) {
     throw new Error("minimumLexicalEntries must be a positive integer");
@@ -715,9 +537,8 @@ export function composeFormalSyntaxUtterances(
       const boundCompatible = boundEntryId === undefined
         ? allCompatible
         : allCompatible.filter((profile) => profile.entryId === boundEntryId);
-      // Only explicitly scoped contexts may prelicense this lexical
-      // frontier. Other reviewed-role gates preserve the prior local
-      // post-draw check so unrelated selection paths remain unchanged.
+      // Product mode licenses the complete frontier before weighting.
+      // Historical replay keeps the separately versioned local-repair behavior.
       const draw = (choices: readonly RuntimeSyntaxProfile[]) => selectCompatibleProfile(
         choices,
         usedEntryIds,
@@ -728,12 +549,17 @@ export function composeFormalSyntaxUtterances(
         previousEntry,
         input.lexicalCompatibility,
         compatibilityMaximumBoost,
-        input.random,
+        input.random, input.lexicalSampling ?? "reading-identity",
       );
       const readingEligibility = input.readingEligibility;
       const preDrawPolicy = input.preDrawReadingEligibility;
-      const currentLegalFrontier = preDrawPolicy === undefined
-        ? boundCompatible
+      const currentLegalFrontier = input.lexicalSampling === "written-form"
+        ? boundCompatible.filter(profile => {
+          const entry = entriesById.get(profile.entryId);
+          if (entry === undefined) throw new Error("reading frontier references missing entry");
+          return productReadingGates.every(gate => gate(entry, profile, slot, previousEntry));
+        })
+        : preDrawPolicy === undefined ? boundCompatible
         : boundCompatible.filter((profile) => {
             const entry = entriesById.get(profile.entryId);
             if (entry === undefined) {
@@ -742,7 +568,7 @@ export function composeFormalSyntaxUtterances(
             return preDrawPolicy(entry, profile, slot, previousEntry);
           });
       let selectedProfile = draw(currentLegalFrontier);
-      if (selectedProfile !== null && readingEligibility !== undefined) {
+      if (input.lexicalSampling !== "written-form" && selectedProfile !== null && readingEligibility !== undefined) {
         const initiallySelected = entriesById.get(selectedProfile.entryId);
         if (initiallySelected === undefined) {
           throw new Error("formal syntax reading policy references a missing catalog entry");
@@ -807,12 +633,22 @@ export function composeFormalSyntaxUtterances(
       if (entry === undefined) throw new Error(`formal syntax selected missing entry ${entryId}`);
       return entry;
     });
-    const finalReadingPolicies = [
-      input.finalCandidateReadingEligibility,
-      input.subsequentFinalCandidateReadingEligibility,
-      ...(input.additionalFinalCandidateReadingEligibilities ?? []),
-    ].filter((policy): policy is NonNullable<FormalSyntaxUtteranceInput["readingEligibility"]> =>
-      policy !== undefined);
+    // Historical evidence replay retains its ordered local repairs. Product
+    // sampling filters every license before assigning any probability mass.
+    const finalReadingPolicies = input.lexicalSampling === "written-form" ? [] : finalPolicies;
+    if (input.lexicalSampling === "written-form") {
+      const slots = shape.lexicalSlots.filter(isPracticeLexicalSlot);
+      const licensed = entries.every((entry, at) => {
+        const profile = compatibleProfilesForSlot(slots[at]!, index).find(p => p.id === realization!.syntaxProfileIds[at]);
+        return profile !== undefined && productReadingGates.every(gate =>
+          gate(entry, profile, slots[at]!, entries[at - 1] ?? null));
+      });
+      if (!licensed) {
+        fallbackReasons.add("formal-syntax-reading-context-rejected");
+        recordRootFamilyFailure();
+        continue;
+      }
+    }
     for (let stage = 0; stage < finalReadingPolicies.length; stage += 1) {
       const finalReadingPolicy = finalReadingPolicies[stage]!;
       const previousFinalPolicies = finalReadingPolicies.slice(0,stage);
@@ -872,6 +708,7 @@ export function composeFormalSyntaxUtterances(
             previous,input.lexicalCompatibility,compatibilityMaximumBoost,
             createSeededRandom("final-reading-redraw-v1:"
               + realization.id + ":" + slot.id + ":" + entry.id),
+            input.lexicalSampling ?? "reading-identity",
           );
           if (selectedBound === null) {
             throw new Error("no permitted alternative for bound final candidate reading");
@@ -916,6 +753,7 @@ export function composeFormalSyntaxUtterances(
           compatibilityMaximumBoost,
           createSeededRandom("final-reading-redraw-v1:"
             + realization.id + ":" + slot.id + ":" + entry.id),
+          input.lexicalSampling ?? "reading-identity",
         );
         if (drawn === null) {
           throw new Error("no permitted alternative for final candidate reading");
@@ -968,6 +806,7 @@ export function composeFormalSyntaxUtterances(
       punctuation: hasPunctuation ? punctuation : null,
       syntaxDerivationId: realization.derivationId,
       syntaxRootRuleId: shape.root.productionRuleId,
+      syntaxProductionRuleIds: shape.productionRulePath,
       syntaxProfileIds: realization.syntaxProfileIds,
     });
     if (candidates.size > sizeBefore) {
