@@ -67,7 +67,8 @@ describe("commonness-tier product generation", () => {
             history: {
               recentEntryIds: progress.selection.recentEntryIds,
               recentUtteranceIds: progress.selection.recentUtteranceIds,
-              recentTemplateIds: progress.selection.recentTemplateIds,
+              recentWrittenForms: progress.selection.recentWrittenForms,
+      recentConstructionIds: progress.selection.recentConstructionIds,
             },
             policy: environment.utterancePolicy,
             preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
@@ -138,7 +139,8 @@ describe("commonness-tier product generation", () => {
       history: {
         recentEntryIds: progress.selection.recentEntryIds,
         recentUtteranceIds: progress.selection.recentUtteranceIds,
-        recentTemplateIds: progress.selection.recentTemplateIds,
+        recentWrittenForms: progress.selection.recentWrittenForms,
+      recentConstructionIds: progress.selection.recentConstructionIds,
       },
       policy: environment.utterancePolicy,
       preparedFormalSyntaxLexicon: environment.preparedPracticeLexicon,
@@ -191,7 +193,7 @@ describe("commonness-tier product generation", () => {
     expect(current.progress.practiceRoundsCompleted).toBe(1);
     expect(current.progress.recentSummaries).toHaveLength(1);
     expect(current.progress.selection.recentUtteranceIds).toContain(
-      initial.round.selection.utterance.id,
+      `surface:${JSON.stringify(initial.round.exercise.entries.map(entry => entry.prompt.text))}`,
     );
     for (const entry of initial.round.exercise.entries) {
       expect(current.progress.selection.recentEntryIds).toContain(entry.id);

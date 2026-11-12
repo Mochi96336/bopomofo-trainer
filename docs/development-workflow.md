@@ -122,3 +122,24 @@ When GitHub-hosted Actions minutes are exhausted:
 4. attach the local verification result to the pull request;
 5. defer `check:research` unless the research surface actually changed;
 6. rerun the appropriate GitHub job once quota is restored, rather than replaying every historical commit.
+
+## Product selection quality
+
+`npm run selection:audit` is part of `check:pr` and the CI check job. It samples
+128 sequential deliveries in each of five catalog scopes through the actual
+product environment, validates every delivered reading license, and writes
+`data/generated/product-selection-quality.json`. Increase the first positional
+argument to inspect longer runs, e.g. `npm run selection:audit -- 512`.
+
+The frozen Phase 1 grammar baseline instead uses the verified `before-qian`
+population. Its trace is ordinary candidate metadata, so local verification no
+longer needs CI-only source instrumentation. A new reading expands the current
+product audit without silently redefining that old baseline.
+
+`npm run selection:exposure` is also in both gates. It compares 256 matched
+fresh-user seeds for three controlled weak-token cohorts against baseline,
+validates every delivered reading, and guards a positive change in the target's
+actual occurrences per 100 syllables. The JSON report is
+`data/generated/product-learner-exposure.json`; both current product reports
+are uploaded by CI. These synthetic observations validate the selector's
+response, not learning outcomes.

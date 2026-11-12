@@ -1,3 +1,4 @@
+import type { RecentSelectionEvidence } from "../measurement-v2/selection-evidence.js";
 import type { CommonnessTier } from "../commonness/tiers.js";
 import type { BindingSkillScope, CatalogEntry, Exercise, PracticeMode, TokenId } from "../core/model.js";
 
@@ -13,6 +14,7 @@ export type CurriculumEvidence = "timed" | "correctness-only";
  * callers, without making their storage shape part of the curriculum boundary.
  */
 export interface LearnerBindingEvidence {
+  readonly selectionEvidence?: RecentSelectionEvidence;
   readonly scope: BindingSkillScope;
   readonly attempts: number;
   readonly errors: number;

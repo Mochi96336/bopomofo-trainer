@@ -170,7 +170,7 @@ describe("productive BA construction selection", () => {
         ? [HE.id, BA.id, BOOK.id, TAKE.id, COME.id]
         : [BOOK.id, BA.id, HE.id, TAKE.id, COME.id],
     );
-    expect(selection.score.frequencyBase).toBeGreaterThan(0);
+    expect(selection.score.entries.every(entry => entry.frequencyBase > 0)).toBe(true);
     expect("transitionBoost" in selection.score).toBe(false);
     expect("transitionTrace" in selection.score).toBe(false);
     expect("slotSelections" in selection).toBe(false);

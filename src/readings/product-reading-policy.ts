@@ -77,7 +77,7 @@ const finalGates: readonly ProfileGate[] = [
 /**
  * Static profile inspection only. No preceding word is supplied, so local
  * contextual restrictions are not evidence of universal reachability or of a
- * correct pronunciation. Actual probes still use the complete ordered policy.
+ * correct pronunciation. Actual product probes use all gates before weighting; historical replay retains their ordering.
  */
 export function productReadingEligibleWithoutPreviousEntry(
   entry: CatalogEntry, profile: RuntimeSyntaxProfile,
