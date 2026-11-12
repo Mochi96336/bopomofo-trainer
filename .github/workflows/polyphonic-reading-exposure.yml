@@ -29,6 +29,7 @@ on:
       - "scripts/compare-moe-role-tenth.ts"
       - "scripts/compare-moe-numeric-fen.ts"
       - "scripts/compare-moe-role-supplement.ts"
+      - "scripts/audit-replacement-evidence.ts"
       - "src/readings/moe-numeric-fen.ts"
       - "src/readings/moe-attested-role-compatibility.ts"
       - "src/readings/moe-na-surname-role.ts"
@@ -294,6 +295,24 @@ jobs:
           data/generated/polyphonic-role-supplement-after.json
           data/generated/polyphonic-role-supplement-followup-after.json
           data/generated/polyphonic-role-supplement-followup-comparison.json
+      - name: Audit replacement reading evidence without semantic guesses
+        run: >-
+          npx tsx scripts/audit-replacement-evidence.ts
+          data/generated/polyphonic-context-standard-role-tenth-trial.json
+          data/generated/polyphonic-context-standard-numeric-fen-trial.json
+          data/generated/polyphonic-standard-numeric-fen-comparison.json
+          data/generated/selected-moe-headword-coverage.json
+          data/generated/replacement-evidence-review.json
+      - name: Confirm corrected slots remain explicitly sense-unverified
+        run: >-
+          node --input-type=module -e "
+          import { readFileSync } from 'node:fs';
+          const r=JSON.parse(readFileSync('data/generated/replacement-evidence-review.json','utf8'));
+          if(r.sampleCount!==2048||r.changedSlotCount!==2||r.contextualSenseVerified!==0||
+             r.matchesPartialDictionaryProjection!==1||r.needsFullReferenceReview!==1||
+             r.entries.some(x=>x.contextualSense!=='not-established'))
+               throw new Error('replacement evidence diagnostic drift');
+          "
       - name: Verify exact-seed changes and reviewed-role rejection counts
         run: >-
           npx tsx scripts/compare-polyphonic-role-trial.ts
@@ -506,6 +525,7 @@ jobs:
             data/generated/polyphonic-role-supplement-comparison.json
             data/generated/polyphonic-role-supplement-followup-after.json
             data/generated/polyphonic-role-supplement-followup-comparison.json
+            data/generated/replacement-evidence-review.json
             data/generated/polyphonic-context-zhong-role-trial.json
             data/generated/polyphonic-zhong-role-trial-comparison.json
             data/generated/conflicting-target-exposure.json
