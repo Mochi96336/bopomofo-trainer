@@ -84,6 +84,22 @@ describe("hierarchical product selection quality", () => {
     expect(textCounts([first, alternate, second], true)).toEqual(textCounts([first, second]));
   });
 
+  it("composes text and reading adaptation into one normalized joint slot mass", () => {
+    const entries = [first, alternate, second];
+    const counts: Record<string, number> = {};
+    const frontier = entries.map(profile);
+    const entriesById = new Map(entries.map(entry => [entry.id, entry]));
+    for (let index = 0; index < 8900; index += 1) {
+      const selected = selectLexicalProfile({ frontier, entriesById,
+        weight: entry => entry.id === alternate.id ? 1.45 : 1,
+        sampling: "written-form", usedEntryIds: new Set(), reusableEntryId: undefined,
+        random: { next: () => (index + 0.5) / 8900 },
+      })!;
+      counts[selected.entryId] = (counts[selected.entryId] ?? 0) + 1;
+    }
+    expect(counts).toEqual({ a: 2000, a2: 2900, b: 4000 });
+  });
+
   it("excludes another reading of an already used written form", () => {
     const entries = [first, alternate, second];
     const base = {

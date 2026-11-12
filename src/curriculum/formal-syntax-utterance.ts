@@ -33,6 +33,8 @@ import type {
 } from "../syntax/types.js";
 import { createSeededRandom } from "./random.js";
 import { selectLexicalProfile } from "./lexical-selection.js";
+import { sentenceConstructionClassification } from "./formal-syntax-taxonomy.js";
+import { prepareFormalSyntaxFeasibility } from "./formal-syntax-feasibility.js";
 import { argumentRealizationStructuralPractice } from "./argument-realization-practice.js";
 import {
   argumentRealizationPracticeIntentForTicketUnit,
@@ -132,17 +134,29 @@ export interface PreparedFormalSyntaxLexicon {
   readonly index: LexicalProfileIndex;
 }
 
+const preparedLexicons = new WeakMap<readonly CatalogEntry[],
+  WeakMap<readonly RuntimeSyntaxProfile[], PreparedFormalSyntaxLexicon>>();
+
 export function prepareFormalSyntaxLexicon(
   eligibleEntries: readonly CatalogEntry[],
   profiles: readonly RuntimeSyntaxProfile[],
 ): PreparedFormalSyntaxLexicon {
+  let byProfiles = preparedLexicons.get(eligibleEntries);
+  if (byProfiles === undefined) {
+    byProfiles = new WeakMap();
+    preparedLexicons.set(eligibleEntries, byProfiles);
+  }
+  const cached = byProfiles.get(profiles);
+  if (cached !== undefined) return cached;
   const eligibleEntryIds = new Set(eligibleEntries.map((entry) => entry.id));
   const eligibleProfiles = profiles.filter((profile) => eligibleEntryIds.has(profile.entryId));
-  return {
+  const prepared = {
     eligibleEntries,
     profiles,
     index: buildLexicalProfileIndex(eligibleEntries, eligibleProfiles),
   };
+  byProfiles.set(profiles, prepared);
+  return prepared;
 }
 
 function defaultEntryWeight(entry: CatalogEntry): number {
@@ -271,6 +285,20 @@ export function composeFormalSyntaxUtterances(
   const sentenceRules = useProductFamilyPolicy
     ? rules.filter((rule) => rule.output === "Sentence")
     : [];
+  const feasibility = useProductFamilyPolicy && input.lexicalSampling === "written-form"
+    ? prepareFormalSyntaxFeasibility(index, rules, structuralSamplingContext().bounds, minimumLexicalEntries)
+    : null;
+  if (feasibility !== null && !sentenceRules.some(rule => {
+    const family = sentenceConstructionClassification(rule.id)?.family;
+    return family !== undefined && samplingPolicy?.sentenceFamilyWeights[family] !== undefined
+      && feasibility.eligibleRootRuleIds.has(rule.id);
+  })) {
+    return {
+      candidates: [],
+      fallbackReasons: ["formal-syntax-no-lexically-feasible-root"],
+      rootAvailability: feasibility.roots,
+    };
+  }
   let rootFamilySearch: {
     readonly plan: readonly SentenceConstructionFamilyPlan[];
     readonly predicateMarkingPracticeIntent: PredicateMarkingPracticeIntent;
@@ -300,6 +328,7 @@ export function composeFormalSyntaxUtterances(
         sentenceRules,
         input.random,
         samplingPolicy,
+        feasibility?.eligibleRootRuleIds,
       );
       const plan = planSample.plan;
       const predicateMarkingPracticeIntent = predicateMarkingPracticeIntentForTicketUnit(
@@ -485,6 +514,7 @@ export function composeFormalSyntaxUtterances(
         ? {}
         : { requiredProductionRuleIdsAnyOf: argumentRealizationPractice.requiredProductionRuleIdsAnyOf }),
       isLexicalRequirementsReachable: (constituent, requirements) => {
+        if (constituent.formalLiteral !== undefined) return true;
         if (constituent.allowedUpos.length === 1 && constituent.allowedUpos[0] === "PUNCT") return true;
         return compatibleProfilesForRequirements(constituent, requirements, index).length > 0;
       },
@@ -821,5 +851,6 @@ export function composeFormalSyntaxUtterances(
   return {
     candidates: [...candidates.values()],
     fallbackReasons: [...fallbackReasons].sort(),
+    ...(feasibility === null ? {} : { rootAvailability: feasibility.roots }),
   };
 }

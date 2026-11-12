@@ -106,8 +106,10 @@ function parseSelectionState(
 ): FrequencyFirstSelectionState | null {
   if (!isRecord(value)) return null;
   const legacy = allowLegacyPolicy && value.policyVersion === "frequency-first-utterance-v1"
-    && policy.version === "frequency-first-utterance-v2";
-  if (!legacy && value.policyVersion !== policy.version) return null;
+    && (policy.version === "frequency-first-utterance-v2" || policy.version === "frequency-first-utterance-v3");
+  const compatibleV2 = value.policyVersion === "frequency-first-utterance-v2"
+    && policy.version === "frequency-first-utterance-v3";
+  if (!legacy && !compatibleV2 && value.policyVersion !== policy.version) return null;
   const strings = (items: unknown, limit: number): readonly string[] | null =>
     Array.isArray(items) && items.length <= limit && items.every(item => typeof item === "string")
       ? items as string[] : null;

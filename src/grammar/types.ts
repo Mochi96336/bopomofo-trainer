@@ -116,4 +116,5 @@ export interface GrammarCompositionOptions {
 export interface GrammarCompositionResult {
   readonly candidates: readonly GrammarUtteranceCandidate[];
   readonly fallbackReasons: readonly string[];
+  readonly rootAvailability?: readonly { readonly ruleId: string; readonly potentialShapeCount: string }[];
 }

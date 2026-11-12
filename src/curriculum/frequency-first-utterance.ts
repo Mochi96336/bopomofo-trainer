@@ -92,6 +92,7 @@ export interface FrequencyFirstUtteranceSelection {
   readonly acceptance: "accepted" | "bounded-best-effort";
   readonly generationAttempts: number;
   readonly grammarFallbackReasons: readonly string[];
+  readonly rootAvailability?: GrammarCompositionResult["rootAvailability"];
 }
 
 export type FormalSyntaxCompositionOverride = Pick<
@@ -267,6 +268,7 @@ function generateOnce(
   }, preparedFormalSyntaxLexicon, preparedFormalSyntaxExecution?.structuralSamplingContext);
   return {
     candidates: recovery.candidates,
+    ...(recovery.rootAvailability === undefined ? {} : { rootAvailability: recovery.rootAvailability }),
     fallbackReasons: [...new Set([
       ...primary.fallbackReasons,
       "formal-syntax-practice-availability-recovery",
@@ -320,6 +322,7 @@ function selectFormalSyntaxUtteranceFromScoring(
       policyVersion: input.policy.version, utterance: candidate, score,
       acceptance: "accepted", generationAttempts: attempt,
       grammarFallbackReasons: [...fallbackReasons].sort(),
+      ...(generation.rootAvailability === undefined ? {} : { rootAvailability: generation.rootAvailability }),
     };
     if (score.acceptanceProbability === 1 || input.random.next() < score.acceptanceProbability) {
       return selected;

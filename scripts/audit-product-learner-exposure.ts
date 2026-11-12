@@ -85,7 +85,7 @@ const comparisons = cohorts.slice(1).map(cohort => {
 if (comparisons.some(row => row.deltaPer100Syllables <= 0)) {
   throw new Error(`learner weighting did not increase actual target exposure: ${JSON.stringify(comparisons)}`);
 }
-const report = { schemaVersion: "product-learner-exposure-v2", policyVersion: FREQUENCY_FIRST_UTTERANCE_POLICY.version,
+const report = { schemaVersion: "product-learner-exposure-v3", seedNamespace: "selection-exposure-v2", policyVersion: FREQUENCY_FIRST_UTTERANCE_POLICY.version,
   cohorts: cohorts.map(({ identities: _identities, ...cohort }) => cohort), comparisons,
   boundary: "Synthetic recent correctness, identical seeds and legality rules; no human-effectiveness claim." };
 await mkdir(dirname(output), { recursive: true });

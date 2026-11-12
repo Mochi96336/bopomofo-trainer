@@ -8,7 +8,7 @@ import {
   projectNaerActiveCatalogRows,
   type NaerActiveCatalogRowsFile,
 } from "../src/commonness/naer-general-frequency.js";
-import { commonnessTierThresholds } from "../src/commonness/tiers.js";
+import { writtenFormCommonnessTierThresholds } from "../src/commonness/tiers.js";
 import {
   applyCatalogSyntaxLegalityArtifact,
   type CatalogSyntaxLegalityArtifact,
@@ -177,11 +177,7 @@ if (missingTones.length > 0) {
   throw new Error(`practice catalog is missing tones: ${missingTones.join(", ")}`);
 }
 
-const tierThresholds = commonnessTierThresholds(
-  syntaxLegalEntries
-    .map((entry) => entry.commonnessBase?.selectionWeight)
-    .filter((weight): weight is number => weight !== undefined),
-);
+const tierThresholds = writtenFormCommonnessTierThresholds(syntaxLegalEntries);
 
 const outputUrl = new URL("../src/app/generated/", import.meta.url);
 await mkdir(outputUrl, { recursive: true });

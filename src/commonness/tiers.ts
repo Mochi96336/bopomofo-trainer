@@ -65,6 +65,21 @@ export function commonnessTierThresholds(
   ];
 }
 
+/** Frequency belongs to a written form. Reading expansion must not move cuts. */
+export function writtenFormCommonnessTierThresholds(entries: readonly CatalogEntry[]): CommonnessTierThresholds {
+  const weights = new Map<string, number>();
+  for (const entry of entries) {
+    const weight = entry.commonnessBase?.selectionWeight;
+    if (weight === undefined) continue;
+    const previous = weights.get(entry.prompt.text);
+    if (previous !== undefined && previous !== weight) {
+      throw new Error(`conflicting written-form frequency weights: ${entry.prompt.text}`);
+    }
+    weights.set(entry.prompt.text, weight);
+  }
+  return commonnessTierThresholds([...weights.values()]);
+}
+
 export function commonnessTierForWeight(
   weight: number,
   thresholds: CommonnessTierThresholds,
@@ -108,7 +123,7 @@ export function catalogCommonnessTiers(
   if (weights.length === 0) {
     return new Map(entries.map((entry) => [entry.id, COMMONNESS_TIERS[0]!]));
   }
-  const thresholds = commonnessTierThresholds(weights);
+  const thresholds = writtenFormCommonnessTierThresholds(entries);
   return new Map(entries.map((entry) => [
     entry.id,
     catalogEntryCommonnessTier(entry, thresholds) ?? rarest,
