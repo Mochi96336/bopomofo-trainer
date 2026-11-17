@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { PRACTICE_CATALOG, SYNTAX_PROFILES, COMMONNESS_TIER_THRESHOLDS } from "../../src/app/generated/catalog.js";
-import { COMMONNESS_TIERS } from "../../src/commonness/tiers.js";
 import { updateFrequencyFirstSelectionState } from "../../src/curriculum/frequency-first-utterance.js";
 import { catalogsForCommonnessTiers } from "../../src/product/commonness-access.js";
 import { createProductEnvironment, createFreshProgressForEnvironment, createProductState } from "../../src/product/session.js";
