@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
-"""Batch-project pinned MOE exact word+reading source evidence for ALL pending groups.
+"""Batch-pin MOE exact headword+reading IDs across all unresolved polyphones.
 
-This is a source-indexing pipeline, NOT a pronunciation inference algorithm.
-It does not classify meaning, infer reading from unlabeled UD, or approve usage.
+STRICTLY NO SENSE DATA: the source reader explicitly sets include_definition=False.
+Only headword, reading, source row ID and source archive checksums are retained.
 
-Example (strict pinned downloads required):
-  npm run readings:bulk-syntax-triage -- --output /tmp/syntax-triage.json
-  python scripts/project-polyphone-reading-source-batch.py \
-    --queue /tmp/syntax-triage.json --scope tier1 \
-    --concised /path/to/pinned_concised.zip \
-    --revised /path/to/pinned_revised.zip \
-    --public-output /tmp/tier1-source-evidence.json \
-    --private-output data/external/moe/polyphone/tier1-private.json
+Usage (requires locally downloaded, SHA-256-pinned MOE ZIP archives):
+  npm run readings:bulk-syntax-triage -- --output bulk-syntax-evidence-triage.json
+  npm run readings:source-batch -- \
+    --queue bulk-syntax-evidence-triage.json --scope tier1 \
+    --concised /path/to/moe-concised.zip --revised /path/to/moe-revised.zip \
+    --output tier1-reading-source-ids.json
 
-Only public metadata (dictionary entry IDs, row numbers, SHA-256 of definitions)
-may be published. Definitions are confined to the ignored private path.
+No dictionary presence/absence is allowed to make a generated reading legal.
 """
 from __future__ import annotations
 
@@ -29,11 +26,11 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def _sense_adapter() -> ModuleType:
+def _strict_sources() -> ModuleType:
     path = ROOT / "scripts" / "project-moe-sense-evidence.py"
-    spec = importlib.util.spec_from_file_location("moe_source_bulk_adapter", path)
+    spec = importlib.util.spec_from_file_location("moe_pinned_source_loader", path)
     if spec is None or spec.loader is None:
-        raise RuntimeError("cannot load strict pinned MOE source adapter")
+        raise RuntimeError("cannot load pinned MOE source adapters")
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
     spec.loader.exec_module(module)
@@ -42,52 +39,119 @@ def _sense_adapter() -> ModuleType:
 
 def targets_from_bulk_triage(root: Any, scope: str) -> list[dict[str, Any]]:
     if scope not in ("full", "tier1"):
-        raise ValueError("unsupported bulk source scope")
+        raise ValueError("unsupported polyphone scope")
     if not isinstance(root, dict) or root.get("version") != "bulk-syntax-evidence-triage-v1":
-        raise ValueError("expected independently generated full-population triage v1")
+        raise ValueError("expected generated syntax-evidence triage v1")
     selected = root.get(scope)
     if not isinstance(selected, dict) or selected.get("scope") != ("all" if scope == "full" else scope):
-        raise ValueError("bulk triage scope does not match request")
+        raise ValueError("bulk syntax-evidence triage scope mismatch")
     rows = selected.get("rows")
     if not isinstance(rows, list) or not rows:
-        raise ValueError("missing or empty polyphonic group inventory")
+        raise ValueError("empty source target inventory")
     grouped: dict[str, dict[str, Any]] = {}
-    seen_word_upos: set[tuple[str, str]] = set()
+    seen_groups: set[tuple[str, str]] = set()
     for row in rows:
         if not isinstance(row, dict):
-            raise ValueError("invalid polyphonic word/UPOS row")
+            raise ValueError("invalid word/UPOS row")
         word, upos, ids = row.get("word"), row.get("upos"), row.get("readingEntryIds")
-        if not isinstance(word, str) or not word or not isinstance(upos, str):
-            raise ValueError("bad word/UPOS identity")
+        if not isinstance(word, str) or not word or not isinstance(upos, str) or not upos:
+            raise ValueError("invalid word/UPOS")
         if not isinstance(ids, list) or len(ids) < 2 or len(set(ids)) != len(ids):
-            raise ValueError("a polyphonic group must contain >=2 distinct readings")
-        if (word, upos) in seen_word_upos:
-            raise ValueError("duplicate word/UPOS group")
-        seen_word_upos.add((word, upos))
+            raise ValueError("invalid same-word reading collision")
+        if (word, upos) in seen_groups:
+            raise ValueError("duplicate source word/UPOS group")
+        seen_groups.add((word, upos))
         for entry_id in ids:
             if not isinstance(entry_id, str) or not entry_id.startswith(f"word:{word}:"):
-                raise ValueError("reading ID does not match exact written form")
+                raise ValueError("wrong exact catalog word/reading ID")
             reading = entry_id[len(f"word:{word}:"):].replace("-", " ")
-            if not reading or not all(
-                token.startswith("ㄅ") or token[0] in "ㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄧㄨㄩ"
-                for token in reading.split()
+            if not reading or any(
+                not segment.startswith("ㄅ") and segment[0] not in
+                "ㄆㄇㄈㄉㄊㄋㄌㄍㄎㄏㄐㄑㄒㄓㄔㄕㄖㄗㄘㄙㄧㄨㄩ"
+                for segment in reading.split()
             ):
-                raise ValueError("unexpected trainer reading encoding")
-            value = grouped.setdefault(entry_id, {
+                raise ValueError("unsupported reading encoding")
+            item = grouped.setdefault(entry_id, {
                 "text": word,
                 "reading": reading,
                 "entryId": entry_id,
                 "activeUposes": [],
             })
-            if upos not in value["activeUposes"]:
-                value["activeUposes"].append(upos)
+            if upos not in item["activeUposes"]:
+                item["activeUposes"].append(upos)
+    if len(seen_groups) != selected.get("blockedWordUposGroups"):
+        raise ValueError("group count mismatch: regenerate source triage")
     result = list(grouped.values())
     for item in result:
         item["activeUposes"].sort()
-    result.sort(key=lambda x: x["entryId"])
-    if selected.get("blockedWordUposGroups") != len(seen_word_upos):
-        raise ValueError("bulk inventory count mismatch; regenerate triage")
-    return result
+    return sorted(result, key=lambda value: value["entryId"])
+
+
+def match_source_rows(
+    adapter: ModuleType,
+    archive: Path,
+    target_texts: set[str],
+) -> tuple[str, dict[str, list[dict[str, Any]]]]:
+    # This is a *hard* boundary: do not read, copy, hash or interpret definitions.
+    checksum, matched, _total, _scoped = adapter.read_source_rows(
+        archive, target_texts, include_definition=False,
+    )
+    index: dict[str, list[dict[str, Any]]] = {}
+    for text in target_texts:
+        for row in matched.get(text, []):
+            if not row.source_bopomofo:
+                continue
+            try:
+                reading = adapter.trainer_reading(row.source_bopomofo)
+            except ValueError:
+                continue
+            entry_id = f"word:{text}:{reading.replace(' ', '-')}"
+            index.setdefault(entry_id, []).append({
+                "sourceEntryId": row.source_entry_id,
+                "sourcePhysicalRow": row.physical_row_number,
+                "multiReadingOrder": row.multi_reading_order,
+            })
+    return checksum, index
+
+
+def build_source_report(
+    scope: str,
+    groups: int,
+    targets: list[dict[str, Any]],
+    source_archives: list[dict[str, str]],
+    indexes: dict[str, dict[str, list[dict[str, Any]]]],
+) -> dict[str, Any]:
+    rows = []
+    statuses: dict[str, int] = {}
+    for target in targets:
+        by_source = {
+            kind: sorted(indexes[kind].get(target["entryId"], []),
+                         key=lambda item: (item["sourceEntryId"], item["sourcePhysicalRow"]))
+            for kind in sorted(indexes)
+        }
+        counts = [len(items) for items in by_source.values()]
+        status = (
+            "no-exact-word-reading-source-row" if sum(counts) == 0
+            else "multiple-source-rows-same-reading" if any(n > 1 for n in counts)
+            else "both-dictionaries-exact-reading" if all(n == 1 for n in counts)
+            else "one-dictionary-exact-reading"
+        )
+        statuses[status] = statuses.get(status, 0) + 1
+        rows.append({**target, "sourceMatchStatus": status,
+                     "sourceRowsByDictionary": by_source,
+                     "readingRoleReview": "unreviewed",
+                     "usableAsProductRule": False})
+    return {
+        "schemaVersion": "moe-polyphone-reading-source-batch-v1",
+        "scope": scope,
+        "wordUposGroups": groups,
+        "distinctWrittenForms": len(set(target["text"] for target in targets)),
+        "distinctReadingIdentities": len(targets),
+        "sourceArchives": source_archives,
+        "sourceMatchStatusCounts": dict(sorted(statuses.items())),
+        "policy": "dictionary headword reading only, not sentence pronunciation or source POS proof",
+        "rows": rows,
+    }
 
 
 def main() -> None:
@@ -97,48 +161,31 @@ def main() -> None:
     parser.add_argument("--edition", choices=("202606", "20260929"), default="202606")
     parser.add_argument("--concised", type=Path, required=True)
     parser.add_argument("--revised", type=Path, required=True)
-    parser.add_argument("--public-output", type=Path, required=True)
-    parser.add_argument(
-        "--private-output", type=Path,
-        default=ROOT / "data/external/moe/polyphone/private-evidence.json",
-    )
+    parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    adapter = _sense_adapter()
-    adapter.validate_output_paths(args.public_output, args.private_output)
     manifest = json.loads(args.queue.read_text(encoding="utf-8"))
     targets = targets_from_bulk_triage(manifest, args.scope)
-    texts = {row["text"] for row in targets}
+    source_adapters = _strict_sources()
+    texts = set(target["text"] for target in targets)
     sources = []
-    for name, archive in (("concised", args.concised), ("revised", args.revised)):
-        pinned = adapter.load_adapter(name, args.edition)
-        checksum, matched = adapter.source_candidates(pinned, name, archive, texts)
-        sources.append(("moe-" + name, checksum, matched))
-    public, private = adapter.project_evidence(targets, sources, edition=args.edition)
-    public["schemaVersion"] = "moe-polyphone-reading-source-batch-v1"
-    private["schemaVersion"] = "moe-polyphone-reading-source-batch-v1"
-    for doc in (public, private):
-        doc["purpose"] = (
-            "Exact word+reading official source rows for all selected polyphonic identities; "
-            "no sense/UPOS/grammar confirmation and no automatic product licenses"
-        )
-        doc["scope"] = args.scope
-        doc["wordUposGroups"] = manifest[args.scope]["blockedWordUposGroups"]
-        doc["distinctWrittenForms"] = len(texts)
-        doc["distinctReadingIdentities"] = len(targets)
-    for path, content in ((args.public_output, public), (args.private_output, private)):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(content,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+    indexes: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    for kind, archive in (("concised", args.concised), ("revised", args.revised)):
+        adapter = source_adapters.load_adapter(kind, args.edition)
+        checksum, index = match_source_rows(adapter, archive, texts)
+        sources.append({"kind":kind, "archiveSha256": checksum,
+                        "sourceVersion": adapter.SOURCE_VERSION})
+        indexes[kind] = index
+    report = build_source_report(
+        args.scope, manifest[args.scope]["blockedWordUposGroups"], targets, sources, indexes)
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
     print(json.dumps({
-        "schemaVersion": public["schemaVersion"],
-        "scope": args.scope,
-        "wordUposGroups": public["wordUposGroups"],
-        "distinctWrittenForms":len(texts),
-        "distinctReadingIdentities":len(targets),
-        "sourceMatchedStatusCounts":public["matchCounts"],
-        "publicOutput":str(args.public_output),
-        "privateOutput":str(args.private_output),
-        "interpretation":"source row IDs only; every role/reading application remains unreviewed",
-    },ensure_ascii=False,indent=2))
+        "output":str(args.output), "scope":args.scope,
+        "groups":report["wordUposGroups"],
+        "readingIdentities":report["distinctReadingIdentities"],
+        "sourceMatchStatusCounts":report["sourceMatchStatusCounts"],
+        "safety":"source ID matching only; never enables training labels",
+    }, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
