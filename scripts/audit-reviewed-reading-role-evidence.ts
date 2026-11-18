@@ -17,6 +17,7 @@ import type { RuntimeSyntaxProfile } from "../src/syntax/types.js";
  *   npx tsx scripts/audit-reviewed-reading-role-evidence.ts
  *   npx tsx scripts/audit-reviewed-reading-role-evidence.ts --manifest path/to/reviewed.json
  *   npx tsx scripts/audit-reviewed-reading-role-evidence.ts --output /tmp/report.json
+ * The optional output contains every remaining conflict group's exact reading IDs.
  *
  * No UD reading labels inferred; no source corpus, app catalog or product
  * policy is mutated. A role is a candidate for safe restoration, not a
@@ -47,10 +48,18 @@ function staticallyAbstainedGroups(entries:readonly CatalogEntry[],profiles:read
     const key=JSON.stringify([e.prompt.text,p.upos]);
     byGroup.set(key,[...(byGroup.get(key)??[]),p]);
   }
-  return new Set([...byGroup].filter(([,ps])=>
+  return new Map([...byGroup].filter(([,ps])=>
     new Set(ps.map(p=>p.entryId)).size>1
       && PRODUCT_READING_POLICY.readingFrontierFilter(ps,byId).length===0
-  ).map(([key])=>key));
+  ).map(([key,profiles])=>{
+    const [word,upos]=JSON.parse(key) as [string,string];
+    return [key,{
+      word, upos,
+      readingEntryIds:[...new Set(profiles.map(p=>p.entryId))].sort(),
+      sharedSourceFunctions:[...new Set(profiles.flatMap(p=>p.functions))].sort(),
+      evidenceStatus:"unreviewed-reading-role" as const,
+    }] as const;
+  }));
 }
 
 const args=parseArgs(process.argv.slice(2));
@@ -65,6 +74,7 @@ for(const row of manifest.rows) {
 const fullProjection=compileReviewedReadingRoleProfiles(
   PRACTICE_CATALOG,SYNTAX_PROFILES,manifest);
 const scopes = [];
+const pendingByScope = [];
 for (const scope of ["all","tier1","tier2","tier3","tier4"] as const) {
   const tiers={tier1:1,tier2:2,tier3:3,tier4:4} as const;
   const data=scope==="all" ? whole
@@ -76,6 +86,11 @@ for (const scope of ["all","tier1","tier2","tier3","tier4"] as const) {
         data.practice,data.syntaxProfiles,{...manifest,rows});
   const blocked=staticallyAbstainedGroups(data.practice,data.syntaxProfiles);
   const covered=rows.filter(row=>blocked.has(JSON.stringify([row.word,row.upos])));
+  const coveredKeys=new Set(covered.map(row=>JSON.stringify([row.word,row.upos])));
+  const pending=[...blocked].filter(([key])=>!coveredKeys.has(key))
+    .map(([,data])=>data)
+    .sort((a,b)=>a.word.localeCompare(b.word,"zh-Hant")||a.upos.localeCompare(b.upos));
+  pendingByScope.push({scope,unreviewedGroups:pending});
   scopes.push({
     scope,
     catalogEntries:data.practice.length,
@@ -98,6 +113,9 @@ const report = {
   addedProfiles:fullProjection.report.addedSourceRoleProfiles,
   scopes,
 };
-const serialized=JSON.stringify(report,null,2)+"\n";
-if(args.output!==null)await writeFile(args.output,serialized,"utf8");
+// --output additionally writes an exact review queue, not merely a group count.
+// The queue is pending evidence work; never feed it into the production gate.
+if(args.output!==null){
+  await writeFile(args.output,JSON.stringify({...report,pendingByScope},null,2)+"\n","utf8");
+}
 console.log("READING_ROLE_BATCH_PIPELINE_JSON "+JSON.stringify(report));
