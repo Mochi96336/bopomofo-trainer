@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "reviewed-reading-role-evidence-v1",
+  "purpose": "reviewed pronunciation-specific syntactic-role evidence; no automatic pronunciation labels from UD or inferred sense",
+  "rows": [
+    {
+      "word": "句",
+      "reading": "ㄐㄩ4",
+      "entryId": "word:句:ㄐㄩ4",
+      "upos": "NOUN",
+      "role": "classifier",
+      "contextGate": "numeric-classifier-v1",
+      "evidence": {
+        "authority": "moe-revised-2021",
+        "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=6055",
+        "kind": "dictionary-lexical-role-only",
+        "reviewStatus": "role-reading-reviewed"
+      }
+    },
+    {
+      "word": "間",
+      "reading": "ㄐㄧㄢ1",
+      "entryId": "word:間:ㄐㄧㄢ1",
+      "upos": "NOUN",
+      "role": "classifier",
+      "contextGate": "numeric-classifier-v1",
+      "evidence": {
+        "authority": "moe-revised-2021",
+        "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=5765",
+        "kind": "dictionary-lexical-role-only",
+        "reviewStatus": "role-reading-reviewed"
+      }
+    },
+    {
+      "word": "把",
+      "reading": "ㄅㄚ3",
+      "entryId": "word:把:ㄅㄚ3",
+      "upos": "NOUN",
+      "role": "classifier",
+      "contextGate": "numeric-classifier-v1",
+      "evidence": {
+        "authority": "moe-revised-2021",
+        "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=23",
+        "kind": "dictionary-lexical-role-only",
+        "reviewStatus": "role-reading-reviewed"
+      }
+    },
+    {
+      "word": "尺",
+      "reading": "ㄔ3",
+      "entryId": "word:尺:ㄔ3",
+      "upos": "NOUN",
+      "role": "classifier",
+      "contextGate": "numeric-classifier-v1",
+      "evidence": {
+        "authority": "moe-revised-2021",
+        "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=8217",
+        "kind": "dictionary-lexical-role-only",
+        "reviewStatus": "role-reading-reviewed"
+      }
+    },
+    {
+      "word": "曲",
+      "reading": "ㄑㄩ3",
+      "entryId": "word:曲:ㄑㄩ3",
+      "upos": "NOUN",
+      "role": "classifier",
+      "contextGate": "numeric-classifier-v1",
+      "evidence": {
+        "authority": "moe-revised-2021",
+        "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=6661",
+        "kind": "dictionary-lexical-role-only",
+        "reviewStatus": "role-reading-reviewed"
+      }
+    },
+    {
+      "word": "號",
+      "reading": "ㄏㄠ4",
+      "entryId": "word:號:ㄏㄠ4",
+      "upos": "NOUN",
+      "role": "classifier",
+      "contextGate": "numeric-classifier-v1",
+      "evidence": {
+        "authority": "moe-revised-2021",
+        "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=4827",
+        "kind": "dictionary-lexical-role-only",
+        "reviewStatus": "role-reading-reviewed"
+      }
+    }
+  ]
+}
