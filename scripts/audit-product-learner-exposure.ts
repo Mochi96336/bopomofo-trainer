@@ -5,6 +5,7 @@ import { FREQUENCY_FIRST_UTTERANCE_POLICY } from "../src/curriculum/selection-po
 import { bindingAggregateKey } from "../src/measurement-v2/aggregate.js";
 import { createProductEnvironment, createFreshProgressForEnvironment, createProductState } from "../src/product/session.js";
 import { PRODUCT_READING_POLICY } from "../src/readings/product-reading-policy.js";
+import { READING_ABSTENTION_POLICY } from "../src/readings/reading-frontier.js";
 
 /** Matched fresh-user deliveries, with synthetic evidence only at the adaptation seam. */
 const samples = Number(process.argv[2] ?? 256);
@@ -85,7 +86,8 @@ const comparisons = cohorts.slice(1).map(cohort => {
 if (comparisons.some(row => row.deltaPer100Syllables <= 0)) {
   throw new Error(`learner weighting did not increase actual target exposure: ${JSON.stringify(comparisons)}`);
 }
-const report = { schemaVersion: "product-learner-exposure-v2", policyVersion: FREQUENCY_FIRST_UTTERANCE_POLICY.version,
+const report = { schemaVersion: "product-learner-exposure-v3", seedNamespace: "selection-exposure-v2",
+  readingAbstention: READING_ABSTENTION_POLICY, policyVersion: FREQUENCY_FIRST_UTTERANCE_POLICY.version,
   cohorts: cohorts.map(({ identities: _identities, ...cohort }) => cohort), comparisons,
   boundary: "Synthetic recent correctness, identical seeds and legality rules; no human-effectiveness claim." };
 await mkdir(dirname(output), { recursive: true });

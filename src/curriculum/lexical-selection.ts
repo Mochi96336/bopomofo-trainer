@@ -40,8 +40,10 @@ function unit(random: RandomSource): number {
 
 /**
  * A written form owns one ticket, regardless of its number of readings/profiles.
- * Its strongest eligible reading determines that ticket's weight. Conditional
- * reading weights divide the ticket; profile multiplicity never creates mass.
+ * Its ticket weight is the expectation of reading weights under the declared
+ * uniform licensed-reading training prior. Conditional reading weights divide
+ * the ticket. Thus the joint slot mass is proportional to F(text) * prior(reading)
+ * * learnerBoost(reading), rather than an unrelated maximum aggregation.
  * The residual of the text draw is uniform inside its interval and can select
  * the reading without an extra RNG draw. This also preserves the one-reading
  * path's draw count. All legality filters must precede this function.
@@ -79,8 +81,8 @@ export function selectLexicalProfile(input: {
       const identity = input.sampling === "written-form" ? entry.prompt.text : entry.id;
       const text = texts.get(identity) ?? { identity, readings: [], weight: 0, readingWeight: 0 };
       text.readings.push({ group, weight });
-      text.weight = Math.max(text.weight, weight);
       text.readingWeight += weight;
+      text.weight = text.readingWeight / text.readings.length;
       texts.set(identity, text);
     }
     tickets = [...texts.values()];

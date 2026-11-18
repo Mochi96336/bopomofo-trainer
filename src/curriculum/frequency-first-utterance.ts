@@ -92,6 +92,7 @@ export interface FrequencyFirstUtteranceSelection {
   readonly acceptance: "accepted" | "bounded-best-effort";
   readonly generationAttempts: number;
   readonly grammarFallbackReasons: readonly string[];
+  readonly rootAvailability?: GrammarCompositionResult["rootAvailability"];
 }
 
 export type FormalSyntaxCompositionOverride = Pick<
@@ -109,6 +110,7 @@ export interface FormalSyntaxUtteranceSelectionInput
   extends FrequencyFirstScoringEvidenceInput {
   readonly random: RandomSource;
   readonly profiles: readonly RuntimeSyntaxProfile[];
+  readonly readingFrontierFilter?: FormalSyntaxUtteranceInput["readingFrontierFilter"];
   /** Optional reading permission policy, independent of research/grammar overrides. */
   readonly readingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
   readonly preDrawReadingEligibility?: FormalSyntaxUtteranceInput["preDrawReadingEligibility"];
@@ -237,6 +239,7 @@ function generateOnce(
     profiles: input.profiles,
     random: input.random,
     ...(useStaticFormalEntryWeight ? {} : { entryWeight }),
+    ...(input.readingFrontierFilter === undefined ? {} : { readingFrontierFilter: input.readingFrontierFilter }),
     ...(input.readingEligibility === undefined ? {} : { readingEligibility: input.readingEligibility }),
     ...(input.preDrawReadingEligibility === undefined ? {} : { preDrawReadingEligibility: input.preDrawReadingEligibility }),
     ...(input.finalCandidateReadingEligibility === undefined
@@ -267,6 +270,7 @@ function generateOnce(
   }, preparedFormalSyntaxLexicon, preparedFormalSyntaxExecution?.structuralSamplingContext);
   return {
     candidates: recovery.candidates,
+    ...(recovery.rootAvailability === undefined ? {} : { rootAvailability: recovery.rootAvailability }),
     fallbackReasons: [...new Set([
       ...primary.fallbackReasons,
       "formal-syntax-practice-availability-recovery",
@@ -320,6 +324,7 @@ function selectFormalSyntaxUtteranceFromScoring(
       policyVersion: input.policy.version, utterance: candidate, score,
       acceptance: "accepted", generationAttempts: attempt,
       grammarFallbackReasons: [...fallbackReasons].sort(),
+      ...(generation.rootAvailability === undefined ? {} : { rootAvailability: generation.rootAvailability }),
     };
     if (score.acceptanceProbability === 1 || input.random.next() < score.acceptanceProbability) {
       return selected;

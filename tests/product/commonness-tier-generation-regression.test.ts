@@ -116,7 +116,7 @@ describe("commonness-tier product generation", () => {
   it.each([
     { tier: 2 as const, index: 58 },
     { tier: 4 as const, index: 11 },
-  ])("recovers the known exhausted seed in tier $tier", ({ tier, index }) => {
+  ])("generates within the selected tier at formerly exhausted seeds in tier $tier", ({ tier, index }) => {
     const narrowed = catalogsForCommonnessTiers(
       wholeCatalogs,
       COMMONNESS_TIER_THRESHOLDS,
@@ -148,15 +148,14 @@ describe("commonness-tier product generation", () => {
       preparedFormalSyntaxExecution: environment.preparedPracticeFormalSyntaxExecution,
       random: createSeededRandom(seed + ":practice:0"),
     });
-    expect(selection.grammarFallbackReasons).toContain(
-      "formal-syntax-practice-availability-recovery",
-    );
+    expect(selection.rootAvailability?.find(root => root.ruleId === "sentence.exclamative")?.potentialShapeCount).toBe("0");
+    expect(selection.generationAttempts).toBeLessThanOrEqual(environment.utterancePolicy.maximumCandidateDraws);
     expect(selection.utterance.entries.every((entry) =>
       environment.catalogs.practice.some((candidate) => candidate.id === entry.id),
     )).toBe(true);
   });
 
-  it("completes the recovered tier-4 round and advances learner state normally", () => {
+  it("completes a tier-4 round and advances learner state normally", () => {
     const narrowed = catalogsForCommonnessTiers(
       wholeCatalogs,
       COMMONNESS_TIER_THRESHOLDS,
@@ -170,9 +169,7 @@ describe("commonness-tier product generation", () => {
       "standard",
     );
     const initial = createProductState(environment, progress, 0);
-    expect(initial.round.selection.grammarFallbackReasons).toContain(
-      "formal-syntax-practice-availability-recovery",
-    );
+    expect(initial.round.selection.rootAvailability?.length).toBeGreaterThan(0);
 
     let current = initial;
     let timestampMs = 0;

@@ -2,6 +2,7 @@ import type { CatalogEntry, PracticeMode, TokenId } from "../core/model.js";
 import type { GrammarUtteranceCandidate } from "../grammar/types.js";
 import { catalogEntryFrequencyWeight } from "../commonness/catalog-projection.js";
 import { quantile } from "../measurement-v2/selection-evidence.js";
+import { READING_ALLOCATION_POLICY } from "./reading-allocation.js";
 import { clauseConstructionClassification, sentenceConstructionClassification } from "./formal-syntax-taxonomy.js";
 import type { LearnerBindingEvidence } from "./types.js";
 import type { FrequencyFirstUtterancePolicy } from "./selection-policy.js";
@@ -53,6 +54,7 @@ export interface UtteranceCandidateScore {
  * No aggregate frequency score is presented as a sentence probability.
  */
 export interface HierarchicalUtteranceScore {
+  readonly readingAllocationPolicy: typeof READING_ALLOCATION_POLICY;
   readonly entryIds: readonly string[];
   readonly entries: readonly EntrySelectionScore[];
   readonly constructionId: string | null;
@@ -356,6 +358,7 @@ export function scoreHierarchicalCandidate(
   const keystrokes = candidate.entries.reduce((sum, entry) => sum + entry.syllables.reduce((n, syllable) => n + syllable.tokens.length, 0), 0);
   const burdenFactor = Math.min(1, input.policy.preferredSyllables / syllables, input.policy.preferredKeystrokes / keystrokes);
   return {
+    readingAllocationPolicy: READING_ALLOCATION_POLICY,
     entryIds: candidate.entries.map(entry => entry.id),
     entries: candidate.entries.map(entry => scoreEntry(entry, input)),
     constructionId, rootFamilyId: rootFamilyIdentity(candidate), syllables, keystrokes,

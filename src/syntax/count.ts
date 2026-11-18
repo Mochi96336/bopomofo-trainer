@@ -5,6 +5,7 @@ import {
 } from "./derivation-limits.js";
 import { DEFAULT_DERIVATION_BOUNDS } from "./features.js";
 import { presenceConstraintsSatisfied } from "./presence-constraints.js";
+import { EMPTY_SYNTAX_REQUIREMENTS, requirementsForConstituent, type SyntaxRequirements } from "./requirements.js";
 import type { NestedProductionTarget } from "./sample.js";
 import type {
   DerivationBounds,
@@ -17,6 +18,13 @@ import { assertValidGrammar } from "./validate.js";
 
 export interface StructuralDerivationCountOptions {
   readonly rootCategory: SyntaxCategory;
+  /** Optional lexical-inventory constraint. Positive counts are potential shapes,
+   * not a proof of joint reading/binding/uniqueness realizability. */
+  readonly isLexicalRequirementsReachable?: (
+    constituent: ProductionConstituent,
+    requirements: SyntaxRequirements,
+  ) => boolean;
+  readonly minimumPracticeLexicalEntries?: number;
   readonly rules: readonly ProductionRule[];
   readonly bounds?: DerivationBounds;
   /** Count only derivations rooted at this production. */
@@ -30,6 +38,7 @@ interface BudgetState {
   readonly remainingClauseDepth: number;
   readonly clauseCount: number;
   readonly lexicalCount: number;
+  readonly practiceLexicalCount: number;
 }
 
 interface CountResult {
@@ -52,6 +61,7 @@ function stateKey(state: BudgetState): string {
     state.remainingClauseDepth,
     state.clauseCount,
     state.lexicalCount,
+    state.practiceLexicalCount,
   ].join(":");
 }
 
@@ -191,14 +201,21 @@ function validatedNestedProductionTargets(
   return targets;
 }
 
-export function countStructuralDerivationShapes(
+export interface PreparedStructuralDerivationCounter {
+  readonly count: (rootProductionRuleId?: string) => string;
+}
+
+export function prepareStructuralDerivationCounter(
   options: StructuralDerivationCountOptions,
-): string {
+): PreparedStructuralDerivationCounter {
   const bounds = options.bounds ?? DEFAULT_DERIVATION_BOUNDS;
   assertValidGrammar(options.rules, bounds);
-  const requestedRootRuleId = validatedRootRuleId(options);
+  const minimumPractice = options.minimumPracticeLexicalEntries ?? 0;
+  if (!Number.isInteger(minimumPractice) || minimumPractice < 0) {
+    throw new RangeError("minimumPracticeLexicalEntries must be a non-negative integer");
+  }
   const nestedProductionTargets = validatedNestedProductionTargets(options, bounds);
-  const targeted = requestedRootRuleId !== undefined || nestedProductionTargets.size > 0;
+
   const rulesByOutput = buildRulesByOutput(options.rules);
   const memo = new Map<string, readonly CountResult[]>();
   const active = new Set<string>();
@@ -207,6 +224,7 @@ export function countStructuralDerivationShapes(
     category: SyntaxCategory,
     inputState: BudgetState,
     excludedRuleClasses: ReadonlySet<ProductionRuleClass>,
+    requirements: SyntaxRequirements,
     requestedProductionRuleId?: string,
   ): readonly CountResult[] => {
     let state = inputState;
@@ -215,7 +233,8 @@ export function countStructuralDerivationShapes(
       state = { ...state, clauseCount: state.clauseCount + 1 };
     }
     const baseKey = `${category}|${stateKey(state)}|${excludedKey(excludedRuleClasses)}`;
-    const key = targeted ? `${baseKey}|${requestedProductionRuleId ?? "*"}` : baseKey;
+    const key = `${baseKey}|${requestedProductionRuleId ?? "*"}`
+      + (options.isLexicalRequirementsReachable === undefined ? "" : `|${JSON.stringify(requirements)}`);
     const cached = memo.get(key);
     if (cached !== undefined) return cached;
     if (active.has(key)) {
@@ -225,7 +244,7 @@ export function countStructuralDerivationShapes(
     const output = new Map<string, CountResult>();
     const allowedRules = (rulesByOutput.get(category) ?? [])
       .filter((rule) => ruleAllowedByDerivationBounds(rule, bounds, excludedRuleClasses));
-    const candidateRules = targeted && requestedProductionRuleId !== undefined
+    const candidateRules = requestedProductionRuleId !== undefined
       ? allowedRules.filter((rule) => rule.id === requestedProductionRuleId)
       : allowedRules;
     for (const rule of candidateRules) {
@@ -256,22 +275,20 @@ export function countStructuralDerivationShapes(
               for (const current of partial.values()) {
                 const afterDepth = decrementForRecursiveEdge(current.state, constituent);
                 if (afterDepth === null) continue;
+                const childRequirements = options.isLexicalRequirementsReachable === undefined
+                  ? EMPTY_SYNTAX_REQUIREMENTS : requirementsForConstituent(constituent, requirements);
+                if (childRequirements === null) continue;
                 if (constituent.category === "Lexeme") {
+                  if (options.isLexicalRequirementsReachable !== undefined
+                    && !options.isLexicalRequirementsReachable(constituent, childRequirements)) continue;
                   if (afterDepth.lexicalCount >= bounds.maximumLexicalEntriesPerUtterance) continue;
                   mergeCount(next, {
                     ...afterDepth,
                     lexicalCount: afterDepth.lexicalCount + 1,
+                    practiceLexicalCount: Math.min(minimumPractice,
+                      afterDepth.practiceLexicalCount + Number(constituent.formalLiteral === undefined
+                        && !(constituent.allowedUpos.length === 1 && constituent.allowedUpos[0] === "PUNCT"))),
                   }, current.count);
-                  continue;
-                }
-                if (!targeted) {
-                  for (const child of countCategory(
-                    constituent.category,
-                    afterDepth,
-                    excludedClassesForConstituent(constituent),
-                  )) {
-                    mergeCount(next, child.state, current.count * child.count);
-                  }
                   continue;
                 }
                 const requestedChildRuleId = nestedProductionTargets.get(
@@ -281,6 +298,7 @@ export function countStructuralDerivationShapes(
                   constituent.category,
                   afterDepth,
                   excludedClassesForConstituent(constituent),
+                  childRequirements,
                   requestedChildRuleId,
                 )) {
                   mergeCount(next, child.state, current.count * child.count);
@@ -301,16 +319,21 @@ export function countStructuralDerivationShapes(
     return result;
   };
 
-  const initial: BudgetState = {
-    remainingPhraseDepth: bounds.maximumPhraseDepth,
-    remainingClauseDepth: bounds.maximumClauseNesting,
-    clauseCount: 0,
-    lexicalCount: 0,
+  return {
+    count: (rootProductionRuleId = options.rootProductionRuleId) => {
+      const requestedRootRuleId = rootProductionRuleId === undefined ? undefined
+        : validatedRootRuleId({ ...options, rootProductionRuleId });
+      const results = countCategory(options.rootCategory, {
+        remainingPhraseDepth: bounds.maximumPhraseDepth,
+        remainingClauseDepth: bounds.maximumClauseNesting,
+        clauseCount: 0, lexicalCount: 0, practiceLexicalCount: 0,
+      }, new Set(), EMPTY_SYNTAX_REQUIREMENTS, requestedRootRuleId);
+      return results.filter(result => result.state.practiceLexicalCount >= minimumPractice)
+        .reduce((sum, item) => sum + item.count, 0n).toString(10);
+    },
   };
-  const results = targeted
-    ? countCategory(options.rootCategory, initial, new Set(), requestedRootRuleId)
-    : countCategory(options.rootCategory, initial, new Set());
-  return results
-    .reduce((sum, item) => sum + item.count, 0n)
-    .toString(10);
+}
+
+export function countStructuralDerivationShapes(options: StructuralDerivationCountOptions): string {
+  return prepareStructuralDerivationCounter(options).count();
 }

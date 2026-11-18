@@ -56,6 +56,27 @@ function summary() {
 }
 
 describe("product progress codec", () => {
+  it("migrates selection v2 preserving nonempty recency and measurement evidence", () => {
+    const fresh = createProgress();
+    const scope = { mode: "guided" as const, layoutId: "standard", tokenId: PRACTICE[0]!.syllables[0]!.tokens[0]! };
+    const current = {
+      ...fresh, practiceRoundsCompleted: 12, recentSummaries: [summary()],
+      measurements: { ...fresh.measurements, semantic: { ...fresh.measurements.semantic,
+        bindings: { [bindingAggregateKey(scope)]: { scope, attempts: 4, errors: 1,
+          timingSamples: 0, currentTimeToTypeMs: null, bestTimeToTypeMs: null,
+          selectionEvidence: { correctness: [true, false, true, true], timingMs: [] } } },
+      } },
+      selection: { ...fresh.selection, recentEntryIds: [PRACTICE[0]!.id],
+        recentWrittenForms: [PRACTICE[0]!.prompt.text], recentUtteranceIds: ["visible-sequence"],
+        recentConstructionIds: ["statement.declarative|core.transitive"] },
+    };
+    const migrated = parse(JSON.stringify({ ...current, selection: {
+      ...current.selection, policyVersion: "frequency-first-utterance-v2",
+    } }));
+    expect(migrated).toEqual(current);
+    expect(parse(serializeProductProgress(migrated!))).toEqual(current);
+  });
+
   it("migrates actual schema 8 / selection v1 without losing measurements or completed rounds", () => {
     const fresh = createProgress();
     const scope = { mode: "guided" as const, layoutId: "standard", tokenId: "zhuyin:ㄇ" };
@@ -91,7 +112,7 @@ describe("product progress codec", () => {
     expect(parsed!.schemaVersion).toBe(PRODUCT_PROGRESS_SCHEMA_VERSION);
     expect(parsed!.measurementEpoch).toBe(PRODUCT_MEASUREMENT_EPOCH);
     expect(parsed!.selection).toEqual({
-      policyVersion: "frequency-first-utterance-v2",
+      policyVersion: FREQUENCY_FIRST_UTTERANCE_POLICY.version,
       recentEntryIds: [],
       recentUtteranceIds: [],
       recentWrittenForms: [],

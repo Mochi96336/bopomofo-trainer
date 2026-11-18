@@ -5,6 +5,7 @@ import {
   commonnessTierForWeight,
   commonnessTierShareLabel,
   commonnessTierThresholds,
+  writtenFormCommonnessTierThresholds,
   COMMONNESS_TIER_SHARES,
   type CommonnessTierThresholds,
 } from "../../src/commonness/tiers.js";
@@ -40,6 +41,19 @@ function entry(id: string, selectionWeight?: number): CatalogEntry {
 const EVEN_WEIGHTS = Array.from({ length: 100 }, (_, index) => (index + 1) / 100);
 
 describe("commonness tiers", () => {
+  it("keeps written-form boundaries fixed when a new reading is added", () => {
+    const catalog = EVEN_WEIGHTS.map((weight, i) => entry(String(i), weight));
+    const original = writtenFormCommonnessTierThresholds(catalog);
+    const expanded = [...catalog, ...Array.from({ length: 100 }, (_, i) => ({ ...catalog[99]!, id: `extra-${i}` }))];
+    expect(writtenFormCommonnessTierThresholds(expanded)).toEqual(original);
+    expect(commonnessTierThresholds(expanded.map(e => e.commonnessBase!.selectionWeight))).not.toEqual(original);
+  });
+
+  it("rejects different base frequency weights for readings of one written form", () => {
+    const first = entry("same", 0.5);
+    const second = { ...entry("other", 0.9), prompt: first.prompt };
+    expect(() => writtenFormCommonnessTierThresholds([first, second])).toThrow(/conflicting written-form/);
+  });
   it("cuts thresholds at the configured catalog shares", () => {
     const thresholds = commonnessTierThresholds(EVEN_WEIGHTS);
     const tiers = EVEN_WEIGHTS.map((weight) => commonnessTierForWeight(weight, thresholds));

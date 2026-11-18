@@ -409,6 +409,7 @@ export function createSentenceConstructionFamilyPlanSample(
   candidates: readonly ProductionRule[],
   random: RandomSource,
   policy: FormalSyntaxSamplingPolicy = PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY,
+  eligibleRootRuleIds?: ReadonlySet<string>,
 ): SentenceConstructionFamilyPlanSample {
   validateFormalSyntaxSamplingPolicy(policy);
   const activeFamilies = new Set(activeSentenceFamiliesUnchecked(policy));
@@ -441,7 +442,11 @@ export function createSentenceConstructionFamilyPlanSample(
     throw new Error(`active sentence construction families have no candidate rules: ${missingActiveFamilies.join(",")}`);
   }
   const sampled = weightedPermutation(
-    [...byFamily.values()],
+    [...byFamily.values()].flatMap(family => {
+      const productionRuleIds = eligibleRootRuleIds === undefined ? family.productionRuleIds
+        : family.productionRuleIds.filter(id => eligibleRootRuleIds.has(id));
+      return productionRuleIds.length === 0 ? [] : [{ ...family, productionRuleIds }];
+    }),
     (item) => sentenceFamilyJointWeight(item.family, policy),
     random,
   );

@@ -20,11 +20,13 @@ import { reviewedMoeFollowupRoleEligible } from "./moe-attested-role-compatibili
 import { reviewedMoeThirdRoleEligible } from "./moe-attested-role-compatibility.js";
 import { reviewedMoeFourthRoleEligible, reviewedMoeFifthRoleEligible, reviewedMoeSixthRoleEligible, reviewedMoeSeventhRoleEligible, reviewedMoeEighthRoleEligible, reviewedMoeTenthRoleEligible } from "./moe-attested-role-compatibility.js";
 import { reviewedHanCoordinationReadingEligible } from "./han-coordination-license.js";
+import { excludeUnresolvedReadingGroups } from "./reading-frontier.js";
 
 /** Current production boundary; historical audit modes remain separately frozen. */
 export const PRODUCT_READING_POLICY_ID = "standard-han-coordination-trial";
 
 export const PRODUCT_READING_POLICY = {
+  readingFrontierFilter: excludeUnresolvedReadingGroups,
   readingEligibility: (
     entry: CatalogEntry, profile: RuntimeSyntaxProfile, slot: unknown,
     previousEntry: CatalogEntry | null,
@@ -62,7 +64,7 @@ export const PRODUCT_READING_POLICY = {
     reviewedMoeQianRoleEligible,
   ],
 } as const satisfies Pick<FormalSyntaxUtteranceInput,
-  "readingEligibility" | "preDrawReadingEligibility" | "finalCandidateReadingEligibility"
+  "readingFrontierFilter" | "readingEligibility" | "preDrawReadingEligibility" | "finalCandidateReadingEligibility"
   | "subsequentFinalCandidateReadingEligibility" | "additionalFinalCandidateReadingEligibilities">;
 
 type ProfileGate = (

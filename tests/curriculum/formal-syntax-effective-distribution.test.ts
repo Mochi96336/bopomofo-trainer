@@ -217,7 +217,7 @@ describe("formal syntax effective product distribution", () => {
         lexicalSampling: "written-form",
       minimumLexicalEntries: 1,
       maximumCandidates: 2,
-      maximumAttempts: 6,
+      maximumAttempts: 1,
       bounds: PRODUCT_BOUNDS,
     });
 

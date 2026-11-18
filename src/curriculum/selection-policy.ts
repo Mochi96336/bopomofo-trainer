@@ -24,7 +24,7 @@ export interface FrequencyFirstUtterancePolicy {
 }
 
 export const FREQUENCY_FIRST_UTTERANCE_POLICY: FrequencyFirstUtterancePolicy = {
-  version: "frequency-first-utterance-v2",
+  version: "frequency-first-utterance-v3",
   minimumBindingAttempts: 4,
   minimumBindingTimingSamples: 8,
   maximumExpectedTokenBoost: 1.45,
