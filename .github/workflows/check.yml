@@ -369,6 +369,13 @@ jobs:
         with:
           name: reading-role-review-queue
           path: reading-role-review-queue.json
+      - name: Triage all polyphonic syntax evidence at once
+        run: npm run readings:bulk-syntax-triage -- --output bulk-syntax-evidence-triage.json
+      - name: Upload bulk syntax evidence triage
+        uses: actions/upload-artifact@v4
+        with:
+          name: bulk-syntax-evidence-triage
+          path: bulk-syntax-evidence-triage.json
       - name: Fast tests
         id: tests
         shell: bash
