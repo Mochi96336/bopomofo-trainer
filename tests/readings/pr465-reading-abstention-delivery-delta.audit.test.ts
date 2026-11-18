@@ -34,6 +34,15 @@ describe("PR465 read-only final-delivery reading abstention delta", () => {
     const WHOLE = { practice: PRACTICE_CATALOG, syntaxProfiles: SYNTAX_PROFILES };
     const profileById = new Map(SYNTAX_PROFILES.map(profile => [profile.id, profile]));
     const cases = 128;
+    // Read-only exact entry-ID × UPOS exposures from the prior five-role probe;
+    // neither an ordinary product-rate estimate nor a license to restore them.
+    const reviewedRoles = [
+      { label:"都/NOUN", id:"word:都:ㄉㄡ1", upos:"NOUN" },
+      { label:"說/NOUN", id:"word:說:ㄕㄨㄟ4", upos:"NOUN" },
+      { label:"號/NOUN", id:"word:號:ㄏㄠ2", upos:"NOUN" },
+      { label:"了/VERB", id:"word:了:ㄌㄜ5", upos:"VERB" },
+      { label:"給/ADP", id:"word:給:ㄐㄧ3", upos:"ADP" },
+    ] as const;
 
     try {
       for (const tier of [null, ...COMMONNESS_TIERS]) {
@@ -60,11 +69,6 @@ describe("PR465 read-only final-delivery reading abstention delta", () => {
         let changedLexicalIdentities = 0;
         let sameFormReadingChangeRounds = 0;
         let sameFormReadingChangePositions = 0;
-        const changedExamples: Array<{
-          seed: number;
-          guarded: string[];
-          unguarded: string[];
-        }> = [];
 
         for (let seed = 0; seed < cases; seed++) {
           const trial = (arm: "guarded" | "unguarded") => {
@@ -108,9 +112,6 @@ describe("PR465 read-only final-delivery reading abstention delta", () => {
             }
             if (readingChangesThisRound > 0) sameFormReadingChangeRounds++;
             sameFormReadingChangePositions += readingChangesThisRound;
-            if (changedExamples.length < 5) {
-              changedExamples.push({ seed, guarded: guarded.ids, unguarded: unguarded.ids });
-            }
           }
         }
         const summary = (arm: "guarded" | "unguarded") => ({
@@ -118,15 +119,16 @@ describe("PR465 read-only final-delivery reading abstention delta", () => {
           distinctDeliveredSentencesByLexicalIds: signatures[arm].size,
           lexicalOccurrences: lexicalOccurrences[arm],
           fallbackNonAlignedProfiles: fallback[arm],
-          selectedIdentities: [...exposed[arm].entries()]
-            .sort(([a], [b]) => a.localeCompare(b, "zh-Hant"))
-            .map(([key, count]) => ({ key: JSON.parse(key), count })),
+          distinctSelectedEntryRoleIds: exposed[arm].size,
+          reviewedRoleExposures: Object.fromEntries(reviewedRoles.map(
+            ({label,id,upos}) => [label, exposed[arm].get(JSON.stringify([id,upos])) ?? 0],
+          )),
         });
         scopeReports.push({
           scope, pairedFreshFirstRounds: cases, changedSelections,
           changedLexicalIdentities, sameFormReadingChangeRounds, sameFormReadingChangePositions,
           guarded: summary("guarded"),
-          unguarded: summary("unguarded"), changedExamples,
+          unguarded: summary("unguarded"),
         });
       }
 
@@ -134,7 +136,7 @@ describe("PR465 read-only final-delivery reading abstention delta", () => {
       expect(scopeReports.every(s => s.pairedFreshFirstRounds === cases)).toBe(true);
       console.log("PR465_DELIVERY_ABSTENTION_DELTA_BEGIN");
       console.log(JSON.stringify({
-        version: "pr465-paired-first-round-reading-abstention-v1",
+        version: "pr465-compact-paired-first-round-v1",
         baselineCommit: "2bd6e024ee9f58ed6266ddf6dbeae1dde88659e1",
         scopes: scopeReports,
         caveats: [
@@ -142,7 +144,7 @@ describe("PR465 read-only final-delivery reading abstention delta", () => {
           "Counts are FINAL selected lexical identities, not removed candidate frontiers.",
           "128 paired fresh first rounds per scope; no multi-round recency or long-run exposure inference.",
           "A same-form reading change counts aligned positions with identical written form and UPOS but different catalog entry IDs; it is not a correctness judgement.",
-          "No semantic or sentence naturalness evaluation, and no new pronunciation truth labels.",
+          "No sentence interpretation or new pronunciation-truth label is inferred; reading and selection measurement only.",
         ],
       }));
       console.log("PR465_DELIVERY_ABSTENTION_DELTA_END");

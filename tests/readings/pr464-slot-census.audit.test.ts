@@ -146,14 +146,13 @@ describe("PR #464 read-only dynamic lexical frontier census", () => {
           distinctBlockedWordUposGroups: rows.length,
           distinctBlockedReadingIds: new Set(rows.flatMap(row=>row.blockedReadings)).size,
           contextWithoutGate: counters.contextWithoutGate,
-          groups: rows,
         });
         active = null;
       }
       expect(scenarios.map(s => s.deliveredUniqueWords)).toEqual([373, 304, 280, 294, 300]);
       expect(scenarios.every(s => s.contextWithoutGate === 0)).toBe(true);
       console.log("PR464_SLOT_CENSUS_JSON_BEGIN");
-      console.log(JSON.stringify({ version: "pr464-slot-census-v1", baseCommit: "2bd6e024ee9f58ed6266ddf6dbeae1dde88659e1", scopes: scenarios,
+      console.log(JSON.stringify({ version: "pr465-compact-slot-census-v1", baseCommit: "2bd6e024ee9f58ed6266ddf6dbeae1dde88659e1", scopes: scenarios,
         limitation: "Exact licensed frontier removals for the executed 128-delivery sampling paths, including failed/retried slots; not all possible grammar slots, not proof of correct pronunciation or of lost final-probability mass." }));
       console.log("PR464_SLOT_CENSUS_JSON_END");
     } finally {
