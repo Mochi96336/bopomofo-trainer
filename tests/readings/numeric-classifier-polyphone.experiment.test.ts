@@ -68,7 +68,7 @@ function targetOccurrences(utterance: ReturnType<typeof createProductState>["rou
 }
 
 describe("numeric classifier polyphone rescue: new experimental source-gated policy", () => {
-  it("recovers exactly four reading identities in documented numeric classifier contexts, and nowhere else", () => {
+  it("recovers exactly six reading identities in documented numeric classifier contexts, and nowhere else", () => {
     expect(number).toBeDefined();
     expect(ordinaryPrevious).toBeDefined();
     const positive = nounSlot(true);
@@ -90,10 +90,15 @@ describe("numeric classifier polyphone rescue: new experimental source-gated pol
       expect(numericClassifierContext(saved, after[0]!, positive, number!)).toBe(true);
       rows.push({word, readingId: expectedReading, baseline: before.length, restored: after.length});
     }
+    expect(rows).toHaveLength(6);
+    // MOE lists both xíng and háng as classifier readings for 行, so do not make up a singleton.
+    // The new policy must not unlock this unresolved word/UPOS group.
+    expect(licensedFrontier(positive, number!, "行", true)).toEqual(
+      licensedFrontier(positive, number!, "行", false));
     console.log("NEW_NUMERIC_CLASSIFIER_FRONTIER_JSON " + JSON.stringify(rows));
   });
 
-  it("runs paired fresh real-product sentences under only this four-reading extra gate", () => {
+  it("runs 512 paired fresh real-product sentences under only this six-reading extra gate", () => {
     const mutable = PRODUCT_READING_POLICY as unknown as { readingEligibility: Gate };
     const original = mutable.readingEligibility;
     const scenarios = [];
@@ -109,7 +114,7 @@ describe("numeric classifier polyphone rescue: new experimental source-gated pol
         };
         let changed = 0;
         let newlyRejectedProfiles = 0;
-        for (let seed = 0; seed < 128; seed++) {
+        for (let seed = 0; seed < 512; seed++) {
           const run = (arm: "baseline" | "pilot") => {
             mutable.readingEligibility = (entry, profile, slot, previous) => {
               const accepted = original(entry, profile, slot, previous);
@@ -139,7 +144,7 @@ describe("numeric classifier polyphone rescue: new experimental source-gated pol
           if (baseline !== pilot) changed++;
         }
         scenarios.push({
-          scope, pairedFreshRounds: 128, changedRounds: changed, newlyRejectedProfiles,
+          scope, pairedFreshRounds: 512, changedRounds: changed, newlyRejectedProfiles,
           baseline:{distinctDeliveredForms:counts.baseline.forms.size,
             lexicalOccurrences:counts.baseline.occurrences,target:counts.baseline.target},
           pilot:{distinctDeliveredForms:counts.pilot.forms.size,
