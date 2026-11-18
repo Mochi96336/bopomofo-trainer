@@ -1,6 +1,6 @@
 {
   "schemaVersion": "reviewed-reading-role-evidence-v1",
-  "purpose": "Reviewed reading-ID-specific role licenses, six numeric classifier candidates plus three exact grammatical-function candidates; no inferred UD token reading or sentence meaning",
+  "purpose": "Manually reviewed MOE reading-ID to syntactic function licenses: numeric classifier and exact grammatical-role contexts. Neither unlabelled UD tokens nor generated sentence semantics are accepted as reading gold.",
   "rows": [
     {
       "word": "句",
@@ -124,6 +124,62 @@
       "evidence": {
         "authority": "moe-revised-2021",
         "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=3209",
+        "kind": "dictionary-lexical-role-only",
+        "reviewStatus": "role-reading-reviewed"
+      }
+    },
+    {
+      "word": "可",
+      "reading": "ㄎㄜ3",
+      "entryId": "word:可:ㄎㄜ3",
+      "upos": "AUX",
+      "role": "auxiliary",
+      "contextGate": "exact-syntax-role-v1",
+      "evidence": {
+        "authority": "moe-revised-2021",
+        "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=4445",
+        "kind": "dictionary-lexical-role-only",
+        "reviewStatus": "role-reading-reviewed"
+      }
+    },
+    {
+      "word": "要",
+      "reading": "ㄧㄠ4",
+      "entryId": "word:要:ㄧㄠ4",
+      "upos": "AUX",
+      "role": "auxiliary",
+      "contextGate": "exact-syntax-role-v1",
+      "evidence": {
+        "authority": "moe-revised-2021",
+        "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=10874",
+        "kind": "dictionary-lexical-role-only",
+        "reviewStatus": "role-reading-reviewed"
+      }
+    },
+    {
+      "word": "應",
+      "reading": "ㄧㄥ1",
+      "entryId": "word:應:ㄧㄥ1",
+      "upos": "AUX",
+      "role": "auxiliary",
+      "contextGate": "exact-syntax-role-v1",
+      "evidence": {
+        "authority": "moe-revised-2021",
+        "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=11199",
+        "kind": "dictionary-lexical-role-only",
+        "reviewStatus": "role-reading-reviewed"
+      }
+    },
+    {
+      "word": "便",
+      "reading": "ㄅㄧㄢ4",
+      "entryId": "word:便:ㄅㄧㄢ4",
+      "upos": "SCONJ",
+      "role": "marker",
+      "contextGate": "exact-syntax-role-v1",
+      "evidence": {
+        "authority": "moe-revised-2021",
+        "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=922",
         "kind": "dictionary-lexical-role-only",
         "reviewStatus": "role-reading-reviewed"
       }
