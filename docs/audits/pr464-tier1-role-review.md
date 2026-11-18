@@ -24,9 +24,9 @@ Tier-1 group counts by UPOS: VERB 30, NOUN 30, ADP 10, ADV 9, ADJ 9, PART 8, PRO
 
 | Group | Exclude exact reading ID | Retain | Observed blocked slot-group visits | MOE evidence |
 |---|---|---|---:|---|
-| 都/NOUN | word:都:ㄉㄡ1 | ㄉㄨ | 72 | https://dict.revised.moe.edu.tw/dictView.jsp?ID=1986 |
-| 說/NOUN | word:說:ㄕㄨㄟ4 | ㄕㄨㄛ | 66 | https://dict.revised.moe.edu.tw/dictView.jsp?ID=9168 |
-| 號/NOUN | word:號:ㄏㄠ2 | ㄏㄠˋ | 81 | https://dict.revised.moe.edu.tw/dictView.jsp?ID=4810&ver=4 |
+| 都/NOUN | word:都:ㄉㄡ1 | ㄉㄨ | 72 | https://dict.revised.moe.edu.tw/dictView.jsp?ID=2280 |
+| 說/NOUN | word:說:ㄕㄨㄟ4 | ㄕㄨㄛ | 66 | https://dict.revised.moe.edu.tw/dictView.jsp?ID=9136 |
+| 號/NOUN | word:號:ㄏㄠ2 | ㄏㄠˋ | 81 | https://dict.revised.moe.edu.tw/dictView.jsp?ID=4827 |
 | 了/VERB | word:了:ㄌㄜ5 | ㄌㄧㄠˇ | 21 | https://dict.revised.moe.edu.tw/dictView.jsp?ID=3550 |
 | 給/ADP | word:給:ㄐㄧ3 | ㄍㄟˇ | 1 | https://dict.revised.moe.edu.tw/dictView.jsp?ID=3994 |
 
@@ -38,7 +38,7 @@ Counterfactual product-selection probe: tests/readings/pr464-narrow-role-whatif.
 
 - 給/VERB both gěi and jǐ have verbs, semantics differ: https://dict.revised.moe.edu.tw/dictView.jsp?ID=3994
 - 看/VERB kān and kàn both verbs; some reading overlap historically: https://dict.revised.moe.edu.tw/dictView.jsp?ID=4531
-- 說/VERB shuō and shuì both verbs, senses differ: https://dict.revised.moe.edu.tw/dictView.jsp?ID=9168
+- 說/VERB shuō and shuì both verbs, senses differ: https://dict.revised.moe.edu.tw/dictView.jsp?ID=9136
 - 東西/NOUN full tone means east-west, neutral tone means things; both nominal: https://dict.concised.moe.edu.tw/dictView.jsp?ID=9785 and https://dict.concised.moe.edu.tw/dictView.jsp?ID=9787
 - 人家/NOUN full vs neutral tone usage requires lexical-sense context: https://dict.revised.moe.edu.tw/dictView.jsp?ID=135766
 - 女/NOUN rǔ is both historical pronoun and surname; dictionary noun is not automatically UD NOUN vs PROPN: https://dict.revised.moe.edu.tw/dictView.jsp?ID=3170
