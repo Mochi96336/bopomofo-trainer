@@ -74,7 +74,7 @@ function blockedGroups(entries:readonly CatalogEntry[],profiles:readonly Runtime
   ).map(([key])=>key));
 }
 
-function counts(){
+function newCounters(){
   return {target:0,delivered:0,byReading:{} as Record<string,number>,
     examples:[] as {seed:number,entryId:string,previous:string}[]};
 }
@@ -194,7 +194,7 @@ describe("batch imported reading-ID role evidence; no fabricated UD pronunciatio
           base.practice,base.syntaxProfiles,records);
         const envOriginal=createProductEnvironment(base);
         const envProjected=createProductEnvironment({...base,syntaxProfiles:projection.profiles});
-        const counts={baseline:counts(),projected:counts()};
+        const counts={baseline:newCounters(),projected:newCounters()};
         const targetIds=new Set(records.rows.map(row=>row.entryId));
         let changed=0;
         for(let seed=0;seed<512;seed++){
