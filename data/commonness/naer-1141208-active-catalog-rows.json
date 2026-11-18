@@ -32,7 +32,7 @@
     ]
   },
   "catalog": {
-    "entryCount": 13897,
+    "entryCount": 13900,
     "normalizedTextCount": 13653,
     "identityRule": "NFC(trim(text)) exact match; exactly one catalog identity required"
   },

@@ -44,26 +44,34 @@ Generation outputs are disposable and are not committed. They can be reproduced 
 
 ## Product packaging gate
 
-The browser catalog is now fail-closed. `npm run app:syntax-legality` projects the
-full top-10,000 rule index into the compact committed
-`formal-syntax-active-catalog-legality.json` allowlist. `npm run app:catalog`
-validates that artifact against the exact compiled catalog digest and packages
-only identities whose source rule-index status is `indexed`, meaning the written
-form reaches at least one `Sentence` production. Missing generation rows,
-missing UD evidence, incompatible rule positions, and unreachable sentence
-rules are exclusions.
+The browser catalog is fail-closed. `npm run app:syntax-legality` accepts a
+manifest-linked generation's rule index and profiles through explicit CLI paths
+and writes the compact source artifacts. The source legality result records the
+generation's reachability, while the base profile artifact retains every observed
+profile for the active written forms, including forms not yet reachable there.
+No profile is invented when UD evidence is absent.
 
-The site bundle currently packages **13,897 practice entries with 0 syntax
-exclusions**, and **16,266 compact runtime syntax profiles**. There is no
-held-out evaluation catalog: that split was removed along with automatic
-evaluation rounds, and the packaged evaluation catalog is empty.
+`npm run app:catalog` validates the source artifacts against the exact compiled
+catalog digest, applies the separately reviewed runtime capability sidecars,
+then recomputes reachability using the current executable grammar. Only entries
+that reach `Sentence` after those projections are packaged. Discarding a base
+profile before capability projection could otherwise remove an entry that a
+reviewed construction makes reachable. An incomplete, duplicated, stale, or
+digest-mismatched source artifact still makes the build fail.
 
-Zero exclusions is a result of the current data, not a bypass. An incomplete,
-duplicated, stale, or digest-mismatched allowlist makes the build fail.
+When adding readings, `--preserve-profile-order <previous-profile-artifact>`
+keeps existing compact profile numbers and appends new profiles. It validates the
+previous artifact digest and rejects missing or changed existing profile syntax;
+runtime morphology is independently refreshed afterwards. This avoids unrelated
+lexical redraws caused solely by compact profile renumbering.
+
+There is no held-out evaluation catalog: that split was removed along with
+automatic evaluation rounds, and the packaged evaluation catalog is empty.
 
 Runtime profiles retain only UPOS, syntactic functions, valency,
 dependency-relation counts, and surface-position counts needed for lexical-slot
-compatibility. The complete UD evidence artifact stays outside the browser
+compatibility, plus reviewed sparse morphology and occurrence capabilities.
+The complete UD evidence artifact stays outside the browser
 bundle. Closed-class construction matching derives its licenses from these
 compact fields together with the exact catalog text, so no second runtime
 profile schema or duplicated construction artifact is required. Product
@@ -71,9 +79,8 @@ selection samples a bounded `Sentence` derivation and fills every lexical slot
 from these profiles; the old template and standalone fallback path is not
 reachable from `product/session.ts`.
 
-This allowlist is the only formal-syntax legality gate. Its digest checks inside
-`applyCatalogSyntaxLegalityArtifact` fail the build on any stale or incomplete
-allowlist, so `npm run build` alone verifies it.
+Source artifact integrity and current executable reachability are both build
+requirements. `npm run build` runs catalog compilation and verifies those gates.
 
 Counts change whenever the catalog is regenerated; `npm run app:catalog` prints
 the current ones.

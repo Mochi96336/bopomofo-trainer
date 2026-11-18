@@ -208,7 +208,7 @@ function templateScore(
   templateId: string,
   input: FrequencyFirstUtteranceInput,
 ): LegacyTemplateSelectionScore {
-  const recentTemplateFactor = input.history.recentTemplateIds.includes(templateId)
+  const recentTemplateFactor = (input.history.recentTemplateIds ?? []).includes(templateId)
     ? input.policy.recentTemplatePenalty
     : 1;
   return {

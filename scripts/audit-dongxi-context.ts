@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+import { readingAuditCatalog } from "./reading-audit-catalog.js";
+const { PRACTICE_CATALOG, SYNTAX_PROFILES } = readingAuditCatalog();
 import { catalogEntryFrequencyWeight } from "../src/commonness/catalog-projection.js";
 import { composeFormalSyntaxUtterances, prepareFormalSyntaxLexicon } from "../src/curriculum/formal-syntax-utterance.js";
 import { createSeededRandom } from "../src/curriculum/random.js";

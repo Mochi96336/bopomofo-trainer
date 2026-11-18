@@ -17,6 +17,7 @@ import {
 } from "./types.js";
 
 const RECENT_SUMMARY_LIMIT = 12;
+const PREVIOUS_PRODUCT_PROGRESS_SCHEMA_VERSION = 8;
 const LEGACY_PRODUCT_PROGRESS_SCHEMA_VERSION = 7;
 const LEGACY_MEASUREMENT_EPOCH_SCHEMA_VERSION = 6;
 
@@ -101,27 +102,33 @@ function parseSelectionState(
   policy: FrequencyFirstUtterancePolicy,
   support: CatalogSupportIndex,
   legacyRecentEntryIds: readonly string[] | null,
+  allowLegacyPolicy: boolean,
 ): FrequencyFirstSelectionState | null {
-  if (
-    !isRecord(value)
-    || value.policyVersion !== policy.version
-    || !Array.isArray(value.recentUtteranceIds)
-    || !Array.isArray(value.recentTemplateIds)
-    || value.recentUtteranceIds.some((item) => typeof item !== "string")
-    || value.recentTemplateIds.some((item) => typeof item !== "string")
-    || value.recentUtteranceIds.length > policy.recentUtteranceLimit
-    || value.recentTemplateIds.length > policy.recentTemplateLimit
-  ) return null;
-
-  const recentEntryIds = legacyRecentEntryIds
-    ?? parseKnownEntryIds(value.recentEntryIds, support);
+  if (!isRecord(value)) return null;
+  const legacy = allowLegacyPolicy && value.policyVersion === "frequency-first-utterance-v1"
+    && policy.version === "frequency-first-utterance-v2";
+  if (!legacy && value.policyVersion !== policy.version) return null;
+  const strings = (items: unknown, limit: number): readonly string[] | null =>
+    Array.isArray(items) && items.length <= limit && items.every(item => typeof item === "string")
+      ? items as string[] : null;
+  const oldUtterances = strings(value.recentUtteranceIds, policy.recentUtteranceLimit);
+  if (oldUtterances === null) return null;
+  const recentEntryIds = legacyRecentEntryIds ?? parseKnownEntryIds(value.recentEntryIds, support);
   if (recentEntryIds === null) return null;
-
+  if (legacy && strings(value.recentTemplateIds, policy.recentTemplateLimit) === null) return null;
+  const recentWrittenForms = legacy
+    ? [...new Set(recentEntryIds.map(id => support.entriesById[id]!.prompt.text))].slice(-policy.recentEntryLimit)
+    : strings(value.recentWrittenForms, policy.recentEntryLimit);
+  const recentConstructionIds = legacy ? [] : strings(value.recentConstructionIds, policy.recentConstructionLimit);
+  if (recentWrittenForms === null || recentConstructionIds === null
+    || (!legacy && recentEntryIds.length > policy.recentEntryLimit)) return null;
   return {
     policyVersion: policy.version,
-    recentEntryIds,
-    recentUtteranceIds: value.recentUtteranceIds as string[],
-    recentTemplateIds: value.recentTemplateIds as string[],
+    recentEntryIds: recentEntryIds.slice(-policy.recentEntryLimit),
+    // Old derivation IDs are not visible-text identities. Never reinterpret them.
+    recentUtteranceIds: legacy ? [] : oldUtterances,
+    recentWrittenForms,
+    recentConstructionIds,
   };
 }
 
@@ -202,6 +209,7 @@ export function parseProductProgress(
   const version = parsed.schemaVersion;
   if (
     version !== PRODUCT_PROGRESS_SCHEMA_VERSION
+    && version !== PREVIOUS_PRODUCT_PROGRESS_SCHEMA_VERSION
     && version !== LEGACY_PRODUCT_PROGRESS_SCHEMA_VERSION
     && version !== LEGACY_MEASUREMENT_EPOCH_SCHEMA_VERSION
   ) return null;
@@ -215,10 +223,10 @@ export function parseProductProgress(
   );
   if (envelope === null) return null;
 
-  const legacyRecentEntryIds = version === PRODUCT_PROGRESS_SCHEMA_VERSION
+  const legacyRecentEntryIds = (version === PRODUCT_PROGRESS_SCHEMA_VERSION || version === PREVIOUS_PRODUCT_PROGRESS_SCHEMA_VERSION)
     ? null
     : parseLegacyRecentEntryIds(parsed, support, envelope.completedRounds);
-  if (version !== PRODUCT_PROGRESS_SCHEMA_VERSION && legacyRecentEntryIds === null) {
+  if (version !== PRODUCT_PROGRESS_SCHEMA_VERSION && version !== PREVIOUS_PRODUCT_PROGRESS_SCHEMA_VERSION && legacyRecentEntryIds === null) {
     return null;
   }
 
@@ -227,6 +235,7 @@ export function parseProductProgress(
     utterancePolicy,
     support,
     legacyRecentEntryIds,
+    version !== PRODUCT_PROGRESS_SCHEMA_VERSION,
   );
   if (selection === null) return null;
 

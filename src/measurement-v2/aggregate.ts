@@ -1,3 +1,4 @@
+import { appendSelectionEvidence, type RecentSelectionEvidence } from "./selection-evidence.js";
 import type { BindingSkillScope, PracticeMode, TokenId } from "../core/model.js";
 import {
   coordinationTimingSample,
@@ -34,6 +35,7 @@ export type CoordinationBodySizeBucket = "2" | "3";
 export type BodyPositionBucket = "first" | "middle" | "last";
 
 export interface BindingAggregateV2 {
+  readonly selectionEvidence?: RecentSelectionEvidence;
   readonly scope: BindingSkillScope;
   readonly attempts: number;
   readonly errors: number;
@@ -315,6 +317,7 @@ export function aggregateMeasurementObservationsV2(
         : current + SMOOTHING_ALPHA * (sample - current);
     bindings.set(key, {
       scope: observation.scope,
+      selectionEvidence: appendSelectionEvidence(previous?.selectionEvidence, observation.correct, sample),
       attempts: (previous?.attempts ?? 0) + 1,
       errors: (previous?.errors ?? 0) + (observation.correct ? 0 : 1),
       timingSamples: timingSamples + (sample === null ? 0 : 1),

@@ -9,7 +9,7 @@ import type {
   CatalogSyntaxLegalityArtifact,
 } from "../src/syntax/catalog-legality.js";
 import { FORMAL_GRAMMAR_VERSION } from "../src/syntax/features.js";
-import { projectRuntimeMorphologicalFeatureCounts } from "../src/syntax/runtime-morphology.js";
+import { projectCatalogEntryRuntimeProfiles, preserveRuntimeProfileOrder } from "../src/syntax/runtime-profile-projection.js";
 import type {
   ActiveCatalogSyntaxProfilesArtifact,
 } from "../src/syntax/runtime-profiles.js";
@@ -50,6 +50,7 @@ interface Options {
   readonly profiles: string;
   readonly output: string;
   readonly profilesOutput: string;
+  readonly profileOrder?: string;
 }
 
 function parseArguments(values: readonly string[]): Options {
@@ -57,23 +58,26 @@ function parseArguments(values: readonly string[]): Options {
   let profiles = "data/generated/lexicon/naer-1141208-top-10000/syntax-profiles.json";
   let output = "data/grammar/formal-syntax-active-catalog-legality.json";
   let profilesOutput = "data/grammar/formal-syntax-active-catalog-profiles.json";
+  let profileOrder: string | undefined;
   for (let index = 0; index < values.length; index += 1) {
     const option = values[index];
     const value = values[index + 1];
     if ((option !== "--rule-index"
       && option !== "--profiles"
       && option !== "--output"
-      && option !== "--profiles-output")
+      && option !== "--profiles-output"
+      && option !== "--preserve-profile-order")
       || value === undefined || value.startsWith("--")) {
       throw new Error(`invalid app syntax legality argument: ${option}`);
     }
     if (option === "--rule-index") ruleIndex = value;
     else if (option === "--profiles") profiles = value;
     else if (option === "--output") output = value;
-    else profilesOutput = value;
+    else if (option === "--profiles-output") profilesOutput = value;
+    else profileOrder = value;
     index += 1;
   }
-  return { ruleIndex, profiles, output, profilesOutput };
+  return { ruleIndex, profiles, output, profilesOutput, ...(profileOrder === undefined ? {} : { profileOrder }) };
 }
 
 const options = parseArguments(process.argv.slice(2));
@@ -126,36 +130,9 @@ const exclusions: Array<{
 }> = [];
 for (const entry of catalog.entries) {
   const indexed = byText.get(entry.prompt.text);
+  runtimeProfiles.push(...projectCatalogEntryRuntimeProfiles(entry, indexed, sourceProfilesById));
   if (indexed?.status === "indexed") {
-    if (indexed.profileIds.length === 0) {
-      throw new Error(`indexed source entry has no syntax profiles: ${entry.prompt.text}`);
-    }
     legalEntryIds.push(entry.id);
-    for (const sourceProfileId of indexed.profileIds) {
-      const sourceProfile = sourceProfilesById.get(sourceProfileId);
-      if (sourceProfile === undefined || sourceProfile.entryId !== indexed.entryId) {
-        throw new Error(`source rule index references an invalid syntax profile: ${sourceProfileId}`);
-      }
-      const morphologicalFeatureCounts = projectRuntimeMorphologicalFeatureCounts(
-        sourceProfile.dependencyEvidence.morphologicalFeatureCounts,
-      );
-      runtimeProfiles.push({
-        id: `runtime-syntax-profile:${sha256Canonical({
-          sourceProfileId,
-          catalogEntryId: entry.id,
-        })}`,
-        entryId: entry.id,
-        upos: sourceProfile.upos,
-        functions: sourceProfile.functions,
-        valencyFrames: sourceProfile.valencyFrames,
-        dependencyEvidence: {
-          dependencyRelationCounts: sourceProfile.dependencyEvidence.dependencyRelationCounts,
-          surfacePositionCounts: sourceProfile.dependencyEvidence.surfacePositionCounts,
-          ...(morphologicalFeatureCounts === undefined ? {} : { morphologicalFeatureCounts }),
-        },
-        provenanceIds: sourceProfile.provenanceIds,
-      });
-    }
   } else exclusions.push({
     entryId: entry.id,
     text: entry.prompt.text,
@@ -165,6 +142,9 @@ for (const entry of catalog.entries) {
 legalEntryIds.sort();
 exclusions.sort((left, right) => left.entryId < right.entryId ? -1 : left.entryId > right.entryId ? 1 : 0);
 runtimeProfiles.sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
+const orderedRuntimeProfiles = options.profileOrder === undefined ? runtimeProfiles : preserveRuntimeProfileOrder(
+  runtimeProfiles, JSON.parse(await readFile(options.profileOrder, "utf8")) as ActiveCatalogSyntaxProfilesArtifact,
+);
 const core = {
   schemaVersion: "formal-syntax-catalog-legality-v1" as const,
   grammarVersion: FORMAL_GRAMMAR_VERSION,
@@ -194,7 +174,7 @@ const profilesCore = {
   sourceProfileArtifactDigest: source.profileArtifactDigest,
   sourceRuleIndexDigest: source.determinismDigest,
   profileCount: runtimeProfiles.length,
-  profiles: runtimeProfiles,
+  profiles: orderedRuntimeProfiles,
 };
 const profilesArtifact: ActiveCatalogSyntaxProfilesArtifact = {
   ...profilesCore,

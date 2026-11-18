@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
+import { readingAuditCatalog } from "./reading-audit-catalog.js";
 import {
   auditLexemeBoundaryReadiness,
   type CompoundHostEvidence,
@@ -21,6 +21,7 @@ function cli(): { input: string; output: string } {
   return { input, output };
 }
 
+const { PRACTICE_CATALOG, SYNTAX_PROFILES } = readingAuditCatalog();
 const { input, output } = cli();
 const exposure = JSON.parse(await readFile(input, "utf8")) as {
   readingEligibilityPolicy: string;

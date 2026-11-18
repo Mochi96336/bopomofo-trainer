@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "moe-sense-pilot-evidence-v1",
+  "purpose": "Exact reading-to-source-row evidence only; NOT reviewed sense alignment.",
+  "sourceArchives": [
+    {
+      "kind": "moe-concised",
+      "sourceVersion": "2014_20260626",
+      "archiveSha256": "fc83d27eb3fbf6fcfdb791e7d05ef60946b58ef8e8857ed165b612217b392806"
+    },
+    {
+      "kind": "moe-revised",
+      "sourceVersion": "2015_20260625",
+      "archiveSha256": "64003a98fcc7097940e5a536c999bc08ba7c07e2c1be66448f01bf1ae10a53fc"
+    }
+  ],
+  "matchCounts": {
+    "one-source-row-awaiting-sense-review": 2,
+    "paired-sources-awaiting-sense-review": 1
+  },
+  "rows": [
+    {
+      "text": "便宜",
+      "reading": "ㄆㄧㄢ2 ㄧ2",
+      "entryId": "word:便宜:ㄆㄧㄢ2-ㄧ2",
+      "matchStatus": "one-source-row-awaiting-sense-review",
+      "senseReviewStatus": "unreviewed",
+      "sourceRows": [
+        {
+          "sourceKind": "moe-concised",
+          "sourceVersion": "2014_20260626",
+          "sourceEntryId": "047300002",
+          "sourcePhysicalRow": 3148,
+          "multiReadingOrder": 1,
+          "sourceBopomofo": "ㄆㄧㄢˊ　ㄧˊ",
+          "definitionPresent": true,
+          "definitionSha256": "035cf581c850de2a6a95d2267527f17b76289a447cdd54f56efc07452a37cb4d"
+        }
+      ]
+    },
+    {
+      "text": "便宜",
+      "reading": "ㄆㄧㄢ2 ㄧ5",
+      "entryId": "word:便宜:ㄆㄧㄢ2-ㄧ5",
+      "matchStatus": "one-source-row-awaiting-sense-review",
+      "senseReviewStatus": "unreviewed",
+      "sourceRows": [
+        {
+          "sourceKind": "moe-revised",
+          "sourceVersion": "2015_20260625",
+          "sourceEntryId": "009200007",
+          "sourcePhysicalRow": 25163,
+          "multiReadingOrder": 1,
+          "sourceBopomofo": "ㄆㄧㄢˊ ˙ㄧ",
+          "definitionPresent": true,
+          "definitionSha256": "22f7e7adaf4cf5f0b3347b49cf72a9027d894c68ea6f5ef7a308aa62c09e183e"
+        }
+      ]
+    },
+    {
+      "text": "便宜",
+      "reading": "ㄅㄧㄢ4 ㄧ2",
+      "entryId": "word:便宜:ㄅㄧㄢ4-ㄧ2",
+      "matchStatus": "paired-sources-awaiting-sense-review",
+      "senseReviewStatus": "unreviewed",
+      "sourceRows": [
+        {
+          "sourceKind": "moe-concised",
+          "sourceVersion": "2014_20260626",
+          "sourceEntryId": "024500018",
+          "sourcePhysicalRow": 1609,
+          "multiReadingOrder": 2,
+          "sourceBopomofo": "ㄅㄧㄢˋ　ㄧˊ",
+          "definitionPresent": true,
+          "definitionSha256": "414ef0beb429b8b1d8eee9cb4ce237d63464708aa76da0bf02c5dee8881450d5"
+        },
+        {
+          "sourceKind": "moe-revised",
+          "sourceVersion": "2015_20260625",
+          "sourceEntryId": "004930077",
+          "sourcePhysicalRow": 18839,
+          "multiReadingOrder": 2,
+          "sourceBopomofo": "ㄅㄧㄢˋ ㄧˊ",
+          "definitionPresent": true,
+          "definitionSha256": "46f90f2a2865e90be0b31a1d0869204fecb47e0c7ef4457a6eaa0db6136f0a9e"
+        }
+      ]
+    }
+  ]
+}

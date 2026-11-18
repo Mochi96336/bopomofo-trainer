@@ -1,0 +1,108 @@
+{
+  "schemaVersion": "moe-sense-pilot-evidence-v1",
+  "purpose": "Exact reading-to-source-row evidence only; NOT reviewed sense alignment.",
+  "sourceArchives": [
+    {
+      "kind": "moe-concised",
+      "sourceVersion": "2014_20260626",
+      "archiveSha256": "fc83d27eb3fbf6fcfdb791e7d05ef60946b58ef8e8857ed165b612217b392806"
+    },
+    {
+      "kind": "moe-revised",
+      "sourceVersion": "2015_20260625",
+      "archiveSha256": "64003a98fcc7097940e5a536c999bc08ba7c07e2c1be66448f01bf1ae10a53fc"
+    }
+  ],
+  "matchCounts": {
+    "paired-sources-awaiting-sense-review": 3
+  },
+  "rows": [
+    {
+      "text": "和",
+      "reading": "ㄏㄢ4",
+      "entryId": "word:和:ㄏㄢ4",
+      "matchStatus": "paired-sources-awaiting-sense-review",
+      "senseReviewStatus": "unreviewed",
+      "sourceRows": [
+        {
+          "sourceKind": "moe-concised",
+          "sourceVersion": "2014_20260626",
+          "sourceEntryId": "2771",
+          "sourcePhysicalRow": 19426,
+          "multiReadingOrder": 5,
+          "sourceBopomofo": "ㄏㄢˋ",
+          "definitionPresent": true,
+          "definitionSha256": "489b38d21a05c4f06d14195b699d62f2d95e53036646557a1c315b9a5cacebcc"
+        },
+        {
+          "sourceKind": "moe-revised",
+          "sourceVersion": "2015_20260625",
+          "sourceEntryId": "04883",
+          "sourcePhysicalRow": 4889,
+          "multiReadingOrder": 5,
+          "sourceBopomofo": "ㄏㄢˋ",
+          "definitionPresent": true,
+          "definitionSha256": "e3162004177315e70df5c2c11c99b3e095be14379b6dd099a26d5a61f40d0e3a"
+        }
+      ]
+    },
+    {
+      "text": "和",
+      "reading": "ㄏㄜ2",
+      "entryId": "word:和:ㄏㄜ2",
+      "matchStatus": "paired-sources-awaiting-sense-review",
+      "senseReviewStatus": "unreviewed",
+      "sourceRows": [
+        {
+          "sourceKind": "moe-concised",
+          "sourceVersion": "2014_20260626",
+          "sourceEntryId": "2677",
+          "sourcePhysicalRow": 18725,
+          "multiReadingOrder": 1,
+          "sourceBopomofo": "ㄏㄜˊ",
+          "definitionPresent": true,
+          "definitionSha256": "35ac6fc149d4f25db0f09978d057c36a5fdd2f6fece157b120b9a0f03744a597"
+        },
+        {
+          "sourceKind": "moe-revised",
+          "sourceVersion": "2015_20260625",
+          "sourceEntryId": "04721",
+          "sourcePhysicalRow": 4728,
+          "multiReadingOrder": 1,
+          "sourceBopomofo": "ㄏㄜˊ",
+          "definitionPresent": true,
+          "definitionSha256": "3664dffe62bb34bdb8408da8c62ce93d6142d84fc7e4a34c6358c3806d84cbf8"
+        }
+      ]
+    },
+    {
+      "text": "和",
+      "reading": "ㄏㄨㄛ4",
+      "entryId": "word:和:ㄏㄨㄛ4",
+      "matchStatus": "paired-sources-awaiting-sense-review",
+      "senseReviewStatus": "unreviewed",
+      "sourceRows": [
+        {
+          "sourceKind": "moe-concised",
+          "sourceVersion": "2014_20260626",
+          "sourceEntryId": "2866",
+          "sourcePhysicalRow": 20054,
+          "multiReadingOrder": 4,
+          "sourceBopomofo": "ㄏㄨㄛˋ",
+          "definitionPresent": true,
+          "definitionSha256": "5def53bbbc51e69ce6ce1cad32a4bcfccd699465d59cfaafe7411540119a44d4"
+        },
+        {
+          "sourceKind": "moe-revised",
+          "sourceVersion": "2015_20260625",
+          "sourceEntryId": "05041",
+          "sourcePhysicalRow": 5048,
+          "multiReadingOrder": 4,
+          "sourceBopomofo": "ㄏㄨㄛˋ",
+          "definitionPresent": true,
+          "definitionSha256": "2200f6730f1a0ce2d3e0de98ba93c4011bae1fb9ff107be0a0e0eb1eff85aa19"
+        }
+      ]
+    }
+  ]
+}

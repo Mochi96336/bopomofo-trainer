@@ -22,6 +22,7 @@ export function buildPolyphonicIdentityTargets(
   entries: readonly CatalogEntry[],
   profiles: readonly RuntimeSyntaxProfile[],
   baselineCounts: Readonly<Record<string, number>>,
+  profileEligible: (entry: CatalogEntry, profile: RuntimeSyntaxProfile) => boolean = reviewedRoleReadingEligible,
 ): readonly PolyphonicIdentityTarget[] {
   const indexed = buildPolyphonicReadingIndex(entries);
   const entriesById = new Map(entries.map((entry) => [entry.id, entry]));
@@ -41,7 +42,7 @@ export function buildPolyphonicIdentityTargets(
         throw new Error("polyphonic index contains an inconsistent catalog identity");
       }
       const profileSet = profilesByEntryId.get(entryId) ?? [];
-      const allowed = profileSet.filter(profile => reviewedRoleReadingEligible(entry, profile));
+      const allowed = profileSet.filter(profile => profileEligible(entry, profile));
       const count = baselineCounts[entryId] ?? 0;
       if (!Number.isSafeInteger(count) || count < 0) {
         throw new Error("invalid baseline occurrence count for " + entryId);

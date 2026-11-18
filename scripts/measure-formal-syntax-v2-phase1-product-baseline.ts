@@ -1,8 +1,13 @@
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
-import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../src/app/generated/catalog.js";
-import { composeFormalSyntaxUtterances } from "../src/curriculum/formal-syntax-utterance.js";
+import { readingAuditCatalog } from "./reading-audit-catalog.js";
+// This is the frozen Phase 1 grammar meter. Current product quality is measured
+// separately through selectFormalSyntaxUtterance, including reading gates.
+const { PRACTICE_CATALOG, SYNTAX_PROFILES } = readingAuditCatalog("before-qian");
+import { composeFormalSyntaxUtterances, prepareFormalSyntaxLexicon } from "../src/curriculum/formal-syntax-utterance.js";
 import { createSeededRandom } from "../src/curriculum/random.js";
+import { FORMAL_SYNTAX_RULES } from "../src/syntax/grammar.js";
+import { prepareStructuralSamplingContext } from "../src/syntax/sample.js";
 import { sentenceConstructionClassification } from "../src/curriculum/formal-syntax-taxonomy.js";
 
 const PHASE1_CLOSURE_COMMIT = "b77e2bc643baaa91fdd9fb42df14cbfcdffd4e5f";
@@ -24,7 +29,7 @@ interface AuditedCandidate {
   readonly syntaxDerivationId?: string;
   readonly syntaxProfileIds?: readonly string[];
   readonly text: string;
-  readonly __auditProductionRulePath?: readonly string[];
+  readonly syntaxProductionRuleIds?: readonly string[];
 }
 
 interface Row {
@@ -56,6 +61,8 @@ function firstClauseRule(path: readonly string[]): string | null {
 }
 
 function measureRows(): readonly Row[] {
+  const lexicon = prepareFormalSyntaxLexicon(PRACTICE_CATALOG, SYNTAX_PROFILES);
+  const structural = prepareStructuralSamplingContext(FORMAL_SYNTAX_RULES, PRODUCT_BOUNDS);
   const rows: Row[] = [];
   for (let round = 0; round < SAMPLE_COUNT; round += 1) {
     const composition = composeFormalSyntaxUtterances({
@@ -67,9 +74,9 @@ function measureRows(): readonly Row[] {
       maximumCandidates: 1,
       maximumAttempts: 64,
       bounds: PRODUCT_BOUNDS,
-    });
+    }, lexicon, structural);
     const candidate = (composition.candidates[0] ?? null) as AuditedCandidate | null;
-    const path = candidate?.__auditProductionRulePath ?? [];
+    const path = candidate?.syntaxProductionRuleIds ?? [];
     const root = candidate?.syntaxRootRuleId ?? null;
     rows.push({
       success: candidate !== null,
@@ -109,6 +116,7 @@ function baseline(rows: readonly Row[]) {
     phase1ClosureCommit: PHASE1_CLOSURE_COMMIT,
     sampleCount: SAMPLE_COUNT,
     seedNamespace: SEED_NAMESPACE,
+    catalogSnapshot: "before-qian",
     productBounds: PRODUCT_BOUNDS,
     success,
     failure: SAMPLE_COUNT - success,

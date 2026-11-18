@@ -1,113 +1,177 @@
 # Frequency-first grammatical utterance policy
 
-## Product decision
+## Executable policy
 
-The browser product selects complete grammar-valid utterances. It does not first choose a weak relation and then search for arbitrary supporting words, and it never pads a round with unrelated lexical items.
+Production uses `frequency-first-utterance-v2`. The selector is hierarchical:
 
-Selection order is:
+1. Sample a bounded formal Sentence using the root-family training prior.
+2. Filter each lexical frontier by syntax and **all** reviewed reading licenses.
+3. Draw a written form, then a permitted reading, then a compatible profile.
+4. Assess the completed candidate for visible repetition, construction recency,
+   and typing burden. Accept probabilistically or draw another complete candidate.
+5. After four candidate draws, deliver the legal candidate with the highest
+   acceptance probability, explicitly marked `bounded-best-effort`.
 
-1. sample a bounded derivation rooted at the formal `Sentence` category;
-2. fill each lexical slot only from compatible admitted syntax profiles;
-3. give compatible entries and the completed utterance a frequency base;
-4. add bounded learner-specific weight from expected-token errors and identifiable binding timing;
-5. apply recent entry and utterance penalties;
-6. make one deterministic seeded weighted selection.
+Each candidate generation has at most 64 structural attempts. A failure-only
+second pass removes optional practice intents while retaining grammar, the
+catalog, root-family policy, and reading licenses. If no legal candidate exists
+in any bounded draw, selection fails closed; no word-list fallback exists.
 
-## Frequency base
+`selection-policy.ts` owns constants and validation; `lexical-selection.ts`
+owns written-form/reading/profile probability; `selection-scoring.ts` owns
+learner and acceptance factors; `frequency-first-utterance.ts` coordinates
+formal generation and bounded retries. Formal grammar never imports curriculum
+weights.
 
-Every syntax-legal entry in the practised commonness levels is eligible in every round. The selector itself has no stage gate and no coarse band: commonness is one continuous weight, and a rarer word is selected less often rather than locked out. Which levels are practised is decided outside selection, by what the learner has unlocked and left switched on; see [commonness levels](./commonness-levels.md).
+## Lexical probability
 
-Reviewed NAER `commonness-v1` evidence supplies that weight. An entry without reviewed evidence weighs the same as the most common word, so a catalog without commonness evidence selects uniformly instead of carrying a second, parallel notion of how common a word is.
-
-## Utterance score
-
-For one grammar-valid candidate:
-
-```text
-utteranceWeight = frequencyBase
-                × boundedLearnerBoost
-                × recentEntryFactor
-                × recentUtteranceFactor
-```
-
-`frequencyBase` is the geometric mean of the versioned frequency weights of the entries in the utterance. Each entry uses its reviewed `commonnessBase.selectionWeight` when available, then falls back to its band weight. The geometric mean avoids automatically rewarding or punishing a candidate merely because it has more words.
-
-The fallback band weights are:
+For each eligible reading identity:
 
 ```text
-band 1 = 1.00
-band 2 = 0.50
-band 3 = 0.25
+readingWeight = reviewedFrequencyWeight * boundedLearnerBoost * writtenRecencyFactor
+writtenFormWeight = maximum readingWeight among its eligible readings
+P(text | slot) = writtenFormWeight / sum of eligible writtenFormWeights
+P(reading | text, slot) = readingWeight / sum of that text's readingWeights
+P(profile | reading, slot) = 1 / number of compatible profiles
 ```
 
-The maximum combined learner boost is `1.50`. Level eligibility is absolute: no learner boost can admit an entry from a commonness level the learner has not unlocked or has switched off, because such an entry is not in the pool the selector is given. Inside the practised levels, learner evidence remains a bounded modifier of the reviewed frequency base.
+A form owns one ticket. Adding another identical-weight reading or another
+compatible profile does not multiply that form's frequency mass. The maximum
+retains a weak reading's opportunity without dividing its boost by how many
+other readings happen to be cataloged. Reading probabilities are a training
+allocation, not an assertion of pronunciation frequencies: NAER frequency is
+written-form evidence, not reading-frequency evidence.
 
-## Expected-token evidence
+All reading gates precede weighting. An unsupported high-weight reading cannot
+lend mass to a legal homograph or trigger a post-selection replacement in the
+current product. Identity-bound repetitions such as A-not-A retain the same
+reading identity. Other slots cannot reuse a written form within the sentence.
 
-A mapped incorrect input updates the binding aggregate of the expected token. The selector may raise utterances containing that expected token after the minimum sample gate.
+Frequency comes only from `commonnessBase.selectionWeight`; missing evidence
+weighs 1, including fixtures. There is no parallel band-weight fallback.
+Unlocked/enabled commonness tiers filter the catalog before this algorithm, so
+adaptation cannot admit a disabled or locked entry.
 
-The actual wrong token is deliberately ignored by product selection scoring.
+## Learner evidence
 
-Example:
+Only expected-token correctness and accepted clean binding timing affect
+adaptation. Actual wrong tokens and transition/confusion aggregates never feed
+product selection. Evidence is scoped by practice mode and physical layout.
+
+Cumulative diagnostics remain intact. Adaptation keeps independent bounded
+windows per token:
+
+- the last 32 correctness observations, gated at four observations;
+- the last 24 accepted clean timing samples, gated at eight samples;
+- timing compares the median of the newest eight samples with the 25th
+  percentile of the retained timing window, rather than a lifetime single best;
+- low-exposure tokens receive a bonus starting at 0.10 and decreasing to zero
+  at eight cumulative attempts. This is exploration, not a claim of weakness.
+
+For an observed token:
 
 ```text
-expected ㄓ, actual ㄗ
+errorContribution = recentErrorRate * 1.5
+timingContribution = max(0, recentMedian / windowQuartile - 1) * 0.35
+coverageContribution = 0.10 * max(0, 1 - cumulativeAttempts / 8)
+tokenBoost = clamp(1 + the three contributions, 1, 1.45)
 ```
 
-This may raise the weight of utterances containing `ㄓ`. It does not raise `ㄗ`, and it does not create a `ㄓ → ㄗ` practice target. The existing directional confusion aggregate remains available for diagnostics and export only. Confusion observations include mapped incorrect inputs at syllable starts as well as within-syllable and tone positions; this broader diagnostic scope does not change the narrower motor-timing policy.
+An unseen token gets only the coverage bonus. A reading's boost is the maximum
+of its token boosts. The combined extension cap remains 1.50; production has
+no archived transition extension. The policy does not prescribe a dosage for
+repeating a target token multiple times within a word.
 
-## Binding timing
+Imported old cumulative aggregates remain diagnostic evidence. They do not
+pretend to contain recent adaptation samples: fresh windows start with new
+observations. All bounds and the independent timing/correctness exclusions
+continue to apply.
 
-Only timing already accepted by the Phase 3 measurement policy can affect selection. Entry starts, syllable starts, recovery input, incorrect input, and interaction-noise-contaminated intervals remain excluded.
+## Delivery quality and recency
 
-For an identifiable token timing aggregate, the selector compares current clean timing to that token's own best clean timing. The contribution is sample-gated and capped.
+The last 24 distinct entry IDs and written forms are retained in chronological
+LRU order. Written-form recency affects every reading of that form. Its factor
+is 0.72 for the newest form and decays linearly toward 1 over the retained
+window. This is a term-count window, not a number of rounds.
 
-## Transition timing boundary
+Whole-sentence history retains eight visible lexical sequences, independent of
+reading, profile and derivation IDs. Construction history retains four distinct combinations of Sentence family
+and nested Clause families, classifying executable variants through the canonical
+taxonomy. Transitive and BA statements therefore have different repetition
+identities, while the two A-not-A executable variants share their family.
+The newest repeated construction has factor 0.78, decaying toward 1 with age.
 
-Transition measurements remain available to diagnostics and archived research, but they do not influence current browser selection.
+```text
+burdenFactor = min(1, 12 / syllableCount, 40 / expectedKeystrokeCount)
+acceptanceProbability = visibleSentenceRecency * constructionRecency * burdenFactor
+```
 
-The production entry point is `selectFormalSyntaxUtterance(...)` in `frequency-first-utterance.ts`. That module imports no legacy Measurement V1 code and its production score shape contains no transition boost or transition trace fields.
+Visible-sentence recency is 0.30 when repeated and 1 otherwise. The 12-syllable
+and 40-keystroke targets are soft product defaults, not proficiency thresholds.
+The grammar's 2..6 lexical-entry bounds still apply. A legal long candidate can
+be delivered, particularly through bounded best effort; burden is never an
+excuse to violate grammar or pronunciation licenses.
 
-Historical canonical token-pair scoring now lives in `legacy-frequency-first-utterance.ts`. Only compatibility/research callers import that module, where legacy `MeasurementSummary.transitions` is adapted into an additional bounded learner boost.
+Word weights are applied during lexical selection; they are **not** multiplied
+again at delivery. The production trace contains local entry weights, token
+contributions, construction identity, syllable/keystroke counts, acceptance
+factors, the number of draws and whether best effort was necessary. It has no
+fictional whole-sentence `totalWeight` or claim to an exact global probability.
 
-This boundary is intentional: current product selection may react to expected-token correctness and identifiable binding timing, but it cannot accidentally reinterpret historical canonical-order transition measurements as learner-selection evidence.
+## Effective distribution
 
-## Grammar boundary
+The root-family prior remains a curriculum prior, not corpus sentence frequency.
+Nested Clause/phrase sampling and bounded failure recovery still affect output.
+Repetition and burden acceptance intentionally modify realized family shares.
+Do not infer final distribution from nominal priors alone. Strict tier-only
+settings can exclude the closed-class vocabulary needed for questions: in the
+64-delivery audit, tiers 3 and 4 alone realized only declaratives. This is a
+conditional catalog limitation, not a promise of 26% questions in every scope.
+The selector does not silently re-enable a disabled tier to satisfy a prior.
 
-The production selector requires compact profiles admitted by the full formal
-rule index. It cannot bypass slot compatibility to obtain a higher weakness
-score, and it has no template, standalone utterance, lexical prompt, or random
-word-list fallback. If no complete `Sentence` derivation can be realized, the
-round fails closed with explicit reasons.
+`npm run selection:audit` exercises `createProductState` with the real packaged
+catalog, prepared execution, complete reading policy, and delivery recency for
+the full catalog and each individual commonness tier. It advances delivery
+history without inventing typing observations. The generated report includes:
 
-Caller-supplied template and standalone behavior remains isolated in legacy
-compatibility APIs and tests; `product/session.ts` calls only the formal syntax
-selector.
+- root and nested clause family counts;
+- visible term diversity and token exposure;
+- repeated sentences, consecutive constructions, recent terms;
+- syllable/keystroke distributions, candidate attempts and best effort;
+- structural and availability fallback reasons;
+- catalog/profile digests and policy version.
 
-## Product catalog boundary
+Generation failure or an unlicensed delivered reading fails the command. The
+report is a current product-health diagnostic, not a locked historical snapshot
+or evidence of human learning effectiveness. Run larger samples before changing
+training priors; the routine gate uses 128 deliveries per scenario.
 
-Every syntax-legal runtime entry belongs to the ordinary practice catalog. The browser does not reserve a held-out vocabulary pool or insert automatic evaluation rounds. It does narrow the catalog it draws from to the practised commonness levels, which is a filter over that one catalog rather than a second pool. Research partitions and simulation evaluation remain archived experiment infrastructure and are not part of the browser selection loop.
+`npm run selection:exposure` additionally compares 256 identical fresh-user
+seeds for baseline, weak tone 3, weak tone 4 and weak zhuyin ? cohorts. The
+synthetic cohort has 24 errors in a 32-observation recent window, with all other
+inputs fixed. Every delivered reading is checked against the same licenses.
+It reports target occurrences per 100 syllables, sentence coverage and changed
+seeds. A non-positive target-exposure delta fails this deterministic health
+check; this is not a significance test or an estimate of human improvement.
 
-## Persistence boundary
+## Persistence and historical evidence
 
-Current product progress uses schema 8 and measurement epoch `coordination-v1`. It persists Measurement V2 data, frequency-first recency (`recentEntryIds`, recent utterances, and recent templates), completed-round count, and recent summaries. It does not persist a runtime `CurriculumProfile`.
+Product progress is schema 9, measurement epoch `coordination-v1`. Schema 8
+selection v1 migrates entry history into written-form recency, preserving
+measurements, completed rounds and recent summaries. Old derivation IDs and
+empty template history cannot reconstruct visible/construction recency, so
+those two small histories restart. Schemas 7 and 6 retain their earlier envelope
+migrations; schema 6 still resets incompatible measurement evidence. Schemas
+1..5 remain rejected.
 
-Schema 7 is accepted as a structural migration. Its Measurement V2 data and recent summaries are preserved, while `curriculum.recentEntryIds` is moved into the current selection state; legacy focus/cooldown fields are discarded.
+The generic composer retains explicit `reading-identity` sampling for historical
+comparison tools. The browser explicitly chooses `written-form` sampling.
+Ordered post-draw reading repairs and geometric sentence scores belong only to
+that historical compatibility surface; they do not determine product v2 output.
+Same-version seed/catalog/progress replay is deterministic. Preserving v1's
+exact sentences across this intentional version change is not a requirement.
 
-Schema 6 is accepted only across the older measurement-epoch boundary. Its measurement-derived records are discarded because they were gathered under incompatible strict canonical-input semantics; identity, completed-round count, recent-entry recency, and frequency-first selection continuity are retained, then a fresh Measurement V2 epoch starts and migrated recent summaries are cleared.
-
-Schemas 1 through 5 are rejected. The browser does not revive their measurement or selection state.
-
-## Explainability
-
-Every production-selected utterance retains:
-
-- frequency base;
-- expected-token traces and boosts;
-- combined learner cap;
-- repetition factors;
-- total weight;
-- canonical candidate ordering;
-- grammar candidate and fallback identity.
-
-These are selection diagnostics, not claims of learning effectiveness.
+The frozen Phase 1 grammar meter uses the checksum-verified `before-qian`
+catalog snapshot and reading-identity sampling. Current-product audits use the
+current catalog instead. Neither workflow mutates source to collect traces:
+formal candidates expose their actual production path.

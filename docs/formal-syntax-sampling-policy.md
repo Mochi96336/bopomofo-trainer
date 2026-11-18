@@ -23,7 +23,7 @@ The raw structural sampler randomizes reachable productions. With the current gr
 
 ## Sentence-root product prior
 
-`PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY` is the production training prior, not a claim about natural Mandarin corpus frequencies. The policy is versioned as `formal-syntax-family-sampling-v3`.
+`PRODUCT_FORMAL_SYNTAX_SAMPLING_POLICY` is the production training prior, not a claim about natural Mandarin corpus frequencies. The policy is versioned as `formal-syntax-family-sampling-v10`.
 
 Root kinds start at:
 
@@ -156,3 +156,14 @@ npx tsx scripts/audit-formal-syntax-sampling.ts
 ```
 
 It reports the old equal-production ticket shares and the nominal Sentence-root family priors, including a zero prior for legal-but-inactive `statement.complex`. Realized frequencies are guarded separately rather than baked back into grammar.
+
+## Current delivery boundary
+
+The family planner is a proposal policy. Product selection v2 subsequently
+samples written forms and their licensed readings, then applies bounded
+acceptance for visible repetition, construction recency and typing burden.
+Effective shares must therefore be measured after the selector, not only after
+the structural composer. `npm run selection:audit` reports the actual product
+path and nested clause families across each enabled-tier scope. Clause/phrase
+sampling remains raw; no unmeasured nested-frequency guarantee is claimed.
+See [selection policy](frequency-first-utterance-policy.md).

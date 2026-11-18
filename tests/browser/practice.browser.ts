@@ -242,7 +242,10 @@ test("fits the narrowest supported viewport without scrolling sideways", async (
 
 test("restores progress through export, clear and import", async ({ page }, testInfo) => {
   await page.goto("/");
-  await page.keyboard.press("F10");
+  for (let guard = 0; guard < 80 && await completedRoundCount(page) === 0; guard += 1) {
+    await completeCurrentSyllableInReverse(page);
+  }
+  await expect.poll(() => completedRoundCount(page)).toBe(1);
   await expect.poll(() => storedProgress(page)).not.toBeNull();
   const earned = await storedProgress(page);
 

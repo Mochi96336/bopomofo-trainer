@@ -183,6 +183,7 @@ describe("frequency-first grammatical product session loop", () => {
       environment.utterancePolicy,
     )!;
     const reloaded = createProductState(environment, restored, 700);
+    expect(serializeProductProgress(restored)).toBe(serializeProductProgress(completed.progress));
     expect(reloaded.round.selection.utterance.id).toBe(next.round.selection.utterance.id);
     expect(reloaded.round.selection.utterance.templateId)
       .toBe(next.round.selection.utterance.templateId);

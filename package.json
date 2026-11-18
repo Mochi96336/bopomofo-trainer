@@ -56,7 +56,7 @@
     "prebuild": "npm run app:catalog",
     "build": "vite build",
     "preview": "vite preview",
-    "check:pr": "npm run grammar:runtime-morphology && npm run grammar:runtime-occurrence-capabilities && npm run grammar:runtime-ba-occurrence-capabilities && npm run grammar:runtime-short-passive-occurrence-capabilities && npm run grammar:runtime-preverbal-aux-occurrence-capabilities && npm run grammar:runtime-locative-occurrence-capabilities && npm run grammar:runtime-comparative-occurrence-capabilities && npm run grammar:runtime-youguan-relational-ccomp-occurrence-capabilities && npm run typecheck && npm run test:fast && npm run test:source-adapters && npm run catalog:validate && npm run build && npm run size:check",
+    "check:pr": "npm run grammar:runtime-morphology && npm run grammar:runtime-occurrence-capabilities && npm run grammar:runtime-ba-occurrence-capabilities && npm run grammar:runtime-short-passive-occurrence-capabilities && npm run grammar:runtime-preverbal-aux-occurrence-capabilities && npm run grammar:runtime-locative-occurrence-capabilities && npm run grammar:runtime-comparative-occurrence-capabilities && npm run grammar:runtime-youguan-relational-ccomp-occurrence-capabilities && npm run typecheck && npm run test:fast && npm run test:source-adapters && npm run selection:audit && npm run selection:exposure && npm run catalog:validate && npm run build && npm run size:check",
     "check:research": "npm test && npm run catalog:relations && npm run integration:research && npm run strategy:matrix && npm run experiment:relational && npm run analysis:relational && npm run confirmation:relational",
     "check": "npm run check:pr",
     "test:browser": "npm run build && playwright test",
@@ -64,7 +64,9 @@
     "qa:catalog-score": "tsx scripts/sample-catalog-qa.ts --score",
     "size:check": "tsx scripts/check-bundle-size.ts",
     "grammar:runtime-locative-occurrence-capabilities": "tsx scripts/migrate-active-runtime-locative-occurrence-capabilities.ts",
-    "size:attribution": "npm run app:catalog && tsx scripts/measure-bundle-attribution.ts"
+    "size:attribution": "npm run app:catalog && tsx scripts/measure-bundle-attribution.ts",
+    "selection:audit": "tsx scripts/audit-product-selection.ts",
+    "selection:exposure": "tsx scripts/audit-product-learner-exposure.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",

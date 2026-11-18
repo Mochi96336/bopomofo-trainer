@@ -1,3 +1,4 @@
+import { parseSelectionEvidence } from "./selection-evidence.js";
 import type { PracticeMode } from "../core/model.js";
 import { ZHUYIN_TOKENS } from "../scheme/tokens.js";
 import {
@@ -124,6 +125,9 @@ function parseBinding(
   validTokens: ReadonlySet<string>,
 ): BindingAggregateV2 | null {
   if (!isRecord(value) || !isRecord(value.scope)) return null;
+  const selectionEvidence = value.selectionEvidence === undefined ? undefined
+    : parseSelectionEvidence(value.selectionEvidence);
+  if (selectionEvidence === null) return null;
   const tokenId = value.scope.tokenId;
   const current = finiteNonNegativeOrNull(value.currentTimeToTypeMs);
   const best = finiteNonNegativeOrNull(value.bestTimeToTypeMs);
@@ -140,9 +144,15 @@ function parseBinding(
     || current === undefined
     || best === undefined
     || !validTimingPair(value.timingSamples as number, current, best)
+    || (selectionEvidence !== undefined && (
+      selectionEvidence.correctness.length > (value.attempts as number)
+      || selectionEvidence.correctness.filter(correct => !correct).length > (value.errors as number)
+      || selectionEvidence.timingMs.length > (value.timingSamples as number)
+    ))
   ) return null;
   return {
     scope: { mode, layoutId, tokenId },
+    ...(selectionEvidence === undefined ? {} : { selectionEvidence }),
     attempts: value.attempts as number,
     errors: value.errors as number,
     timingSamples: value.timingSamples as number,

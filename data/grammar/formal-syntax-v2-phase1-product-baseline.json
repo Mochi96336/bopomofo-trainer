@@ -3,6 +3,7 @@
   "phase1ClosureCommit": "b77e2bc643baaa91fdd9fb42df14cbfcdffd4e5f",
   "sampleCount": 2048,
   "seedNamespace": "formal-syntax-v2-phase1-product-baseline-v1",
+  "catalogSnapshot": "before-qian",
   "productBounds": {
     "maximumPhraseDepth": 3,
     "maximumClauseNesting": 1,

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   FREQUENCY_FIRST_UTTERANCE_POLICY,
   prepareFrequencyFirstEntries,
-  scoreFrequencyFirstCandidate,
+
   selectFormalSyntaxUtterance,
 } from "../../src/curriculum/frequency-first-utterance.js";
 import { createSeededRandom } from "../../src/curriculum/random.js";
@@ -83,7 +83,7 @@ function evidencePair(): {
 }
 
 describe("production selection learner-evidence seam", () => {
-  it("scores identically from V2 binding evidence and equivalent legacy binding aggregates", () => {
+  it("accepts structurally equivalent evidence without reading legacy transitions", () => {
     const { v2, legacy } = evidencePair();
     const seed = "selection-evidence-contract";
 
@@ -98,16 +98,12 @@ describe("production selection learner-evidence seam", () => {
       profiles: SYNTAX_PROFILES,
     });
 
-    const legacyBindingScore = scoreFrequencyFirstCandidate(native.utterance, {
-      entries: PRACTICE,
-      bindingEvidence: Object.values(legacy.bindings),
-      mode,
-      layoutId,
-      history,
-      policy: FREQUENCY_FIRST_UTTERANCE_POLICY,
+    const equivalent = selectFormalSyntaxUtterance({
+      entries: PRACTICE, bindingEvidence: Object.values(legacy.bindings),
+      mode, layoutId, history, policy: FREQUENCY_FIRST_UTTERANCE_POLICY,
+      random: createSeededRandom(seed), profiles: SYNTAX_PROFILES,
     });
-
-    expect(native.score).toEqual(legacyBindingScore);
+    expect(native).toEqual(equivalent);
     expect("transitionBoost" in native.score).toBe(false);
     expect("transitionTrace" in native.score).toBe(false);
   });

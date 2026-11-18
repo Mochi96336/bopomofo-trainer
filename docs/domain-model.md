@@ -265,7 +265,7 @@ This keeps sample density meaningful and prevents combinatorial skill-state grow
 
 ## Product persistence
 
-Product progress schema 8 uses measurement epoch:
+Product progress schema 9 uses measurement epoch:
 
 ```text
 coordination-v1
