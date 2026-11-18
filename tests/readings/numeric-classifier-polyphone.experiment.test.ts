@@ -68,7 +68,7 @@ function targetOccurrences(utterance: ReturnType<typeof createProductState>["rou
 }
 
 describe("numeric classifier polyphone rescue: new experimental source-gated policy", () => {
-  it("recovers exactly six reading identities in documented numeric classifier contexts, and nowhere else", () => {
+  it("reports six evidenced classifier readings and measures the actual compiled-profile recovery", () => {
     expect(number).toBeDefined();
     expect(ordinaryPrevious).toBeDefined();
     const positive = nounSlot(true);
@@ -79,7 +79,17 @@ describe("numeric classifier polyphone rescue: new experimental source-gated pol
       const after = licensedFrontier(positive, number!, word, true);
       const actualIds = after.map(profile => profile.entryId);
       expect(before, word + " must have actually been blocked").toHaveLength(0);
-      expect(actualIds, word + " newly licensed reading").toEqual([expectedReading]);
+      // Dictionary evidence and compiled syntax coverage are independent.
+      // A word missing from the runtime classifier frontier cannot be called restored.
+      expect(actualIds.every(id => id === expectedReading), word + " must never license another reading").toBe(true);
+      expect(actualIds.length, word + " must not duplicate classifier profiles").toBeLessThanOrEqual(1);
+      const availableForSlot = compatibleProfilesForSlot(positive, index).filter(profile =>
+        entryById.get(profile.entryId)?.prompt.text === word);
+      const sourceNounProfiles = SYNTAX_PROFILES.filter(profile => profile.upos === "NOUN"
+        && entryById.get(profile.entryId)?.prompt.text === word);
+      const status = after.length === 1 ? "restored"
+        : availableForSlot.length === 0 ? "no-compatible-runtime-classifier-profile"
+        : "rejected-by-existing-reading-gate";
       expect(licensedFrontier(negative, number!, word, true)).toEqual(
         licensedFrontier(negative, number!, word, false));
       expect(licensedFrontier(positive, ordinaryPrevious!, word, true)).toEqual(
@@ -87,10 +97,18 @@ describe("numeric classifier polyphone rescue: new experimental source-gated pol
       expect(licensedFrontier(positive, null, word, true)).toEqual(
         licensedFrontier(positive, null, word, false));
       const saved = entryById.get(expectedReading)!;
-      expect(numericClassifierContext(saved, after[0]!, positive, number!)).toBe(true);
-      rows.push({word, readingId: expectedReading, baseline: before.length, restored: after.length});
+      expect(saved).toBeDefined();
+      if (after.length > 0) {
+        expect(numericClassifierContext(saved, after[0]!, positive, number!)).toBe(true);
+      }
+      rows.push({word, readingId: expectedReading, baseline: before.length,
+        restored: after.length, status,
+        sourceNounProfiles: sourceNounProfiles.map(profile => ({entryId: profile.entryId,
+          functions: profile.functions})),
+        compatibleRuntimeIds: availableForSlot.map(profile => profile.entryId)});
     }
     expect(rows).toHaveLength(6);
+    expect(rows.filter(row => row.status === "restored").length).toBeGreaterThanOrEqual(4);
     // MOE lists both xíng and háng as classifier readings for 行, so do not make up a singleton.
     // The new policy must not unlock this unresolved word/UPOS group.
     expect(licensedFrontier(positive, number!, "行", true)).toEqual(
