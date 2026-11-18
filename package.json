@@ -40,6 +40,7 @@
     "readings:moe-revised": "python scripts/project-moe-revised-readings.py",
     "readings:audit": "tsx scripts/audit-polyphonic-context.ts",
     "readings:role-evidence": "tsx scripts/audit-reviewed-reading-role-evidence.ts",
+    "readings:bulk-syntax-triage": "tsx scripts/audit-bulk-polyphone-reading-evidence.ts",
     "readings:moe-coverage": "tsx scripts/audit-selected-moe-headword-coverage.ts",
     "readings:sense-targets": "tsx scripts/prepare-moe-sense-targets.ts",
     "readings:moe-sense": "python scripts/project-moe-sense-evidence.py",
