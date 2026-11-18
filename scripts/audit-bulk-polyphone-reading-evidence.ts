@@ -51,11 +51,18 @@ interface SourceRow {
 interface SourceData {
   readonly adapterVersion: string;
   readonly rows: readonly SourceRow[];
+  readonly diagnostics: {
+    readonly ambiguousCandidateTexts: readonly string[];
+    readonly multipleReadingTexts: readonly string[];
+    readonly unmatchedCandidateTexts: readonly string[];
+  };
 }
 const sourcePath=new URL("../data/readings/moe-concised-2014_20260626-active-catalog.json",import.meta.url);
 const reviewedPath=new URL("../data/readings/reviewed-reading-role-evidence.json",import.meta.url);
 const source=JSON.parse(readFileSync(sourcePath,"utf8")) as SourceData;
-if(source.adapterVersion!=="moe-concised-reading-adapter-v1"||!Array.isArray(source.rows))
+if(source.adapterVersion!=="moe-concised-reading-adapter-v1"||!Array.isArray(source.rows)
+  || !Array.isArray(source.diagnostics?.ambiguousCandidateTexts)
+  || !Array.isArray(source.diagnostics?.multipleReadingTexts))
   throw new Error("unknown MOE headword source schema");
 const reviewed=parseReviewedReadingRoleManifest(
   JSON.parse(readFileSync(reviewedPath,"utf8")) as unknown);
@@ -68,6 +75,8 @@ for(const row of source.rows){
 const positiveRoleByGroup=new Map(
   reviewed.rows.map(row=>[JSON.stringify([row.word,row.upos]),row.entryId]),
 );
+const sourceAmbiguous = new Set(source.diagnostics.ambiguousCandidateTexts);
+const sourceMultiple = new Set(source.diagnostics.multipleReadingTexts);
 const filteredFeatureCandidates=FEATURE_CANDIDATES.filter(([f,v])=>
   supportsLexicalConstructionFeature(f,v));
 
@@ -113,7 +122,9 @@ function triage(label:string,entries:readonly CatalogEntry[],profiles:readonly R
       :constructionEvidence.length>0?"existing-identity-gated-construction-to-evaluate"
       :attested.length===readingEntryIds.length?"all-readings-in-MOE-still-syntax-ambiguous"
       :attested.length>0?"partly-in-MOE-still-syntax-ambiguous"
-      :"no-exact-MOE-concised-headword-coverage";
+      :sourceAmbiguous.has(word)?"excluded-as-ambiguous-by-unambiguous-only-MOE-projection"
+      :sourceMultiple.has(word)?"MOE-projection-has-multiple-readings-without-role-attribution"
+      :"not-present-in-unambiguous-only-MOE-projection";
     const hasSourceOnly=attested.length===1&&readingEntryIds.length>1;
     return {
       word,upos,status,readingEntryIds,
@@ -137,6 +148,8 @@ function triage(label:string,entries:readonly CatalogEntry[],profiles:readonly R
       r.officialHeadwordReadingEvidence.length>0).length,
     dictionaryCorroboratesAllConflictingReadings:rows.filter(r=>
       r.officialHeadwordReadingEvidence.length===r.readingEntryIds.length).length,
+    sourceAdapterAmbiguousHeadwords:rows.filter(r=>sourceAmbiguous.has(r.word)).length,
+    sourceAdapterMultipleReadingHeadwords:rows.filter(r=>sourceMultiple.has(r.word)).length,
     rows,
   };
 }
@@ -158,6 +171,8 @@ const compact=(scope:typeof report.full)=>({
   byStatus:scope.byStatus,constructionCandidates:scope.existingSourceSpecificConstructionCandidateGroups,
   headwordEvidence:scope.dictionaryHeadwordCoverage,
   headwordAllReadings:scope.dictionaryCorroboratesAllConflictingReadings,
+  sourceAdapterAmbiguousHeadwords:scope.sourceAdapterAmbiguousHeadwords,
+  sourceAdapterMultipleReadingHeadwords:scope.sourceAdapterMultipleReadingHeadwords,
   constructionExamples:scope.rows.filter(x=>x.existingIdentityGatedConstructions.length>0)
     .map(x=>({word:x.word,upos:x.upos,constructions:x.existingIdentityGatedConstructions})).slice(0,25),
 });
