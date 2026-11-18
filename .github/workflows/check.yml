@@ -362,6 +362,8 @@ jobs:
         with:
           name: typecheck-failure-log
           path: typecheck.log
+      - name: Verify reading-specific role evidence batch
+        run: npm run readings:role-evidence
       - name: Fast tests
         id: tests
         shell: bash
