@@ -1,6 +1,6 @@
 {
   "schemaVersion": "reviewed-reading-role-evidence-v1",
-  "purpose": "reviewed pronunciation-specific syntactic-role evidence; no automatic pronunciation labels from UD or inferred sense",
+  "purpose": "Reviewed reading-ID-specific role licenses, six numeric classifier candidates plus three exact grammatical-function candidates; no inferred UD token reading or sentence meaning",
   "rows": [
     {
       "word": "句",
@@ -82,6 +82,48 @@
       "evidence": {
         "authority": "moe-revised-2021",
         "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=4827",
+        "kind": "dictionary-lexical-role-only",
+        "reviewStatus": "role-reading-reviewed"
+      }
+    },
+    {
+      "word": "會",
+      "reading": "ㄏㄨㄟ4",
+      "entryId": "word:會:ㄏㄨㄟ4",
+      "upos": "AUX",
+      "role": "auxiliary",
+      "contextGate": "exact-syntax-role-v1",
+      "evidence": {
+        "authority": "moe-revised-2021",
+        "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=4610",
+        "kind": "dictionary-lexical-role-only",
+        "reviewStatus": "role-reading-reviewed"
+      }
+    },
+    {
+      "word": "的",
+      "reading": "ㄉㄜ5",
+      "entryId": "word:的:ㄉㄜ5",
+      "upos": "SCONJ",
+      "role": "marker",
+      "contextGate": "exact-syntax-role-v1",
+      "evidence": {
+        "authority": "moe-revised-2021",
+        "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=1927",
+        "kind": "dictionary-lexical-role-only",
+        "reviewStatus": "role-reading-reviewed"
+      }
+    },
+    {
+      "word": "了",
+      "reading": "ㄌㄜ5",
+      "entryId": "word:了:ㄌㄜ5",
+      "upos": "PART",
+      "role": "discourse",
+      "contextGate": "exact-syntax-role-v1",
+      "evidence": {
+        "authority": "moe-revised-2021",
+        "sourceUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=3209",
         "kind": "dictionary-lexical-role-only",
         "reviewStatus": "role-reading-reviewed"
       }
