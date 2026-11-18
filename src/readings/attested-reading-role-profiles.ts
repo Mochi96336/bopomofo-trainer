@@ -1,5 +1,7 @@
 import { catalogEntryId } from "../core/catalog-entry-id.js";
 import type { CatalogEntry } from "../core/model.js";
+import type { StructuralLexicalSlot } from "../syntax/derive.js";
+import { numericClassifierContext } from "./numeric-classifier-reading.js";
 import { sha256Canonical } from "../reference/importers/canonical-json.js";
 import type {
   RuntimeSyntaxProfile, SyntacticFunction, Upos,
@@ -110,4 +112,20 @@ export function projectAttestedReadingRoleProfiles(
     });
   }
   return [...profiles, ...extra];
+}
+
+/** A source-only profile never licenses itself outside its pinned construction. */
+export function attestedReadingRoleProfileContextEligible(
+  entry: CatalogEntry,
+  profile: RuntimeSyntaxProfile,
+  slot: StructuralLexicalSlot,
+  previousEntry: CatalogEntry | null,
+): boolean {
+  if (!profile.id.startsWith("attested-reading-role:")) return true;
+  if (entry.id !== profile.entryId) return false;
+  return EXPERIMENTAL_READING_ROLE_ATTESTATIONS.some(a =>
+    a.entryId === entry.id && a.upos === profile.upos
+      && profile.functions.length === 1
+      && profile.functions[0] === a.role)
+    && numericClassifierContext(entry, profile, slot, previousEntry);
 }
