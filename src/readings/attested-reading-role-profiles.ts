@@ -19,7 +19,7 @@ export interface ReviewedReadingRoleRow {
   readonly entryId: string;
   readonly upos: Upos;
   readonly role: SyntacticFunction;
-  readonly contextGate: "numeric-classifier-v1";
+  readonly contextGate: "numeric-classifier-v1" | "exact-syntax-role-v1";
   readonly evidence: {
     readonly authority: "moe-revised-2021";
     readonly sourceUrl: string;
@@ -97,13 +97,21 @@ export function parseReviewedReadingRoleManifest(value: unknown): ReviewedReadin
     const evidence = record(row.evidence, "reading-role evidence");
     exactKeys(evidence, ["authority", "sourceUrl", "kind", "reviewStatus"],
       "reading-role evidence");
-    // Only this construction has independently source-checked reading-specific
-    // evidence. Adding a second constructor must add a reviewed predicate first.
+    // Only reviewed, positively identified syntactic roles may pass.
+    // Other UPOS/role combinations still fail closed without a dedicated gate.
     if (typeof row.word !== "string" || row.word.length === 0
       || typeof row.reading !== "string" || !READING.test(row.reading)
       || row.entryId !== catalogEntryId(row.word, row.reading)
-      || row.upos !== "NOUN" || row.role !== "classifier"
-      || row.contextGate !== "numeric-classifier-v1"
+      || !(
+        (row.upos === "NOUN" && row.role === "classifier"
+          && row.contextGate === "numeric-classifier-v1")
+        || (row.upos === "AUX" && row.role === "auxiliary"
+          && row.contextGate === "exact-syntax-role-v1")
+        || (row.upos === "SCONJ" && row.role === "marker"
+          && row.contextGate === "exact-syntax-role-v1")
+        || (row.upos === "PART" && row.role === "discourse"
+          && row.contextGate === "exact-syntax-role-v1")
+      )
       || evidence.authority !== "moe-revised-2021"
       || evidence.kind !== "dictionary-lexical-role-only"
       || evidence.reviewStatus !== "role-reading-reviewed"
@@ -121,9 +129,9 @@ export function parseReviewedReadingRoleManifest(value: unknown): ReviewedReadin
       word: row.word,
       reading: row.reading,
       entryId: row.entryId as string,
-      upos: "NOUN",
-      role: "classifier",
-      contextGate: "numeric-classifier-v1",
+      upos: row.upos as Upos,
+      role: row.role as SyntacticFunction,
+      contextGate: row.contextGate as ReviewedReadingRoleRow["contextGate"],
       evidence: {
         authority: "moe-revised-2021",
         sourceUrl: evidence.sourceUrl,
@@ -151,6 +159,10 @@ function contextGateAllows(
         && slot.requiredFunctions.includes("classifier")
         && previousEntry !== null
         && NUMERAL.test(previousEntry.prompt.text);
+    case "exact-syntax-role-v1":
+      // Only structurally selected role, never a guessed sense or word/POS default.
+      return profile.upos === row.upos
+        && slot.requiredFunctions.includes(row.role);
   }
 }
 
