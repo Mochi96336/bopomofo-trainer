@@ -57,7 +57,9 @@ describe("PR465 read-only final-delivery reading abstention delta", () => {
         const fallback = { guarded: 0, unguarded: 0 };
         const lexicalOccurrences = { guarded: 0, unguarded: 0 };
         let changedSelections = 0;
-        let changedReadingIdentities = 0;
+        let changedLexicalIdentities = 0;
+        let sameFormReadingChangeRounds = 0;
+        let sameFormReadingChangePositions = 0;
         const changedExamples: Array<{
           seed: number;
           guarded: string[];
@@ -86,15 +88,26 @@ describe("PR465 read-only final-delivery reading abstention delta", () => {
             }
             const signature = JSON.stringify([ids, profileIds]);
             signatures[arm].add(signature);
-            return { signature, ids, profileIds };
+            return { signature, ids, profileIds, forms: utterance.entries.map(e => e.prompt.text),
+              upos: profileIds.map(id => profileById.get(id)?.upos ?? "none") };
           };
           const guarded = trial("guarded");
           const unguarded = trial("unguarded");
           if (guarded.signature !== unguarded.signature) {
             changedSelections++;
             if (JSON.stringify(guarded.ids) !== JSON.stringify(unguarded.ids)) {
-              changedReadingIdentities++;
+              changedLexicalIdentities++;
             }
+            let readingChangesThisRound = 0;
+            for (let i = 0; i < Math.min(guarded.ids.length, unguarded.ids.length); i++) {
+              if (guarded.forms[i] === unguarded.forms[i]
+                && guarded.upos[i] === unguarded.upos[i]
+                && guarded.ids[i] !== unguarded.ids[i]) {
+                readingChangesThisRound++;
+              }
+            }
+            if (readingChangesThisRound > 0) sameFormReadingChangeRounds++;
+            sameFormReadingChangePositions += readingChangesThisRound;
             if (changedExamples.length < 5) {
               changedExamples.push({ seed, guarded: guarded.ids, unguarded: unguarded.ids });
             }
@@ -111,7 +124,8 @@ describe("PR465 read-only final-delivery reading abstention delta", () => {
         });
         scopeReports.push({
           scope, pairedFreshFirstRounds: cases, changedSelections,
-          changedReadingIdentities, guarded: summary("guarded"),
+          changedLexicalIdentities, sameFormReadingChangeRounds, sameFormReadingChangePositions,
+          guarded: summary("guarded"),
           unguarded: summary("unguarded"), changedExamples,
         });
       }
@@ -127,6 +141,7 @@ describe("PR465 read-only final-delivery reading abstention delta", () => {
           "UNGUARDED is an unsafe audit counterfactual, not a deployable policy.",
           "Counts are FINAL selected lexical identities, not removed candidate frontiers.",
           "128 paired fresh first rounds per scope; no multi-round recency or long-run exposure inference.",
+          "A same-form reading change counts aligned positions with identical written form and UPOS but different catalog entry IDs; it is not a correctness judgement.",
           "No semantic or sentence naturalness evaluation, and no new pronunciation truth labels.",
         ],
       }));
