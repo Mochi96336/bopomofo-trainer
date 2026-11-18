@@ -11,10 +11,12 @@ import type { RuntimeSyntaxProfile } from "../syntax/types.js";
  * numeric lexical entry. The contextual evidence is independently attested in
  * MOE Revised Mandarin Chinese Dictionary:
  *
- * 句 jù (measure word for expressions): https://dict.revised.moe.edu.tw/dictView.jsp?ID=4023
+ * 句 jù (measure word for expressions): https://dict.revised.moe.edu.tw/dictView.jsp?ID=6055
  * 間 jiān (measure word for buildings): https://dict.revised.moe.edu.tw/dictView.jsp?ID=5765
- * 把 bǎ (measure word): https://dict.revised.moe.edu.tw/dictView.jsp?ID=137
+ * 把 bǎ (measure word): https://dict.revised.moe.edu.tw/dictView.jsp?ID=23
  * 尺 chǐ (measure word, length unit): https://dict.revised.moe.edu.tw/dictView.jsp?ID=8217
+ * 曲 qǔ (measure word for melodies): https://dict.revised.moe.edu.tw/dictView.jsp?ID=6661
+ * 號 hào (measure word for numbered people): https://dict.revised.moe.edu.tw/dictView.jsp?ID=4827
  *
  * This is not enabled in PRODUCT_READING_POLICY until the full real-catalog
  * A/B and negative-context validation is inspected. Unreviewed contexts abstain.
@@ -26,6 +28,8 @@ export const REVIEWED_NUMERIC_CLASSIFIER_READINGS: ReadonlyMap<string, string> =
   ["間", catalogEntryId("間", "ㄐㄧㄢ1")],
   ["把", catalogEntryId("把", "ㄅㄚ3")],
   ["尺", catalogEntryId("尺", "ㄔ3")],
+  ["曲", catalogEntryId("曲", "ㄑㄩ3")],
+  ["號", catalogEntryId("號", "ㄏㄠ4")],
 ]);
 
 export function numericClassifierContext(
