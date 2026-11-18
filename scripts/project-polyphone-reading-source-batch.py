@@ -133,7 +133,7 @@ def build_source_report(
         status = (
             "no-exact-word-reading-source-row" if sum(counts) == 0
             else "multiple-source-rows-same-reading" if any(n > 1 for n in counts)
-            else "both-dictionaries-exact-reading" if all(n == 1 for n in counts)
+            else "both-dictionaries-exact-reading" if len(counts) == 2 and all(n == 1 for n in counts)
             else "one-dictionary-exact-reading"
         )
         statuses[status] = statuses.get(status, 0) + 1
