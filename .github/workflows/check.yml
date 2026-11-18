@@ -363,7 +363,12 @@ jobs:
           name: typecheck-failure-log
           path: typecheck.log
       - name: Verify reading-specific role evidence batch
-        run: npm run readings:role-evidence
+        run: npm run readings:role-evidence -- --output reading-role-review-queue.json
+      - name: Upload reading-role review queue
+        uses: actions/upload-artifact@v4
+        with:
+          name: reading-role-review-queue
+          path: reading-role-review-queue.json
       - name: Fast tests
         id: tests
         shell: bash
