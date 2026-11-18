@@ -26,10 +26,11 @@ const number = PRACTICE_CATALOG.find(e => e.prompt.text==="一")!;
 const nonNumber = PRACTICE_CATALOG.find(e => e.prompt.text==="生命")!;
 const all = {practice:PRACTICE_CATALOG,syntaxProfiles:SYNTAX_PROFILES};
 
-function slot(requiredFunctions:StructuralLexicalSlot["requiredFunctions"]):StructuralLexicalSlot{
+function slot(upos:StructuralLexicalSlot["allowedUpos"][number],
+  requiredFunctions:StructuralLexicalSlot["requiredFunctions"]):StructuralLexicalSlot{
   return {
     kind:"lexical-slot",id:"reviewed-role-batch-slot",constituentKey:"target",
-    occurrenceIndex:0,allowedUpos:["NOUN"],requiredFunctions,
+    occurrenceIndex:0,allowedUpos:[upos],requiredFunctions,
     requiredValencyFrames:[],requiredFeatures:{},
   };
 }
@@ -113,7 +114,7 @@ describe("batch imported reading-ID role evidence; no fabricated UD pronunciatio
     }).rows.map(row=>row.entryId)).toEqual(manifest.rows.map(row=>row.entryId));
   });
 
-  it("imports all six rows, adds only missing reading-specific roles, and refuses negative contexts",()=>{
+  it("imports all reviewed role rows, and refuses unrelated contexts",()=>{
     const compiled=compileReviewedReadingRoleProfiles(PRACTICE_CATALOG,SYNTAX_PROFILES,manifest);
     const alreadySupported=manifest.rows.filter(row=>
       SYNTAX_PROFILES.some(p=>p.entryId===row.entryId&&p.upos===row.upos
@@ -133,25 +134,35 @@ describe("batch imported reading-ID role evidence; no fabricated UD pronunciatio
 
     const rows=[];
     for(const row of manifest.rows){
+      const roleSlot=slot(row.upos,[row.role]);
       const baseline=frontier(PRACTICE_CATALOG,SYNTAX_PROFILES,row.word,
-        slot(["classifier"]),number,()=>true);
+        roleSlot,number,()=>true);
       const after=frontier(PRACTICE_CATALOG,compiled.profiles,row.word,
-        slot(["classifier"]),number,compiled.readingEligible);
-      expect(baseline,row.entryId).toHaveLength(0);
-      expect([...new Set(after.map(p=>p.entryId))],row.entryId).toEqual([row.entryId]);
-      // Dedicated source-only profile is excluded unless every gate matches.
-      for(const [requirements,predecessor] of [
-        [slot(["classifier"]),null],
-        [slot(["classifier"]),nonNumber],
-        [slot([]),number],
-      ] as const){
-        expect(frontier(PRACTICE_CATALOG,compiled.profiles,row.word,
-          requirements,predecessor,compiled.readingEligible).map(p=>p.id))
-          .toEqual(frontier(PRACTICE_CATALOG,SYNTAX_PROFILES,row.word,
-            requirements,predecessor,()=>true).map(p=>p.id));
+        roleSlot,number,compiled.readingEligible);
+      const afterIds=[...new Set(after.map(p=>p.entryId))];
+      // Existing product gates may already resolve some contexts. The overlay
+      // must never introduce an unreviewed pronunciation for this role.
+      expect(afterIds.every(id=>id===row.entryId),row.entryId).toBe(true);
+      expect(afterIds,row.entryId).toEqual([row.entryId]);
+      const unmarkedSlot=slot(row.upos,[]);
+      expect(frontier(PRACTICE_CATALOG,compiled.profiles,row.word,
+        unmarkedSlot,number,compiled.readingEligible).map(p=>p.id))
+        .toEqual(frontier(PRACTICE_CATALOG,SYNTAX_PROFILES,row.word,
+          unmarkedSlot,number,()=>true).map(p=>p.id));
+      if(row.contextGate==="numeric-classifier-v1"){
+        for(const predecessor of [null,nonNumber]){
+          expect(frontier(PRACTICE_CATALOG,compiled.profiles,row.word,
+            roleSlot,predecessor,compiled.readingEligible).map(p=>p.id))
+            .toEqual(frontier(PRACTICE_CATALOG,SYNTAX_PROFILES,row.word,
+              roleSlot,predecessor,()=>true).map(p=>p.id));
+        }
+      } else {
+        expect([...new Set(frontier(PRACTICE_CATALOG,compiled.profiles,row.word,
+          roleSlot,null,compiled.readingEligible).map(p=>p.entryId))])
+          .toEqual([row.entryId]);
       }
-      rows.push({word:row.word,readingId:row.entryId,baseline:baseline.length,
-        restoredReadingIdentities:new Set(after.map(p=>p.entryId)).size,
+      rows.push({word:row.word,upos:row.upos,role:row.role,readingId:row.entryId,
+        baseline:baseline.length,restoredReadingIdentities:afterIds.length,
         profileStatus:compiled.report.rows.find(r=>r.entryId===row.entryId)!.status});
     }
     console.log("READING_ROLE_BATCH_FRONTIER_JSON "+JSON.stringify(rows));
@@ -199,7 +210,7 @@ describe("batch imported reading-ID role evidence; no fabricated UD pronunciatio
         const envOriginal=createProductEnvironment(base);
         const envProjected=createProductEnvironment({...base,syntaxProfiles:projection.profiles});
         const counts={baseline:newCounters(),projected:newCounters()};
-        const targetIds=new Set(records.rows.map(row=>row.entryId));
+        const rowById=new Map(records.rows.map(row=>[row.entryId,row]));
         let changed=0;
         for(let seed=0;seed<512;seed++){
           const run=(arm:"baseline"|"projected")=>{
@@ -215,11 +226,14 @@ describe("batch imported reading-ID role evidence; no fabricated UD pronunciatio
             const byProfile=new Map(env.catalogs.syntaxProfiles.map(p=>[p.id,p]));
             for(let i=0;i<u.entries.length;i++){
               const e=u.entries[i]!;
-              if(!targetIds.has(e.id))continue;
+              const reviewed=rowById.get(e.id);
+              if(reviewed===undefined)continue;
               const profile=byProfile.get(u.syntaxProfileIds?.[i]??"");
               const preceding=u.entries[i-1]?.prompt.text??"";
-              if(profile?.upos!=="NOUN"
-                || !/^[零〇一二三四五六七八九十百千萬億兩0-9０-９]+$/u.test(preceding))continue;
+              if(profile?.upos!==reviewed.upos
+                || !profile.functions.includes(reviewed.role))continue;
+              if(reviewed.contextGate==="numeric-classifier-v1"
+                && !/^[零〇一二三四五六七八九十百千萬億兩0-9０-９]+$/u.test(preceding))continue;
               record.target++;
               record.byReading[e.id]=(record.byReading[e.id]??0)+1;
               if(record.examples.length<6)record.examples.push({seed,entryId:e.id,previous:preceding});
