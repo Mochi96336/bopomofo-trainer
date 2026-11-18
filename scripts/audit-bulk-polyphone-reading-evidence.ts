@@ -86,7 +86,6 @@ function allBlocked(entries:readonly CatalogEntry[],profiles:readonly RuntimeSyn
 }
 
 function triage(label:string,entries:readonly CatalogEntry[],profiles:readonly RuntimeSyntaxProfile[]){
-  const entryById=new Map(entries.map(e=>[e.id,e]));
   const groups=allBlocked(entries,profiles);
   const rows=groups.map(([key,ps])=>{
     const [word,upos]=JSON.parse(key) as [string,string];
