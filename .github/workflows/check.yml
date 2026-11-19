@@ -385,6 +385,15 @@ jobs:
           name: exact-reading-construction-reachability
           path: existing-reading-construction-reachability.json
           if-no-files-found: warn
+      - name: Inventory native grammar entrances for the remaining 116 Tier1 reading conflicts
+        run: npm run readings:pending-grammar-slots -- --triage bulk-syntax-evidence-triage.json --output pending-tier1-grammar-slots.json
+      - name: Upload pending Tier1 grammar slot inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pending-tier1-grammar-slots
+          path: pending-tier1-grammar-slots.json
+          if-no-files-found: warn
       - name: Fast tests
         id: tests
         shell: bash
