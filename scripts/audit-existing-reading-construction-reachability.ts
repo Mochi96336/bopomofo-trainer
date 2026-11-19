@@ -131,6 +131,15 @@ for (const candidate of candidates) {
     const licensedIds = [...new Set(remaining.map(p=>p.entryId))].sort();
     const unique = licensedIds.length === 1 && licensedIds[0] === construction.entryId;
     if(unique) syntheticPassed++;
+    // Count direct feature-bearing LEXICAL constituents in the actual grammar.
+    // A synthetic slot can match a source profile even if no real production
+    // offers that feature with the claimed UPOS.
+    const declaredNativeRules = FORMAL_SYNTAX_RULES.filter(rule=>
+      rule.constituents.some(constituent=>
+        constituent.category==="Lexeme"
+        && constituent.allowedUpos.includes(candidate.upos)
+        && constituent.requiredFeatures[construction.feature as SyntaxFeatureName]===construction.value
+      )).map(rule=>rule.id).sort();
     // Search NATIVE structural derivations, not only an invented lexical slot.
     // A missing sample may reflect very small grammar probability.
     const observed = {successfulDerivations:0,matchedNativeSlots:0,
@@ -177,7 +186,9 @@ for (const candidate of candidates) {
     }
     featureResults.push({feature:construction.feature,value:construction.value,
       claimedReadingId:construction.entryId,syntheticSlotLicensedReadingIds:licensedIds,
-      singletonInSyntheticSlot:unique,nativeSamplingAttempts:96,native:observed,
+      singletonInSyntheticSlot:unique,
+      declaredNativeGrammarRuleIds:declaredNativeRules,
+      nativeSamplingAttempts:96,native:observed,
       caveat:"No native match in bounded sampling means not observed, not mathematically unreachable"});
   }
   rowResults.push({word:candidate.word,upos:candidate.upos,
@@ -272,6 +283,7 @@ console.log("EXISTING_CONSTRUCTION_REACHABILITY_JSON "+JSON.stringify({
   syntheticallyUniqueFeatures:report.syntheticallyUniqueFeatures,
   natives:rowResults.map(x=>({word:x.word,upos:x.upos,features:x.features.map(f=>({
     feature:f.feature,value:f.value,unique:f.singletonInSyntheticSlot,
+    nativeDeclaredRules:f.declaredNativeGrammarRuleIds,
     nativeSamples:f.native.successfulDerivations,
     nativeSlots:f.native.matchedNativeSlots,
     nativeSingleton:f.native.matchedSlotsOnlyWithTargetReading,
