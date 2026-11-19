@@ -5,29 +5,6 @@ import type { CatalogEntry, Exercise } from "../core/model.js";
  * It is not a natural-language sentence or a recognition/recall question.
  * No semantic inference, UPOS projection or arbitrary sentence reading occurs.
  */
-interface VerifiedTargetRow {
-  readonly entryId: string;
-  readonly word: string;
-  readonly verifiedSourceIds: {
-    readonly concised: string;
-    readonly revised: string;
-  };
-  readonly activeUposesFromPendingConflict: readonly string[];
-}
-interface VerifiedTargetManifest {
-  readonly schemaVersion: "tier1-source-verified-guided-lexeme-targets-v1";
-  readonly sourceEdition: "20260929";
-  readonly policy: string;
-  readonly pendingWordUposGroups: number;
-  readonly pendingReadingIdentities: number;
-  readonly sourceMatchStatusCounts: Readonly<Record<string, number>>;
-  readonly eligibleStandaloneGuidedReadings: number;
-  readonly excludedForIncompleteSourceEvidence: number;
-  readonly rows: readonly VerifiedTargetRow[];
-  readonly excluded: readonly unknown[];
-  readonly productionPolicyChanged: false;
-}
-
 function object(value: unknown, label: string): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value))
     throw new Error(label+" must be an object");
