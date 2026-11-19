@@ -108,11 +108,11 @@ def verify_checked_in_roster(report: dict[str, Any], roster: Path) -> None:
     """Reconcile the exact packaged UI entry IDs against original pinned sources."""
     text = roster.read_text("utf-8")
     match = re.search(
-        r"VERIFIED_GUIDED_LEXEME_ENTRY_IDS:\\s*readonly string\\[\\]\\s*=\\s*`([^`]*)`",
+        r"VERIFIED_GUIDED_LEXEME_ENTRY_IDS:\s*readonly string\[\]\s*=\s*`([^`]*)`",
         text,
         re.DOTALL,
     )
-    edition = re.search(r'VERIFIED_GUIDED_LEXEME_SOURCE_EDITION\\s*=\\s*"([^"]+)"',text)
+    edition = re.search(r'VERIFIED_GUIDED_LEXEME_SOURCE_EDITION\s*=\s*"([^"]+)"',text)
     if match is None or edition is None or edition.group(1) != report["sourceEdition"]:
         raise ValueError("missing or mismatched packaged guided reading source edition")
     packaged = match.group(1).strip().split()
