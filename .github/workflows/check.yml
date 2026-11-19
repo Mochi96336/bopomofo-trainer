@@ -467,6 +467,51 @@ jobs:
             test-results
           if-no-files-found: ignore
 
+  # Limited to the research PR: source copyright files stay in RUNNER_TEMP.
+  # Output contains only official headword/reading source IDs and checksums.
+  moe-source-batch-466:
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 466
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Compile active grammar catalog and enumerate all polyphones
+        run: |
+          npm run app:catalog
+          npm run readings:bulk-syntax-triage -- --output bulk-syntax-evidence-triage.json
+      - name: Download September 2026 original MOE ZIP files with pinned hashes
+        run: |
+          python3 scripts/download-pinned-moe-source-batch.py \
+            --output-dir "$RUNNER_TEMP/moe-source-pins" \
+            --report moe-download-pins-20260929.json
+      - name: Match all Tier1 word+reading IDs in the actual official dictionaries
+        run: |
+          npm run readings:source-batch -- \
+            --queue bulk-syntax-evidence-triage.json \
+            --scope tier1 --edition 20260929 \
+            --concised "$RUNNER_TEMP/moe-source-pins/dict_concised_2014_20260929.zip" \
+            --revised "$RUNNER_TEMP/moe-source-pins/dict_revised_2015_20260929.zip" \
+            --output tier1-reading-source-ids-20260929.json
+      - name: Upload reviewed-source-ID comparison only (not original archives)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tier1-official-reading-source-batch
+          path: |
+            tier1-reading-source-ids-20260929.json
+            moe-download-pins-20260929.json
+          if-no-files-found: warn
+
   research:
     if: github.event_name == 'workflow_dispatch' && inputs.run_research
     needs: check
