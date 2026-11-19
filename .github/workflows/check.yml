@@ -555,7 +555,8 @@ jobs:
           python3 scripts/compile-pinned-guided-lexeme-targets.py \
             --triage bulk-syntax-evidence-triage.json \
             --source-report tier1-reading-source-ids-20260929.json \
-            --output tier1-verified-guided-lexeme-targets.json
+            --output tier1-verified-guided-lexeme-targets.json \
+            --roster src/readings/verified-guided-lexeme-target-ids.ts
       - name: Verify real input sessions for every approved isolated reading
         run: |
           npm run readings:guided-lexeme-input -- \
