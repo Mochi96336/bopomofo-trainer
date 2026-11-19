@@ -44,6 +44,7 @@
     "readings:construction-reachability": "tsx scripts/audit-existing-reading-construction-reachability.ts",
     "readings:pending-grammar-slots": "tsx scripts/audit-pending-tier1-grammar-slots.ts",
     "readings:pending-delivery": "tsx scripts/audit-pending-tier1-delivered-exposure.ts",
+    "readings:guided-typing-ab": "tsx scripts/audit-reviewed-guided-typing-exposure.ts",
     "readings:source-batch": "python scripts/project-polyphone-reading-source-batch.py",
     "readings:moe-coverage": "tsx scripts/audit-selected-moe-headword-coverage.ts",
     "readings:sense-targets": "tsx scripts/prepare-moe-sense-targets.ts",
