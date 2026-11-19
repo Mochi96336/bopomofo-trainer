@@ -12,6 +12,7 @@ definitions or generated sentence semantics are inspected here.
 from __future__ import annotations
 import argparse
 import json
+import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -103,16 +104,40 @@ def compile_targets(triage: Any, source: Any) -> dict[str, Any]:
     }
 
 
+def verify_checked_in_roster(report: dict[str, Any], roster: Path) -> None:
+    """Reconcile the exact packaged UI entry IDs against original pinned sources."""
+    text = roster.read_text("utf-8")
+    match = re.search(
+        r"VERIFIED_GUIDED_LEXEME_ENTRY_IDS:\\s*readonly string\\[\\]\\s*=\\s*`([^`]*)`",
+        text,
+        re.DOTALL,
+    )
+    edition = re.search(r'VERIFIED_GUIDED_LEXEME_SOURCE_EDITION\\s*=\\s*"([^"]+)"',text)
+    if match is None or edition is None or edition.group(1) != report["sourceEdition"]:
+        raise ValueError("missing or mismatched packaged guided reading source edition")
+    packaged = match.group(1).strip().split()
+    expected = [row["entryId"] for row in report["rows"]]
+    if len(packaged) != len(set(packaged)) or set(packaged) != set(expected):
+        missing = sorted(set(expected) - set(packaged))
+        extra = sorted(set(packaged) - set(expected))
+        raise ValueError(
+            "packaged guided reading identities differ from pinned MOE results: "
+            + f"missing={missing} extra={extra} count={len(packaged)}"
+        )
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--triage",type=Path,required=True)
     parser.add_argument("--source-report",type=Path,required=True)
     parser.add_argument("--output",type=Path,required=True)
+    parser.add_argument("--roster",type=Path,required=True)
     args=parser.parse_args()
     result=compile_targets(
         json.loads(args.triage.read_text("utf-8")),
         json.loads(args.source_report.read_text("utf-8")),
     )
+    verify_checked_in_roster(result,args.roster)
     args.output.write_text(json.dumps(result,ensure_ascii=False,indent=2)+"\n","utf-8")
     print("TIER1_VERIFIED_GUIDED_LEXEME_TARGETS_JSON "+json.dumps({
         key:result[key] for key in ("pendingWordUposGroups","pendingReadingIdentities",
