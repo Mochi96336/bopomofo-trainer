@@ -403,6 +403,15 @@ jobs:
           name: pending-tier1-real-delivery
           path: pending-tier1-real-delivery.json
           if-no-files-found: warn
+      - name: Compare reviewed guided-only reading targets in real product selections
+        run: npm run readings:guided-typing-ab -- --output reviewed-guided-typing-ab.json
+      - name: Upload reviewed guided-only A-B results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewed-guided-typing-ab
+          path: reviewed-guided-typing-ab.json
+          if-no-files-found: warn
       - name: Fast tests
         id: tests
         shell: bash
