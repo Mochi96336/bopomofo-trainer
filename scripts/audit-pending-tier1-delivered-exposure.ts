@@ -58,7 +58,7 @@ const full={practice:PRACTICE_CATALOG,syntaxProfiles:SYNTAX_PROFILES};
 const tier=catalogsForCommonnessTiers(full,COMMONNESS_TIER_THRESHOLDS,[1]);
 const env=createProductEnvironment(tier);
 const profiles=new Map(tier.syntaxProfiles.map(p=>[p.id,p]));
-const rounds=512;
+const rounds=2048;
 let lexicalOccurrences=0;
 let selectedPendingOccurrences=0;
 let roundsContainingPending=0;
@@ -107,7 +107,7 @@ const report={
   schemaVersion:"pending-tier1-real-delivery-v1",
   source:"compiled current production Tier1 grammar, catalog, and reading policy",
   policy:"research-only, zero reading activations. Selection counts are not gold pronunciation labels.",
-  matchedFirstRounds:rounds,
+  baselineFreshFirstRounds:rounds,
   lexicalOccurrences,
   distinctSelectedEntryIds:distinctEntryIds.size,
   selectedPendingOccurrences,
@@ -121,7 +121,7 @@ const report={
 };
 writeFileSync(resolve(args[3]!),JSON.stringify(report,null,2)+"\n","utf8");
 console.log("PENDING_TIER1_REAL_DELIVERY_JSON "+JSON.stringify({
-  matchedFirstRounds:report.matchedFirstRounds,
+  baselineFreshFirstRounds:report.baselineFreshFirstRounds,
   lexicalOccurrences:report.lexicalOccurrences,
   selectedPendingOccurrences:report.selectedPendingOccurrences,
   roundsContainingPending:report.roundsContainingPending,
