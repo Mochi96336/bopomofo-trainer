@@ -394,6 +394,15 @@ jobs:
           name: pending-tier1-grammar-slots
           path: pending-tier1-grammar-slots.json
           if-no-files-found: warn
+      - name: Audit actual product delivery for all pending Tier1 reading conflicts
+        run: npm run readings:pending-delivery -- --pending pending-tier1-grammar-slots.json --output pending-tier1-real-delivery.json
+      - name: Upload pending Tier1 product delivery audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pending-tier1-real-delivery
+          path: pending-tier1-real-delivery.json
+          if-no-files-found: warn
       - name: Fast tests
         id: tests
         shell: bash
