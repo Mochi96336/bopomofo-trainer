@@ -550,6 +550,17 @@ jobs:
             --manifest data/readings/reviewed-guided-typing-readings.json \
             --source-report tier1-reading-source-ids-20260929.json \
             --output verified-guided-typing-official-pins.json
+      - name: Compile all pending Tier1 double-source readings as isolated guided typing targets
+        run: |
+          python3 scripts/compile-pinned-guided-lexeme-targets.py \
+            --triage bulk-syntax-evidence-triage.json \
+            --source-report tier1-reading-source-ids-20260929.json \
+            --output tier1-verified-guided-lexeme-targets.json
+      - name: Verify real input sessions for every approved isolated reading
+        run: |
+          npm run readings:guided-lexeme-input -- \
+            --manifest tier1-verified-guided-lexeme-targets.json \
+            --output tier1-guided-lexeme-input-audit.json
       - name: Upload reviewed-source-ID comparison only (not original archives)
         if: always()
         uses: actions/upload-artifact@v4
@@ -560,6 +571,8 @@ jobs:
             tier1-reading-source-role-reconciliation.json
             moe-download-pins-20260929.json
             verified-guided-typing-official-pins.json
+            tier1-verified-guided-lexeme-targets.json
+            tier1-guided-lexeme-input-audit.json
           if-no-files-found: warn
 
   research:
