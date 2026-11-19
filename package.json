@@ -42,6 +42,7 @@
     "readings:role-evidence": "tsx scripts/audit-reviewed-reading-role-evidence.ts",
     "readings:bulk-syntax-triage": "tsx scripts/audit-bulk-polyphone-reading-evidence.ts",
     "readings:construction-reachability": "tsx scripts/audit-existing-reading-construction-reachability.ts",
+    "readings:pending-grammar-slots": "tsx scripts/audit-pending-tier1-grammar-slots.ts",
     "readings:source-batch": "python scripts/project-polyphone-reading-source-batch.py",
     "readings:moe-coverage": "tsx scripts/audit-selected-moe-headword-coverage.ts",
     "readings:sense-targets": "tsx scripts/prepare-moe-sense-targets.ts",
