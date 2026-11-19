@@ -45,6 +45,7 @@
     "readings:pending-grammar-slots": "tsx scripts/audit-pending-tier1-grammar-slots.ts",
     "readings:pending-delivery": "tsx scripts/audit-pending-tier1-delivered-exposure.ts",
     "readings:guided-typing-ab": "tsx scripts/audit-reviewed-guided-typing-exposure.ts",
+    "readings:guided-lexeme-input": "tsx scripts/audit-verified-guided-lexeme-practice.ts",
     "readings:source-batch": "python scripts/project-polyphone-reading-source-batch.py",
     "readings:moe-coverage": "tsx scripts/audit-selected-moe-headword-coverage.ts",
     "readings:sense-targets": "tsx scripts/prepare-moe-sense-targets.ts",
