@@ -4,6 +4,7 @@ import {
   bindProductionInspectionBoundary,
 } from "./browser-boundaries.js";
 import { createApp } from "./create-app.js";
+import { mountGuidedLexemeOverlay } from "./guided-lexeme-overlay.js";
 import {
   mountAnalysisV2Integration,
   type AnalysisV2Integration,
@@ -133,6 +134,10 @@ const app = createApp({
   onPanelRendered: (content) => analysisV2?.panelRendered(content),
 });
 
+const guidedLexemeOverlay = mountGuidedLexemeOverlay({
+  focusSentencePractice: () => app.focusPractice(),
+});
+
 analysisV2 = mountAnalysisV2Integration({
   closePanel: () => app.closePanel(),
   focusPractice: () => app.focusPractice(),
@@ -150,6 +155,7 @@ void document.fonts.ready.then(() => {
 const unmountBackupInputReset = bindBackupFileInputReset(document);
 
 window.addEventListener("beforeunload", () => {
+  guidedLexemeOverlay.destroy();
   app.destroy();
   centerResizeObserver?.disconnect();
   analysisV2?.destroy();
