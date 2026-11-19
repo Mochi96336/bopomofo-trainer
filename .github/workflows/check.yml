@@ -376,6 +376,15 @@ jobs:
         with:
           name: bulk-syntax-evidence-triage
           path: bulk-syntax-evidence-triage.json
+      - name: Measure existing exact-reading constructions in native grammar and selected Tier1 rounds
+        run: npm run readings:construction-reachability -- --triage bulk-syntax-evidence-triage.json --output existing-reading-construction-reachability.json
+      - name: Upload exact-reading construction reachability results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: exact-reading-construction-reachability
+          path: existing-reading-construction-reachability.json
+          if-no-files-found: warn
       - name: Fast tests
         id: tests
         shell: bash
