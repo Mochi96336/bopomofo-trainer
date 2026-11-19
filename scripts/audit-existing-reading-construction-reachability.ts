@@ -9,8 +9,9 @@ import { PRODUCT_READING_POLICY } from "../src/readings/product-reading-policy.j
 import { createSeededRandom } from "../src/curriculum/random.js";
 import { prepareFormalSyntaxExecution } from "../src/curriculum/frequency-first-utterance.js";
 import { FORMAL_SYNTAX_RULES } from "../src/syntax/grammar.js";
+import { countStructuralDerivationShapes } from "../src/syntax/count.js";
 import { sampleStructuralDerivation, prepareStructuralSamplingContext } from "../src/syntax/sample.js";
-import { buildLexicalProfileIndex, compatibleProfilesForSlot } from "../src/syntax/realize.js";
+import { buildLexicalProfileIndex, compatibleProfilesForSlot, compatibleProfilesForRequirements } from "../src/syntax/realize.js";
 import type { CatalogEntry } from "../src/core/model.js";
 import type { StructuralLexicalSlot } from "../src/syntax/derive.js";
 import type { RuntimeSyntaxProfile, SyntaxFeatureName, Upos } from "../src/syntax/types.js";
@@ -145,6 +146,7 @@ for (const candidate of candidates) {
     const observed = {successfulDerivations:0,matchedNativeSlots:0,
       matchedSlotsOnlyWithTargetReading:0,possibleCompetingReadings:0,
       targetedRuleRootSamples:0,targetedRuleRootMatchedSlots:0,
+      targetedRulePotentialShapeCounts:{} as Record<string,string>,
       examples:[] as {root:string,slotId:string,allowedUpos:readonly string[],functions:readonly string[]}[]};
     for(let seed=0;seed<96;seed++){
       const shape=sampleStructuralDerivation({
@@ -192,6 +194,19 @@ for (const candidate of candidates) {
       for(const ruleId of declaredNativeRules){
         const rule=FORMAL_SYNTAX_RULES.find(r=>r.id===ruleId);
         if(!rule)throw Error("declared rule missing");
+        // An exact count of ZERO is stronger than missing a random sample.
+        // Positive counts only establish possible structure, not safe reading.
+        const potential=countStructuralDerivationShapes({
+          rootCategory:rule.output,rules:FORMAL_SYNTAX_RULES,
+          bounds:execution.bounds,rootProductionRuleId:ruleId,
+          minimumPracticeLexicalEntries:1,
+          isLexicalRequirementsReachable:(constituent, requirements)=>
+            constituent.formalLiteral!==undefined
+            || (constituent.allowedUpos.length===1 && constituent.allowedUpos[0]==="PUNCT")
+            || compatibleProfilesForRequirements(constituent,requirements,index).length>0,
+        });
+        observed.targetedRulePotentialShapeCounts[ruleId]=potential;
+        if(potential==="0")continue;
         for(let seed=0;seed<48;seed++){
           const shape=sampleStructuralDerivation({
             rootCategory:rule.output,rules:FORMAL_SYNTAX_RULES,
@@ -327,6 +342,7 @@ console.log("EXISTING_CONSTRUCTION_REACHABILITY_JSON "+JSON.stringify({
     nativeSingleton:f.native.matchedSlotsOnlyWithTargetReading,
     targetedRuleRootSamples:f.native.targetedRuleRootSamples,
     targetedRuleRootMatchedSlots:f.native.targetedRuleRootMatchedSlots,
+    targetedRulePotentialShapeCounts:f.native.targetedRulePotentialShapeCounts,
     nativeCompetitors:f.native.possibleCompetingReadings,
   }))})),
   product:report.product,
