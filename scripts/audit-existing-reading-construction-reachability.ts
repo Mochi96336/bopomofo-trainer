@@ -258,6 +258,14 @@ const report={
   noProductPolicyChanged:true,
 };
 writeFileSync(resolve(args[3]!),JSON.stringify(report,null,2)+"\n","utf8");
+// Fail the research check on an actual pronunciation identity leak rather than
+// silently leaving a reassuring count in an artifact.
+if (syntheticPassed !== report.syntacticFeatureCases
+  || rowResults.some(row=>row.features.some(feature=>
+    feature.native.possibleCompetingReadings!==0))
+  || changedRounds!==0) {
+  throw new Error("reviewed exact construction reading identity changed, leaked or is no longer uniquely licensed");
+}
 console.log("EXISTING_CONSTRUCTION_REACHABILITY_JSON "+JSON.stringify({
   groups:report.candidateGroups,
   syntacticFeatureCases:report.syntacticFeatureCases,
