@@ -144,6 +144,7 @@ for (const candidate of candidates) {
     // A missing sample may reflect very small grammar probability.
     const observed = {successfulDerivations:0,matchedNativeSlots:0,
       matchedSlotsOnlyWithTargetReading:0,possibleCompetingReadings:0,
+      targetedRuleRootSamples:0,targetedRuleRootMatchedSlots:0,
       examples:[] as {root:string,slotId:string,allowedUpos:readonly string[],functions:readonly string[]}[]};
     for(let seed=0;seed<96;seed++){
       const shape=sampleStructuralDerivation({
@@ -181,6 +182,43 @@ for (const candidate of candidates) {
             slotId:nativeSlot.id,allowedUpos:nativeSlot.allowedUpos,
             functions:nativeSlot.requiredFunctions,
           });
+        }
+      }
+    }
+    // If ordinary Sentence sampling misses a very rare rule, start exactly
+    // at its production root. This demonstrates local grammatical feasibility
+    // without falsely claiming it occurs in the final Sentence/product stream.
+    if(observed.matchedNativeSlots===0 && declaredNativeRules.length>0){
+      for(const ruleId of declaredNativeRules){
+        const rule=FORMAL_SYNTAX_RULES.find(r=>r.id===ruleId);
+        if(!rule)throw Error("declared rule missing");
+        for(let seed=0;seed<48;seed++){
+          const shape=sampleStructuralDerivation({
+            rootCategory:rule.output,rules:FORMAL_SYNTAX_RULES,
+            bounds:execution.bounds,rootProductionRuleId:ruleId,
+            maximumAttempts:8,
+            random:createSeededRandom("targeted-rule:reading:"+ruleId+":"+seed),
+            isLexicalSlotReachable:s=>s.formalLiteral!==undefined
+              || (s.allowedUpos.length===1 && s.allowedUpos[0]==="PUNCT")
+              || compatibleProfilesForSlot(s,index).length>0,
+            requiredLexicalSlot:{
+              requiredFeatures:{[construction.feature]:construction.value} as StructuralLexicalSlot["requiredFeatures"],
+            },
+          },samplingContext);
+          if(shape===null)continue;
+          observed.targetedRuleRootSamples++;
+          for(const nativeSlot of shape.lexicalSlots){
+            if(nativeSlot.requiredFeatures[construction.feature as SyntaxFeatureName]!==construction.value)continue;
+            const licensed=compatibleProfilesForSlot(nativeSlot,index).filter(p=>{
+              const entry=entriesById.get(p.entryId);
+              return entry!==undefined&&entry.prompt.text===candidate.word
+                &&p.upos===candidate.upos&&productGatesPass(entry,p,nativeSlot);
+            });
+            const exact=PRODUCT_READING_POLICY.readingFrontierFilter(licensed,entriesById);
+            const ids=[...new Set(exact.map(p=>p.entryId))];
+            if(ids.length===1&&ids[0]===construction.entryId)observed.targetedRuleRootMatchedSlots++;
+            else if(ids.length>0)observed.possibleCompetingReadings++;
+          }
         }
       }
     }
@@ -287,6 +325,8 @@ console.log("EXISTING_CONSTRUCTION_REACHABILITY_JSON "+JSON.stringify({
     nativeSamples:f.native.successfulDerivations,
     nativeSlots:f.native.matchedNativeSlots,
     nativeSingleton:f.native.matchedSlotsOnlyWithTargetReading,
+    targetedRuleRootSamples:f.native.targetedRuleRootSamples,
+    targetedRuleRootMatchedSlots:f.native.targetedRuleRootMatchedSlots,
     nativeCompetitors:f.native.possibleCompetingReadings,
   }))})),
   product:report.product,
