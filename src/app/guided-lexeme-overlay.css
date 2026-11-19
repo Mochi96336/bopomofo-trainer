@@ -1,0 +1,127 @@
+.guided-lexeme-entry {
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.guided-lexeme-entry:hover,
+.guided-lexeme-entry:focus-visible {
+  border-color: var(--accent);
+  outline-offset: 3px;
+}
+.guided-lexeme-dialog {
+  width: min(560px, calc(100% - 24px));
+  max-width: none;
+  max-height: min(90dvh, 720px);
+  overflow-y: auto;
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--sheet-shadow);
+}
+.guided-lexeme-dialog::backdrop { background: var(--backdrop-tint); }
+.guided-lexeme-shell {
+  display: grid;
+  gap: 22px;
+  padding: clamp(18px, 4vw, 32px);
+}
+.guided-lexeme-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.guided-lexeme-header h2 { margin: 0 0 6px; font-size: 19px; }
+.guided-lexeme-header p { margin: 0; color: var(--ink-muted); font-size: 12px; }
+.guided-lexeme-note {
+  margin: 0;
+  padding: 11px 13px;
+  border-left: 2px solid var(--hairline);
+  background: var(--canvas);
+  color: var(--ink-muted);
+  font-size: 12px;
+  line-height: 1.7;
+}
+.guided-lexeme-controls { display: grid; gap: 7px; }
+.guided-lexeme-controls label,
+.guided-lexeme-position { color: var(--ink-muted); font-size: 12px; }
+.guided-lexeme-controls select {
+  min-width: 0;
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--canvas);
+  color: var(--ink);
+  font-size: 15px;
+}
+#guided-lexeme-position {
+  justify-self: end;
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.guided-lexeme-target {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  min-height: 130px;
+  padding: 24px 0;
+  border-top: 1px solid var(--hairline);
+  border-bottom: 1px solid var(--hairline);
+}
+#guided-lexeme-word { font-size: clamp(34px, 8vw, 54px); font-weight: 550; }
+#guided-lexeme-sounds { display: flex; gap: 15px; }
+.guided-lexeme-syllable { display: inline-flex; gap: 2px; }
+.guided-lexeme-token {
+  color: var(--ink-upcoming);
+  font-size: 23px;
+  font-weight: 550;
+  transition: color 100ms ease;
+}
+.guided-lexeme-token.done { color: var(--ink); }
+.guided-lexeme-token.pending,
+.guided-lexeme-token.commit-ready { color: var(--accent); }
+.guided-lexeme-token.commit-locked { color: var(--ink-faint); }
+.guided-lexeme-progress {
+  margin: 0;
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.guided-lexeme-feedback {
+  margin: 0;
+  min-height: 2em;
+  color: var(--ink-muted);
+  text-align: center;
+  font-size: 12px;
+}
+.guided-lexeme-feedback[data-state="attention"] { color: var(--danger); }
+.guided-lexeme-feedback[data-state="success"] { color: var(--ink); font-weight: 600; }
+.guided-lexeme-actions { display: flex; justify-content: space-between; gap: 12px; }
+.guided-lexeme-actions button,
+.guided-lexeme-text-button {
+  min-height: 35px;
+  border: 1px solid var(--hairline);
+  border-radius: 8px;
+  padding: 7px 13px;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12px;
+}
+.guided-lexeme-actions button:disabled { opacity: .35; cursor: not-allowed; }
+.guided-lexeme-actions button:not(:disabled):hover,
+.guided-lexeme-text-button:hover { border-color: var(--accent); }
+@media (max-width: 480px) {
+  .guided-lexeme-shell { gap: 14px; padding: 14px; }
+  .guided-lexeme-header h2 { font-size: 17px; }
+}
