@@ -1,0 +1,43 @@
+{
+  "schemaVersion": "reviewed-guided-typing-readings-v1",
+  "sourceEdition": "20260929",
+  "purpose": "Typing-only candidate reading evidence. These are distinct pronunciation targets with a documented common UPOS, NOT freely interchangeable sentence readings, reading-gold for synthetic sentences, or permissions for recall.",
+  "groups": [
+    {
+      "word": "看",
+      "upos": "VERB",
+      "readings": [
+        {
+          "entryId": "word:看:ㄎㄢ1",
+          "concisedSourceId": "2550",
+          "revisedSourceId": "04501"
+        },
+        {
+          "entryId": "word:看:ㄎㄢ4",
+          "concisedSourceId": "2562",
+          "revisedSourceId": "04519"
+        }
+      ],
+      "reviewedRole": "verb",
+      "officialPage": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=4531"
+    },
+    {
+      "word": "東西",
+      "upos": "NOUN",
+      "readings": [
+        {
+          "entryId": "word:東西:ㄉㄨㄥ1-ㄒㄧ1",
+          "concisedSourceId": "130600044",
+          "revisedSourceId": "023940150"
+        },
+        {
+          "entryId": "word:東西:ㄉㄨㄥ1-ㄒㄧ5",
+          "concisedSourceId": "1306000451",
+          "revisedSourceId": "0239401581"
+        }
+      ],
+      "reviewedRole": "nominal",
+      "officialPage": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=48850"
+    }
+  ]
+}
