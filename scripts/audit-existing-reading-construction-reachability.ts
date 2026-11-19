@@ -156,7 +156,7 @@ for (const candidate of candidates) {
           continue;
         const native=compatibleProfilesForSlot(nativeSlot,index).filter(p=>{
           const e=entriesById.get(p.entryId);
-          return p.upos===candidate.upos && e?.prompt.text===candidate.word
+          return e!==undefined && p.upos===candidate.upos && e.prompt.text===candidate.word
             && productGatesPass(e,p,nativeSlot);
         });
         if(native.length===0)continue;
