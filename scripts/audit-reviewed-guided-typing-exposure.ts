@@ -9,9 +9,7 @@ import { selectFormalSyntaxUtterance } from "../src/curriculum/frequency-first-u
 import { createSeededRandom } from "../src/curriculum/random.js";
 import { PRODUCT_READING_POLICY } from "../src/readings/product-reading-policy.js";
 import { compileGuidedTypingFrontier, parseGuidedTypingManifest } from "../src/readings/reviewed-guided-typing-frontier.js";
-import type { CatalogEntry } from "../src/core/model.js";
 import type { GrammarUtteranceCandidate } from "../src/grammar/types.js";
-import type { RuntimeSyntaxProfile } from "../src/syntax/types.js";
 import type { ProductEnvironment, ProductProgress } from "../src/product/types.js";
 
 const args=process.argv.slice(2);
