@@ -544,6 +544,12 @@ jobs:
             --triage bulk-syntax-evidence-triage.json \
             --sources tier1-reading-source-ids-20260929.json \
             --output tier1-reading-source-role-reconciliation.json
+      - name: Verify reviewed guided-only reading pins against real original dictionaries
+        run: |
+          python3 scripts/verify-guided-typing-source-ids.py \
+            --manifest data/readings/reviewed-guided-typing-readings.json \
+            --source-report tier1-reading-source-ids-20260929.json \
+            --output verified-guided-typing-official-pins.json
       - name: Upload reviewed-source-ID comparison only (not original archives)
         if: always()
         uses: actions/upload-artifact@v4
@@ -553,6 +559,7 @@ jobs:
             tier1-reading-source-ids-20260929.json
             tier1-reading-source-role-reconciliation.json
             moe-download-pins-20260929.json
+            verified-guided-typing-official-pins.json
           if-no-files-found: warn
 
   research:
