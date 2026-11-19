@@ -70,6 +70,7 @@ export function mountGuidedLexemeOverlay(
     '  </div>',
     '  <p id="guided-lexeme-progress" class="guided-lexeme-progress" aria-live="polite"></p>',
     '  <p id="guided-lexeme-feedback" class="guided-lexeme-feedback" role="status" aria-live="polite"></p>',
+    '  <textarea id="guided-lexeme-capture" class="guided-lexeme-capture" aria-label="字音鍵位輸入區" autocomplete="off" spellcheck="false"></textarea>',
     '  <div class="guided-lexeme-actions">',
     '    <button id="guided-lexeme-previous" type="button">上一個</button>',
     '    <button id="guided-lexeme-next" type="button">下一個</button>',
@@ -84,6 +85,7 @@ export function mountGuidedLexemeOverlay(
   const position = dialog.querySelector<HTMLElement>("#guided-lexeme-position")!;
   const progress = dialog.querySelector<HTMLElement>("#guided-lexeme-progress")!;
   const feedback = dialog.querySelector<HTMLElement>("#guided-lexeme-feedback")!;
+  const inputCapture = dialog.querySelector<HTMLTextAreaElement>("#guided-lexeme-capture")!;
   const previous = dialog.querySelector<HTMLButtonElement>("#guided-lexeme-previous")!;
   const next = dialog.querySelector<HTMLButtonElement>("#guided-lexeme-next")!;
 
@@ -190,18 +192,20 @@ export function mountGuidedLexemeOverlay(
   trigger.addEventListener("click",()=>{
     begin(index);
     dialog.showModal();
-    next.focus();
+    inputCapture.focus();
   },{signal:scope.signal});
   dialog.querySelector<HTMLButtonElement>("#guided-lexeme-close")!
     .addEventListener("click",close,{signal:scope.signal});
-  previous.addEventListener("click",()=>begin(index-1),{signal:scope.signal});
-  next.addEventListener("click",()=>begin(index+1),{signal:scope.signal});
+  previous.addEventListener("click",()=>{begin(index-1);inputCapture.focus();},{signal:scope.signal});
+  next.addEventListener("click",()=>{begin(index+1);inputCapture.focus();},{signal:scope.signal});
   choose.addEventListener("change",()=>{
     const selected=ids.indexOf(choose.value);
     if(selected<0)throw new Error("unreviewed selected phonetic target");
     begin(selected);
-    next.focus();
+    inputCapture.focus();
   },{signal:scope.signal});
+  inputCapture.addEventListener("input",()=>{inputCapture.value="";},{signal:scope.signal});
+  sounds.addEventListener("click",()=>inputCapture.focus(),{signal:scope.signal});
   dialog.addEventListener("cancel",(event)=>{
     event.preventDefault();
     close();
