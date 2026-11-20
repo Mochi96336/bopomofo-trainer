@@ -62,7 +62,7 @@ function audit(scope:"tier1"|"all",env:ProductEnvironment) {
     const trial=generate(env,progress,allowReviewedRoleReadings);
     if(n===0){
       const shipped=createProductState(env,progress,0).round.selection.utterance;
-      if(identity(shipped)!==identity(trial))throw Error("candidate does not reproduce actual product selector");
+      if(identity(shipped)!==identity(original))throw Error("baseline does not reproduce unchanged product selector");
     }
     successful++;
     oldTotal+=original.entries.length;
