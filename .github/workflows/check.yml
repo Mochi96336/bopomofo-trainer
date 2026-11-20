@@ -389,6 +389,15 @@ jobs:
         run: npm run selection:audit
       - name: Verify actual learner-target exposure under matched seeds
         run: npm run selection:exposure
+      - name: Quantify exact-role reading restoration in the existing sentence generator
+        run: npm run readings:role-sentence-ab -- --output role-attested-sentence-ab.json
+      - name: Upload paired same-sentence reading restoration report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: role-attested-sentence-ab
+          path: role-attested-sentence-ab.json
+          if-no-files-found: warn
       - name: Upload product selection quality measurements
         if: always()
         uses: actions/upload-artifact@v4
