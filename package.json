@@ -66,7 +66,8 @@
     "grammar:runtime-locative-occurrence-capabilities": "tsx scripts/migrate-active-runtime-locative-occurrence-capabilities.ts",
     "size:attribution": "npm run app:catalog && tsx scripts/measure-bundle-attribution.ts",
     "selection:audit": "tsx scripts/audit-product-selection.ts",
-    "selection:exposure": "tsx scripts/audit-product-learner-exposure.ts"
+    "selection:exposure": "tsx scripts/audit-product-learner-exposure.ts",
+    "readings:role-sentence-ab": "tsx scripts/audit-role-attested-sentence-ab.ts"
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
