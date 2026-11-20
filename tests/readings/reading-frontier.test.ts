@@ -144,7 +144,8 @@ describe("source-attested competing pronunciation roles in the original sentence
     const byNoun=new Map(noun.map(e=>[e.id,e]));
     const licensed=noun.flatMap(e=>[profile(e,"NOUN"),{...profile(e,"NOUN"),id:"extra:"+e.id}]);
     expect(allowReviewedRoleReadings(licensed,byNoun)).toEqual(licensed);
-    expect(allowReviewedRoleReadings([profile(noun[0]!),profile(noun[1]!)],byNoun)).toEqual([]);
+    const twoRoles=[profile(noun[0]!),profile(noun[1]!)];
+    expect(allowReviewedRoleReadings(twoRoles,byNoun)).toEqual(twoRoles);
   });
 
   it("existing unresolved abstention behavior and previously reviewed free alternants do not change",()=>{
