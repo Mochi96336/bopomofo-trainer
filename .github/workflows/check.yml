@@ -506,6 +506,11 @@ jobs:
             --inventory unresolved-reading-roles.json \
             --evidence moe-reading-pos-tag-shapes.json \
             --output moe-explicit-reading-role-triage.json
+      - name: Research-only paired existing sentence generation with explicit source POS singleton roles
+        run: |
+          npx tsx scripts/audit-source-pos-sentence-ab.ts \
+            --triage moe-explicit-reading-role-triage.json \
+            --output moe-source-pos-sentence-ab.json
       - name: Upload sanitary reading-role evidence only (never MOE archives or definitions)
         if: always()
         uses: actions/upload-artifact@v4
@@ -515,6 +520,7 @@ jobs:
             unresolved-reading-roles.json
             moe-reading-pos-tag-shapes.json
             moe-explicit-reading-role-triage.json
+            moe-source-pos-sentence-ab.json
           if-no-files-found: warn
 
   research:
