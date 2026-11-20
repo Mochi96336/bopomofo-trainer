@@ -389,6 +389,15 @@ jobs:
         run: npm run selection:audit
       - name: Verify actual learner-target exposure under matched seeds
         run: npm run selection:exposure
+      - name: Quantify exact-role reading restoration in the existing sentence generator
+        run: npm run readings:role-sentence-ab -- --output role-attested-sentence-ab.json
+      - name: Upload paired same-sentence reading restoration report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: role-attested-sentence-ab
+          path: role-attested-sentence-ab.json
+          if-no-files-found: warn
       - name: Upload product selection quality measurements
         if: always()
         uses: actions/upload-artifact@v4
@@ -452,6 +461,67 @@ jobs:
             playwright-report
             test-results
           if-no-files-found: ignore
+
+  # Independent research evidence for the EXISTING sentence catalog only.
+  # The originals are SHA-checked by the pinned MOE adapters and never uploaded.
+  moe-reading-role-batch-467:
+    if: github.event_name == 'pull_request' && github.event.pull_request.number == 467
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Compile existing grammar and export all unresolved exact reading identities
+        run: |
+          npm run app:catalog
+          npx tsx scripts/export-unresolved-reading-roles.ts --output unresolved-reading-roles.json
+      - name: Fetch pinned September 2026 MOE originals to runner temp only
+        run: |
+          mkdir -p "$RUNNER_TEMP/moe-reading-role"
+          curl -fLSs --retry 3 --connect-timeout 20 --max-time 180 \
+            "https://language.moe.gov.tw/001/Upload/Files/site_content/M0001/respub/download/dict_concised_2014_20260929.zip" \
+            -o "$RUNNER_TEMP/moe-reading-role/concised.zip"
+          curl -fLSs --retry 3 --connect-timeout 20 --max-time 180 \
+            "https://language.moe.gov.tw/001/Upload/Files/site_content/M0001/respub/download/dict_revised_2015_20260929.zip" \
+            -o "$RUNNER_TEMP/moe-reading-role/revised.zip"
+      - name: Audit exact-reading dictionary grammatical marker shapes without meanings
+        run: |
+          python3 scripts/audit-moe-reading-pos-tag-shapes.py \
+            --queue unresolved-reading-roles.json \
+            --concised "$RUNNER_TEMP/moe-reading-role/concised.zip" \
+            --revised "$RUNNER_TEMP/moe-reading-role/revised.zip" \
+            --output moe-reading-pos-tag-shapes.json
+      - name: Classify source-verified bracketed POS without treating missing tags as prohibitions
+        run: |
+          python3 scripts/triage-moe-reading-pos-roles.py \
+            --inventory unresolved-reading-roles.json \
+            --evidence moe-reading-pos-tag-shapes.json \
+            --output moe-explicit-reading-role-triage.json
+      - name: Research-only paired existing sentence generation with explicit source POS singleton roles
+        run: |
+          npx tsx scripts/audit-source-pos-sentence-ab.ts \
+            --triage moe-explicit-reading-role-triage.json \
+            --output moe-source-pos-sentence-ab.json
+      - name: Upload sanitary reading-role evidence only (never MOE archives or definitions)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-catalog-moe-role-structure
+          path: |
+            unresolved-reading-roles.json
+            moe-reading-pos-tag-shapes.json
+            moe-explicit-reading-role-triage.json
+            moe-source-pos-sentence-ab.json
+          if-no-files-found: warn
 
   research:
     if: github.event_name == 'workflow_dispatch' && inputs.run_research
