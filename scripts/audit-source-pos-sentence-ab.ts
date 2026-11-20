@@ -25,7 +25,6 @@ if(report.schemaVersion!=="unresolved-reading-explicit-pos-triage-v1"
   throw Error("official role-review report has wrong schema");
 const whole={practice:PRACTICE_CATALOG,syntaxProfiles:SYNTAX_PROFILES};
 const byEntryId=new Map(PRACTICE_CATALOG.map(e=>[e.id,e]));
-const activeUposById=new Map(SYNTAX_PROFILES.map(p=>[p.id,p]));
 const licensed=new Map<string,string>();
 const reviewedRows=report.rows.filter(row=>row.classification==="singleton-explicit-pos-double-source-review");
 for(const row of reviewedRows) {
