@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { catalogEntryId } from "../../src/core/catalog-entry-id.js";
 import type { CatalogEntry } from "../../src/core/model.js";
 import { composeFormalSyntaxUtterances } from "../../src/curriculum/formal-syntax-utterance.js";
-import { excludeUnresolvedReadingGroups } from "../../src/readings/reading-frontier.js";
+import { allowReviewedRoleReadings, excludeUnresolvedReadingGroups, REVIEWED_READING_ROLE_FRONTIERS } from "../../src/readings/reading-frontier.js";
 import { FORMAL_GRAMMAR_VERSION } from "../../src/syntax/features.js";
 import type { ProductionRule, RuntimeSyntaxProfile, Upos } from "../../src/syntax/types.js";
 import { PRACTICE, SYNTAX_PROFILES } from "../product/fixtures.js";
@@ -109,5 +109,52 @@ describe("unresolved sentence-reading abstention", () => {
     });
     expect(result.candidates).toEqual([]);
     expect(result.fallbackReasons).toContain("formal-syntax-reading-context-rejected");
+  });
+});
+
+
+describe("source-attested competing pronunciation roles in the original sentence generator",()=>{
+  it("restores reviewed exact reading identities ONLY in their verified UPOS",()=>{
+    expect(REVIEWED_READING_ROLE_FRONTIERS).toHaveLength(3);
+    for (const row of REVIEWED_READING_ROLE_FRONTIERS) {
+      const entries=row.readings.map(id=>{
+        const reading=id.split(":").at(-1)!;
+        return entry(row.word,reading);
+      });
+      const profiles=entries.map(e=>profile(e,row.upos));
+      const byId=new Map(entries.map(e=>[e.id,e]));
+      expect(excludeUnresolvedReadingGroups(profiles,byId)).toEqual([]);
+      expect(allowReviewedRoleReadings(profiles,byId)).toEqual(profiles);
+      const differentUpos=row.upos==="NOUN"?"VERB":"NOUN";
+      const wrongProfiles=entries.map(e=>profile(e,differentUpos));
+      expect(allowReviewedRoleReadings(wrongProfiles,byId)).toEqual([]);
+    }
+  });
+
+  it("never grants third reading or unrelated surface-UPOS from UD projection",()=>{
+    const supported=[entry("看","ㄎㄢ1"),entry("看","ㄎㄢ4")];
+    const fake=entry("看","ㄎㄢ2");
+    const entries=[...supported,fake];
+    const byId=new Map(entries.map(e=>[e.id,e]));
+    expect(allowReviewedRoleReadings(entries.map(e=>profile(e,"VERB")),byId)).toEqual([]);
+    const unlike=[entry("說","ㄕㄨㄛ1"),entry("說","ㄕㄨㄟ4")];
+    const unlikeById=new Map(unlike.map(e=>[e.id,e]));
+    expect(allowReviewedRoleReadings(unlike.map(e=>profile(e,"PART")),unlikeById)).toEqual([]);
+    const noun=[entry("東西","ㄉㄨㄥ1-ㄒㄧ1"),entry("東西","ㄉㄨㄥ1-ㄒㄧ5")];
+    const byNoun=new Map(noun.map(e=>[e.id,e]));
+    const licensed=noun.flatMap(e=>[profile(e,"NOUN"),{...profile(e,"NOUN"),id:"extra:"+e.id}]);
+    expect(allowReviewedRoleReadings(licensed,byNoun)).toEqual(licensed);
+    expect(allowReviewedRoleReadings([profile(noun[0]!),profile(noun[1]!)],byNoun)).toEqual([]);
+  });
+
+  it("existing unresolved abstention behavior and previously reviewed free alternants do not change",()=>{
+    const entries=[a,alternate,b];
+    const profiles=entries.map(e=>profile(e));
+    const byId=new Map(entries.map(e=>[e.id,e]));
+    expect(allowReviewedRoleReadings(profiles,byId)).toEqual(excludeUnresolvedReadingGroups(profiles,byId));
+    const free=[entry("哪","ㄋㄚ3"),entry("哪","ㄋㄟ3")];
+    const byFree=new Map(free.map(e=>[e.id,e]));
+    const prons=free.map(e=>profile(e,"PRON"));
+    expect(allowReviewedRoleReadings(prons,byFree)).toEqual(prons);
   });
 });
