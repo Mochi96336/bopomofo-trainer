@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "dongxi-ud-train-review-queue-v1",
+  "sourceCommit": "22f73e87f7ddc530bb131a6b7587971a03e1a712",
+  "scope": "source-train-only-not-held-out",
+  "hypothesisDisclosure": "no-prior-sense-or-pronunciation-proposals",
+  "approvedGoldLabels": 0,
+  "eligibleForTraining": false,
+  "eligibleForProductRule": false,
+  "cases": [
+    {
+      "sourceId": "ud-gsd-train-s681",
+      "sourceTokenId": 5,
+      "target": "東西",
+      "targetUtf16Offset": 4,
+      "sentence": "有了這兩東西，人類生存了。",
+      "review": {
+        "independentTokenization": "pending",
+        "taiwanMandarinNaturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending"
+      }
+    },
+    {
+      "sourceId": "ud-gsd-train-s1643",
+      "sourceTokenId": 9,
+      "target": "東西",
+      "targetUtf16Offset": 11,
+      "sentence": "海光寺路口也成為天津市東西和南北方向的交通要衝，常年交通擁堵。",
+      "review": {
+        "independentTokenization": "pending",
+        "taiwanMandarinNaturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending"
+      }
+    },
+    {
+      "sourceId": "ud-gsd-train-s2287",
+      "sourceTokenId": 31,
+      "target": "東西",
+      "targetUtf16Offset": 43,
+      "sentence": "我承認當時我踢的足球不像現在和在阿賈克斯踢的這麼漂亮，可是作為一名運動員，我學到了不少東西。",
+      "review": {
+        "independentTokenization": "pending",
+        "taiwanMandarinNaturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending"
+      }
+    },
+    {
+      "sourceId": "ud-gsd-train-s2541",
+      "sourceTokenId": 21,
+      "target": "東西",
+      "targetUtf16Offset": 29,
+      "sentence": "面對不可能和疑問，理性的人就只有放棄或否認，並永遠為失去的東西而悲傷。",
+      "review": {
+        "independentTokenization": "pending",
+        "taiwanMandarinNaturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending"
+      }
+    },
+    {
+      "sourceId": "ud-gsd-train-s3688",
+      "sourceTokenId": 21,
+      "target": "東西",
+      "targetUtf16Offset": 33,
+      "sentence": "學民思潮召集人黃之鋒聞言舉起《中國模式國情專題教學手冊》，表示「此東西都是由大學所寫的」。",
+      "review": {
+        "independentTokenization": "pending",
+        "taiwanMandarinNaturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending"
+      }
+    },
+    {
+      "sourceId": "ud-gsd-train-s3831",
+      "sourceTokenId": 2,
+      "target": "東西",
+      "targetUtf16Offset": 2,
+      "sentence": "市境東西寬106公里，南北寬111公里，總面積4058平方公里。",
+      "review": {
+        "independentTokenization": "pending",
+        "taiwanMandarinNaturalness": "pending",
+        "contextualSense": "pending",
+        "contextualReading": "pending"
+      }
+    }
+  ]
+}

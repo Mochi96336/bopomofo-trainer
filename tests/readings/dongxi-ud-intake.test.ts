@@ -44,6 +44,28 @@ describe("pinned attested UD 東西 candidate intake", () => {
       .toThrow("cannot promote");
   });
 
+  it("rejects coupled source/packet drift even when item counts and source IDs still match", () => {
+    const mutated = copy() as unknown as { candidates: Array<{
+      sentence: string;
+      lexicalSourceToken: { id: number; deprel: string };
+    }> };
+    // Previously this would satisfy the structural intake validator: one exact
+    // 東西 token, same source ID and split, and all reviews still pending.
+    mutated.candidates[0]!.sentence = "有了這些東西，人類生存了。";
+    expect(() => validateDongxiUdIntake(mutated as unknown as DongxiUdCorpus))
+      .toThrow("pinned UD source sentence/token facts");
+
+    mutated.candidates[0]!.sentence = source.candidates[0]!.sentence;
+    mutated.candidates[0]!.lexicalSourceToken.id = 4;
+    expect(() => validateDongxiUdIntake(mutated as unknown as DongxiUdCorpus))
+      .toThrow("pinned UD source sentence/token facts");
+
+    mutated.candidates[0]!.lexicalSourceToken.id = source.candidates[0]!.lexicalSourceToken.id;
+    mutated.candidates[0]!.lexicalSourceToken.deprel = "nmod";
+    expect(() => validateDongxiUdIntake(mutated as unknown as DongxiUdCorpus))
+      .toThrow("pinned UD source sentence/token facts");
+  });
+
   it("rejects duplicates, split leakage and fake standalone tokenization", () => {
     const duplicates = copy() as unknown as { candidates: Array<Record<string, unknown>> };
     duplicates.candidates[1]!.id = duplicates.candidates[0]!.id;
