@@ -1,0 +1,93 @@
+name: Attested polyphonic gold pilot
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/attested-polyphonic-pilot.yml"
+      - "research/attested-target-selector.ts"
+      - "research/prepare-attested-blind-review.ts"
+      - "research/data/attested-polyphonic-target-pilot.json"
+      - "scripts/audit-attested-polyphonic-pilot.ts"
+      - "scripts/verify-attested-polyphonic-sources.ts"
+      - "tests/readings/attested-polyphonic-pilot.test.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  provenance-and-target-selection:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install pinned dependencies
+        run: npm ci --include=dev --ignore-scripts
+      - name: Compile active catalog
+        run: npm run app:catalog
+      - name: Download UD GSD source files for provenance verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/attested-ud-gsd
+          for split in train dev test; do
+            curl --fail --location --silent --show-error --retry 3 \
+              "https://raw.githubusercontent.com/UniversalDependencies/UD_Chinese-GSD/master/zh_gsd-ud-${split}.conllu" \
+              --output "/tmp/attested-ud-gsd/zh_gsd-ud-${split}.conllu"
+          done
+      - name: Check immutable corpus blob digests and exact token boundaries
+        run: >-
+          npx tsx scripts/verify-attested-polyphonic-sources.ts
+          research/data/attested-polyphonic-target-pilot.json
+          /tmp/attested-ud-gsd
+      - name: Run gold-target, provenance and selector tests
+        run: npx vitest run tests/readings/attested-polyphonic-pilot.test.ts
+      - name: Audit real catalog coverage and paired target-only weakness selection
+        run: >-
+          npx tsx scripts/audit-attested-polyphonic-pilot.ts
+          research/data/attested-polyphonic-target-pilot.json
+          data/generated/attested-polyphonic-target-pilot-audit.json
+      - name: Prepare answer-free context packet for independent second reviewer
+        run: >-
+          npx tsx research/prepare-attested-blind-review.ts
+          research/data/attested-polyphonic-target-pilot.json
+          data/generated/attested-polyphonic-blind-review.csv
+      - name: Summarize evidence without inflating accuracy claims
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, appendFileSync } from "node:fs";
+          const r=JSON.parse(readFileSync("data/generated/attested-polyphonic-target-pilot-audit.json","utf8"));
+          const rows=[
+            "# Attested polyphonic target pilot (NOT sentence-wide G2P)",
+            "",
+            `- UD source-attested sentence contexts: **${r.caseCount}**`,
+            `- Contrasting characters: **${r.distinctTargetCharacters.join("、")}**`,
+            `- UD Translit hints conflicting with MOE target reading: **${r.corpusPinyinConflicts.length}**`,
+            `- Catalog entries with target-gold coverage: **${r.coverageSummary.supported}/${r.caseCount}**`,
+            `- Missing lexical form: **${r.coverageSummary.missingLexeme}**; missing gold reading: **${r.coverageSummary.missingGoldReading}**`,
+            "",
+            "| Synthetic weakness | Baseline gold-token draws | Boosted gold-token draws | Difference |",
+            "|---|---:|---:|---:|",
+            ...r.sampling.deltas.map(x=>`| ${x.token} | ${x.baselineCount} | ${x.weightedCount} | +${x.delta} |`),
+            "",
+            "ONLY target characters have dictionary-reviewed readings. The rest of each attested sentence is NOT phonetic gold.",
+            "The independent target-only picker uses equal baseline weights to isolate error weighting; it is NOT the shipping generator.",
+          ];
+          appendFileSync(process.env.GITHUB_STEP_SUMMARY,rows.join("\n")+"\n");
+          NODE
+      - name: Upload full audit, including corpus hint contradictions
+        uses: actions/upload-artifact@v4
+        with:
+          name: attested-polyphonic-target-pilot-json
+          path: |
+            data/generated/attested-polyphonic-target-pilot-audit.json
+            data/generated/attested-polyphonic-blind-review.csv
+          if-no-files-found: error
+          retention-days: 14
