@@ -1,0 +1,41 @@
+name: Structural argument evidence
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/structural-argument-evidence.yml"
+      - "scripts/audit-ud-structural-argument-evidence.py"
+      - "src/syntax/structural-argument-pairs.ts"
+      - "tests/syntax/structural-argument-pairs.test.ts"
+      - "scripts/ud_lexical_compatibility/**"
+      - "data/source/words.sample.csv"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  evidence:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: UniversalDependencies/UD_Chinese-GSD
+          ref: 22f73e87f7ddc530bb131a6b7587971a03e1a712
+          path: data/external/ud/chinese-gsd/r2.18
+          sparse-checkout: |
+            zh_gsd-ud-train.conllu
+            zh_gsd-ud-dev.conllu
+            zh_gsd-ud-test.conllu
+          sparse-checkout-cone-mode: false
+      - name: Measure pinned source dependency pair coverage
+        run: python scripts/audit-ud-structural-argument-evidence.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ud-structural-argument-evidence
+          path: data/generated/ud-structural-argument-evidence.json
+          retention-days: 14
+          if-no-files-found: error
