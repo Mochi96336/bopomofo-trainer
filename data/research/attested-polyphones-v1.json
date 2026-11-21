@@ -1,0 +1,333 @@
+{
+  "schemaVersion": "attested-polyphone-candidate-pilot-v1",
+  "scope": "candidate bank only; complete sentence readings and naturalness NOT independently certified",
+  "source": {
+    "repository": "UniversalDependencies/UD_Chinese-GSD",
+    "files": {
+      "train": {
+        "path": "zh_gsd-ud-train.conllu",
+        "blobSha": "9aec4ae103fb5b7218f637afd686caf3b587a8e6"
+      },
+      "dev": {
+        "path": "zh_gsd-ud-dev.conllu",
+        "blobSha": "8b967948097a2e4bebe7f5d0e053c4fed4fe3baa"
+      },
+      "test": {
+        "path": "zh_gsd-ud-test.conllu",
+        "blobSha": "3b15be45a96edcb21736f220e73fdccade231ca5"
+      }
+    },
+    "licenseNotice": "The UD annotations are CC BY-SA 4.0; underlying source text rights are NOT claimed by Google. Keep examples research-only pending reuse review.",
+    "sourceReadme": "https://github.com/UniversalDependencies/UD_Chinese-GSD/blob/master/README.md",
+    "pinnedCommitSha": "22f73e87f7ddc530bb131a6b7587971a03e1a712"
+  },
+  "readingAuthority": "https://dict.revised.moe.edu.tw/",
+  "reviewStatus": "dictionary_lexeme_reading_checked__sentence_not_human_rated",
+  "cases": [
+    {
+      "id": "xing-bank",
+      "character": "行",
+      "lexeme": "銀行",
+      "targetCharIndex": 1,
+      "expectedZhuyin": "ㄏㄤ2",
+      "expectedTokens": [
+        "zhuyin:ㄏ",
+        "zhuyin:ㄤ",
+        "tone:2"
+      ],
+      "ud": {
+        "split": "train",
+        "sentId": "train-s2478",
+        "sourceTokenUpos": "NOUN",
+        "rawTranslitUntrusted": "yínxíng"
+      },
+      "sentence": "嚴格來說，簽賬卡並不是銀行卡。",
+      "moeWordUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=156656&la=0&powerMode=0",
+      "annotation": {
+        "targetReading": "dictionary_lexeme_verified",
+        "completeSentenceReadings": "unreviewed",
+        "naturalness": "corpus_attested_not_independently_rated"
+      }
+    },
+    {
+      "id": "xing-action",
+      "character": "行",
+      "lexeme": "行動",
+      "targetCharIndex": 0,
+      "expectedZhuyin": "ㄒㄧㄥ2",
+      "expectedTokens": [
+        "zhuyin:ㄒ",
+        "zhuyin:ㄧ",
+        "zhuyin:ㄥ",
+        "tone:2"
+      ],
+      "ud": {
+        "split": "train",
+        "sentId": "train-s1854",
+        "sourceTokenUpos": "NOUN",
+        "rawTranslitUntrusted": "xíngdòng"
+      },
+      "sentence": "這項行動標誌著衝突開始急劇升級。",
+      "moeWordUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=110753&la=0&powerMode=0",
+      "annotation": {
+        "targetReading": "dictionary_lexeme_verified",
+        "completeSentenceReadings": "unreviewed",
+        "naturalness": "corpus_attested_not_independently_rated"
+      }
+    },
+    {
+      "id": "chang-length",
+      "character": "長",
+      "lexeme": "長度",
+      "targetCharIndex": 0,
+      "expectedZhuyin": "ㄔㄤ2",
+      "expectedTokens": [
+        "zhuyin:ㄔ",
+        "zhuyin:ㄤ",
+        "tone:2"
+      ],
+      "ud": {
+        "split": "test",
+        "sentId": "test-s34",
+        "sourceTokenUpos": "NOUN",
+        "rawTranslitUntrusted": "zhǎngdù"
+      },
+      "sentence": "島嶼長度約為11公里，寬度6公里。",
+      "moeWordUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=123577&la=0&powerMode=0",
+      "annotation": {
+        "targetReading": "dictionary_lexeme_verified",
+        "completeSentenceReadings": "unreviewed",
+        "naturalness": "corpus_attested_not_independently_rated"
+      }
+    },
+    {
+      "id": "chang-principal",
+      "character": "長",
+      "lexeme": "校長",
+      "targetCharIndex": 1,
+      "expectedZhuyin": "ㄓㄤ3",
+      "expectedTokens": [
+        "zhuyin:ㄓ",
+        "zhuyin:ㄤ",
+        "tone:3"
+      ],
+      "ud": {
+        "split": "train",
+        "sentId": "train-s158",
+        "sourceTokenUpos": "NOUN",
+        "rawTranslitUntrusted": "xiàozhǎng"
+      },
+      "sentence": "北洋政府外交部委派張煜全為清華學校校長。",
+      "moeWordUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=107254&la=0&powerMode=0",
+      "annotation": {
+        "targetReading": "dictionary_lexeme_verified",
+        "completeSentenceReadings": "unreviewed",
+        "naturalness": "corpus_attested_not_independently_rated"
+      }
+    },
+    {
+      "id": "zhong-important",
+      "character": "重",
+      "lexeme": "重要",
+      "targetCharIndex": 0,
+      "expectedZhuyin": "ㄓㄨㄥ4",
+      "expectedTokens": [
+        "zhuyin:ㄓ",
+        "zhuyin:ㄨ",
+        "zhuyin:ㄥ",
+        "tone:4"
+      ],
+      "ud": {
+        "split": "dev",
+        "sentId": "dev-s208",
+        "sourceTokenUpos": "ADJ",
+        "rawTranslitUntrusted": "zhòngyào"
+      },
+      "sentence": "漁業和工業也有重要的地位。",
+      "moeWordUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=120542&la=0&powerMode=0",
+      "annotation": {
+        "targetReading": "dictionary_lexeme_verified",
+        "completeSentenceReadings": "unreviewed",
+        "naturalness": "corpus_attested_not_independently_rated"
+      }
+    },
+    {
+      "id": "zhong-again",
+      "character": "重",
+      "lexeme": "重新",
+      "targetCharIndex": 0,
+      "expectedZhuyin": "ㄔㄨㄥ2",
+      "expectedTokens": [
+        "zhuyin:ㄔ",
+        "zhuyin:ㄨ",
+        "zhuyin:ㄥ",
+        "tone:2"
+      ],
+      "ud": {
+        "split": "train",
+        "sentId": "train-s1362",
+        "sourceTokenUpos": "ADV",
+        "rawTranslitUntrusted": "zhòngxīn"
+      },
+      "sentence": "故事與部分的細部設定則重新檢討，因此產生諸多與動畫版相異之處。",
+      "moeWordUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=126849&la=0&powerMode=0",
+      "annotation": {
+        "targetReading": "dictionary_lexeme_verified",
+        "completeSentenceReadings": "unreviewed",
+        "naturalness": "corpus_attested_not_independently_rated"
+      }
+    },
+    {
+      "id": "zhong-kind",
+      "character": "種",
+      "lexeme": "種類",
+      "targetCharIndex": 0,
+      "expectedZhuyin": "ㄓㄨㄥ3",
+      "expectedTokens": [
+        "zhuyin:ㄓ",
+        "zhuyin:ㄨ",
+        "zhuyin:ㄥ",
+        "tone:3"
+      ],
+      "ud": {
+        "split": "train",
+        "sentId": "train-s203",
+        "sourceTokenUpos": "NOUN",
+        "rawTranslitUntrusted": "zhǒnglèi"
+      },
+      "sentence": "湯一般由不同種類的肉和魚製成，無論新鮮或煙熏。",
+      "moeWordUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=120355&la=0&powerMode=0",
+      "annotation": {
+        "targetReading": "dictionary_lexeme_verified",
+        "completeSentenceReadings": "unreviewed",
+        "naturalness": "corpus_attested_not_independently_rated"
+      }
+    },
+    {
+      "id": "zhong-plant",
+      "character": "種",
+      "lexeme": "種植",
+      "targetCharIndex": 0,
+      "expectedZhuyin": "ㄓㄨㄥ4",
+      "expectedTokens": [
+        "zhuyin:ㄓ",
+        "zhuyin:ㄨ",
+        "zhuyin:ㄥ",
+        "tone:4"
+      ],
+      "ud": {
+        "split": "train",
+        "sentId": "train-s3530",
+        "sourceTokenUpos": "VERB",
+        "rawTranslitUntrusted": "zhǒngzhí"
+      },
+      "sentence": "這些植物大都按科屬種植，並適當根據生態條件配置宿根草本或球根花卉。",
+      "moeWordUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=120566&la=0&powerMode=0",
+      "annotation": {
+        "targetReading": "dictionary_lexeme_verified",
+        "completeSentenceReadings": "unreviewed",
+        "naturalness": "corpus_attested_not_independently_rated"
+      }
+    },
+    {
+      "id": "le-music",
+      "character": "樂",
+      "lexeme": "音樂",
+      "targetCharIndex": 1,
+      "expectedZhuyin": "ㄩㄝ4",
+      "expectedTokens": [
+        "zhuyin:ㄩ",
+        "zhuyin:ㄝ",
+        "tone:4"
+      ],
+      "ud": {
+        "split": "dev",
+        "sentId": "dev-s148",
+        "sourceTokenUpos": "NOUN",
+        "rawTranslitUntrusted": "yīnlè"
+      },
+      "sentence": "理察在小時候就對音樂很有興趣，並且被培養為鋼琴奇才。",
+      "moeWordUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=156330&la=0&powerMode=0",
+      "annotation": {
+        "targetReading": "dictionary_lexeme_verified",
+        "completeSentenceReadings": "unreviewed",
+        "naturalness": "corpus_attested_not_independently_rated"
+      }
+    },
+    {
+      "id": "le-optimism",
+      "character": "樂",
+      "lexeme": "樂觀",
+      "targetCharIndex": 0,
+      "expectedZhuyin": "ㄌㄜ4",
+      "expectedTokens": [
+        "zhuyin:ㄌ",
+        "zhuyin:ㄜ",
+        "tone:4"
+      ],
+      "ud": {
+        "split": "train",
+        "sentId": "train-s291",
+        "sourceTokenUpos": "ADJ",
+        "rawTranslitUntrusted": "lèguān"
+      },
+      "sentence": "最重要的是，他已經成為了一個樂觀幽默的人。",
+      "moeWordUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=59398&la=0&powerMode=0",
+      "annotation": {
+        "targetReading": "dictionary_lexeme_verified",
+        "completeSentenceReadings": "unreviewed",
+        "naturalness": "corpus_attested_not_independently_rated"
+      }
+    },
+    {
+      "id": "hao-good-review",
+      "character": "好",
+      "lexeme": "好評",
+      "targetCharIndex": 0,
+      "expectedZhuyin": "ㄏㄠ3",
+      "expectedTokens": [
+        "zhuyin:ㄏ",
+        "zhuyin:ㄠ",
+        "tone:3"
+      ],
+      "ud": {
+        "split": "train",
+        "sentId": "train-s118",
+        "sourceTokenUpos": "NOUN",
+        "rawTranslitUntrusted": "hǎopíng"
+      },
+      "sentence": "《世紀帝國》普遍受到好評，但批評亦有不少。",
+      "moeWordUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=80852&la=0&powerMode=0",
+      "annotation": {
+        "targetReading": "dictionary_lexeme_verified",
+        "completeSentenceReadings": "unreviewed",
+        "naturalness": "corpus_attested_not_independently_rated"
+      }
+    },
+    {
+      "id": "hao-enthusiast",
+      "character": "好",
+      "lexeme": "愛好",
+      "targetCharIndex": 1,
+      "expectedZhuyin": "ㄏㄠ4",
+      "expectedTokens": [
+        "zhuyin:ㄏ",
+        "zhuyin:ㄠ",
+        "tone:4"
+      ],
+      "ud": {
+        "split": "test",
+        "sentId": "test-s284",
+        "sourceTokenUpos": "VERB",
+        "rawTranslitUntrusted": "'àihǎo"
+      },
+      "sentence": "太極劍的歷史雖不長，但很受太極愛好者歡迎，其流行程度實超過太極刀、槍、棍、桿等器械。",
+      "moeWordUrl": "https://dict.revised.moe.edu.tw/dictView.jsp?ID=147255&la=0&powerMode=0",
+      "annotation": {
+        "targetReading": "dictionary_lexeme_verified",
+        "completeSentenceReadings": "unreviewed",
+        "naturalness": "corpus_attested_not_independently_rated"
+      }
+    }
+  ]
+}
