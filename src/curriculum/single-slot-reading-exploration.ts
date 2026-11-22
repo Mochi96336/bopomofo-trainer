@@ -96,6 +96,18 @@ export function trySingleSlotSourceReadingReplacement(input: {
     || baseline.syntaxDerivationId !== trace.shape.id) {
     throw new Error("cannot apply a trace from a different finished sentence");
   }
+  // Match the original composer: a literal/punctuation lexical slot resets
+  // previousEntry to null. Do not accidentally invent adjacency across it.
+  const slotHasPrecedingLexeme: boolean[] = [];
+  let precedingLexeme = false;
+  for (const lexicalSlot of trace.shape.lexicalSlots) {
+    if (!practiceSlot(lexicalSlot)) {
+      precedingLexeme = false;
+      continue;
+    }
+    slotHasPrecedingLexeme.push(precedingLexeme);
+    precedingLexeme = true;
+  }
   const slots = trace.shape.lexicalSlots.filter(practiceSlot);
   if (baseline.entries.length !== slots.length
     || baseline.syntaxProfileIds?.length !== slots.length) {
@@ -120,7 +132,9 @@ export function trySingleSlotSourceReadingReplacement(input: {
     // were already licensed by the original generator and stay identical.
     for (const index of [at, at + 1].filter(index => index < slots.length)) {
       const slot = slots[index]!;
-      const previous = index === 0 ? null : afterEntries[index - 1]!;
+      const previous = slotHasPrecedingLexeme[index]
+        ? afterEntries[index - 1] ?? null
+        : null;
       const entry = afterEntries[index]!;
       const profile = afterProfiles[index]!;
       if (!originalGates.every(gate => gate(entry, profile, slot, previous))) return false;
