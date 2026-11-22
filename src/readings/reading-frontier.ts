@@ -45,3 +45,86 @@ export function excludeUnresolvedReadingGroups(
   ).map(([key]) => key));
   return unresolved.size === 0 ? frontier : frontier.filter(profile => !unresolved.has(keyFor(profile)));
 }
+
+
+/**
+ * Exactly reviewed pronunciation × UPOS licenses for the EXISTING sentence
+ * generator. Unlike FREE_ALTERNANTS, these do not assert interchangeability:
+ * only that both existing catalog readings genuinely have this grammatical
+ * category. The current generator explicitly does not validate semantic
+ * combinations; it displays each selected catalog entry's target Zhuyin.
+ *
+ * Independent MOE Concised + Revised headword evidence (online cross-check):
+ * 看 ㄎㄢ1 / ㄎㄢ4: both verbal; guarded/look.
+ * https://dict.concised.moe.edu.tw/dictView.jsp?ID=18398
+ * https://dict.concised.moe.edu.tw/dictView.jsp?ID=18436
+ * https://dict.revised.moe.edu.tw/dictView.jsp?ID=4531
+ * 喝 ㄏㄜ1 / ㄏㄜ4: both verbal; drink/call.
+ * https://dict.revised.moe.edu.tw/dictView.jsp?ID=4731
+ * https://dict.concised.moe.edu.tw/dictView.jsp?ID=19194
+ * 東西 ㄉㄨㄥ1-ㄒㄧ1 / ㄉㄨㄥ1-ㄒㄧ5: full-word nominal headwords.
+ * https://dict.revised.moe.edu.tw/dictView.jsp?ID=48850
+ *
+ * September 2026 source-archive matched IDs and UPOS are distinct from
+ * surface-keyed UD: the dictionary POS review is the independent license.
+ * Do not add e.g. 女/PART or 說/PART based on inherited UD tags.
+ */
+export const REVIEWED_READING_ROLE_FRONTIERS = [
+  {
+    word: "看", upos: "VERB",
+    readings: [catalogEntryId("看", "ㄎㄢ1"), catalogEntryId("看", "ㄎㄢ4")],
+  },
+  {
+    word: "喝", upos: "VERB",
+    readings: [catalogEntryId("喝", "ㄏㄜ1"), catalogEntryId("喝", "ㄏㄜ4")],
+  },
+  {
+    word: "東西", upos: "NOUN",
+    readings: [catalogEntryId("東西", "ㄉㄨㄥ1-ㄒㄧ1"), catalogEntryId("東西", "ㄉㄨㄥ1-ㄒㄧ5")],
+  },
+] as const;
+
+const REVIEWED_ROLE_SETS = new Map<string, ReadonlySet<string>>();
+for (const row of REVIEWED_READING_ROLE_FRONTIERS) {
+  const key = row.word + "/" + row.upos;
+  if (REVIEWED_ROLE_SETS.has(key) || new Set(row.readings).size !== row.readings.length
+    || row.readings.length < 2) {
+    throw new Error("invalid duplicate reviewed reading role: " + key);
+  }
+  REVIEWED_ROLE_SETS.set(key, new Set(row.readings));
+}
+
+/**
+ * Same original real sentence frontier, expanded ONLY when the complete
+ * per-slot written-form/UPOS identity set equals an explicitly source-reviewed
+ * grammatical role. Never grant arbitrary dictionary readings a cloned UPOS.
+ * Retains all unresolved-group exclusions and previous licensed free variants.
+ */
+export function allowReviewedRoleReadings(
+  frontier: readonly RuntimeSyntaxProfile[],
+  entriesById: ReadonlyMap<string, CatalogEntry>,
+): readonly RuntimeSyntaxProfile[] {
+  const original = excludeUnresolvedReadingGroups(frontier, entriesById);
+  const originalProfiles = new Set(original);
+  const idsByKey = new Map<string, Set<string>>();
+  for (const profile of frontier) {
+    const entry = entriesById.get(profile.entryId);
+    if (entry === undefined) throw new Error("reviewed frontier references missing entry");
+    const key = entry.prompt.text + "/" + profile.upos;
+    const ids = idsByKey.get(key) ?? new Set<string>();
+    ids.add(entry.id);
+    idsByKey.set(key, ids);
+  }
+  const additionalKeys = new Set([...idsByKey].filter(([key, ids]) => {
+    const approved = REVIEWED_ROLE_SETS.get(key);
+    return approved !== undefined
+      && approved.size === ids.size
+      && [...ids].every(id => approved.has(id));
+  }).map(([key]) => key));
+  if (additionalKeys.size === 0) return original;
+  return frontier.filter(profile => {
+    if (originalProfiles.has(profile)) return true;
+    const entry = entriesById.get(profile.entryId)!;
+    return additionalKeys.has(entry.prompt.text + "/" + profile.upos);
+  });
+}

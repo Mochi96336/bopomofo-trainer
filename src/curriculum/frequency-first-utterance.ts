@@ -111,6 +111,8 @@ export interface FormalSyntaxUtteranceSelectionInput
   readonly random: RandomSource;
   readonly profiles: readonly RuntimeSyntaxProfile[];
   readonly readingFrontierFilter?: FormalSyntaxUtteranceInput["readingFrontierFilter"];
+  /** Optional research-only capture, not used by the shipped selector. */
+  readonly researchRealizationTrace?: FormalSyntaxUtteranceInput["researchRealizationTrace"];
   /** Optional reading permission policy, independent of research/grammar overrides. */
   readonly readingEligibility?: FormalSyntaxUtteranceInput["readingEligibility"];
   readonly preDrawReadingEligibility?: FormalSyntaxUtteranceInput["preDrawReadingEligibility"];
@@ -240,6 +242,8 @@ function generateOnce(
     random: input.random,
     ...(useStaticFormalEntryWeight ? {} : { entryWeight }),
     ...(input.readingFrontierFilter === undefined ? {} : { readingFrontierFilter: input.readingFrontierFilter }),
+    ...(input.researchRealizationTrace === undefined ? {}
+      : { researchRealizationTrace: input.researchRealizationTrace }),
     ...(input.readingEligibility === undefined ? {} : { readingEligibility: input.readingEligibility }),
     ...(input.preDrawReadingEligibility === undefined ? {} : { preDrawReadingEligibility: input.preDrawReadingEligibility }),
     ...(input.finalCandidateReadingEligibility === undefined
