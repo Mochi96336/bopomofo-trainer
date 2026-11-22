@@ -1,11 +1,15 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { catalogEntryFrequencyWeight } from "../src/commonness/catalog-projection.js";
 import {
   PRACTICE_CATALOG, SYNTAX_PROFILES, COMMONNESS_TIER_THRESHOLDS,
 } from "../src/app/generated/catalog.js";
 import { selectFormalSyntaxUtterance } from "../src/curriculum/frequency-first-utterance.js";
 import { createSeededRandom } from "../src/curriculum/random.js";
 import { selectIsolatedReadingExploration } from "../src/curriculum/isolated-reading-exploration.js";
+import { trySingleSlotSourceReadingReplacement } from "../src/curriculum/single-slot-reading-exploration.js";
+import { scoreHierarchicalCandidate, scopedBindingEvidence } from "../src/curriculum/selection-scoring.js";
+import type { FormalSyntaxRealizationTrace } from "../src/curriculum/formal-syntax-utterance.js";
 import { catalogsForCommonnessTiers } from "../src/product/commonness-access.js";
 import {
   createProductEnvironment, createFreshProgressForEnvironment, createProductState,
@@ -80,6 +84,7 @@ function generate(
   progress: ProductProgress,
   seed: string,
   useRoleReview: boolean,
+  trace?: (value: FormalSyntaxRealizationTrace) => void,
 ): GrammarUtteranceCandidate {
   return selectFormalSyntaxUtterance({
     entries: env.catalogs.practice,
@@ -96,6 +101,7 @@ function generate(
     profiles: env.catalogs.syntaxProfiles,
     ...PRODUCT_READING_POLICY,
     ...(useRoleReview ? {readingEligibility: researchEligibility} : {}),
+    ...(trace === undefined ? {} : {researchRealizationTrace: trace}),
     preparedFormalSyntaxLexicon: env.preparedPracticeLexicon,
     preparedFrequencyFirstEntries: env.preparedPracticeEntries,
     preparedFormalSyntaxExecution: env.preparedPracticeFormalSyntaxExecution,
@@ -159,6 +165,13 @@ function run(scope: "tier1" | "all", env: ProductEnvironment) {
   let changedWithoutNovelTarget = 0, changedFinalSentences = 0;
   let newMatchedOccurrences = 0, baselineOccurrences = 0, chosenOccurrences = 0;
   const timings: number[] = [];
+  let localSkipped = 0, localReverted = 0, localRestored = 0, localCalls = 0;
+  let localChangedWithoutTarget = 0, localRecalculatedScores = 0, localNewOccurrences = 0;
+  const localTimes: number[] = [];
+  const localExamples: Array<{
+    seed:number; changedIndex:number; oldEntryId:string; newEntryId:string;
+    before:string; after:string; scoreAcceptanceProbability:number;
+  }> = [];
   const examples: Array<{
     seed: number; before: string; after: string;
     beforeIds: string[]; afterIds: string[];
@@ -168,7 +181,13 @@ function run(scope: "tier1" | "all", env: ProductEnvironment) {
       env, "stable-reading-extension:" + scope + ":" + index, "guided", "zhuyin-standard",
     );
     const seed = progress.seed + ":practice:" + progress.practiceRoundsCompleted;
-    const baseline = generate(env, progress, seed, false);
+    const traces = new Map<string, FormalSyntaxRealizationTrace>();
+    const baseline = generate(env, progress, seed, false,
+      trace => traces.set(trace.realizationId, trace));
+    const baselineTrace = traces.get(baseline.id);
+    if (baselineTrace === undefined) {
+      throw new Error("selected product sentence was not captured from its own grammar");
+    }
     if (index === 0) {
       const shipped = createProductState(env, progress, 0).round.selection.utterance;
       if (fingerprint(shipped) !== fingerprint(baseline)) {
@@ -186,6 +205,82 @@ function run(scope: "tier1" | "all", env: ProductEnvironment) {
       gainsVerifiedTarget: (trial, original) => gainsCandidateReading(trial, original, byProfile),
     });
     timings.push(performance.now() - startMs);
+    const localStart = performance.now();
+    let selectedLocalSlot = -1;
+    const local = selectIsolatedReadingExploration({
+      baseline, seed, explorationRate: rate,
+      maximumExplorationAttempts: 1,
+      generateTrial: isolatedSeed => {
+        localCalls++;
+        const revision = trySingleSlotSourceReadingReplacement({
+          baseline, trace: baselineTrace,
+          index: env.preparedPracticeLexicon.index,
+          candidateRoleReadingIds: reviewed,
+          random: createSeededRandom(isolatedSeed),
+          // Every audited learner is fresh: this equals shipped entry weight.
+          // Live integration will use scoreEntry to include observed weaknesses.
+          weight: catalogEntryFrequencyWeight,
+        });
+        if (revision !== null) selectedLocalSlot = revision.changedSlotIndex;
+        return revision?.candidate ?? null;
+      },
+      gainsVerifiedTarget: (trial, original) => gainsCandidateReading(trial, original, byProfile),
+    });
+    localTimes.push(performance.now() - localStart);
+    if (local.outcome === "skipped") localSkipped++;
+    if (local.outcome === "reverted") localReverted++;
+    if (local.outcome === "restored") localRestored++;
+    const localChanged = fingerprint(local.chosen) !== fingerprint(baseline);
+    const localBaselineCounts = reviewCounts(baseline, byProfile);
+    const localSelectedCounts = reviewCounts(local.chosen, byProfile);
+    const localGains = [...localSelectedCounts].reduce(
+      (sum, [key, count]) => sum + Math.max(0, count - (localBaselineCounts.get(key) ?? 0)), 0,
+    );
+    localNewOccurrences += localGains;
+    if (localChanged && localGains === 0) localChangedWithoutTarget++;
+    if (local.outcome !== "restored" && local.chosen !== baseline)
+      throw new Error("local no-op must return the original sentence object");
+    if (local.outcome === "restored") {
+      const differingPositions = local.chosen.entries.flatMap((entry, at) =>
+        entry.id === baseline.entries[at]?.id ? [] : [at]);
+      if (!localChanged || localGains === 0 || differingPositions.length !== 1
+        || differingPositions[0] !== selectedLocalSlot
+        || local.chosen.syntaxDerivationId !== baseline.syntaxDerivationId
+        || JSON.stringify(local.chosen.syntaxProductionRuleIds)
+            !== JSON.stringify(baseline.syntaxProductionRuleIds)) {
+        throw new Error("one-slot substitution changed unrelated words or grammar");
+      }
+      // Re-score the modified original sentence with the EXISTING learner and
+      // construction scoring policy. This is only an audit, not a product write.
+      const score = scoreHierarchicalCandidate(local.chosen, {
+        entries: env.catalogs.practice,
+        mode:progress.mode,layoutId:progress.layoutId,policy:env.utterancePolicy,
+        history:{
+          recentEntryIds:progress.selection.recentEntryIds,
+          recentUtteranceIds:progress.selection.recentUtteranceIds,
+          recentWrittenForms:progress.selection.recentWrittenForms,
+          recentConstructionIds:progress.selection.recentConstructionIds,
+        },
+        bindingsByToken:scopedBindingEvidence(
+          Object.values(progress.measurements.semantic.bindings),
+          progress.mode,progress.layoutId,
+        ),
+        useRecentEvidence:true,
+        preparedFrequencyFirstEntries:env.preparedPracticeEntries,
+      });
+      if (!Number.isFinite(score.acceptanceProbability)
+        || score.acceptanceProbability < 0 || score.acceptanceProbability > 1) {
+        throw new Error("invalid recomputed selected-sentence score");
+      }
+      localRecalculatedScores++;
+      if (localExamples.length < 12) localExamples.push({
+        seed:index,changedIndex:selectedLocalSlot,
+        oldEntryId:baseline.entries[selectedLocalSlot]!.id,
+        newEntryId:local.chosen.entries[selectedLocalSlot]!.id,
+        before:baseline.text,after:local.chosen.text,
+        scoreAcceptanceProbability:score.acceptanceProbability,
+      });
+    }
     const changed = fingerprint(selected.chosen) !== fingerprint(baseline);
     if (selected.outcome === "skipped") skipped++;
     if (selected.outcome === "reverted") reverted++;
@@ -214,6 +309,10 @@ function run(scope: "tier1" | "all", env: ProductEnvironment) {
   if (changedWithoutNovelTarget !== 0 || changedFinalSentences !== restored) {
     throw new Error("candidate-pool drift escaped isolated exploration gate");
   }
+  if (localChangedWithoutTarget !== 0 || localRestored !== localRecalculatedScores
+    || localSkipped + localReverted + localRestored !== totalRounds) {
+    throw new Error("local slot exploration violated baseline or scoring invariants");
+  }
   return {
     scope, rounds: totalRounds, explorationRate: rate, attemptLimit: attempts,
     skippedUnchanged: skipped, attemptedButRevertedUnchanged: reverted,
@@ -224,10 +323,21 @@ function run(scope: "tier1" | "all", env: ProductEnvironment) {
     candidateGeneratorCalls: candidateCalls,
     explorationOnlyMillisecondsP95: percentile95(timings),
     examples,
+    singleSlot: {
+      skippedUnchanged:localSkipped,
+      attemptedButRevertedUnchanged:localReverted,
+      changedFinalSentences:localRestored,
+      changedWithoutNovelTarget:localChangedWithoutTarget,
+      newMatchingOccurrencesOnChangedSentences:localNewOccurrences,
+      recomputedScores:localRecalculatedScores,
+      revisionAttempts:localCalls,
+      explorationOnlyMillisecondsP95:percentile95(localTimes),
+      examples:localExamples,
+    },
   };
 }
 const report = {
-  schemaVersion: "isolated-reading-exploration-paired-v1",
+  schemaVersion: "isolated-and-single-slot-reading-exploration-paired-v2",
   scope: "EXPERIMENT ONLY in original sentence generator, same existing UI and grammar",
   caveat: "48 source-bracket-POS singletons are review CANDIDATES, NOT semantic reading gold or release licenses",
   sourceEdition: "20260929", groupsUnderReview: reviewed.size,
@@ -246,6 +356,11 @@ console.log("ISOLATED_READING_EXPLORATION_JSON " + JSON.stringify({
     skipped: report.tier1.skippedUnchanged,
     reverted: report.tier1.attemptedButRevertedUnchanged,
     p95ms: report.tier1.explorationOnlyMillisecondsP95,
+    singleSlot: {
+      changed:report.tier1.singleSlot.changedFinalSentences,
+      newOccurrences:report.tier1.singleSlot.newMatchingOccurrencesOnChangedSentences,
+      p95ms:report.tier1.singleSlot.explorationOnlyMillisecondsP95,
+    },
   },
   all: {
     changed: report.all.changedFinalSentences,
@@ -253,6 +368,11 @@ console.log("ISOLATED_READING_EXPLORATION_JSON " + JSON.stringify({
     skipped: report.all.skippedUnchanged,
     reverted: report.all.attemptedButRevertedUnchanged,
     p95ms: report.all.explorationOnlyMillisecondsP95,
+    singleSlot: {
+      changed:report.all.singleSlot.changedFinalSentences,
+      newOccurrences:report.all.singleSlot.newMatchingOccurrencesOnChangedSentences,
+      p95ms:report.all.singleSlot.explorationOnlyMillisecondsP95,
+    },
   },
   productPolicyUnchanged: true,
 }));
