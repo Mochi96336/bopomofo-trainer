@@ -2,12 +2,34 @@ import { describe, expect, it } from "vitest";
 import { PRACTICE_CATALOG, SYNTAX_PROFILES } from "../../src/app/generated/catalog.js";
 import { selectFormalSyntaxUtterance } from "../../src/curriculum/frequency-first-utterance.js";
 import { createSeededRandom } from "../../src/curriculum/random.js";
-import { trySingleSlotSourceReadingReplacement } from "../../src/curriculum/single-slot-reading-exploration.js";
+import { trySingleSlotSourceReadingReplacement, hasSameSyntacticRoleSignature } from "../../src/curriculum/single-slot-reading-exploration.js";
 import type { FormalSyntaxRealizationTrace } from "../../src/curriculum/formal-syntax-utterance.js";
 import { createProductEnvironment, createFreshProgressForEnvironment } from "../../src/product/session.js";
 import { PRODUCT_READING_POLICY } from "../../src/readings/product-reading-policy.js";
 
 describe("single-slot research transformation preserves original product structure", () => {
+  it("never treats broad slot compatibility as proof of identical syntactic roles", () => {
+    const original = SYNTAX_PROFILES.find(p =>
+      p.upos === "VERB" && p.functions.includes("predicate"));
+    expect(original).toBeDefined();
+    const same = { ...original!, functions:[...original!.functions].reverse(),
+      valencyFrames:[...original!.valencyFrames].reverse() };
+    expect(hasSameSyntacticRoleSignature(original!,same)).toBe(true);
+    expect(hasSameSyntacticRoleSignature(original!,{...original!,upos:"NOUN"})).toBe(false);
+    expect(hasSameSyntacticRoleSignature(original!,{...original!,
+      functions:[...original!.functions,"new-function-only-in-other-entry"] as typeof original.functions,
+    })).toBe(false);
+    const differentFrame = original!.valencyFrames.includes("transitive")
+      ? "intransitive" : "transitive";
+    expect(hasSameSyntacticRoleSignature(original!,{...original!,
+      valencyFrames:[...original!.valencyFrames,differentFrame],
+    })).toBe(false);
+    expect(hasSameSyntacticRoleSignature(original!,{...original!,
+      occurrenceCapabilities:["voice-cau-ccomp-same-occurrence"],
+    })).toBe(original!.occurrenceCapabilities?.length===1 &&
+      original!.occurrenceCapabilities[0]==="voice-cau-ccomp-same-occurrence");
+  });
+
   it("captures the chosen legal grammar exactly and leaves all non-target cases unchanged", () => {
     const env = createProductEnvironment({
       practice: PRACTICE_CATALOG,
