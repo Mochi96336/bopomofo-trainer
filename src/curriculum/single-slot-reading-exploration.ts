@@ -88,7 +88,10 @@ export function trySingleSlotSourceReadingReplacement(input: {
   function validReplacement(at: number, proposed: RuntimeSyntaxProfile, replacement: CatalogEntry): boolean {
     const afterEntries = baseline.entries.map((item, index) => index === at ? replacement : item);
     const afterProfiles = selectedProfiles.map((item, index) => index === at ? proposed : item);
-    for (let index = 0; index < slots.length; index++) {
+    // Only the replaced position and its immediate successor can have a
+    // different selected entry or previous-entry context. Other frontiers
+    // were already licensed by the original generator and stay identical.
+    for (const index of [at, at + 1].filter(index => index < slots.length)) {
       const slot = slots[index]!;
       const previous = index === 0 ? null : afterEntries[index - 1]!;
       const entry = afterEntries[index]!;
