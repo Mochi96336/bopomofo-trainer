@@ -168,6 +168,11 @@ function run(scope: "tier1" | "all", env: ProductEnvironment) {
   let localSkipped = 0, localReverted = 0, localRestored = 0, localCalls = 0;
   let localChangedWithoutTarget = 0, localRecalculatedScores = 0, localNewOccurrences = 0;
   const localTimes: number[] = [];
+  let strictSkipped = 0, strictReverted = 0, strictRestored = 0;
+  let strictNewOccurrences = 0, strictChangedWithoutTarget = 0;
+  let strictDifferentSlotViolations = 0, strictScoresChecked = 0;
+  const strictTimes: number[] = [];
+  const strictExamples: Array<{seed:number;changedIndex:number;before:string;after:string}> = [];
   const localExamples: Array<{
     seed:number; changedIndex:number; oldEntryId:string; newEntryId:string;
     before:string; after:string; scoreAcceptanceProbability:number;
@@ -227,6 +232,69 @@ function run(scope: "tier1" | "all", env: ProductEnvironment) {
       gainsVerifiedTarget: (trial, original) => gainsCandidateReading(trial, original, byProfile),
     });
     localTimes.push(performance.now() - localStart);
+
+    // Exact same baseline, gate and candidate seed. The only difference is
+    // strict grammar-role parity against the ORIGINAL lexical position.
+    let strictSlot = -1;
+    const strictStart = performance.now();
+    const strict = selectIsolatedReadingExploration({
+      baseline,seed,explorationRate:rate,maximumExplorationAttempts:1,
+      generateTrial: isolatedSeed => {
+        const revision = trySingleSlotSourceReadingReplacement({
+          baseline,trace:baselineTrace,index:env.preparedPracticeLexicon.index,
+          candidateRoleReadingIds:reviewed,
+          random:createSeededRandom(isolatedSeed),
+          weight:catalogEntryFrequencyWeight,
+          syntaxMatch:"same-role-signature",
+        });
+        if(revision!==null)strictSlot=revision.changedSlotIndex;
+        return revision?.candidate??null;
+      },
+      gainsVerifiedTarget:(trial,original)=>gainsCandidateReading(trial,original,byProfile),
+    });
+    strictTimes.push(performance.now()-strictStart);
+    if(strict.outcome==="skipped")strictSkipped++;
+    if(strict.outcome==="reverted")strictReverted++;
+    if(strict.outcome==="restored")strictRestored++;
+    if(strict.outcome!=="restored" && strict.chosen!==baseline)
+      throw new Error("strict no-op drifted from original sentence");
+    const strictBaseCounts=reviewCounts(baseline,byProfile);
+    const strictCounts=reviewCounts(strict.chosen,byProfile);
+    const strictGains=[...strictCounts].reduce(
+      (sum,[key,count])=>sum+Math.max(0,count-(strictBaseCounts.get(key)??0)),0);
+    strictNewOccurrences+=strictGains;
+    if(strict.outcome==="restored") {
+      const positions=strict.chosen.entries.flatMap((entry,i)=>
+        entry.id===baseline.entries[i]?.id?[]:[i]);
+      if(positions.length!==1||positions[0]!==strictSlot ||
+        strict.chosen.syntaxDerivationId!==baseline.syntaxDerivationId ||
+        JSON.stringify(strict.chosen.syntaxProductionRuleIds)
+          !==JSON.stringify(baseline.syntaxProductionRuleIds))strictDifferentSlotViolations++;
+      if(strictGains===0)strictChangedWithoutTarget++;
+      const score=scoreHierarchicalCandidate(strict.chosen,{
+        entries:env.catalogs.practice,mode:progress.mode,layoutId:progress.layoutId,
+        policy:env.utterancePolicy,
+        history:{
+          recentEntryIds:progress.selection.recentEntryIds,
+          recentUtteranceIds:progress.selection.recentUtteranceIds,
+          recentWrittenForms:progress.selection.recentWrittenForms,
+          recentConstructionIds:progress.selection.recentConstructionIds,
+        },
+        bindingsByToken:scopedBindingEvidence(
+          Object.values(progress.measurements.semantic.bindings),
+          progress.mode,progress.layoutId),
+        useRecentEvidence:true,
+        preparedFrequencyFirstEntries:env.preparedPracticeEntries,
+      });
+      if(!Number.isFinite(score.acceptanceProbability)
+        ||score.acceptanceProbability<0||score.acceptanceProbability>1)
+        throw new Error("strict local candidate score invalid");
+      strictScoresChecked++;
+      if(strictExamples.length<10)strictExamples.push({
+        seed:index,changedIndex:strictSlot,before:baseline.text,after:strict.chosen.text,
+      });
+    }
+
     if (local.outcome === "skipped") localSkipped++;
     if (local.outcome === "reverted") localReverted++;
     if (local.outcome === "restored") localRestored++;
@@ -313,6 +381,10 @@ function run(scope: "tier1" | "all", env: ProductEnvironment) {
     || localSkipped + localReverted + localRestored !== totalRounds) {
     throw new Error("local slot exploration violated baseline or scoring invariants");
   }
+  if(strictChangedWithoutTarget!==0||strictDifferentSlotViolations!==0||
+    strictScoresChecked!==strictRestored||
+    strictSkipped+strictReverted+strictRestored!==totalRounds)
+    throw new Error("strict original-role parity arm violated replacement invariants");
   return {
     scope, rounds: totalRounds, explorationRate: rate, attemptLimit: attempts,
     skippedUnchanged: skipped, attemptedButRevertedUnchanged: reverted,
@@ -334,10 +406,21 @@ function run(scope: "tier1" | "all", env: ProductEnvironment) {
       explorationOnlyMillisecondsP95:percentile95(localTimes),
       examples:localExamples,
     },
+    strictSingleSlot:{
+      skippedUnchanged:strictSkipped,
+      attemptedButRevertedUnchanged:strictReverted,
+      changedFinalSentences:strictRestored,
+      newMatchingOccurrencesOnChangedSentences:strictNewOccurrences,
+      changedWithoutNovelTarget:strictChangedWithoutTarget,
+      changedOutsideOneSlot:strictDifferentSlotViolations,
+      recomputedScores:strictScoresChecked,
+      explorationOnlyMillisecondsP95:percentile95(strictTimes),
+      examples:strictExamples,
+    },
   };
 }
 const report = {
-  schemaVersion: "isolated-and-single-slot-reading-exploration-paired-v2",
+  schemaVersion: "isolated-and-syntax-role-matched-exploration-paired-v3",
   scope: "EXPERIMENT ONLY in original sentence generator, same existing UI and grammar",
   caveat: "48 source-bracket-POS singletons are review CANDIDATES, NOT semantic reading gold or release licenses",
   sourceEdition: "20260929", groupsUnderReview: reviewed.size,
@@ -361,6 +444,11 @@ console.log("ISOLATED_READING_EXPLORATION_JSON " + JSON.stringify({
       newOccurrences:report.tier1.singleSlot.newMatchingOccurrencesOnChangedSentences,
       p95ms:report.tier1.singleSlot.explorationOnlyMillisecondsP95,
     },
+    strictSingleSlot:{
+      changed:report.tier1.strictSingleSlot.changedFinalSentences,
+      newOccurrences:report.tier1.strictSingleSlot.newMatchingOccurrencesOnChangedSentences,
+      p95ms:report.tier1.strictSingleSlot.explorationOnlyMillisecondsP95,
+    },
   },
   all: {
     changed: report.all.changedFinalSentences,
@@ -372,6 +460,11 @@ console.log("ISOLATED_READING_EXPLORATION_JSON " + JSON.stringify({
       changed:report.all.singleSlot.changedFinalSentences,
       newOccurrences:report.all.singleSlot.newMatchingOccurrencesOnChangedSentences,
       p95ms:report.all.singleSlot.explorationOnlyMillisecondsP95,
+    },
+    strictSingleSlot:{
+      changed:report.all.strictSingleSlot.changedFinalSentences,
+      newOccurrences:report.all.strictSingleSlot.newMatchingOccurrencesOnChangedSentences,
+      p95ms:report.all.strictSingleSlot.explorationOnlyMillisecondsP95,
     },
   },
   productPolicyUnchanged: true,
