@@ -9,7 +9,7 @@ import type {
   GrammarCompositionResult,
   GrammarUtteranceCandidate,
 } from "../grammar/types.js";
-import type { StructuralLexicalSlot } from "../syntax/derive.js";
+import type { StructuralDerivationShape, StructuralLexicalSlot } from "../syntax/derive.js";
 import { FORMAL_SYNTAX_RULES } from "../syntax/grammar.js";
 import { PREVERBAL_AUXILIARY_SAME_OCCURRENCE_CAPABILITY } from "../syntax/runtime-occurrence-capabilities.js";
 import {
@@ -57,6 +57,18 @@ export type FormalSyntaxSamplingMode = "raw" | "product-family";
 export interface FormalSyntaxStructuralTarget {
   readonly rootProductionRuleId?: string;
   readonly nestedProductionTargets?: readonly NestedProductionTarget[];
+}
+
+/**
+ * Private research capture of one finished product-family realization.
+ * Not serialized into exercises or histories. Optional hook is never passed
+ * by the shipped product selector.
+ */
+export interface FormalSyntaxRealizationTrace {
+  readonly realizationId: string;
+  readonly shape: StructuralDerivationShape;
+  readonly profileOffsetsBySlotId: Readonly<Record<string, number>>;
+  readonly punctuationToken: "。" | "！" | "？";
 }
 
 export interface FormalSyntaxUtteranceInput {
@@ -130,6 +142,8 @@ export interface FormalSyntaxUtteranceInput {
    * not be bypassed by caller-selected production targets.
    */
   readonly structuralTarget?: FormalSyntaxStructuralTarget;
+  /** Read-only research instrumentation; absent in production. */
+  readonly researchRealizationTrace?: (trace: FormalSyntaxRealizationTrace) => void;
 }
 
 /** Immutable lexical preparation reusable while the entry/profile inputs stay unchanged. */
@@ -865,6 +879,11 @@ export function composeFormalSyntaxUtterances(
       syntaxProfileIds: realization.syntaxProfileIds,
     });
     if (candidates.size > sizeBefore) {
+      input.researchRealizationTrace?.({
+        realizationId: realization.id, shape,
+        profileOffsetsBySlotId: { ...offsets },
+        punctuationToken: punctuation,
+      });
       resetRootFamilySearch();
     } else {
       fallbackReasons.add("formal-syntax-duplicate-candidate");
