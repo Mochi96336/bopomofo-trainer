@@ -28,6 +28,26 @@ function practiceSlot(slot: StructuralLexicalSlot): boolean {
 function keyFor(entry: CatalogEntry, profile: RuntimeSyntaxProfile): string {
   return JSON.stringify([entry.prompt.text, profile.upos]);
 }
+
+/**
+ * Grammar-only parity: a replacement cannot borrow syntactic affordances
+ * from an unrelated part of speech or valency frame in an open lexical slot.
+ * Matching aggregated UD roles is a necessary restriction, NOT reading-
+ * specific pronunciation evidence or a claim of natural word collocation.
+ */
+export function hasSameSyntacticRoleSignature(
+  original: RuntimeSyntaxProfile,
+  proposed: RuntimeSyntaxProfile,
+): boolean {
+  if (original.upos !== proposed.upos) return false;
+  const sameSet = (left: readonly string[], right: readonly string[]): boolean => {
+    const a = new Set(left), b = new Set(right);
+    return a.size === b.size && [...a].every(value => b.has(value));
+  };
+  return sameSet(original.functions, proposed.functions)
+    && sameSet(original.valencyFrames, proposed.valencyFrames)
+    && sameSet(original.occurrenceCapabilities ?? [], proposed.occurrenceCapabilities ?? []);
+}
 interface Substitute {
   readonly position: number;
   readonly profile: RuntimeSyntaxProfile;
@@ -63,6 +83,8 @@ export function trySingleSlotSourceReadingReplacement(input: {
   readonly candidateRoleReadingIds: ReadonlyMap<string, string>;
   readonly random: RandomSource;
   readonly weight: (entry: CatalogEntry) => number;
+  /** Strict research A/B arm; the existing loose arm remains separately measurable. */
+  readonly syntaxMatch?: "slot-compatible" | "same-role-signature";
 }): {
   readonly candidate: GrammarUtteranceCandidate;
   readonly changedSlotIndex: number;
@@ -130,6 +152,8 @@ export function trySingleSlotSourceReadingReplacement(input: {
       if (entry === undefined) throw new Error("compatible profile references missing entry");
       if (input.candidateRoleReadingIds.get(keyFor(entry, profile)) !== entry.id) continue;
       if (entry.id === baseline.entries[at]!.id) continue;
+      if (input.syntaxMatch === "same-role-signature"
+        && !hasSameSyntacticRoleSignature(selectedProfiles[at]!, profile)) continue;
       if (baseline.entries.some((existing, index) =>
         index !== at && existing.prompt.text === entry.prompt.text)) continue;
       if (!validReplacement(at, profile, entry)) continue;
