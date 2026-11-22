@@ -33,6 +33,11 @@ interface Substitute {
   readonly profile: RuntimeSyntaxProfile;
   readonly entry: CatalogEntry;
   readonly compatibleIndex: number;
+}
+interface SubstituteTicket {
+  readonly position: number;
+  readonly entry: CatalogEntry;
+  readonly profiles: Substitute[];
   readonly weight: number;
 }
 
@@ -111,7 +116,10 @@ export function trySingleSlotSourceReadingReplacement(input: {
     return true;
   }
 
-  const opportunities: Substitute[] = [];
+  // Same as the shipped lexical sampler: one weighted ticket per reading
+  // identity in this position, not one ticket PER compatible syntax profile.
+  // Otherwise an entry with several profiles borrows extra probability mass.
+  const ticketBySlotAndEntry = new Map<string, SubstituteTicket>();
   for (let at = 0; at < slots.length; at++) {
     const slot = slots[at]!;
     // A bound slot must always be edited as a group, not individually.
@@ -126,15 +134,28 @@ export function trySingleSlotSourceReadingReplacement(input: {
       if (baseline.entries.some((existing, index) =>
         index !== at && existing.prompt.text === entry.prompt.text)) continue;
       if (!validReplacement(at, profile, entry)) continue;
-      const weight = input.weight(entry);
-      if (!Number.isFinite(weight) || weight < 0) throw new Error("invalid candidate lexical weight");
-      if (weight > 0) opportunities.push({position:at,profile,entry,compatibleIndex:candidateIndex,weight});
+      const key = JSON.stringify([at, entry.id]);
+      let ticket = ticketBySlotAndEntry.get(key);
+      if (ticket === undefined) {
+        const weight = input.weight(entry);
+        if (!Number.isFinite(weight) || weight < 0) throw new Error("invalid candidate lexical weight");
+        if (weight === 0) continue;
+        ticket = { position:at, entry, profiles:[], weight };
+        ticketBySlotAndEntry.set(key, ticket);
+      }
+      ticket.profiles.push({ position:at, profile, entry, compatibleIndex:candidateIndex });
     }
   }
+  const opportunities = [...ticketBySlotAndEntry.values()];
   if (opportunities.length === 0) return null;
-  const selected = weightedPick(opportunities.map(option=>({
+  const ticket = weightedPick(opportunities.map(option=>({
     value:option, weight:option.weight,
   })), input.random);
+  const unit = ticket.profiles.length === 1 ? 0 : input.random.next();
+  if (!Number.isFinite(unit) || unit < 0 || unit >= 1) {
+    throw new Error("invalid profile-selection random unit");
+  }
+  const selected = ticket.profiles[Math.floor(unit * ticket.profiles.length)]!;
   const offset = {
     ...trace.profileOffsetsBySlotId,
     [slots[selected.position]!.id]:selected.compatibleIndex,
