@@ -116,9 +116,8 @@ export function trySingleSlotSourceReadingReplacement(input: {
     return true;
   }
 
-  // Same as the shipped lexical sampler: one weighted ticket per reading
-  // identity in this position, not one ticket PER compatible syntax profile.
-  // Otherwise an entry with several profiles borrows extra probability mass.
+  // Deduplicate equivalent syntax profiles under the same entry ID first;
+  // written-form ticket grouping follows below, matching product weighting.
   const ticketBySlotAndEntry = new Map<string, SubstituteTicket>();
   for (let at = 0; at < slots.length; at++) {
     const slot = slots[at]!;
@@ -148,7 +147,31 @@ export function trySingleSlotSourceReadingReplacement(input: {
   }
   const opportunities = [...ticketBySlotAndEntry.values()];
   if (opportunities.length === 0) return null;
-  const ticket = weightedPick(opportunities.map(option=>({
+
+  // Preserve the original two-level weighting distribution:
+  // one written-form ticket per slot (mean eligible reading weight),
+  // then one conditional reading ticket, then one equivalent syntax profile.
+  // Without this stage, a word with two licensed UPOS/readings would be
+  // counted twice in a slot that accepts both categories.
+  const textTickets = new Map<string, {
+    readonly identity: string;
+    readonly readings: SubstituteTicket[];
+    sumReadingWeight: number;
+  }>();
+  for (const option of opportunities) {
+    const key = JSON.stringify([option.position, option.entry.prompt.text]);
+    let grouped = textTickets.get(key);
+    if (grouped === undefined) {
+      grouped = { identity:key, readings:[], sumReadingWeight:0 };
+      textTickets.set(key, grouped);
+    }
+    grouped.readings.push(option);
+    grouped.sumReadingWeight += option.weight;
+  }
+  const textTicket = weightedPick([...textTickets.values()].map(group=>({
+    value:group, weight:group.sumReadingWeight/group.readings.length,
+  })), input.random);
+  const ticket = weightedPick(textTicket.readings.map(option=>({
     value:option, weight:option.weight,
   })), input.random);
   const unit = ticket.profiles.length === 1 ? 0 : input.random.next();
