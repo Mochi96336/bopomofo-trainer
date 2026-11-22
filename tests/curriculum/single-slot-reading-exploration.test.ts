@@ -17,7 +17,8 @@ describe("single-slot research transformation preserves original product structu
     expect(hasSameSyntacticRoleSignature(original!,same)).toBe(true);
     expect(hasSameSyntacticRoleSignature(original!,{...original!,upos:"NOUN"})).toBe(false);
     expect(hasSameSyntacticRoleSignature(original!,{...original!,
-      functions:[...original!.functions,"new-function-only-in-other-entry"] as typeof original.functions,
+      functions:[...original!.functions,
+        original!.functions.includes("copula") ? "marker" : "copula"],
     })).toBe(false);
     const differentFrame = original!.valencyFrames.includes("transitive")
       ? "intransitive" : "transitive";
